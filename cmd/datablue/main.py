@@ -12,7 +12,7 @@ def home():
   logging.info("Redirecting to %s" % targetHost)
   return redirect(targetHost, code=302)
 
-@app.route('/<path:path>')
+@app.route('/<path:path>', methods=['GET', 'POST'])
 def other(path):
   # Redirect to the target host, preserving the path and query string.
   query_string = request.query_string.decode('utf-8')
