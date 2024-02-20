@@ -1,0 +1,464 @@
+/*
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
+
+  This file is part of Data Blue. This is free software: you can
+  redistribute it and/or modify it under the terms of the GNU
+  General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option)
+  any later version.
+
+  Data Blue is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Data Blue in gpl.txt.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
+// handlers.go implements device data handlers, except for MPEG-TS data.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"bitbucket.org/ausocean/iotsvc/iotds"
+	"bitbucket.org/ausocean/utils/sliceutils"
+)
+
+// Device state statuses.
+const (
+	deviceStatusOK = iota
+	deviceStatusUpdate
+)
+
+var (
+	errInvalidBody  = errors.New("invalid body")
+	errInvalidJSON  = errors.New("invalid JSON")
+	errInvalidMID   = errors.New("invalid MID")
+	errInvalidPin   = errors.New("invalid pin")
+	errInvalidRange = errors.New("invalid range")
+	errInvalidSize  = errors.New("invalid size")
+	errInvalidValue = errors.New("invalid value")
+)
+
+// configHandler handles configuration requests for a given device.
+func configHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+
+	q := r.URL.Query()
+	ma := q.Get("ma")
+	dk := q.Get("dk")
+	vn := q.Get("vn")
+	ut := q.Get("ut")
+	la := q.Get("la")
+	vt := q.Get("vt")
+
+	// Is this request for a valid device?
+	setup(ctx)
+	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+
+	var dkey int64
+	switch err {
+	case nil, iotds.ErrInvalidDeviceKey:
+		dkey, _ = strconv.ParseInt(dk, 10, 64) // Can't fail.
+	case iotds.ErrMissingDeviceKey:
+		// Device key defaults to zero.
+	case iotds.ErrNoSuchEntity:
+		log.Printf("/config from unknown device %s", ma)
+		writeError(w, iotds.ErrDeviceNotFound)
+		return
+	default:
+		writeDeviceError(w, dev, err)
+		return
+	}
+
+	// Extract var types from the body if vt is present.
+	var varTypes map[string]string
+	if vt != "" {
+		n, err := strconv.Atoi(vt)
+		if err != nil {
+			writeError(w, errInvalidSize)
+			return
+		}
+		body := make([]byte, n)
+		_, err = io.ReadFull(r.Body, body)
+		if err != nil {
+			writeError(w, errInvalidBody)
+			return
+		}
+		err = json.Unmarshal(body, &varTypes)
+		if err != nil {
+			writeError(w, errInvalidJSON)
+			return
+		}
+	}
+
+	// NB: Only reveal the device key if it has changed.
+	dk = ""
+
+	if dev.Status == deviceStatusOK {
+		// Device is configured, so check the device key matches.
+		if dkey != dev.Dkey {
+			// We should not get here. A known, configured device is using the wrong key,
+			// so we return an error rather than forcing the device to reconfigure.
+			log.Printf("/config from device %s with invalid device key %d", ma, dkey)
+			writeError(w, iotds.ErrInvalidDeviceKey)
+			return
+		}
+
+	} else {
+		// Device is not configured
+		log.Printf("/config from unconfigured device %s", ma)
+		if dkey != dev.Dkey {
+			// Inform the device of its new key.
+			dk = strconv.FormatInt(dev.Dkey, 10)
+		}
+		dev.Status = deviceStatusOK
+	}
+
+	vs, err := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+	if err != nil {
+		log.Printf("could not get var sum for device %s: %v", ma, err)
+	}
+
+	resp, err := configJSON(dev, vs, dk)
+	if err != nil {
+		log.Printf("could not generate config response JSON for device %s: %v", ma, err)
+		writeError(w, err)
+		return
+	}
+	fmt.Fprint(w, resp)
+
+	// NB: Perform datastore operations _after_ responding to the client.
+	// Update the device.
+	dev.Updated = time.Now()
+	if vn != "" && vn != dev.Protocol {
+		log.Printf("netsender %s updated to protocol %s", ma, vn)
+		dev.Protocol = vn
+	}
+	iotds.PutDevice(ctx, settingsStore, dev)
+
+	// Update the variables corresponding to the client's uptime, local address and var types.
+	if ut != "" {
+		iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
+	}
+	if la != "" {
+		iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr", la)
+	}
+	if varTypes != nil {
+		for k, v := range varTypes {
+			iotds.PutVariable(ctx, settingsStore, dev.Skey, "_type."+k, v)
+		}
+	}
+}
+
+// configJSON generates JSON for a config request response given a device, varsum, and device key.
+func configJSON(dev *iotds.Device, vs int64, dk string) (string, error) {
+	config := struct {
+		MAC           string `json:"ma"`
+		Wifi          string `json:"wi"`
+		Inputs        string `json:"ip"`
+		Outputs       string `json:"op"`
+		MonitorPeriod int    `json:"mp"`
+		ActPeriod     int    `json:"ap"`
+		Version       string `json:"cv"`
+		Vs            int64  `json:"vs"`
+		DK            string `json:"dk,omitempty"`
+	}{
+		MAC:           dev.MAC(),
+		Wifi:          dev.Wifi,
+		Inputs:        dev.Inputs,
+		Outputs:       dev.Outputs,
+		MonitorPeriod: int(dev.MonitorPeriod),
+		ActPeriod:     int(dev.ActPeriod),
+		Version:       dev.Version,
+		Vs:            vs,
+		DK:            dk,
+	}
+
+	jsonBytes, err := json.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonBytes), nil
+}
+
+// pollHandler handles poll requests.
+func pollHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+
+	q := r.URL.Query()
+	ma := q.Get("ma")
+	dk := q.Get("dk")
+	ut := q.Get("ut")
+
+	// Is this request for a valid device?
+	setup(ctx)
+	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	if err != nil {
+		writeDeviceError(w, dev, err)
+		return
+	}
+
+	for _, pin := range dev.InputList() {
+		// Get numeric value for pin, if present.
+		v := q.Get(pin)
+		if v == "" {
+			continue
+		}
+		n, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			writeError(w, errInvalidValue)
+			break
+		}
+
+		switch pin[0] {
+		case 'A', 'D', 'X':
+			err = writeScalar(r, ma, pin, n)
+
+		case 'B':
+			// Not implemented.
+
+		case 'S', 'V':
+			// Handled by /recv.
+
+		case 'T':
+			err = writeText(r, ma, pin, int(n))
+
+		default:
+			err = errInvalidPin
+		}
+
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+	}
+
+	vs, err := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+	if err != nil {
+		log.Printf("error getting varsum: %v", err)
+	}
+
+	respMap := map[string]interface{}{"ma": ma, "vs": int(vs)}
+	if dev.Status != deviceStatusOK {
+		respMap["rc"] = int(dev.Status)
+	}
+
+	err = processActuators(ctx, dev, respMap)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	resp, err := json.Marshal(respMap)
+	if err != nil {
+		writeError(w, fmt.Errorf("could not marshal response map %w", err))
+		return
+	}
+	w.Write(resp)
+
+	// NB: Perform datastore operations _after_ responding to the client.
+	// Update the variable corresponding to client's uptime.
+	err = iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
+	if err != nil {
+		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
+	}
+}
+
+// processActuators updates the response map with actuator values, if any.
+func processActuators(ctx context.Context, dev *iotds.Device, respMap map[string]interface{}) error {
+	acts, err := iotds.GetActuatorsV2(ctx, settingsStore, dev.Mac)
+	if err != nil {
+		return fmt.Errorf("failed to get actuators for device %d: %w", dev.Mac, err)
+	}
+	for _, act := range acts {
+		// Ignore defunct actuators.
+		if !sliceutils.ContainsString(dev.OutputList(), act.Pin) {
+			continue
+		}
+
+		// Actuator var names are relative to their device.
+		val, err := iotds.GetVariable(ctx, settingsStore, dev.Skey, dev.Hex()+"."+act.Var)
+		if err != nil {
+			return fmt.Errorf("failed to get actuator by %s.%s: %w", dev.Hex(), act.Pin, err)
+		}
+
+		n, err := toInt(val.Value)
+		if err != nil {
+			return fmt.Errorf("could not convert variable value to int: %w", err)
+		}
+		respMap[act.Pin] = n
+	}
+	return nil
+}
+
+// toInt returns 1 for "true", 0 for "false", or otherwise attempts to parse the string as an integer.
+func toInt(s string) (int64, error) {
+	s = strings.ToLower(s)
+	switch s {
+	case "true":
+		return 1, nil
+	case "false":
+		return 0, nil
+	default:
+		return strconv.ParseInt(s, 10, 64)
+	}
+}
+
+// writeScalar writes a scalar value.
+func writeScalar(r *http.Request, ma, pin string, n float64) error {
+	id := iotds.ToSID(ma, pin)
+	ts := time.Now().Unix()
+	return iotds.PutScalar(r.Context(), mediaStore, &iotds.Scalar{ID: id, Timestamp: ts, Value: n})
+}
+
+// writeText writes text data.
+func writeText(r *http.Request, ma, pin string, n int) error {
+	data := make([]byte, n)
+	n_, err := io.ReadFull(r.Body, data)
+	if err != nil {
+		return err
+	}
+	if n != n_ {
+		return errInvalidSize
+	}
+
+	mid := iotds.ToMID(ma, pin)
+	ts := time.Now().Unix()
+	tt := r.Header.Get("Content-Type")
+	return iotds.WriteText(r.Context(), mediaStore, &iotds.Text{MID: mid, Timestamp: ts, Data: string(data), Type: tt})
+}
+
+// actHandler handles act requests.
+func actHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+	q := r.URL.Query()
+	ma := q.Get("ma")
+	dk := q.Get("dk")
+
+	// Is this request for a valid device?
+	setup(ctx)
+	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	if err != nil {
+		writeDeviceError(w, dev, err)
+		return
+	}
+
+	respMap := map[string]interface{}{"ma": ma}
+
+	// If status is not okay.
+	if dev.Status != deviceStatusOK {
+		respMap["rc"] = int(dev.Status)
+	} else {
+		vs, err := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+		if err != nil {
+			writeError(w, fmt.Errorf("could not get var sum: %w", err))
+			return
+		}
+
+		respMap["vs"] = int(vs)
+	}
+
+	err = processActuators(ctx, dev, respMap)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	err = iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", "")
+	if err != nil {
+		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
+	}
+
+	resp, err := json.Marshal(respMap)
+	if err != nil {
+		writeError(w, fmt.Errorf("could not marshal response map %w", err))
+		return
+	}
+
+	w.Write(resp)
+}
+
+// varsHandler returns vars for a given device (except for system variables).
+// NB: Format vs as a string, not an int.
+func varsHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+
+	q := r.URL.Query()
+	ma := q.Get("ma")
+	dk := q.Get("dk")
+	md := q.Get("md")
+	er := q.Get("er")
+
+	// Is this request for a valid device?
+	setup(ctx)
+	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	if err != nil {
+		writeDeviceError(w, dev, err)
+		return
+	}
+
+	if md != "" {
+		iotds.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		iotds.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
+	}
+	vars, err := iotds.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	resp := `{"id":"` + dev.Hex() + `",`
+	for _, v := range vars {
+		if v.IsSystemVariable() {
+			continue
+		}
+		resp += `"` + v.Name + `":"` + v.Value + `",`
+
+	}
+	vs := iotds.ComputeVarSum(vars)
+	resp += `"vs":"` + strconv.Itoa(int(vs)) + `"}`
+	fmt.Fprint(w, resp)
+}
+
+// writeError writes an error in JSON format.
+func writeError(w http.ResponseWriter, err error) {
+	writeDeviceError(w, nil, err)
+}
+
+// writeDeviceError writes an error in JSON format with an optional update response code for device key errors.
+func writeDeviceError(w http.ResponseWriter, dev *iotds.Device, err error) {
+	var rc string
+	switch err {
+	case iotds.ErrMalformedDeviceKey, iotds.ErrInvalidDeviceKey:
+		if dev != nil {
+			log.Printf("bad request from %s: %v", dev.MAC(), err)
+		}
+		fallthrough
+	case iotds.ErrMissingDeviceKey:
+		rc = `,"rc":` + strconv.Itoa(deviceStatusUpdate)
+	}
+	w.Header().Add("Content-Type", "application/json")
+	fmt.Fprint(w, `{"er":"`+err.Error()+`"`+rc+`}`)
+	if debug {
+		log.Println("Wrote error: " + err.Error())
+	}
+}
