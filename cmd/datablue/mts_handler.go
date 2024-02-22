@@ -103,30 +103,30 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 		n, err := io.ReadFull(r.Body, clip)
 		// NB: An empty body (sz == 0) is _not_ considered invalid (as it is useful for testing).
 		if err != nil {
-			log.Printf("Could not read Body: %v", err)
+			log.Printf("could not read body: %v", err)
 			break
 		}
 		if n != sz || n%mts.PacketSize != 0 {
-			log.Printf("Invalid size: n = %d, sz=%d", n, sz)
+			log.Printf("invalid size: n = %d, sz=%d", n, sz)
 			resp["er"] = errInvalidSize.Error()
 			break
 		}
 		mid := iotds.ToMID(ma, pin)
 		err = writeMtsMedia(ctx, mid, gh, ts, clip, iotds.WriteMtsMedia)
 		if err != nil {
-			log.Printf("Could not create MtsMedia: %v", err)
-			resp["er"] = fmt.Sprintf("could not write mts media: %v", err)
+			log.Printf("could not write MTS media: %v", err)
+			resp["er"] = fmt.Sprintf("could not write MTS media: %v", err)
 			break
 		}
 	}
 
 	if !found {
-		log.Printf("recv called without MTS data")
+		log.Printf("/mts called without MTS data")
 	}
 
 	err = r.Body.Close()
 	if err != nil {
-		log.Printf("Could not close body: %v", err)
+		log.Printf("could not close body: %v", err)
 		// Don't bother to inform the client.
 	}
 
@@ -141,7 +141,7 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 	// Return response to client as JSON
 	jsn, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("Could not marshal JSON: %v", err)
+		log.Printf("could not marshal JSON: %v", err)
 		return
 	}
 	fmt.Fprint(w, string(jsn))
