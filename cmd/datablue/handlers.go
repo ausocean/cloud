@@ -54,6 +54,14 @@ var (
 )
 
 // configHandler handles configuration requests for a given device.
+//
+// Query params represent various client properties:
+// - ma: MAC address.
+// - dk: Device key.
+// - vn: Protocol version number.
+// - ut: Uptime.
+// - la: Local (IP) address.
+// - vt: Var types present in body when non-zero.
 func configHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := r.Context()
@@ -90,17 +98,20 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	if vt != "" {
 		n, err := strconv.Atoi(vt)
 		if err != nil {
+			log.Printf("error parsing vt param for device %s: %v", ma, err)
 			writeError(w, errInvalidSize)
 			return
 		}
 		body := make([]byte, n)
 		_, err = io.ReadFull(r.Body, body)
 		if err != nil {
+			log.Printf("error reading body for device %s: %v", ma, err)
 			writeError(w, errInvalidBody)
 			return
 		}
 		err = json.Unmarshal(body, &varTypes)
 		if err != nil {
+			log.Printf("error unmarshalling var types for device %s: %v", ma, err)
 			writeError(w, errInvalidJSON)
 			return
 		}
@@ -235,12 +246,13 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 			// Not implemented.
 
 		case 'S', 'V':
-			// Handled by /recv.
+			// Handled by mtsHandler.
 
 		case 'T':
 			err = writeText(r, ma, pin, int(n))
 
 		default:
+			log.Printf("device %s sending invalid pin: %s", ma, pin)
 			err = errInvalidPin
 		}
 
