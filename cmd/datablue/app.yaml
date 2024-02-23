@@ -1,7 +1,11 @@
 # gcloud app deploy --project datablue --version 1
-runtime: python39
-entrypoint: uwsgi --http-socket :$PORT --wsgi-file main.py --callable app --master --processes 1 --threads 2
+runtime: go121
+app_engine_apis: true
+
+env_variables:
+  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
 
 handlers:
 - url: /.*
-  script: main.app
+  script: auto
