@@ -1,8 +1,8 @@
 bitbucket.org/ausocean/av v1.5.1 h1:pgI8LNqWqjxW1o7zusISZNxAOL1IWPjvtnChsXQbZpY=
 bitbucket.org/ausocean/av v1.5.1/go.mod h1:MVh5UU66bu8h8VpJZA7/10JANn7wVDUqMDCNWyNHukc=
 bitbucket.org/ausocean/iot v1.3.0/go.mod h1:rRcWt6SoM/jgIZpP1zrpnKb5BhxIMulAJ+q1xTvLh94=
-bitbucket.org/ausocean/iotsvc v0.29.0 h1:vRi1PMnQkQ1mqMmaK4JGsZvyzC5oKxlb2TPOg5GU0DM=
-bitbucket.org/ausocean/iotsvc v0.29.0/go.mod h1:iBM6aL3wucZoULr8DQUgDq4UOScP90ueRYXG7/mLc08=
+bitbucket.org/ausocean/iotsvc v0.30.0 h1:iFO2fUyC81MkWn2AVomQcuddmFXq815tF5EO29nCqEU=
+bitbucket.org/ausocean/iotsvc v0.30.0/go.mod h1:iBM6aL3wucZoULr8DQUgDq4UOScP90ueRYXG7/mLc08=
 bitbucket.org/ausocean/utils v1.2.11/go.mod h1:uXzX9z3PLemyURTMWRhVI8uLhPX4uuvaaO85v2hcob8=
 bitbucket.org/ausocean/utils v1.4.1 h1:UTxWBy8vDFq5b77rq8vzuZmHW9Unxok3AcoxP9nuvvI=
 bitbucket.org/ausocean/utils v1.4.1/go.mod h1:XgvCH4DQLCd6NYMzsSqwhHmPr+qzYks5M8IDpdNnZiU=
@@ -70,8 +70,6 @@ github.com/go-fonts/liberation v0.1.1/go.mod h1:K6qoJYypsmfVjWg8KOVDQhLc8UDgIK2H
 github.com/go-fonts/stix v0.1.0/go.mod h1:w/c1f0ldAUlJmLBvlbkvVXLAD+tAMqobIIQpmnUIzUY=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-latex/latex v0.0.0-20210118124228-b3d85cf34e07/go.mod h1:CO1AlKB2CSIqUrmQPqA0gdRIlnLEY0gK5JGjh37zN5U=
-github.com/golang-jwt/jwt/v5 v5.0.0 h1:1n1XNM9hk7O9mnQoNBGolZvzebBQ7p93ULHRc28XJUE=
-github.com/golang-jwt/jwt/v5 v5.0.0/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
 github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0/go.mod h1:E/TSTwGwJL78qG/PmXZO1EjYhfJinVAhrmmHX6Z8B9k=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e h1:1r7pUrabqp18hOBcwBwiTsbnFeTZHV9eER/QT5JVZxY=
@@ -113,10 +111,6 @@ github.com/googleapis/enterprise-certificate-proxy v0.2.3 h1:yk9/cqRKtT9wXZSsRH9
 github.com/googleapis/enterprise-certificate-proxy v0.2.3/go.mod h1:AwSRAtLfXpU5Nm3pW+v7rGDHp09LsPtGY9MduiEsR9k=
 github.com/googleapis/gax-go/v2 v2.8.0 h1:UBtEZqx1bjXtOQ5BVTkuYghXrr3N4V123VKJK67vJZc=
 github.com/googleapis/gax-go/v2 v2.8.0/go.mod h1:4orTrqY6hXxxaUL4LHIPl6lGo8vAE38/qKbhSAKP6QI=
-github.com/gorilla/securecookie v1.1.1 h1:miw7JPhV+b/lAHSXz4qd/nN9jRiAFV5FwjeKyCS8BvQ=
-github.com/gorilla/securecookie v1.1.1/go.mod h1:ra0sb63/xPlUeL+yeDciTfxMRAA+MP+HVt/4epWDjd4=
-github.com/gorilla/sessions v1.2.1 h1:DHd3rPN5lE3Ts3D8rKkQ8x/0kqfeNmBAaiSi+o7FsgI=
-github.com/gorilla/sessions v1.2.1/go.mod h1:dk2InVEVJ0sfLlnXv9EAgkf6ecYs/i80K/zI+bUmuGM=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4/go.mod h1:2RvX5ZjVtsznNZPEt4xwJXNJrM3VTZoQf7V6gk0ysvs=
 github.com/jung-kurt/gofpdf v1.0.0/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=

@@ -4,10 +4,8 @@ go 1.21.5
 
 require (
 	bitbucket.org/ausocean/av v1.5.1
-	bitbucket.org/ausocean/iotsvc v0.29.0
+	bitbucket.org/ausocean/iotsvc v0.30.0
 	bitbucket.org/ausocean/utils v1.4.1
-	github.com/pkg/errors v0.9.1
-	golang.org/x/net v0.9.0
 )
 
 require (
@@ -20,7 +18,6 @@ require (
 	github.com/Comcast/gots v0.0.0-20190305015453-8d56e473f0f7 // indirect
 	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/ausocean/openfish v0.1.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -28,13 +25,13 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
-	github.com/gorilla/securecookie v1.1.1 // indirect
-	github.com/gorilla/sessions v1.2.1 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
