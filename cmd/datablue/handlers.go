@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ var (
 	errInvalidMID   = errors.New("invalid MID")
 	errInvalidPin   = errors.New("invalid pin")
 	errInvalidRange = errors.New("invalid range")
+	errInvalidAPI   = errors.New("invalid API request")
 	errInvalidSize  = errors.New("invalid size")
 	errInvalidValue = errors.New("invalid value")
 )
@@ -449,6 +451,72 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 	vs := iotds.ComputeVarSum(vars)
 	resp += `"vs":"` + strconv.Itoa(int(vs)) + `"}`
 	fmt.Fprint(w, resp)
+}
+
+// apiHandler handles API requests which take the form:
+//
+//	/api/operation/property/value
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	req := strings.Split(r.URL.Path, "/")
+	if len(req) < 5 {
+		writeError(w, errInvalidAPI)
+		return
+	}
+
+	var (
+		op   = req[2]
+		prop = req[3]
+		val  = req[4]
+	)
+	switch op {
+	case "test":
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			writeError(w, fmt.Errorf("could not parse size: %w", err))
+			return
+		}
+		body := make([]byte, n)
+
+		// Chunk size is optional.
+		chunk := n
+		if len(req) == 6 {
+			chunk, err = strconv.ParseInt(req[5], 10, 64)
+			if err != nil {
+				writeError(w, fmt.Errorf("could not parse chunk size: %w", err))
+				return
+			}
+		}
+
+		switch prop {
+		case "upload":
+			// Receive n bytes from the client.
+			_, err = io.ReadFull(r.Body, body)
+			if err != nil {
+				writeError(w, fmt.Errorf("could not read body: %w", err))
+				return
+			}
+			fmt.Fprint(w, "OK")
+			return
+
+		case "download":
+			// Send n bytes to the client.
+			h := w.Header()
+			h.Add("Content-Type", "application/octet-stream")
+			h.Add("Content-Disposition", "attachment; filename=\""+val+"\"")
+			rand.Read(body)
+			var i int64
+			for i = 0; i < n; i += chunk {
+				w.Write(body[i : i+chunk])
+			}
+			return
+		}
+
+	default:
+		writeError(w, errInvalidAPI)
+		return
+	}
 }
 
 // writeError writes an error in JSON format.

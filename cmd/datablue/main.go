@@ -70,6 +70,8 @@ func main() {
 	http.HandleFunc("/vars", varsHandler)
 	http.HandleFunc("/mts", mtsHandler)
 	http.HandleFunc("/recv", mtsHandler) // For backwards compatibility.
+	http.HandleFunc("/api", apiHandler)
+	http.HandleFunc("/api/", apiHandler)
 
 	// Other requests
 	http.HandleFunc("/_ah/warmup", warmupHandler)
