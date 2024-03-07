@@ -3,7 +3,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2023 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
 
   This is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
