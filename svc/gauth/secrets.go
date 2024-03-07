@@ -3,7 +3,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2022 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
 
   This is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -75,8 +75,9 @@ func GetSecrets(ctx context.Context, projectID string, keys []string) (map[strin
 	return m, nil
 }
 
-// Read the contents of the Google Storage bucket specified by the URL.
-// The URL must take the form gs://<bucket_name>/<object_name>
+// ReadGoogleStorageBucket read the contents of the Google Storage
+// bucket specified by the URL.  The URL must take the form:
+// gs://<bucket_name>/<object_name>
 func ReadGoogleStorageBucket(ctx context.Context, url string) ([]byte, error) {
 	if !strings.HasPrefix(url, gsbScheme) {
 		return nil, fmt.Errorf("invalid GSB URL %s", url)
