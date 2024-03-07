@@ -1,4 +1,4 @@
-module github.com/ausocean/cloud/svc/gauth
+module github.com/ausocean/cloud/gauth
 
 go 1.21.5
 
