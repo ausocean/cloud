@@ -1,0 +1,20 @@
+runtime: go121
+
+env_variables:
+  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
+  OPS_EMAIL: ops@ausocean.org
+  OPS_PERIOD: 60
+
+handlers:
+  - url: /.*
+    script: auto
+
+automatic_scaling:
+  min_idle_instances: 1
+  max_idle_instances: 1
+  min_instances: 1
+  max_instances: 1
+
+inbound_services:
+- warmup
