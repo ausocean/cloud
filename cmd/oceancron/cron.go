@@ -64,6 +64,11 @@ type cronID struct {
 	ID   string
 }
 
+var (
+	errNoTimeSpec = errors.New("no time spec")
+	errNoLocation = errors.New("no location for solar cron")
+)
+
 // newScheduler returns a new scheduler.
 func newScheduler() (*scheduler, error) {
 	loc, err := time.LoadLocation(locationID)
@@ -248,12 +253,12 @@ func cronSpec(c *iotds.Cron, lat, lon float64) (string, error) {
 	}
 
 	if c.TOD == "" {
-		return "", errors.New("no time spec specified for job")
+		return "", errNoTimeSpec
 	}
 
 	if strings.HasPrefix(c.TOD, "@sunrise") || strings.HasPrefix(c.TOD, "@noon") || strings.HasPrefix(c.TOD, "@sunset") {
 		if math.IsNaN(lat) || math.IsNaN(lon) {
-			return "", fmt.Errorf("invalid solar cron: no coordinates")
+			return "", errNoLocation
 		}
 
 		return fmt.Sprintf("%s %v %v", c.TOD, lat, lon), nil
