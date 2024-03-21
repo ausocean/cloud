@@ -3,7 +3,7 @@ module github.com/ausocean/cloud/notify
 go 1.21.5
 
 require (
-	github.com/ausocean/cloud/gauth v0.0.0-20240312065750-42dfc4626a4a
+	github.com/ausocean/cloud/gauth v0.0.0-20240320075121-ae2f0c617b33
 	github.com/mailjet/mailjet-apiv3-go v0.0.0-20201009050126-c24bc15a9394
 )
 

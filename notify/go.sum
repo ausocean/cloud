@@ -22,8 +22,8 @@ github.com/adrianmo/go-nmea v1.1.1-0.20190109062325-c448653979f7/go.mod h1:HHPxP
 github.com/aerth/playwav v0.0.0-20170324024803-17dfe21a406f/go.mod h1:aTANbm/GXj1ilCRMsIiSpX0i7LUkqjAPj6R0fpWbLNA=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
-github.com/ausocean/cloud/gauth v0.0.0-20240312065750-42dfc4626a4a h1:Y2oYPy0AGZBwgcN2fNvXBTUCyr7D7Jn+zwXW2z0bN/w=
-github.com/ausocean/cloud/gauth v0.0.0-20240312065750-42dfc4626a4a/go.mod h1:wkUf3aY6/S+oemrXtbKe/B4XELNBX4Iwy+oZE5gO3mk=
+github.com/ausocean/cloud/gauth v0.0.0-20240320075121-ae2f0c617b33 h1:JOP9I8wGFx2kOp4KUnzSBQGfLItKeg5PwtxtCNfjgLE=
+github.com/ausocean/cloud/gauth v0.0.0-20240320075121-ae2f0c617b33/go.mod h1:wkUf3aY6/S+oemrXtbKe/B4XELNBX4Iwy+oZE5gO3mk=
 github.com/boombuler/barcode v1.0.0/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927/go.mod h1:h/aW8ynjgkuj+NQRlZcDbAbM1ORAbXjXX77sX7T289U=
