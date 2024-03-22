@@ -1,14 +1,11 @@
-module github.com/ausocean/cloud/cmd/datablue
+module github.com/ausocean/cloud
 
-go 1.21.5
-
-require (
-	bitbucket.org/ausocean/av v1.5.1
-	bitbucket.org/ausocean/iotsvc v0.30.0
-	bitbucket.org/ausocean/utils v1.4.1
-)
+go 1.22.1
 
 require (
+	bitbucket.org/ausocean/av v1.5.2 // indirect
+	bitbucket.org/ausocean/iotsvc v0.30.0 // indirect
+	bitbucket.org/ausocean/utils v1.4.1 // indirect
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
@@ -18,6 +15,7 @@ require (
 	github.com/Comcast/gots v0.0.0-20190305015453-8d56e473f0f7 // indirect
 	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/ausocean/openfish v0.1.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -25,7 +23,12 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/sessions v1.2.1 // indirect
+	github.com/kortschak/sun v1.1.0 // indirect
+	github.com/mailjet/mailjet-apiv3-go v0.0.0-20201009050126-c24bc15a9394 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
