@@ -77,13 +77,6 @@ func main() {
 	ctx := context.Background()
 	setup(ctx)
 
-	// Get shared cronSecret.
-	var err error
-	cronSecret, err = gauth.GetHexSecret(ctx, "oceancron", "cronSecret")
-	if err != nil {
-		log.Printf("could not get cronSecret: %v", err)
-	}
-
 	http.HandleFunc("/_ah/warmup", warmupHandler)
 	http.HandleFunc("/cron/", cronHandler)
 	http.HandleFunc("/", indexHandler)
@@ -127,6 +120,11 @@ func setup(ctx context.Context) {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
 	iotds.RegisterEntities()
+
+	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
+	if err != nil || cronSecret == nil {
+		log.Printf("could not get cronSecret: %v", err)
+	}
 
 	err = setupCronScheduler(ctx)
 	if err != nil {
