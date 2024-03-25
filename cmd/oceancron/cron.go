@@ -229,8 +229,14 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 	}
 	s.ids[cronID{Site: job.Skey, ID: job.ID}] = id
 	s.entries[id] = *job
-
 	return nil
+}
+
+// run immediately runs all cron jobs. It is private as it is only used in testing.
+func (s *scheduler) run() {
+	for _, job := range s.cron.Entries() {
+		job.Job.Run()
+	}
 }
 
 // isSameCron returns true if two crons are completely identical.
