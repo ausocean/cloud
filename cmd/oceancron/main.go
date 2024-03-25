@@ -32,8 +32,8 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
 	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -132,7 +132,7 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not set up cron scheduler: %v", err)
 	}
-	
+
 	err = notifier.Init(ctx, projectID, senderEmail, &timeStore{})
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
