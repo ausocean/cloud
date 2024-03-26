@@ -14,18 +14,21 @@ LICENSE
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with NetReceiver in gpl.txt. If not, see
+  along with Ocean Cron in gpl.txt. If not, see
   <http://www.gnu.org/licenses/>.
 */
 
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"bitbucket.org/ausocean/iotsvc/iotds"
+        "github.com/ausocean/cloud/gauth"
 )
 
 var cronSpecTests = []struct {
@@ -95,4 +98,26 @@ func TestCronSpec(t *testing.T) {
 			t.Errorf("unexpected cron spec: got:%s want:%s", got, test.want)
 		}
 	}
+}
+
+func TestRPC(t *testing.T) {
+	ctx := context.Background()
+	var err error
+	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
+	if err != nil {
+		t.Errorf("could not get cronSecret: %v", err)
+	}
+
+	cronScheduler, err = newScheduler()
+	if err != nil {
+		t.Errorf("newScheduler returned error: %v", err)
+	}
+
+	const url = "https://vidgrind.ausocean.org/checkbroadcasts"
+	testCron := iotds.Cron{Skey: 1, ID: "testCron", Time: time.Now(), TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
+	err = cronScheduler.Set(&testCron)
+	if err != nil {
+		t.Errorf("cronScheduler.Set returned error: %v", err)
+	}
+	cronScheduler.run()
 }

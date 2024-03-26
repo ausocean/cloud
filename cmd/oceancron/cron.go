@@ -14,7 +14,7 @@ LICENSE
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with NetReceiver in gpl.txt.  If not, see
+  along with Ocean Cron in gpl.txt.  If not, see
   <http://www.gnu.org/licenses/>.
 */
 
@@ -58,7 +58,7 @@ type scheduler struct {
 	funcs map[string]func(string) error
 }
 
-// A cronID uniquely identifies a cron across the whole network.
+// cronID uniquely identifies a cron across the whole network.
 type cronID struct {
 	Site int64
 	ID   string
@@ -229,8 +229,14 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 	}
 	s.ids[cronID{Site: job.Skey, ID: job.ID}] = id
 	s.entries[id] = *job
-
 	return nil
+}
+
+// run immediately runs all cron jobs. It is unexported as it is only used in testing.
+func (s *scheduler) run() {
+	for _, job := range s.cron.Entries() {
+		job.Job.Run()
+	}
 }
 
 // isSameCron returns true if two crons are completely identical.
