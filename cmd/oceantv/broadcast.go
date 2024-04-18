@@ -535,7 +535,7 @@ func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store)
 	}
 
 	// Ensure that the CheckBroadcast cron exists.
-	c := &iotds.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Repeat: false, Action: "rpc", Var: "https://vidgrind.ausocean.org/checkbroadcasts", Enabled: true}
+	c := &iotds.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL+"/checkbroadcasts", Enabled: true}
 	err = iotds.PutCron(ctx, store, c)
 	if err != nil {
 		return fmt.Errorf("failure verifying check broadcast cron: %w", err)
