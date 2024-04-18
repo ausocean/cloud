@@ -80,6 +80,7 @@ func main() {
 
 	http.HandleFunc("/_ah/warmup", warmupHandler)
 	http.HandleFunc("/broadcast/", broadcastHandler)
+	http.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
 	http.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
