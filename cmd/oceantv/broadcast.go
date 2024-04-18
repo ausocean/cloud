@@ -428,16 +428,15 @@ func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
 		}
 		// Get the latest signal for the sensor.
 		var qty string
-		pin := strings.Split(sensor.Sensor.Pin, ".")[1]
 
-		scalar, err := getLatestScalar(ctx, mediaStore, iotds.ToSID(iotds.MacDecode(sensor.DeviceMac), pin))
+		scalar, err := getLatestScalar(ctx, mediaStore, iotds.ToSID(iotds.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
 		if err == iotds.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
 			return fmt.Errorf("could not get scalar for chat message: %v", err)
 		}
 
-		value, err := sensor.Sensor.Transform(float64(scalar.Value))
+		value, err := sensor.Sensor.Transform(scalar.Value)
 		if err != nil {
 			return fmt.Errorf("could not transform scalar: %v", err)
 		}
