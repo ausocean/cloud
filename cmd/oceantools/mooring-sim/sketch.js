@@ -24,19 +24,28 @@ LICENSE
 let w, y, d, c, ss, os, a, b, h, l;
 let overwritten = false;
 
-// Scale is 40x by default.
-let sc = 40;
+// Scale.
+let sc;
 
 // Text inputs.
 let depth;
 let seas;
 let separation;
 
+// Wave params.
+let amplitude
+let frequency
+let phaseShift
+let period
+
 function setup() {
   winw = window.innerWidth;
   winh = window.innerHeight;
   createCanvas(winw, winh);
   
+  // Scale is 40x by default.
+  sc = 40
+
   // Set initial inputs.
   w = 1.15;
   y = 1.17;
@@ -45,6 +54,12 @@ function setup() {
   os = 2*(d+c-y)+w;
   
   doCalcs();
+
+  // Setup waves.
+  amplitude = c*sc/2; // Amplitude of the sine wave
+  frequency = 0.005; // Frequency of the sine wave
+  phaseShift = 0; // Phase shift of the sine wave
+  period = 0.01;
   
   let indent = 400;
   depth = createInput(d.toString());
@@ -74,6 +89,7 @@ function draw() {
   background(180,230,255);
 
   // Inputs.
+  strokeWeight(0);
   textSize(15);
   fill(0);
   text("max depth:", 40, 40);
@@ -93,17 +109,35 @@ function draw() {
   rect(0,winh-bedh, winw, bedh-1);
 
   // Sea.
-  line(0, winh-bedh-sc*(d+c), winw, winh-bedh-sc*(d+c));
+  stroke(100);
+  strokeWeight(1);
+  amplitude = c*sc/2; // Amplitude of the sine wave.
+  let maxSeaPos = winh-bedh-sc*(d+c);
+  let minSeaPos = winh-bedh-sc*d;
+  line(0, maxSeaPos, winw, maxSeaPos);
+  line(0, minSeaPos, winw, minSeaPos);
+
+  noFill();
+  let waveRef = maxSeaPos + amplitude + amplitude * sin(frequency * winw/2 + phaseShift);
+  // beginShape();
+  // for (let xx = 0; xx < winw; xx++) {
+  //   let yy = amplitude * sin(frequency * xx + phaseShift);
+  //   vertex(xx, maxSeaPos + amplitude + yy);
+  // }
+  // endShape();
 
   // Rig.
+  stroke(0);
+  //let rigRef = waveRef;
+  let rigRef = maxSeaPos;
   let pontoonw = 1.5;
   let pontoonh = 0.15;
   fill(255,255,255);
-  rect(winw/2-(pontoonw/2)*sc,winh-bedh-sc*(d+c)-pontoonh/2*sc,pontoonw*sc,pontoonh*sc);
+  rect(winw/2-(pontoonw/2)*sc,rigRef-pontoonh/2*sc,pontoonw*sc,pontoonh*sc);
   let mastw = 0.09;
   let masth = 1;
   fill(250,220,100);
-  rect(winw/2-(mastw*sc)/2,winh-bedh-sc*(d+c)-masth*sc-(sc*pontoonh)/2,mastw*sc,masth*sc);
+  rect(winw/2-(mastw*sc)/2,rigRef-masth*sc-(sc*pontoonh)/2,mastw*sc,masth*sc);
 
   // Screw Piles.
   pileh = 0.75;
@@ -113,15 +147,17 @@ function draw() {
   // Bridle bar.
   fill(100);
   let bridleh = 0.025;
-  rect(winw/2-(w/2)*sc,winh-bedh-sc*(d+c)+y*sc-bridleh/2*sc,w*sc,bridleh*sc);
+  rect(winw/2-(w/2)*sc,rigRef+y*sc-bridleh/2*sc,w*sc,bridleh*sc);
 
   // Mooring lines.
-  line(winw/2-a*sc-(w*sc)/2,winh-bedh,winw/2-(w*sc)/2,winh-bedh-sc*(d+c)+y*sc);
-  line(winw/2+a*sc+(w*sc)/2,winh-bedh,winw/2+(w*sc)/2,winh-bedh-sc*(d+c)+y*sc);
+  line(winw/2-a*sc-(w*sc)/2,winh-bedh,winw/2-(w*sc)/2,rigRef+y*sc);
+  line(winw/2+a*sc+(w*sc)/2,winh-bedh,winw/2+(w*sc)/2,rigRef+y*sc);
 
   // Bridles.
-  line(winw/2-(pontoonw*sc)/2,winh-bedh-sc*(d+c),winw/2-(w*sc)/2,winh-bedh-sc*(d+c)+y*sc);
-  line(winw/2+(pontoonw*sc)/2,winh-bedh-sc*(d+c),winw/2+(w*sc)/2,winh-bedh-sc*(d+c)+y*sc);
+  line(winw/2-(pontoonw*sc)/2,rigRef,winw/2-(w*sc)/2,rigRef+y*sc);
+  line(winw/2+(pontoonw*sc)/2,rigRef,winw/2+(w*sc)/2,rigRef+y*sc);
+
+  //phaseShift+=period;
 }
 
 function doCalcs(){
@@ -146,7 +182,7 @@ function doCalcs(){
 function updateDepth(){
   d = constrain(parseFloat(depth.value()), 0, 100);
   depth.value(d);
-  
+
   // If the user hasn't overwritten the separation, update the separation text input.
   doCalcs();
   if(!overwritten){
