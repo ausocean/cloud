@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <title>Ocean Bench Register Site</title>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js" ></script>
+</head>
+<body>
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Video Grinder v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+  {{if .Msg}}
+    <div class="red">{{.Msg}}</div><br>
+  {{end}}
+	
+  <div class="rounded-box width-600px">
+    <span class="bold">Site</span>
+    <hr>
+    <div>
+    <form class="inline" enctype="multipart/form-data" action="/admin/site/add" method="post">
+      <label>Name:</label>
+      <input type="text" name="sn" class="dbl bold"><br>
+      <input type="submit" value="Register" />
+    </form>
+    </div>
+  </div><!--rounded box --> 
+  <br>
+
+  </section>
+  {{.Footer}}
+  </body>
+</html>

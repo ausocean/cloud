@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <title>Ocean Bench Admin Utils</title>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js" ></script>
+  <script type="text/javascript">
+  function updateMacEnc(mac, enc) {
+    var macElem = document.getElementById(mac);
+    var encElem = document.getElementById(enc);
+    encElem.value = encodeMAC(macElem.value).toString();
+  }
+  </script>
+  <style type="text/css">
+    button { float:right; margin-top: 2px; }
+    .col1 { text-align:right; vertical-align:top; width:150px; padding-right: 10px; }
+    .col2 { width:300px; padding-right: 10px; }
+    .col3 { width:20px; }
+    .col4 { width:200px; }
+  </style>
+</head>
+<body>
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Video Grinder v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+  <p>
+    <label>Site:</label>
+    <span>{{part (split .Profile.Data ":") 1}}</span>
+  </p>
+
+  {{if .Msg}}
+  <div class="red">{{.Msg}}</div><br>
+  {{end}}
+
+  <h2>Device management<h2>
+      
+  <form class="inline" enctype="multipart/form-data" action="/admin/utils" method="post">
+  <div class="table">
+    <div class="tr"> 
+      <div class="td col1"> 
+        <button type="submit">Find device</button>
+      </div>
+      <div class="td col2"> 
+        <input name="ma" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
+      </div>
+      <div class="td col3">
+	&rarr;
+      </div>
+      <div class="td col4"> 
+	<input value="{{ .Sn }}" readonly>
+      </div>
+    </div>
+  </div>
+  <input type="hidden" name="task" value="find">
+  </form>
+
+  <form class="inline" enctype="multipart/form-data"action="/admin/utils" method="post">
+  <div class="table">
+    <div class="tr"> 
+      <div class="td col1"> 
+        <button type="submit">Move device</button>
+      </div>
+      <div class="td col2"> 
+        <select name="ma">
+          <option value="">- Select device -</option>
+          {{range .Devices}}
+            <option value="{{ .MAC }}"{{if eq .MAC $.Ma}} selected{{end}}>{{ .Name }}</option>
+          {{end}}
+        </select>&nbsp;&rarr;&nbsp;
+        <select name="sk">
+          <option value="">- Select site -</option>
+          {{range .Sites}}
+            <option value="{{ .Skey }}"{{if eq .Name $.Sn}} selected{{end}}>{{ .Name }}</option>
+          {{end}}
+        </select>
+      </div>
+    </div>
+  </div>
+  <input type="hidden" name="task" value="move">
+  </form>
+
+  <h2>Device info<h2>
+
+  <div class="table">
+    <div class="tr">   
+      <div class="td col1"> 
+        <button onClick="updateMacEnc('ma2','me');">Encode MAC</button>
+      </div>
+      <div class="td col2"> 
+	<input type="input" id="ma2" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
+      </div>
+      <div class="td col3">
+	&rarr;
+      </div>
+     <div class="td col4"> 
+       <input id="me" readonly>
+      </div>
+    </div>
+  </div>
+  
+  <div class="table">
+    <div class="tr"> 
+      <div class="td col1"> 
+        <button onClick="updateMID('ma3','pn','id');">Convert to Data ID</button>
+      </div>
+      <div class="td col2"> 
+        <input type="input" id="ma3" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
+        <input type="input" id="pn" value="A0">
+      </div>
+      <div class="td col3">
+	&rarr;
+      </div>
+      <div class="td col4"> 
+ 	<input id="id" readonly>
+      </div>
+    </div>
+  </div>
+
+  <h2>Build and environment info</h2>
+    <div class="table">{{range $key, $value := .Info}}
+      <div class="tr">
+        <div class="td col1">{{$key}}</div>
+        <div class="td col2">{{$value}}</div>
+      </div>
+      {{end}}
+    </div>
+  </section>
+  {{.Footer}}
+</body>
+</html>

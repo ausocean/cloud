@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css" />
+  <title>Ocean Bench - Monitor</title>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js"></script>
+</head>
+<body>
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+      <img src="/s/tiny_logo.png" alt="AusOcean logo"> Video Grinder v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+      {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+    <section id="main" , class="main">
+      <p>
+        <label>Site:</label>
+        <span>{{part (split .Profile.Data ":") 1}}</span>
+      </p>
+      <div>
+        {{ range .Devices }}
+          <div class="monitor-box">
+            <span value="{{ .Device.MAC }}" {{if eq .Device.MAC $.Ma}} selected{{end}}>
+              <span class="monitor-title">{{ if $.WritePerm }}<a href="/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>{{ else }}{{ .Device.Name }}{{ end }}</span> ({{ .Device.MAC }})<br>
+              Address: {{if (.Address)}}{{ .Address }}{{end}}<br>
+              Protocol: {{ .Device.Protocol }}<br>
+              Configured: <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}"><br>
+              Status: <img src="/s/{{ .Sending }}.png" alt="{{ .Sending }}"><br>
+              Uptime: {{ .Uptime }}<br>
+              {{ if eq .Count 0 }}{{ else }}Throughput: {{ .Throughput }}% {{ .Count }}/{{ .MaxCount }}{{ end }}
+            </span>
+            {{ range .Sensors }}
+              <hr>
+              <span>
+                <span class=monitor-title>{{ .Name }}</span><br>
+                <span class="signal-date">{{ .Date }}</span>
+                <span class="signal-value">{{ .Scalar }} {{ .Units }}</span>
+              </span>
+            {{end}}
+          </div>
+          <br>
+        {{end}}
+      </div>
+    </section>
+    {{.Footer}}
+</body>
+</html>

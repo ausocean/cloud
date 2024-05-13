@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<link href="https://unpkg.com/css.gg@2.0.0/icons/css/play-button.css" rel="stylesheet">
+<link href="https://unpkg.com/css.gg@2.0.0/icons/css/play-pause.css" rel="stylesheet">
+<link href="https://unpkg.com/css.gg@2.0.0/icons/css/software-upload.css" rel="stylesheet">
+<div class="card m-auto">
+  <div class="card-body">
+    <div class="container-fluid">
+      <div class="row inputs">
+        <form action="/play/input" method="GET" id="player-form" class="w-100">
+          <div class="row">
+            <div class="col">
+              <progress hidden max="100" value="0" style="width:100%" id="progress-bar"></progress>
+              <div id="waveform">
+              </div>
+              <div id="wave-spectrogram"></div>
+              <div class="controls">
+                
+              </div>
+            </div>
+          </div>
+          <div class="w-100 d-flex justify-content-between">
+            <button class="btn btn-primary w-25" data-action="play">
+              <div class="d-flex align-items-center justify-content-center" id="play-pause">
+                <i class="gg-play-button"></i>
+                Play
+              </div>
+            </button>
+            <label for="fileinput" class="btn btn-primary w-25">
+              <div class="d-flex align-items-baseline justify-content-center">
+                <i class="gg-software-upload"></i>
+                &ensp;Upload File
+              </div>
+            </label>
+            <input name="audio-file" style="display: none" class="form-control-file form-control" type="file" id="fileinput" accept=".adpcm,.pcm,.wav,.raw"/>
+          </div>
+          <details class="border rounded p-1 my-1">
+            <summary>Advanced</summary>
+            <div class="container-fluid form-section">
+              <div class="row">
+                <div class="col-auto left-col">
+                  <label for="bdinput" class="form-label">Bit Depth:</label>
+                </div>
+                <div class="col-auto right-col">
+                  <select name="bit-depth" class="form-control" id="bdinput">
+                    <option value="16">16</option>
+                    <option value="32">32</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="container-fluid form-section">
+              <div class="row">
+                <div class="col-auto left-col">
+                  <label for="chaninput" class="form-label">Channels:</label>
+                </div>
+                <div class="col-auto right-col">
+                  <select name="channels" class="form-control" id="chaninput">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="container-fluid form-section">
+              <div class="row">
+                <div class="col-auto left-col">
+                  <label for="rateinput" class="form-label">Sample Rate:</label>
+                </div>
+                <div class="col-auto right-col">
+                  <select name="sample-rate" class="form-control" id="rateinput">
+                    <option value="8000">8000</option>
+                    <option value="16000">16000</option>
+                    <option value="32000">32000</option>
+                    <option value="44100">44100</option>
+                    <option value="48000" selected>48000</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </details>
+          <details class="border rounded p-1 my-1">
+            <summary>Apply Filters</summary>
+            <div class="container-fluid form-section">
+              <div class="row">
+                <div class="col-auto left-col">
+                  <label for="filter-dropdown" class="form-label">Select Filter:</label>
+                </div>
+                <div class="col-auto right-col">
+                  <select name="filter-type" id="filter-dropdown" class="form-control">
+                    <option value="None" selected>None</option>
+                    <option value="Lowpass">Lowpass</option>
+                    <option value="Highpass">Highpass</option>
+                    <option value="Bandpass">Bandpass</option>
+                    <option value="Bandstop">Bandstop</option>
+                    <option value="Amplifier">Amplifier</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div id="fc-lower-container" class="container-fluid hidable-form form-section">
+              <div class="row">
+                <div class="w-100"></div>
+                <div class="col-auto left-col">
+                  <div class="container-fluid">
+                    <div class="row grid-left-row">
+                      <label for="fc-lower-input" class="form-label">Lower Cutoff Frequency:</label>
+                    </div>
+                    <div class="row grid-left-row">
+                      <small class="text-muted">0 &lt; fc &lt; 22100 Hz</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-auto right-col">
+                  <input name="fc-lower" id="fc-lower-input" max="22100" min="0" step="100" type="number" class="form-control parameter-input" value="5000"/>
+                </div>
+              </div>
+            </div>
+            <div id="fc-upper-input-container" class="container-fluid hidable-form form-section">
+              <div class="row">
+                <div class="w-100"></div>
+                <div class="col-auto left-col">
+                  <div class="container-fluid">
+                    <div class="row grid-left-row">
+                      <label for="fc-upper-input" class="form-label">Upper Cutoff Frequency:</label>
+                    </div>
+                    <div class="row grid-left-row">
+                      <small class="text-muted">0 &lt; fc &lt; 22100 Hz</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-auto right-col">
+                  <input name="fc-upper" id="fc-upper-input" max="22100" min="0" step="100" type="number" class="form-control parameter-input" value="10000"/>
+                </div>
+              </div>
+            </div>
+            <div id="amp-factor-input-container" class="container-fluid hidable-form form-section">
+              <div class="row">
+                <div class="w-100"></div>
+                  <div class="col-auto left-col">
+                    <div class="container-fluid">
+                      <div class="row grid-left-row">
+                        <label for="amp-factor-input" class="form-label">Amplifying Factor:</label>
+                      </div>
+                      <div class="row grid-left-row">
+                        <small class="text-muted">0 &lt; factor</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-auto right-col">
+                    <input name="amp-factor" id="amp-factor-input" min="0" step="0.1" type="number" class="form-control parameter-input" value="2"/>
+                  </div>
+              </div>
+            </div>
+            <div class="container-fluid form-section">
+              <div class="row">
+                <div class="w-100"></div>
+                  <div class="col-auto left-col"></div>
+                  <div class="col-auto right-col">
+                    <button type="button" class="btn btn-primary" id="continue-btn" disabled>Apply Filter</button>
+                  </div>
+              </div>
+            </div>
+          </details>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
