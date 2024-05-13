@@ -1,12 +1,10 @@
 # Readme
 
-Video Grinder (VidGrind) is a cloud service for receiving and storing media and
-data from AusOcean devices.
+Ocean Bench, a part of AusOcean's cloud services, is a web app for
+working with ocean data.
 
-VidGrind is written in Go and runs on Google App Engine
-Standard Edition (part of Google Cloud.)
-
-VidGrind's predecessor is NetReceiver (from which it is derived).
+It is written in Go and runs on Google App Engine Standard Edition
+(part of Google Cloud.)
 
 ## Installation and Usage
 
@@ -17,12 +15,12 @@ can follow the official guides:
 * [go website](https://go.dev/doc/install)
 * [npm website](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
-1.  Clone the repository:
+1.  Clone the ausocean/cloud repository:
     ```bash
-    git clone https://bitbucket.org/ausocean/vidgrind.git
+    git clone https://github.com/ausocean/cloud.git
 2.  Change to the project directory:
     ```bash
-    cd vidgrind
+    cd cloud/cmd/oceanbench
 3.  Install node dependencies from package.json:
     ```bash
     npm install
@@ -34,17 +32,16 @@ can follow the official guides:
     go build
 6.  Run a local instance:
     ```bash
-    ./vidgrind --standalone
+    ./oceanbench --standalone
 
 # See Also
 
-* [VidGrind service](http://vidgrind.appspot.com)
-* [NetReceiver service](https://netreceiver.appspot.com)
+* [Ocean Bench](https://bench.ausocean.org)
 * [AusOcean](https://www.ausocean.org)
 
 # License
 
-Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
+Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
 It is free software: you can redistribute it and/or modify them
 under the terms of the GNU General Public License as published by the
