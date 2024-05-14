@@ -1,6 +1,7 @@
 *~
 #*
-vidgrind.exe
+oceanbench
 store
 node_modules
 .vscode
+.stylelintrc.json
