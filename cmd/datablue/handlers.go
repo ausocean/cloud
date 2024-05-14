@@ -538,7 +538,5 @@ func writeDeviceError(w http.ResponseWriter, dev *iotds.Device, err error) {
 	}
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, `{"er":"`+err.Error()+`"`+rc+`}`)
-	if debug {
-		log.Println("Wrote error: " + err.Error())
-	}
+	log.Println("Wrote error: " + err.Error())
 }
