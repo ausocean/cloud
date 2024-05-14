@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Audio Player</title>
+  <script type="text/javascript" src="pcm-to-wav.js"></script>
+  <script type="text/javascript" src="adpcm.js"></script>
+  <script type="text/javascript" src="main.js"></script>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+
+<body style="height: 100%">
+  <div class="card m-auto" style="width: 40rem;">
+    <div class="card-body">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-sm-auto">
+            <label for="urlinput">URL: </label>
+          </div>
+          <div class="col">
+            <input type="text" id="url" class="form-control">
+          </div>
+          <div class="col-sm-auto">
+            <button id="loadBtn">Load</button>
+          </div>
+        </div>
+        <div class="row">
+          <a id="link" href=""></a>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="bdinput">Bit Depth</label>
+            <select class="form-control" id="bdinput">
+              <option value="16">16</option>
+              <option value="32">32</option>
+            </select>
+          </div>
+          <div class="col">
+            <label for="chaninput">Channels</label>
+            <select class="form-control" id="chaninput">
+              <option value="1">1</option>
+              <option value="2">2</option>
+            </select>
+          </div>
+          <div class="col">
+            <label for="rateinput">Sample Rate</label>
+            <select class="form-control" id="rateinput">
+              <option value="8000">8000</option>
+              <option value="16000">16000</option>
+              <option value="32000">32000</option>
+              <option value="44100">44100</option>
+              <option value="48000" selected>48000</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <input class="form-control-file form-control" type="file" id="fileinput" accept=".adpcm,.pcm,.wav,.raw">
+          </div>
+        </div>
+        <div class="row">
+          <audio class="col" controls="controls" id="audio">
+            Your browser does not support the <code>audio</code> element.
+            <source id="source" src="" type="audio/wav" />
+          </audio>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer id="sticky-footer" class="footer fixed-bottom py-4 bg-dark text-white-50" style="width: 100%;">
+    <div class="container text-center">
+      <small>&copy;2019-2021 Australian Ocean Laboratory Limited (AusOcean) (<a rel="license" href="https://www.ausocean.org/license">License</a>)</small>
+    </div>
+  </footer>
+</body>
+
+</html>
