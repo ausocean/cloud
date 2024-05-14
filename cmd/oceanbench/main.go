@@ -55,7 +55,6 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -364,17 +363,6 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("error parsing set templates: %v", err)
 	}
-
-	footerTemplate, err := template.ParseFiles(templateDir + "/footer.html")
-	if err != nil {
-		log.Fatalf("error parsing footer.html: %v", err)
-	}
-	var b bytes.Buffer
-	err = footerTemplate.Execute(&b, nil)
-	if err != nil {
-		log.Fatalf("error parsing footer.html: %v", err)
-	}
-	footer = template.HTML(b.String())
 }
 
 // timeStore implements a notify.TimeStore that uses iotds.Variable for persistence.

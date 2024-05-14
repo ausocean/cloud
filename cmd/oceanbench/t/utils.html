@@ -3,8 +3,9 @@
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   <link href="/s/main.css" rel="stylesheet" type="text/css"/>
-  <title>Ocean Bench Admin Utils</title>
+  <title>VidGrind Admin Utils</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js" ></script>
   <script type="text/javascript">
@@ -14,137 +15,98 @@
     encElem.value = encodeMAC(macElem.value).toString();
   }
   </script>
-  <style type="text/css">
-    button { float:right; margin-top: 2px; }
-    .col1 { text-align:right; vertical-align:top; width:150px; padding-right: 10px; }
-    .col2 { width:300px; padding-right: 10px; }
-    .col3 { width:20px; }
-    .col4 { width:200px; }
-  </style>
 </head>
 <body>
-  <header-group id="header" class="header">
-    <nav-menu id="nav-menu">
+  <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
+    <nav-menu id="nav-menu" slot="nav-menu">
       {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
           <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
         </li>
       {{- end}}
     </nav-menu>
-    <div class="heading">
-        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
-    </div>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
     </site-menu>
-    <div class="top-right">
-        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
-    </div>
   </header-group>
   <section id="main" class="main">
-  <p>
-    <label>Site:</label>
-    <span>{{part (split .Profile.Data ":") 1}}</span>
-  </p>
 
   {{if .Msg}}
   <div class="red">{{.Msg}}</div><br>
   {{end}}
 
-  <h2>Device management<h2>
-      
-  <form class="inline" enctype="multipart/form-data" action="/admin/utils" method="post">
-  <div class="table">
-    <div class="tr"> 
-      <div class="td col1"> 
-        <button type="submit">Find device</button>
+	<h1 class="container-md">Admin Utilities</h1>
+  <div class="border rounded p-4 container-md bg-white">
+    <span class="bold">Device Management</span>
+    <hr>  
+    <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data" action="/admin/utils" method="post">
+      <div class="d-flex w-50">
+        <input name="ma" value="{{ .Ma }}" placeholder="00:00:00:00:00:00" class="w-50">
+    	  <p class="flex-grow-1 text-center">&rarr;</p>
+        <input value="{{ .Sn }}" readonly class="w-50">
       </div>
-      <div class="td col2"> 
-        <input name="ma" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
-      </div>
-      <div class="td col3">
-	&rarr;
-      </div>
-      <div class="td col4"> 
-	<input value="{{ .Sn }}" readonly>
-      </div>
-    </div>
-  </div>
-  <input type="hidden" name="task" value="find">
-  </form>
-
-  <form class="inline" enctype="multipart/form-data"action="/admin/utils" method="post">
-  <div class="table">
-    <div class="tr"> 
-      <div class="td col1"> 
-        <button type="submit">Move device</button>
-      </div>
-      <div class="td col2"> 
-        <select name="ma">
+      <button type="submit" class="btn btn-primary w-25">Find device</button>
+      <input type="hidden" name="task" value="find">
+    </form>
+  
+    <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data"action="/admin/utils" method="post">
+      <div class="d-flex w-50">
+        <select name="ma" class="w-50">
           <option value="">- Select device -</option>
           {{range .Devices}}
             <option value="{{ .MAC }}"{{if eq .MAC $.Ma}} selected{{end}}>{{ .Name }}</option>
           {{end}}
-        </select>&nbsp;&rarr;&nbsp;
-        <select name="sk">
+        </select>
+    	  <p class="flex-grow-1 text-center">&rarr;</p>
+        <select name="sk" class="w-50">
           <option value="">- Select site -</option>
           {{range .Sites}}
             <option value="{{ .Skey }}"{{if eq .Name $.Sn}} selected{{end}}>{{ .Name }}</option>
           {{end}}
         </select>
       </div>
-    </div>
+      <button type="submit" class="btn btn-primary w-25">Move device</button>
+      <input type="hidden" name="task" value="move">
+    </form>
   </div>
-  <input type="hidden" name="task" value="move">
-  </form>
-
-  <h2>Device info<h2>
-
-  <div class="table">
-    <div class="tr">   
-      <div class="td col1"> 
-        <button onClick="updateMacEnc('ma2','me');">Encode MAC</button>
-      </div>
-      <div class="td col2"> 
-	<input type="input" id="ma2" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
-      </div>
-      <div class="td col3">
-	&rarr;
-      </div>
-     <div class="td col4"> 
-       <input id="me" readonly>
-      </div>
-    </div>
-  </div>
+  <br>
   
-  <div class="table">
-    <div class="tr"> 
-      <div class="td col1"> 
-        <button onClick="updateMID('ma3','pn','id');">Convert to Data ID</button>
-      </div>
-      <div class="td col2"> 
+  <div class="border rounded p-4 container-md bg-white">
+    <span class="bold">Device Information</span>
+    <hr>  
+    <div class="d-flex justify-content-between mb-1">
+  	  <div class="w-50 d-flex">
+  	    <input type="input" id="ma2" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
+    	  <p class="flex-grow-1 text-center">&rarr;</p>
+        <input id="me" readonly>
+  	  </div>
+      <button onClick="updateMacEnc('ma2','me');" class="btn btn-primary w-25">Encode MAC</button>
+    </div>
+    
+    <div class="d-flex justify-content-between mb-1">
+      <div class="w-50 d-flex">
         <input type="input" id="ma3" value="{{ .Ma }}" placeholder="00:00:00:00:00:00">
         <input type="input" id="pn" value="A0">
+    	  <p class="flex-grow-1 text-center">&rarr;</p>
+        <input id="id" readonly>
       </div>
-      <div class="td col3">
-	&rarr;
-      </div>
-      <div class="td col4"> 
- 	<input id="id" readonly>
-      </div>
+      <button onClick="updateMID('ma3','pn','id');" class="btn btn-primary w-25">Convert to Data ID</button>
     </div>
   </div>
+  <br>
 
-  <h2>Build and environment info</h2>
-    <div class="table">{{range $key, $value := .Info}}
-      <div class="tr">
-        <div class="td col1">{{$key}}</div>
-        <div class="td col2">{{$value}}</div>
+  <div class="border rounded p-4 container-md bg-white">
+    <span class="bold">Build and Environment Info</span>
+    <hr>
+    {{range $key, $value := .Info}}
+      <div class="d-flex gap-2">
+        <div class="w-50 text-end">{{$key}}</div>
+        <div class="w-50">{{$value}}</div>
       </div>
-      {{end}}
-    </div>
+    {{end}}
+  </div>
   </section>
   {{.Footer}}
 </body>

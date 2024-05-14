@@ -11,9 +11,6 @@ class SiteMenu extends LitElement {
     @property({ type: String, attribute: 'selected-perm' })
     selectedPerm;
 
-    @property({ type: Boolean })
-    reloadConfirmed = false;
-
     static styles = css`
         select {
             padding: 8px;
@@ -141,54 +138,6 @@ class SiteMenu extends LitElement {
             const clonedOption = option.cloneNode(true) as HTMLOptionElement;
             optGroup.appendChild(clonedOption);
             clonedOption.selected = true;
-        }
-    }
-
-    connectedCallback() {
-        super.connectedCallback();
-
-        // Add event listener for tab change.
-        document.addEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.addEventListener("focus", this.checkSiteChange.bind(this));
-    }
-    
-    disconnectedCallback() {
-        super.disconnectedCallback();
-
-        // Remove tab event listener when the element is disconnected from the DOM.
-        document.removeEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.removeEventListener("focus", this.checkSiteChange.bind(this));
-    }
-
-    // Check if the user's selected site is different compared to the menu.
-    // This can happen if the site is changed in another tab.
-    checkSiteChange() {
-        // Check if the tab is visible.
-        if (!document.hidden) {
-            console.log("Checking if the site has changed...");
-            let r = new XMLHttpRequest();
-            r.onreadystatechange = () => {
-                if (r.readyState == XMLHttpRequest.DONE) {
-                    if (r.status == 200) {
-                        // Compare the newly fetched selected site key with the menu's selected site key.
-                        const currentData = r.responseText;
-                        let s1 = currentData.split(":");
-                        let s2 = this.selectedData.split(":");
-                        // If there's not a match, ask the user if they want to reload.
-                        // If the user clicks 'OK' in the confirmation dialog, reload the page.
-                        if (Number(s1[0]) != Number(s2[0])) {
-                            if (!this.reloadConfirmed && window.confirm("The selected site has changed. Do you want to reload the page?")) {
-                                this.reloadConfirmed = true;
-                                window.location.reload();
-                            }
-                        }
-                    } else {
-                        console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
-                    }
-                }
-            }
-            r.open("GET", "/api/get/profile/data", true);
-            r.send();
         }
     }
 }
