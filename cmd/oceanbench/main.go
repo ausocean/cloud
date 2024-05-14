@@ -39,7 +39,7 @@ LICENSE
 //
 // Ocean Bench can also be run in standalone mode without App Engine:
 //
-//	vidgrind -standalone
+//	./oceanbench -standalone
 //
 // Other command-line flags available in standalone mode:
 //
@@ -55,6 +55,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -85,7 +86,7 @@ const (
 	localDevice  = "localdevice"
 	localEmail   = "localuser@localhost"
 	apiSeed      = 845681267
-	projectID    = "vidgrind"                  // TODO: Change this to oceanbench.
+	projectID    = "oceanbench"
 	senderEmail  = "vidgrindservice@gmail.com" // TODO: Change this.
 )
 
@@ -146,11 +147,12 @@ type commonData struct {
 
 var (
 	setupMutex    sync.Mutex
-	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/*.html"))
-	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/set/*.html"))
+	templates     *template.Template
+	setTemplates  *template.Template
+	footer        template.HTML
 	rtpEndpoint   string
 	trimMTS       bool
-	dataHost      = "https://oceanbench.cloudblue.org"
+	dataHost      = "https://bench.cloudblue.org"
 	mediaStore    iotds.Store
 	settingsStore iotds.Store
 	debug         bool
@@ -241,17 +243,10 @@ func main() {
 		log.Printf("could not get cronSecret: %v", err)
 	}
 
-	// Device requests.
-	// TODO: Remove these once all clients sending to data.cloudblue.org.
-	http.HandleFunc("/recv", recvHandler)
-	http.HandleFunc("/config", configHandler)
-	http.HandleFunc("/poll", pollHandler)
-	http.HandleFunc("/act", actHandler)
-	http.HandleFunc("/vars", varsHandler)
-
 	// User requests.
 	http.HandleFunc("/search", searchHandler)
 	http.HandleFunc("/play", playHandler)
+	http.HandleFunc("/play/audiorequest", filterHandler)
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/set/devices/edit/var", editVarHandler)
 	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
@@ -268,7 +263,6 @@ func main() {
 	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
 	http.HandleFunc("/live/", liveHandler)
 	http.HandleFunc("/monitor", monitorHandler)
-	http.HandleFunc("/play/audiorequest", filterHandler)
 	http.HandleFunc("/admin/site/add", adminHandler)
 	http.HandleFunc("/admin/site/update", adminHandler)
 	http.HandleFunc("/admin/site/delete", adminHandler)
@@ -319,11 +313,10 @@ func main() {
 }
 
 // setup executes per-instance one-time warmup and is used to
-// initialize datastores. In standalone mode we use a file store for
-// storing both media and settings. In App Engine mode we use
-// the netreceiver datastore for settings and the vidgrind datastore for
-// media.
-// TODO: Migrate to a single datastore.
+// initialize datastores and templates. In standalone mode we use a
+// file store for storing both media and settings. In App Engine mode
+// we use the netreceiver datastore for settings and the vidgrind
+// datastore for media.  TODO: Migrate to a single datastore.
 //
 // In standalone mode all data is associated with site 1.
 func setup(ctx context.Context) {
@@ -360,6 +353,28 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+
+	const templateDir = "t"
+	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
+	if err != nil {
+		log.Fatalf("error parsing templates: %v", err)
+	}
+
+	setTemplates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/set/*.html")
+	if err != nil {
+		log.Fatalf("error parsing set templates: %v", err)
+	}
+
+	footerTemplate, err := template.ParseFiles(templateDir + "/footer.html")
+	if err != nil {
+		log.Fatalf("error parsing footer.html: %v", err)
+	}
+	var b bytes.Buffer
+	err = footerTemplate.Execute(&b, nil)
+	if err != nil {
+		log.Fatalf("error parsing footer.html: %v", err)
+	}
+	footer = template.HTML(b.String())
 }
 
 // timeStore implements a notify.TimeStore that uses iotds.Variable for persistence.
@@ -469,21 +484,6 @@ func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Con
 func warmupHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	w.Write([]byte{})
-}
-
-// cronIndexHandler renders the one and only page served in cron mode.
-func cronIndexHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-
-	if r.URL.Path != "/" {
-		// Redirect all invalid URLs to the home page.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
-	data := commonData{}
-
-	writeTemplate(w, r, "cron-index.html", &data, "")
 }
 
 // getHandler handles media and text requests, depending on the pin type.
@@ -651,13 +651,10 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
 	}
 
-	b, err := os.ReadFile("s/footer.html")
-	if err != nil {
-		log.Fatalf("could not load footer")
-	}
 	f := v.FieldByName("Footer")
-	f.Set(reflect.ValueOf(template.HTML(string(b))))
+	f.Set(reflect.ValueOf(footer))
 
+	var err error
 	if strings.HasPrefix(name, "set/") {
 		err = setTemplates.ExecuteTemplate(w, name[4:], data)
 	} else {
