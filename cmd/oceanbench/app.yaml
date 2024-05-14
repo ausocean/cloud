@@ -1,12 +1,12 @@
-runtime: go121
+runtime: go122
 
 env_variables:
   NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
-  VIDGRIND_SECRETS: gs://ausocean/VideoGrinder-secrets.txt
+  OCEANBENCH_SECRETS: gs://ausocean/OceanBench-secrets.txt
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
   YOUTUBE_SECRETS: gs://ausocean/YouTube-secrets.json
-  OAUTH2_CALLBACK: https://oceanbench.cloudblue.org/oauth2callback
+  OAUTH2_CALLBACK: https://bench.cloudblue.org/oauth2callback
   OPS_EMAIL: ops@ausocean.org
   OPS_PERIOD: 60
   VIDGRIND_EXPERIMENTS: TRIM_MTS
@@ -19,7 +19,7 @@ handlers:
   - url: /s
     static_dir: s
 
-  - url: /(poll|act|recv|vars|config|api|test).*
+  - url: /(api|test).*
     script: auto
 
   - url: /.*
