@@ -84,7 +84,7 @@ import (
 )
 
 const (
-	version      = "0.17.0"
+	version      = "0.18.0"
 	ptsTolerance = 12000 // 133ms
 	localSite    = "localhost"
 	localDevice  = "localdevice"
@@ -94,7 +94,7 @@ const (
 )
 
 const (
-	oauthClientID      = "1091312137993-lvdsa1rjuh230lkp5bg9ubcejt7oqbli.apps.googleusercontent.com"
+	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
 	tvServiceURL       = "https://oceantv.appspot.com"
 	cronServiceURL     = "https://oceancron.appspot.com"
