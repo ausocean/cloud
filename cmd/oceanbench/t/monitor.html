@@ -27,10 +27,18 @@
     <section id="main" class="main">
       <h1 class="container-md">Monitor</h1>
       <div>
+        <div class="border rounded p-4 container-md bg-white">
+          <span class="bold">New Device</span>
+          <hr>
+          {{ range .DeviceTypes}}
+          <a href="/newdevice?type={{.}}" class="btn btn-primary">{{.}}</a>
+          {{end}}
+        </div>
+        <br>
         {{ range .Devices }}
           <div class="border rounded p-4 container-md bg-white">
             <span value="{{ .Device.MAC }}" {{if eq .Device.MAC $.Ma}} selected{{end}}>
-              <span class="monitor-title">{{ if $.WritePerm }}<a href="/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>{{ else }}{{ .Device.Name }}{{ end }}</span> ({{ .Device.MAC }})<br>
+              <span class="monitor-title">{{ if $.WritePerm }}<a href="/device?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>{{ else }}{{ .Device.Name }}{{ end }}</span> ({{ .Device.MAC }})<br>
               Address: {{if (.Address)}}{{ .Address }}{{end}}<br>
               Protocol: {{ .Device.Protocol }}<br>
               Configured: <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}"><br>

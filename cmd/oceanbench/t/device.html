@@ -138,10 +138,6 @@
     function submitActuator(field) {
       field.form.submit()
     }
-  
-    function updateDeviceType(type) {
-      
-    }
   </script>
 </head>
 <body onload="init();">
@@ -197,7 +193,7 @@
             <input class="w-25" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}}>
             <br>
             <label>Type:</label>
-            <select name="ct" class="w-25" onchange="updateDeviceType(this.value)">
+            <select name="ct" class="w-25">
               <option value="">-- Select type --</option>{{range $.DevTypes}}
               <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
             {{end}}

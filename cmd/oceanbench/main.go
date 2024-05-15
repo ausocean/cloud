@@ -55,6 +55,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -247,13 +248,12 @@ func main() {
 	http.HandleFunc("/play", playHandler)
 	http.HandleFunc("/play/audiorequest", filterHandler)
 	http.HandleFunc("/upload", uploadHandler)
-	http.HandleFunc("/set/devices/edit/var", editVarHandler)
-	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
-	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
-	http.HandleFunc("/set/devices/edit", editDevicesHandler)
-	http.HandleFunc("/set/devices/", setDevicesHandler)
-	http.HandleFunc("/set/crons/edit", editCronsHandler)
-	http.HandleFunc("/set/crons/", setCronsHandler)
+	http.HandleFunc("/device/edit/var", editVarHandler)
+	http.HandleFunc("/device/edit/sensor", editSensorHandler)
+	http.HandleFunc("/device/edit/actuator", editActuatorHandler)
+	http.HandleFunc("/device/edit", editDevicesHandler)
+	http.HandleFunc("/device/", setDevicesHandler)
+	http.HandleFunc("/newdevice", newDeviceHandler)
 	http.HandleFunc("/get", getHandler)
 	http.HandleFunc("/api/", apiHandler)
 	http.HandleFunc("/test/", testHandler)
@@ -262,6 +262,8 @@ func main() {
 	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
 	http.HandleFunc("/live/", liveHandler)
 	http.HandleFunc("/monitor", monitorHandler)
+	http.HandleFunc("/admin/crons/edit", editCronsHandler)
+	http.HandleFunc("/admin/crons/", setCronsHandler)
 	http.HandleFunc("/admin/site/add", adminHandler)
 	http.HandleFunc("/admin/site/update", adminHandler)
 	http.HandleFunc("/admin/site/delete", adminHandler)
@@ -348,10 +350,10 @@ func setup(ctx context.Context) {
 
 	iotds.RegisterEntities()
 
-	err = notifier.Init(ctx, projectID, senderEmail, &timeStore{})
-	if err != nil {
-		log.Fatalf("could not set up email notifier: %v", err)
-	}
+	// err = notifier.Init(ctx, projectID, senderEmail, &timeStore{})
+	// if err != nil {
+	// 	log.Fatalf("could not set up email notifier: %v", err)
+	// }
 
 	const templateDir = "t"
 	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
@@ -359,10 +361,16 @@ func setup(ctx context.Context) {
 		log.Fatalf("error parsing templates: %v", err)
 	}
 
-	setTemplates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/set/*.html")
+	footerTemplate, err := template.ParseFiles(templateDir + "/footer.html")
 	if err != nil {
-		log.Fatalf("error parsing set templates: %v", err)
+		log.Fatalf("error parsing footer.html: %v", err)
 	}
+	var b bytes.Buffer
+	err = footerTemplate.Execute(&b, nil)
+	if err != nil {
+		log.Fatalf("error parsing footer.html: %v", err)
+	}
+	footer = template.HTML(b.String())
 }
 
 // timeStore implements a notify.TimeStore that uses iotds.Variable for persistence.
@@ -682,25 +690,14 @@ func pages(selected string) []page {
 			Perm: iotds.WritePermission,
 		},
 		{
-			Name:  "settings",
+			Name:  "admin",
 			Group: true,
-			Perm:  iotds.WritePermission,
-		},
-		{
-			Name:  "devices",
-			URL:   "/set/devices",
-			Level: 1,
-			Perm:  iotds.WritePermission,
+			Perm:  iotds.AdminPermission,
 		},
 		{
 			Name:  "crons",
-			URL:   "/set/crons",
+			URL:   "/admin/crons",
 			Level: 1,
-			Perm:  iotds.WritePermission,
-		},
-		{
-			Name:  "admin",
-			Group: true,
 			Perm:  iotds.AdminPermission,
 		},
 		{

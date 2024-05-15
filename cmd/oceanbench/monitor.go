@@ -77,6 +77,7 @@ type monitorDevice struct {
 type monitorData struct {
 	Ma        string
 	Devices   []monitorDevice
+	DeviceTypes []string
 	WritePerm bool
 	commonData
 }
@@ -94,7 +95,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}}
+	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}, DeviceTypes: devTypes}
 
 	ctx := r.Context()
 	setup(ctx)

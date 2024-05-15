@@ -149,7 +149,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	setup(ctx)
 	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
 	if err != nil {
-		writeTemplate(w, r, "set/device.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
+		writeTemplate(w, r, "device.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
 		return
 	}
 
@@ -183,7 +183,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	if !iotds.IsMacAddress(data.Mac) {
-		writeTemplate(w, r, "set/device.html", &data, "")
+		writeTemplate(w, r, "device.html", &data, "")
 		return
 	}
 
@@ -241,7 +241,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		data.Device.SetOther("localaddr", v.Value)
 	}
 
-	writeTemplate(w, r, "set/device.html", &data, msg)
+	writeTemplate(w, r, "device.html", &data, msg)
 }
 
 // reportDevicesError handles error encountered during writing of the devices page.
@@ -249,7 +249,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 func reportDevicesError(w http.ResponseWriter, r *http.Request, d devicesData, f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplate(w, r, "set/device.html", &d, msg)
+	writeTemplate(w, r, "device.html", &d, msg)
 }
 
 // editDevicesHandler handles device edit/deletion requests.
@@ -293,7 +293,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	if task == "Delete" {
 		iotds.DeleteDevice(ctx, settingsStore, mac)
 		iotds.DeleteVariables(ctx, settingsStore, skey, dev.Hex())
-		http.Redirect(w, r, "/set/devices", http.StatusFound)
+		http.Redirect(w, r, "/monitor", http.StatusFound)
 		return
 	}
 
@@ -377,7 +377,82 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	http.Redirect(w, r, "/device?ma="+ma, http.StatusFound)
+}
+
+type newDeviceData struct {
+	commonData
+	DevTypes     []string
+	SelectedType string
+}
+
+// newDeviceHandler handles requests to /newdevice designed to step a user
+// through setting up a device.
+func newDeviceHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	// Check user permissions.
+	profile, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+	_, _ = profileData(profile)
+
+	data := newDeviceData{
+		commonData: commonData{
+			Pages: pages(""),
+		},
+		DevTypes:     devTypes,
+		SelectedType: r.URL.Query().Get("type"),
+	}
+
+	// If the method is get, the user is trying to view the page, and we 
+	// do not need to parse the form.
+	if (r.Method == http.MethodGet) {
+		writeTemplate(w, r, "newdevice.html", &data, "")
+		return
+	}
+
+	// Get the form data.
+	err = r.ParseMultipartForm(1000)
+	if err != nil {
+		writeTemplate(w, r, "newdevice.html", &data, "Failed to parse form")
+		return
+	}
+
+	mac := r.Form.Get("mac")
+	name := r.Form.Get("name")
+	devType := r.Form.Get("type")
+
+	// Validate form data.
+	if !iotds.IsMacAddress(mac) {
+		writeTemplate(w, r, "newdevice.html", &data, fmt.Sprintf("MAC (%s) is invalid", mac))
+		return
+	}
+
+	if name == "" {
+		writeTemplate(w, r, "newdevice.html", &data, "Device must have a name")
+		return
+	}
+
+	var isValid = false
+	for _, validType := range devTypes {
+		if devType == validType {
+			isValid = true
+		}
+	}
+	if !isValid {
+		writeTemplate(w, r, "newdevice.html", &data, fmt.Sprintf("Device type (%s) is invalid", devType))
+		return
+	}
+
+	// Todo: Create the device with the default values and variables.
+
+	writeTemplate(w, r, "newdevice.html", &data, "")
 }
 
 // editVarHandler handles per-device variable update/deletion requests.
@@ -434,10 +509,10 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	http.Redirect(w, r, "/device?ma="+ma, http.StatusFound)
 }
 
-// editSensorHandler handles requests to /set/device/edit/sensor.
+// editSensorHandler handles requests to /device/edit/sensor.
 func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("edit sensor handler")
 	logRequest(r)
@@ -483,7 +558,7 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 			writeDevices(w, r, "delete sensor error: %v", err)
 			return
 		}
-		http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+		http.Redirect(w, r, "/device?ma="+ma, http.StatusFound)
 		return
 	}
 
@@ -503,10 +578,10 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	http.Redirect(w, r, "/device?ma="+ma, http.StatusFound)
 }
 
-// editActuatorHandler handles requests to /set/device/edit/actuator.
+// editActuatorHandler handles requests to /device/edit/actuator.
 func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := r.Context()
@@ -547,7 +622,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 			writeDevices(w, r, "delete actuator error: %v", err)
 			return
 		}
-		http.Redirect(w, r, "set/devices?ma="+ma, http.StatusFound)
+		http.Redirect(w, r, "devices?ma="+ma, http.StatusFound)
 		return
 	}
 
@@ -567,7 +642,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	http.Redirect(w, r, "/device?ma="+ma, http.StatusFound)
 }
 
 // Cron settings:
@@ -615,13 +690,13 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 
 	site, err := iotds.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
+		writeTemplate(w, r, "cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
 		return
 	}
 
 	crons, err := iotds.GetCronsBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
+		writeTemplate(w, r, "cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
 		return
 	}
 
@@ -637,11 +712,11 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 
 	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
 	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
+		writeTemplate(w, r, "cron.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
 		return
 	}
 
-	writeTemplate(w, r, "set/cron.html", &data, msg)
+	writeTemplate(w, r, "cron.html", &data, msg)
 }
 
 // editCronsHandler handles cron edit/deletion requests.
