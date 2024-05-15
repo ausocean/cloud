@@ -384,6 +384,7 @@ type newDeviceData struct {
 	commonData
 	DevTypes     []string
 	SelectedType string
+	Unimplemented bool
 }
 
 // newDeviceHandler handles requests to /newdevice designed to step a user
@@ -410,9 +411,9 @@ func newDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		SelectedType: r.URL.Query().Get("type"),
 	}
 
-	// If the method is get, the user is trying to view the page, and we 
+	// If the method is get, the user is trying to view the page, and we
 	// do not need to parse the form.
-	if (r.Method == http.MethodGet) {
+	if r.Method == http.MethodGet {
 		writeTemplate(w, r, "newdevice.html", &data, "")
 		return
 	}
@@ -451,6 +452,12 @@ func newDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Todo: Create the device with the default values and variables.
+	switch devType {
+	default:
+		data.Unimplemented = true
+		writeTemplate(w, r, "newdevice.html", &data, "")
+		return
+	}
 
 	writeTemplate(w, r, "newdevice.html", &data, "")
 }

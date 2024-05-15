@@ -22,6 +22,15 @@
     </site-menu>
   </header-group>
   <section id="main" class="main">
+    {{ if .Unimplemented}}
+      <div class="red">
+        This type is not yet implemented for auto setup, see the
+        <a href="/device">
+          old devices page
+        </a>
+        .
+      </div>
+    {{end}}
     {{if .Msg}}
       <div class="red">
         {{.Msg}}
