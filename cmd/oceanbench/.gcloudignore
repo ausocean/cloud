@@ -1,0 +1,10 @@
+*.exe
+*~
+#*
+.*
+.git
+.gitignore
+store/*
+node_modules/
+.vscode/
+.stylelintrc.json

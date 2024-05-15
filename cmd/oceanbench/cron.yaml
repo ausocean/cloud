@@ -1,0 +1,16 @@
+cron:
+  # - description: "Glenelg Rig"
+  #   url: /api/health/site/361554460285/ESP_326950
+  #   schedule: every 5 mins
+  # - description: "Ochre Point Antenna Pole"
+  #   url: /api/health/site/392282359922/ESP_6A3A36
+  #   schedule: every 5 mins
+  # - description: "Port River PCC Rig"
+  #   url: /api/health/site/671252324022/ESP_0A84B8
+  #   schedule: every 5 mins
+  - description: "Rapid Bay Jetty Rig"
+    url: /api/health/site/301235661931/ESP_0D2895
+    schedule: every 5 mins
+  #- description: "Kangaroo Island NBN Shed"
+  #  url: /api/health/site/201489903059/NBNShed
+  #  schedule: every 5 mins

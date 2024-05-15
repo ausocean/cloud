@@ -1,0 +1,105 @@
+header {
+    z-index: 5000;
+}
+
+label {
+    margin-right: 0px;
+    text-align: right;
+    margin-bottom: 0px;
+    width: 200px;
+}
+
+small {
+    margin-top: 0px;
+    text-align: right;
+    width: 100%;
+}
+
+.card-body {
+    margin-bottom: 50px;
+}
+
+.inputs {
+    margin-bottom: calc(1.25rem + 5px);
+}
+
+.form-label {
+    width: inherit;
+    max-width: inherit;
+    min-width: inherit;
+}
+
+.btn-primary {
+    height: 100%;
+    width: 100%;
+    background-color: #007bff;
+
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-primary:hover {
+    background-color: #0060d0;
+    border-width: 0px;
+}
+
+.btn-primary:disabled {
+    background-color: grey;
+    border-width: 0px;
+}
+
+.form-section {
+    margin-top: 5px;
+}
+
+.hidable-form {
+    display: none;
+}
+
+.form-control {
+    margin: 0px;
+    height: 100%;
+}
+
+.dropdown-item:hover {
+    background-color: #007bff;
+}
+
+.grid-left-row {
+    display: flex;
+    justify-content: right;
+}
+
+.left-col {
+    width: 30vw;
+    max-width: 200px;
+    min-width: 75px;
+    padding: 0px;
+    height: 45px;
+}
+
+.right-col {
+    width: 50vw;
+    max-width: 700px;
+}
+
+.custom-file-upload {
+    background-color: #007bff;
+    transition: all 0.15s;
+    transition-timing-function: ease-in-out;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-file-upload:hover {
+    background-color: #0060d0;
+}
+
+#formFile {
+    display: none;
+}
+
+#filter-dropdown {
+    height: 100%;
+}

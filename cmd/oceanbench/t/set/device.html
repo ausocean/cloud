@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <title>Devices</title>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js"></script>
+  <script type="text/javascript">
+    var varTypes = { {{range $.VarTypes}}
+      {{.Basename}}:"{{.Value}}",{{end}}
+    };
+    var varEnums = {};
+    function deleteVar(ma, name) {
+      window.location = '/set/devices/edit/var?ma=' + ma + '&vn=' + name + '&vd=true';
+    }
+
+    function checkVar() {
+      let vn = document.getElementById('vn');
+      if (vn.value == '') {
+        setValue('_newvar');
+        return false;
+      }
+      return true;
+    }
+
+    function setValue(id) {
+      if (id == "") {
+        return;
+      }
+      let form = document.getElementById(id);
+      let span2 = form.firstElementChild.nextElementSibling;
+      let vn = span2.firstChild;
+      let span3 = span2.nextElementSibling;
+      let vv = span3.firstChild;
+      let msg = form.querySelector('.msg')
+
+      while (span3.firstChild) {
+        span3.removeChild(span3.firstChild);
+      }
+
+      let k = vn.value;
+      let v = varTypes[k];
+      if (v === 'int') {
+        msg.textContent = k + ' must be a whole number'
+        vv.required = true
+        vv.type = 'number'
+        vv.step = 1
+      } else if (v === 'uint') {
+        msg.textContent = k + ' must be a positive whole number'
+        vv.required = true
+        vv.type = 'number'
+        vv.step = 1
+        vv.min = 0
+      } else if (v === 'float') {
+        msg.textContent =  k + ' must be a number'
+        vv.required = true
+        vv.type = 'number'
+        vv.step = 'any'
+      }
+
+      let enums = varEnums[k];
+      if (enums == null) {
+        span3.appendChild(vv);
+        vv.removeAttribute('hidden');
+        vv.removeAttribute('disabled');
+        return;
+      }
+
+      vv.setAttribute('hidden', 'true');
+      vv.setAttribute('disabled', 'true');
+
+      let type = 'radio';
+      if (varTypes[k].substring(0,6) == 'enums:') {
+        type = 'checkbox';
+      }
+      let values = vv.value.split(',');
+      for (let i = 0; i < enums.length; i++) {
+        let input = document.createElement('input');
+        input.type = type;
+        input.name = 'vv';
+        input.value = enums[i];
+        input.setAttribute('onchange', "document.getElementById('"+id+"').submit();")
+        if (values.includes(input.value)) {
+          input.checked = true;
+        }
+        span3.appendChild(input);
+        let text = document.createTextNode(enums[i] + ' ');
+        span3.appendChild(text);
+      }
+    }
+
+    function init() {
+      for (let k in varTypes) {
+        let v = varTypes[k];
+        if (v == "bool") {
+          varEnums[k] = ['true', 'false'];
+        } else if (v.substring(0,5) == 'enum:') {
+          varEnums[k] = v.substring(5).split(',');
+        } else if (v.substring(0,6) == 'enums:') {
+          varEnums[k] = v.substring(6).split(',');
+        }
+      }
+      let elems = document.querySelectorAll('input[name=vn]');
+      for (let elem of elems){
+        setValue(elem.value);
+      }
+    }
+
+    function submitVar(vv) {
+      if (vv.validity.valid) {
+        vv.form.submit()
+      }
+    }
+
+    function validateVar(vv) {
+      if (vv.validity.valid) {
+        vv.form.querySelector('.msg').className = 'td msg hidden'
+      } else {
+        vv.form.querySelector('.msg').className = 'td msg'
+      }
+    }
+
+    function deleteSensor(mac, pin) {
+      window.location = '/set/devices/edit/sensor?ma=' + mac + '&pin=' + pin + '&delete=true';
+    }
+
+    function submitSensor(field) {
+      field.form.submit()
+    }
+
+    function deleteActuator(mac, pin) {
+      window.location = '/set/devices/edit/actuator?ma=' + mac + '&pin=' + pin + '&delete=true';
+    }
+
+    function submitActuator(field) {
+      field.form.submit()
+    }
+  </script>
+</head>
+<body onload="init();">
+  <div id="data">
+    <datalist id="list_vars">{{range $.VarTypes}}
+      <option>{{ .Basename }}</option>{{end}}
+    </datalist>
+  </div>
+
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Video Grinder v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+    <p>
+      <label>Site:</label>
+      <span>{{part (split .Profile.Data ":") 1}}</span>
+    </p>
+    {{if .Msg}}
+      <div class="red">
+        {{.Msg}}
+      </div>
+      <br>
+    {{end}}
+
+    <form action="/set/devices/" enctype="multipart/form-data" method="post">
+      <fieldset>
+        <label>Select device:</label>
+        <select name="ma" onchange="this.form.submit();">
+          <option value="">-- New device --</option>
+          {{range .Devices}}
+            <option value="{{ .MAC }}"{{if eq .MAC $.Mac}} selected{{end}}>{{ .Name }}</option>
+          {{end}}
+        </select>
+      </fieldset>
+    </form>
+
+    {{with .Device}}
+      <br>
+      <form action="/set/devices/edit" enctype="multipart/form-data" method="post">
+        <fieldset>
+          <label>Name:</label>
+          <input type="input" name="dn" value="{{.Name}}">
+          <br>
+          <label>MAC:</label>
+          <input type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}}>
+          <br>
+          <label>Type:</label>
+          <select name="ct">
+            <option value="">-- Select type --</option>{{range $.DevTypes}}
+            <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
+          {{end}}
+          </select>
+          <br>
+          <label>Inputs:</label>
+          <input type="input" name="ip" value="{{.Inputs}}">
+          <br>
+          <label>Outputs:</label>
+          <input type="input" name="op" value="{{.Outputs}}">
+          <br>
+          <label>WiFi:</label>
+          <input type="input" name="wi" value="{{.Wifi}}">
+          <br>
+          <label>Mon period:</label>
+          <input type="input" name="mp" value="{{.MonitorPeriod}}">
+          <br>
+          <label>Act period:</label>
+          <input type="input" name="ap" value="{{.ActPeriod}}">
+          <br>
+          <label>Client version:</label>
+          <input type="input" name="cv" value="{{.Version}}">
+          <br>
+          <label>Client protocol:</label>
+          <input type="input" name="ns" value="{{.Protocol}}" readonly>
+          <br>
+          <label>Latitude:</label>
+          <input type="input" name="lt" value="{{.Latitude}}">
+          <br>
+          <label>Longitude:</label>
+          <input type="input" name="ln" value="{{.Longitude}}">
+          <br>
+          <label>Device key:</label>
+          <input type="input" name="dk" value="{{.Dkey}}" {{if not .Name}}readonly{{end}}>
+          <br>
+          <label>Local address:</label>
+          <input type="input" name="la" value="{{if (.Other "localaddr")}}{{.Other "localaddr"}}{{end}}" readonly>
+          <br>
+          <label>Last updated:</label>
+          <input type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" readonly>
+          <br>
+          <label>Uptime:</label>
+          <input type="input" name="ut" value="{{if (.Other "uptime")}}{{.Other "uptime"}}{{end}}" readonly>
+          <br>
+          <label>Enabled:</label>
+          <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}}>
+          {{if .Name}}
+            <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}">
+            <img src="/s/{{ .Other "sending"}}.png" alt="{{ .Other "sending"}}">
+          {{end}}
+        </fieldset>
+        <br>
+        {{if .Name}}
+          <input type="submit" name="task" value="Update">
+          <input type="submit" name="task" value="Debug">
+          <input type="submit" name="task" value="Reboot">
+          <input type="submit" name="task" value="Shutdown">
+          <input type="submit" name="task" value="Upgrade">
+          <input type="submit" name="task" value="Alarm">
+          <input type="submit" name="task" value="Test">
+          <input type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')">
+        {{else}}
+          <input type="submit" name="task" value="Add">
+        {{end}}
+      </form>
+      <br>
+    {{end}}
+
+    {{if .Device }}
+      <h3>Variables</h3>
+      <div class="table" id="vars">
+        <div class="tr">
+          <span class="td select"></span>
+          <span class="td std">Name</span>
+          <span class="td dbl">Value</span>
+        </div>
+        {{range .Vars}}
+          <form class="tr" id="{{ .Basename }}" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
+            <span class="td select"><img src="/s/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');"></span>
+            <span class="td std"><input type="text" name="vn" value="{{ .Basename }}" class="std" readonly></span>
+            <span class="td dbl"><input type="text" name="vv" value="{{ .Value }}" class="dbl" onchange="submitVar(this)" oninput="validateVar(this)">
+              {{if .IsLink }}
+                <a href="{{ .Value }}" target="_blank"><img src="/s/link.png"></a>
+              {{end}}
+            </span>
+            <span class="td msg hidden"></span>
+            <input type="hidden" name="ma" value="{{$.Device.MAC}}">
+          </form>
+        {{end}}
+        <form class="tr" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
+          <span class="td select"><input type="image" src="/s/add.png"></span>
+          <span class="td std"><input type="text" name="vn" id="vn" list="list_vars" class="std" onchange="setValue('_newvar');"></span>
+          <span class="td dbl"><input type="text" name="vv" class="dbl" oninput="validateVar(this)"></span>
+          <span class="td msg hidden"></span>
+          <input type="hidden" name="ma" value="{{$.Device.MAC}}">
+        </form>
+      </div>
+      <br>
+
+      <h3>Sensors</h3>
+      <div class="table" id="sensors">
+        <div class="tr">
+          <span class="td select"></span>
+          <span class="td std">Name</span>
+          <span class="td qtr">Input</span>
+          <span class="td dbl">Quantity</span>
+          <span class="td std">Function</span>
+          <span class="td std">Args</span>
+          <span class="td qtr">Units</span>
+          <span class="td std">Format</span>
+        </div>
+        {{$dev := $.Device}}
+        {{$data := $}}
+        {{range $sensor := .Sensors}}
+          <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+            <span class="td select"><img src="/s/delete.png" onclick="deleteSensor('{{$dev.MAC}}','{{ $sensor.Pin }}');"></span>
+            <span class="td std"><input type="text" name="name" value="{{ $sensor.Name }}" onchange="submitSensor(this)"></span>
+            <span class="td qtr"><input type="text" name="pin" value="{{ $sensor.Pin }}" readonly></span>
+            <span class="td dbl">
+              <select name="sqty" onchange="submitSensor(this)">
+                {{range $qty := $data.Quantities}}
+                  <option value="{{$qty.Code}}"{{if eq $qty.Code $sensor.Quantity}} selected{{end}}>{{$qty.Name}}</option>
+                {{end}}
+              </select>
+            </span>
+            <span class="td std">
+              <select name="sfunc" onchange="submitSensor(this)">
+                {{range $func := $data.Funcs}}
+                  <option value="{{$func}}"{{if eq $func $sensor.Func}} selected{{end}}>{{$func}}</option>
+                {{end}}
+              </select>
+            </span>
+            <span class="td std"><input type="text" name="sargs" value="{{ $sensor.Args }}" class="std" onchange="submitSensor(this)"></span>
+            <span class="td qtr"><input type="text" name="sunits" value="{{ $sensor.Units }}" class="std" onchange="submitSensor(this)"></span>
+            <span class="td std">
+              <select name="sfmt" onchange="submitSensor(this)">
+                {{range $fmt := $data.Formats}}
+                  <option value="{{$fmt}}"{{if eq $fmt $sensor.Format}} selected{{end}}>{{$fmt}}</option>
+                {{end}}
+              </select>
+            </span>
+            <span class="td msg hidden"></span>
+            <input type="hidden" name="ma" value="{{$dev.MAC}}">
+          </form>
+        {{end}}
+        <form class="tr" id="new-sensor" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+          <span class="td select"><input type="image" src="/s/add.png"></span>
+          <span class="td std"><input type="text" name="name" class="std"></span>
+          <span class="td qtr">
+            <select name="pin">
+              <option value="">- Select -</option>
+              {{range $pin := $dev.InputList}}
+                <option value="{{ $pin }}">{{ $pin }}</option>
+              {{end}}
+            </select>
+          </span>
+          <span class="td dbl">
+            <select class="dbl" name="sqty">
+              <option value="">- Select -</option>
+              {{range $qty := $data.Quantities}}
+                <option value="{{$qty.Code}}">{{$qty.Name}}</option>
+              {{end}}
+            </select>
+          </span>
+          <span class="td std">
+            <select name="sfunc">
+              <option value="">- Select -</option>
+              {{range $func := $data.Funcs}}
+                <option value="{{$func}}">{{$func}}</option>
+              {{end}}
+            </select>
+          </span>
+          <span class="td std"><input type="text" name="sargs" class="std"></span>
+          <span class="td qtr"><input type="text" name="sunits" class="std"></span>
+          <span class="td std">
+            <select name="sfmt">
+              <option value="">- Select -</option>
+              {{range $fmt := $data.Formats}}
+                <option value="{{$fmt}}">{{$fmt}}</option>
+              {{end}}
+            </select>
+          </span>
+          <span class="td msg hidden"></span>
+          <input type="hidden" name="ma" value="{{$dev.MAC}}">
+        </form>
+      </div>
+      <br>
+
+      <h3>Actuators</h3>
+      <div class="table" id="actuators">
+        <div class="tr">
+          <span class="td select"></span>
+          <span class="td std">Name</span>
+          <span class="td std">Var</span>
+          <span class="td std">Pin</span>
+        </div>
+        {{$dev := $.Device}}
+        {{$data := $}}
+        {{range $act := .Actuators}}
+          <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+            <span class="td select"><img src="/s/delete.png" onclick="deleteActuator('{{$dev.MAC}}','{{ $act.Pin }}');"></span>
+            <span class="td width-300"><input type="text" name="name" value="{{ $act.Name }}" class="width-300" onchange="submitActuator(this)"></span>
+            <span class="td width-300"><input type="text" name="var" value="{{ $act.Var}}" class="width-300" onchange="submitActuator(this)"></span>
+            <span class="td qtr"><input type="text" name="pin" value="{{ $act.Pin }}" readonly></span>
+            <span class="td msg hidden"></span>
+            <input type="hidden" name="ma" value="{{$dev.MAC}}">
+          </form>
+        {{end}}
+        <form class="tr" id="new-actuator" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+          <span class="td select"><input type="image" src="/s/add.png"></span>
+          <span class="td width-300"><input type="text" name="name" class="width-300"></span>
+          <span class="td width-300"><input type="text" name="var" class="width-300"></span>
+          <span class="td qtr">
+            <select class="qtr" name="pin">
+              <option value="">- Select -</option>
+              {{range $pin:= $dev.OutputList}}
+                <option value="{{$pin}}">{{$pin}}</option>
+              {{end}}
+            </select>
+          </span>
+          <span class="td msg hidden"></span>
+          <input type="hidden" name="ma" value="{{$dev.MAC}}">
+        </form>
+      </div>
+      <br>
+    {{end}}
+
+  </section>
+  {{.Footer}}
+</body>
+</html>

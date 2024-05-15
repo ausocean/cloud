@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <title>VidGrind media uploader</title>
+  <style type="text/css">
+  #dropzone {
+    width: 300px;
+    height: 100px;
+    margin-left: 200px;
+    border: 1px solid black;
+    border-radius: 10px;
+    background-color: #def;
+    line-height: 100px;
+    text-align: center;
+  }
+  #dropzone:hover {
+    background-color: #eef;
+  }
+  #dropzone.active {
+    background-color: #ddf;
+  }
+  .blinking {
+    animation: blink 1s infinite;
+  }
+  @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  </style>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js" ></script>
+  <script type="text/javascript">
+  function init() {
+    const dropzone = document.querySelector('#dropzone');
+    dropzone.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      dropzone.classList.add('active');
+    });
+    dropzone.addEventListener('dragleave', (event) => {
+      dropzone.classList.remove('active');
+    });
+    dropzone.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const files = event.dataTransfer.files;
+      const mid = document.getElementById("id").value;
+      if (mid == "") {
+        write(true, "MID missing");
+        return;
+      }
+      var stats = { total:files.length, uploaded:[], failed:[] };
+      write(true, '<span class="blinking">Uploading...</span>')
+      for (const file of files) {
+        upload(file, stats);
+      }
+    });
+  }
+  function upload(file, stats) {
+    const formData = new FormData(document.getElementById("form"));
+    formData.append('file', file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload', true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(formData);
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        stats.uploaded.push(file)
+      } else {
+        stats.failed.push(file)
+      }
+      writeStats(stats);
+    }
+  }
+  function write(clear, ...args){
+    var msg = "";
+    if (!clear) {
+      msg = document.getElementById("msg").innerHTML;
+    }
+    for (var i = 0; i < args.length; i++) {
+      if (typeof args[i] === 'number') {
+        msg += args[i].toString();
+      } else {
+        msg += args[i];
+      }
+    }
+    msg += "<br>";
+    document.getElementById("msg").innerHTML = msg;
+  }
+  function writeStats(stats) {
+    write(true, "Total: ", stats.total);
+    write(false, "Uploaded: ", stats.uploaded.length);
+    for (var i = 0; i < stats.uploaded.length; i++) {
+      write(false, "&bull; ", stats.uploaded[i].name, " (", stats.uploaded[i].size, " bytes)");
+    }
+    if (stats.failed.length == 0) {
+      return;
+    }
+    write(false, "Failed to upload: ", stats.failed.length);
+    for (var i = 0; i < stats.failed.length; i++) {
+      write(false, "&bull; ", stats.failed[i].name, " (", stats.failed[i].size, " bytes)");
+    }
+  }
+</script>
+</head>
+<body onload="init();">
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Video Grinder v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+    <div id="msg">{{if .Msg}}{{.Msg}}{{end}}</div><br>
+    <form action="/upload" method="POST" id="form" enctype="multipart/form-data">
+      <fieldset>
+        <label>Media ID*:</label>
+        <input type="input" name="id" id="id"{{if .MID}} value="{{ .MID}}"{{end}}>
+        <br>
+        <label>MPEG-TS file:</label>
+        <input type="file" name="file" id="file">
+        <div id="dropzone">or drop files here</div>
+        <input type="submit" name="task" value="Upload">
+      </fieldset>
+    </form>
+    <br>
+    <br>
+    <button onClick="updateMID('ma','pn','id');">Convert to Media ID</button>
+    MAC:<input type="input" id="ma" placeholder="00:00:00:00:00:00"> Pin:<input type="input" id="pn" value="V0">
+    <br>
+    <br>
+    <p class="fineprint">*If unsure, ask an AusOcean crew member to provide you one.</p>
+  </section>
+  {{.Footer}}
+</body>
+</html>
