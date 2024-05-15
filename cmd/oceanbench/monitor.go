@@ -1,6 +1,6 @@
 /*
 DESCRIPTION
-  VidGrind site monitor handling.
+  Ocean Bench site monitor handling.
 
 AUTHORS
   Russell Stanley <russell@ausocean.org>
@@ -8,21 +8,21 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2022 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2022-2024 the Australian Ocean Lab (AusOcean)
 
-  This file is part of VidGrind. VidGrind is free software: you can
+  This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
   General Public License as published by the Free Software
   Foundation, either version 3 of the License, or (at your option)
   any later version.
 
-  VidGrind is distributed in the hope that it will be useful,
+  Ocean Bench is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with NetReceiver in gpl.txt.  If not, see
+  in gpl.txt.  If not, see
   <http://www.gnu.org/licenses/>.
 */
 
