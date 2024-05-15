@@ -2,9 +2,6 @@
 NAME
   Ocean Bench - a cloud service for analyzing ocean data.
 
-SEE ALSO
-  NetReceiver - https:netreceiver.appspot.com/help
-
 AUTHORS
   Alan Noble <alan@ausocean.org>
   Dan Kortschak <dan@ausocean.org>
