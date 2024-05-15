@@ -1,26 +1,26 @@
 /*
 DESCRIPTION
-  Tests for the VidGrind's data handler.
+  Tests for the Ocean Bench's data handler.
 
 AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2023 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2023-2024 the Australian Ocean Lab (AusOcean).
 
-  This file is part of VidGrind. VidGrind is free software: you can
+  This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
   General Public License as published by the Free Software
   Foundation, either version 3 of the License, or (at your option)
   any later version.
 
-  VidGrind is distributed in the hope that it will be useful,
+  Ocean Bench is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with NetReceiver in gpl.txt.  If not, see
+  in gpl.txt.  If not, see
   <http://www.gnu.org/licenses/>.
 */
 
@@ -121,7 +121,7 @@ func TestGetScalars(t *testing.T) {
 	}
 }
 
-// TestFestScalars tests fetching scalars via VidGrind's /data endpoint.
+// TestFestScalars tests fetching scalars via Ocean Bench's /data endpoint.
 func TestFetchScalars(t *testing.T) {
 	t.Log("TestFetchScalars")
 	if os.Getenv("VIDGRIND_CREDENTIALS") == "" {

@@ -6,7 +6,7 @@ AUTHORS
   Saxon Nelson-Milton <saxon@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by

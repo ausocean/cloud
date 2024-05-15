@@ -1,10 +1,6 @@
 /*
 NAME
-  VidGrind - a cloud service for receiving and storing video and
-  "grinding" it into its interesting parts.
-
-SEE ALSO
-  NetReceiver - https:netreceiver.appspot.com/help
+  Ocean Bench - a cloud service for analyzing ocean data.
 
 AUTHORS
   Alan Noble <alan@ausocean.org>
@@ -14,38 +10,31 @@ AUTHORS
 LICENSE
   Copyright (C) 2018-2024 the Australian Ocean Lab (AusOcean)
 
-  This file is part of VidGrind. VidGrind is free software: you can
+  This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
   General Public License as published by the Free Software
   Foundation, either version 3 of the License, or (at your option)
   any later version.
 
-  VidGrind is distributed in the hope that it will be useful,
+  Ocean Bench is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with VidGrind in gpl.txt.  If not, see
-  <http://www.gnu.org/licenses/>.
+  in gpl.txt.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// VidGrind is a cloud service for receiving and storing video and
-// "grinding" it into its interesting parts.
+// Ocean Bench is a cloud service for analyzing ocean data.
 //
-// Video can be sent to VidGrind in one of two ways:
+// Data can be accessed and played.
 //
-//	/recv is for streaming video from a device.
-//	/upload is for uploading videos from a file.
+//	/search to search for any data.
+//	/play to play audio or video daa
 //
-// Once stored, video can be accessed and played.
+// Ocean Bench can also be run in standalone mode without App Engine:
 //
-//	/search to search for video.
-//	/play to play video.
-//
-// VidGrind can also be run in standalone mode without App Engine:
-//
-//	vidgrind -standalone
+//	./oceanbench -standalone
 //
 // Other command-line flags available in standalone mode:
 //
@@ -329,7 +318,7 @@ func main() {
 // setup executes per-instance one-time warmup and is used to
 // initialize datastores. In standalone mode we use a file store for
 // storing both media and settings. In App Engine mode we use
-// NetReceiver's datastore for settings and VidGrind's datastore for
+// the netreceiver datastore for settings and the vidgrind datastore for
 // media.
 //
 // In standalone mode all data is associated with site 1.

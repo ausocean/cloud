@@ -1,12 +1,12 @@
 /*
 DESCRIPTION
-  VidGrind tests.
+  Ocean Bench tests.
 
 AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ const (
 
 // TestRecvHandler tests  recvHandler
 // NETRECEIVER_CREDENTIALS is required in order to access NetReceiver's datastore.
-// VIDGRIND_CREDENTIALS is required in order to access VidGrind's datastore.
+// VIDGRIND_CREDENTIALS is required in order to access Ocean Bench's datastore.
 // Test MtsMedia data all use pin V0, timestamp 1 and PID 0.
 func TestRecvHandler(t *testing.T) {
 	if os.Getenv("NETRECEIVER_CREDENTIALS") == "" {

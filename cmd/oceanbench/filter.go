@@ -10,7 +10,7 @@ AUTHOR
   David Sutton <davidsutton@ausocean.org>
 
 LICENSE
-  filter.go is Copyright (C) 2023 the Australian Ocean Lab (AusOcean)
+  filter.go is Copyright (C) 2023-2024 the Australian Ocean Lab (AusOcean)
 
   It is free software: you can redistribute it and/or modify them
   under the terms of the GNU General Public License as published by the
