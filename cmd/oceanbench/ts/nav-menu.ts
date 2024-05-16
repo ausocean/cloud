@@ -84,6 +84,14 @@ export class NavMenu extends LitElement {
         const ul = this.shadowRoot?.querySelector('#menu') as HTMLUListElement;
         for (const item of items) {
             ul.appendChild(item);
+            const perm = Number(item.dataset && item.dataset['perm']);
+            if(perm && (perm & this.selectedPerm) != 0){
+                item.hidden = false;
+                item.style.display = 'block';
+            } else {
+                item.hidden = true;
+                item.style.display = 'none';
+            }
         }
     }
 
