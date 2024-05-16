@@ -50,6 +50,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -620,12 +621,14 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
 	}
 
-	b, err := os.ReadFile("s/footer.html")
+	const footer = "footer.html"
+	var b bytes.Buffer
+	err := templates.ExecuteTemplate(&b, footer, nil)
 	if err != nil {
-		log.Fatalf("could not load footer")
+		log.Fatalf("ExecuteTemplate failed on %s: %v", footer, err)
 	}
-	f := v.FieldByName("Footer")
-	f.Set(reflect.ValueOf(template.HTML(string(b))))
+	p = v.FieldByName("Footer")
+	p.Set(reflect.ValueOf(template.HTML(b.String())))
 
 	if strings.HasPrefix(name, "set/") {
 		err = setTemplates.ExecuteTemplate(w, name[4:], data)
