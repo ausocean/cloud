@@ -65,7 +65,7 @@ export class NavMenu extends LitElement {
         const items = Array.from(ul.querySelectorAll('li'));
         for (const item of items) {
             const perm = Number(item.dataset && item.dataset['perm']);
-            if(perm && (perm & this.selectedPerm) != 0){
+            if(perm & this.selectedPerm){
                 item.hidden = false;
                 item.style.display = 'block';
             } else {
@@ -85,7 +85,7 @@ export class NavMenu extends LitElement {
         for (const item of items) {
             ul.appendChild(item);
             const perm = Number(item.dataset && item.dataset['perm']);
-            if(perm && (perm & this.selectedPerm) != 0){
+            if(perm & this.selectedPerm){
                 item.hidden = false;
                 item.style.display = 'block';
             } else {
