@@ -3,7 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 import { NavMenu } from './nav-menu.js';
 import '../s/lit/nav-menu.js';
 import '../s/lit/site-menu.js';
-
 @customElement('header-group')
 class HeaderGroup extends LitElement {
 
@@ -24,7 +23,7 @@ class HeaderGroup extends LitElement {
 
         #top-bar {
             padding-inline: 100px;
-            background-color:#3b7cdd;
+            background-color: var(--ao-blue);
             position: fixed;
             top: 0px;
             left: 0px;
