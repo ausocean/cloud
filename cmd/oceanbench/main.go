@@ -243,9 +243,6 @@ func main() {
 	http.HandleFunc("/act", actHandler)
 	http.HandleFunc("/vars", varsHandler)
 
-	// TODO: Remove following once oceantv factored out.
-	http.HandleFunc("/broadcast/save", broadcastSaveHandler)
-
 	// User requests.
 	http.HandleFunc("/search", searchHandler)
 	http.HandleFunc("/play", playHandler)
@@ -263,7 +260,6 @@ func main() {
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
-	http.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
 	http.HandleFunc("/live/", liveHandler)
 	http.HandleFunc("/monitor", monitorHandler)
 	http.HandleFunc("/play/audiorequest", filterHandler)
