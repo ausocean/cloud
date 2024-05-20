@@ -80,17 +80,17 @@ var navMenu = (function (exports) {
         selectedPerm;
         initialised;
         static styles = i$2 `
-        #menubars { display: inline-block; cursor: pointer; position: fixed; top: 5px; left: 0; }
         #menu { list-style-type: none; padding: 0; margin: 0; }
-        nav { font-family: "Open Sans", sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; background-color: #2F4F7F; position: fixed; top: 0; left: 0 }
-        nav ul li { text-align: left; padding: 0 0 0 32px; }
+        nav { font-family: "Open Sans", sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; background-color: #3b7cdd; position: fixed; top: -468px; left: 0; z-index: 1000; transition-duration: 300ms; animation-timing-function: ease-in-out}
+        nav ul li { text-align: left; padding: 0 0 0 12px; z-index: 998}
         nav ul li a { display: none; padding: 10px; text-transform: uppercase; text-decoration: none; }
-        nav ul li.indent-1 { padding: 0 0 0 42px; }
+        nav ul li.indent-1 { padding: 0 0 0 24px; }
         nav ul li.indent-1 a { text-transform: capitalize; }
-        nav ul.expanded li a { display: block; color: #99AABB }
+        nav ul.expanded li a { display: block; color: black }
         nav ul li a.selected { display: block; color: white }
-        nav ul li a:hover { color: #009933 }
-        .menubar { width: 30px; height: 4px; background-color: #99AABB; margin: 3px 8px; }
+        nav ul li a:hover { color: #fbae16 }
+        #menubars { display: inline-block; cursor: pointer; position: fixed; top: 18px; left: 12px; z-index: 1002}
+        .menubar { width: 30px; height: 4px; background-color: white; margin: 3px 8px; }
     `;
         constructor() {
             super();
@@ -111,15 +111,15 @@ var navMenu = (function (exports) {
         }
         render() {
             return x `
-            <div style="display: none">
+            <div>
                 <slot @slotchange="${this.addItems}"></slot>
             </div>
+            <div id="menubars" @click=${this.toggleMenu}>
+                <div class="menubar"></div>
+                <div class="menubar"></div>
+                <div class="menubar"></div>
+            </div>
             <nav id="nav">
-                <div id="menubars" @click=${this.toggleMenu}>
-                    <div class="menubar"></div>
-                    <div class="menubar"></div>
-                    <div class="menubar"></div>
-                </div>
                 <ul id="menu">
                 </ul>
             </nav>
@@ -154,33 +154,19 @@ var navMenu = (function (exports) {
         }
         // toggleMenu toggles the main menu. It looks for a selected class on the first child of each list item.
         toggleMenu() {
+            let nav = this.shadowRoot?.querySelector('nav');
             // Get the ul element that nav-menu renders.
             const menu = this.shadowRoot?.querySelector('#menu');
             if (menu == null) {
                 return;
             }
-            var expand = true;
             if (menu.classList.contains('expanded')) {
                 menu.classList.remove('expanded');
-                expand = false;
+                nav.style.top = '-468px';
             }
             else {
                 menu.classList.add('expanded');
-            }
-            var list = menu.getElementsByTagName("li");
-            for (var ii = 0; ii < list.length; ii++) {
-                var item = list[ii];
-                if (expand && !item.hidden) {
-                    item.style.display = 'block';
-                }
-                else {
-                    if (item.firstChild instanceof Element && item.firstChild?.className == 'selected') {
-                        item.style.display = 'block';
-                    }
-                    else {
-                        item.style.display = 'none';
-                    }
-                }
+                nav.style.top = '60px';
             }
         }
     };

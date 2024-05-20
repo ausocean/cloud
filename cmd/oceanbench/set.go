@@ -457,6 +457,7 @@ func newDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		data.Unimplemented = true
 		writeTemplate(w, r, "newdevice.html", &data, "")
 		return
+		// Todo: implement defaults for each of the devTypes.
 	}
 
 	writeTemplate(w, r, "newdevice.html", &data, "")
