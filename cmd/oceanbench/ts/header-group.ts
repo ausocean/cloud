@@ -23,7 +23,7 @@ class HeaderGroup extends LitElement {
 
         #top-bar {
             padding-inline: 100px;
-            background-color: var(--ao-blue);
+            background-color: var(--primary-blue);
             position: fixed;
             top: 0px;
             left: 0px;

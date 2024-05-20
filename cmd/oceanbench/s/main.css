@@ -119,13 +119,14 @@ th.wide { width: 20rem; }
 
 /* Bootstrap theme override */
 :root {
-  --ao-blue: #2f4f7f;
+  --primary-blue: #2f4f7f;
+  --primary-yellow: #fbae16;
   --bg-colour: #eef1f7
 }
 
 .btn-outline-primary {
-  border-color: var(--ao-blue);
-  color: var(--ao-blue)
+  border-color: var(--primary-blue);
+  color: var(--primary-blue)
 }
 
 .btn-primary,
@@ -133,9 +134,9 @@ th.wide { width: 20rem; }
 .btn-outline-primary.active,
 .btn-outline-primary:hover,
 .btn-outline-primary:active {
-  background-color: var(--ao-blue) !important;
+  background-color: var(--primary-blue) !important;
   color: white;
-  border-color: var(--ao-blue) !important;
+  border-color: var(--primary-blue) !important;
 }
 
 .table > :not(caption) > * > * {

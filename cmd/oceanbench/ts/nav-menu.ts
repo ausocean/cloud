@@ -11,14 +11,14 @@ export class NavMenu extends LitElement {
 
     static styles = css`
         #menu { list-style-type: none; padding: 0; margin: 0; }
-        nav { font-family: "Open Sans", sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; background-color: var(--ao-blue); position: fixed; top: -468px; left: 0; z-index: 1000; transition-duration: 300ms; animation-timing-function: ease-in-out}
+        nav { font-family: "Open Sans", sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; background-color: var(--primary-blue); position: fixed; top: -468px; left: 0; z-index: 1000; transition-duration: 300ms; animation-timing-function: ease-in-out}
         nav ul li { text-align: left; padding: 0 0 0 12px; z-index: 998}
         nav ul li a { display: none; padding: 10px; text-transform: uppercase; text-decoration: none; }
         nav ul li.indent-1 { padding: 0 0 0 24px; }
         nav ul li.indent-1 a { text-transform: capitalize; }
         nav ul.expanded li a { display: block; color: white }
-        nav ul li a.selected { display: block; color: #fbae16 }
-        nav ul li a:hover { color: #fbae16 }
+        nav ul li a.selected { display: block; color: var(--primary-yellow) }
+        nav ul li a:hover { color: var(--primary-yellow) }
         #menubars { display: inline-block; cursor: pointer; position: fixed; top: 18px; left: 12px; z-index: 1002}
         .menubar { width: 30px; height: 4px; background-color: white; margin: 3px 8px; }
     `;
