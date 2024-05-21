@@ -42,7 +42,8 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // M3U tokens. Tokens ending with a colon are followed by values.
@@ -69,14 +70,15 @@ var (
 
 // writePlaylist writes a playlist in M3U format, comprising fragments of fd (fragment duration) seconds.
 // See:
-//    https://developer.apple.com/documentation/http_live_streaming/example_playlists_for_http_live_streaming/video_on_demand_playlist_construction.
-//    https://developer.apple.com/library/archive/technotes/tn2288/_index.html#//apple_ref/doc/uid/DTS40012238-CH1-TNTAG2
+//
+//	https://developer.apple.com/documentation/http_live_streaming/example_playlists_for_http_live_streaming/video_on_demand_playlist_construction.
+//	https://developer.apple.com/library/archive/technotes/tn2288/_index.html#//apple_ref/doc/uid/DTS40012238-CH1-TNTAG2
 func writePlaylist(w http.ResponseWriter, r *http.Request, mid int64, ts []int64, fd int64) {
 	ctx := r.Context()
 
-	keys, err := iotds.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
+	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
 	if err != nil {
-		log.Printf("iotds.GetMtsMediaKeys returned error: %v", err.Error())
+		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
 		writeError(w, err)
 		return
 	}
@@ -85,8 +87,8 @@ func writePlaylist(w http.ResponseWriter, r *http.Request, mid int64, ts []int64
 		writeError(w, errors.New("no data"))
 		return
 	}
-	_, from, _ := iotds.SplitIDKey(keys[0].ID)
-	_, to, _ := iotds.SplitIDKey(keys[len(keys)-1].ID)
+	_, from, _ := datastore.SplitIDKey(keys[0].ID)
+	_, to, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
 	from = from / fd * fd
 	to = (to/fd + 1) * fd
 
@@ -132,9 +134,9 @@ func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd
 	// and to extract times.
 	now := (time.Now().Unix() / fd) * fd
 	from := now - pd
-	keys, err := iotds.GetMtsMediaKeys(ctx, mediaStore, mid, nil, []int64{from, iotds.EpochEnd})
+	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, []int64{from, datastore.EpochEnd})
 	if err != nil {
-		log.Printf("iotds.GetMtsMediaKeys returned error: %v", err.Error())
+		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
 		writeError(w, err)
 		return
 	}
@@ -161,8 +163,8 @@ func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd
 	}
 
 	// Buffer at least fd seconds of data.
-	_, first, _ := iotds.SplitIDKey(keys[0].ID)
-	_, last, _ := iotds.SplitIDKey(keys[len(keys)-1].ID)
+	_, first, _ := datastore.SplitIDKey(keys[0].ID)
+	_, last, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
 	if last-first < fd {
 		w.WriteHeader(http.StatusNotFound)
 		writeError(w, errors.New("buffering"))

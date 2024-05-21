@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
+	"github.com/ausocean/cloud/gauth"
 )
 
 // standaloneData holds (temporary) profile data in standalone mode.

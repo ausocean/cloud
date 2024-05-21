@@ -33,9 +33,10 @@ import (
 	"strconv"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -46,7 +47,6 @@ const (
 	testDevDkey = 10000001
 	testLat     = "-34.91805"
 	testLng     = "138.60475"
-	testAlt     = "0.0"
 )
 
 // TestRecvHandler tests  recvHandler
@@ -63,13 +63,13 @@ func TestRecvHandler(t *testing.T) {
 
 	// Re-create the test device.
 	ctx := context.Background()
-	store, err := iotds.NewStore(ctx, "cloud", "netreceiver", "")
+	store, err := datastore.NewStore(ctx, "cloud", "netreceiver", "")
 	if err != nil {
-		t.Errorf("iotds.NewStore failed with error: %v", err)
+		t.Errorf("datastore.NewStore failed with error: %v", err)
 	}
 	lat, _ := strconv.ParseFloat(testLat, 64)
 	lng, _ := strconv.ParseFloat(testLng, 64)
-	err = iotds.PutDevice(ctx, store, &iotds.Device{
+	err = model.PutDevice(ctx, store, &model.Device{
 		Skey:          testSkey,
 		Dkey:          testDevDkey,
 		Name:          testDevID,
@@ -84,7 +84,7 @@ func TestRecvHandler(t *testing.T) {
 		t.Errorf("PutDevice failed with error: %v", err)
 	}
 
-	testLoc := testLat + "," + testLng + "," + testAlt
+	testLoc := testLat + "," + testLng
 	tests := []struct {
 		ma   string
 		dk   int

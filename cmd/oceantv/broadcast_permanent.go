@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
 )
 
 type ForwardingService interface {
@@ -133,7 +133,7 @@ func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus) error {
 		MAC, Status string
 		URLs        []string
 	}{
-		MAC:    iotds.MacDecode(primary.CameraMac),
+		MAC:    model.MacDecode(primary.CameraMac),
 		URLs:   urls,
 		Status: string(status),
 	}

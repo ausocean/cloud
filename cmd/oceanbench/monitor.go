@@ -40,8 +40,9 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -63,7 +64,7 @@ type sensorData struct {
 
 // monitorDevice holds the relevant information for each device.
 type monitorDevice struct {
-	Device     iotds.Device
+	Device     model.Device
 	Address    string
 	Sending    string
 	StatusText string
@@ -108,14 +109,14 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 	skey, _ := profileData(profile)
 
 	// Check if user has write permissions to link to devices page.
-	user, err := iotds.GetUser(ctx, settingsStore, skey, profile.Email)
-	if err == nil && user.Perm&iotds.WritePermission != 0 {
+	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
+	if err == nil && user.Perm&model.WritePermission != 0 {
 		data.WritePerm = true
-	} else if err != nil && err != iotds.ErrNoSuchEntity {
+	} else if err != nil && err != datastore.ErrNoSuchEntity {
 		log.Println("failed getting user permissions", err)
 	}
 
-	devices, err := iotds.GetDevicesBySite(ctx, settingsStore, skey)
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		reportMonitorError(w, r, &data, "could not get devices: %v", err)
 		return
@@ -123,7 +124,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 
 	ch := make(chan monitorDevice, len(devices))
 
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		reportMonitorError(w, r, &data, "could not get devices: %v", err)
 		return
@@ -152,7 +153,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 // throughput determines the number of scalars received within the count
 // period for a device, as well as the maximum number of scalars expected.
 // The first A, D or X pin that provides count data is used.
-func throughput(ctx context.Context, device iotds.Device) (count, maxCount int, err error) {
+func throughput(ctx context.Context, device model.Device) (count, maxCount int, err error) {
 	if device.Inputs != "" && device.MonitorPeriod != 0 {
 		pins := strings.Split(device.Inputs, ",")
 		monitorDuration := time.Duration(device.MonitorPeriod) * time.Second
@@ -163,8 +164,8 @@ func throughput(ctx context.Context, device iotds.Device) (count, maxCount int, 
 			if count != 0 || (pin[0] != 'A' && pin[0] != 'D' && pin[0] != 'X') {
 				continue
 			}
-			sid := iotds.ToSID(iotds.MacDecode(device.Mac), pin)
-			keys, err := iotds.GetScalarKeys(ctx, mediaStore, sid, []int64{start, -1})
+			sid := model.ToSID(model.MacDecode(device.Mac), pin)
+			keys, err := model.GetScalarKeys(ctx, mediaStore, sid, []int64{start, -1})
 			if err != nil {
 				return 0, 0, fmt.Errorf("could not get scalar keys: %v", err)
 			}
@@ -176,7 +177,7 @@ func throughput(ctx context.Context, device iotds.Device) (count, maxCount int, 
 }
 
 func monitorLoadRoutine(
-	dev iotds.Device,
+	dev model.Device,
 	tz float64,
 	wg *sync.WaitGroup,
 	ch chan monitorDevice,
@@ -200,9 +201,9 @@ func monitorLoadRoutine(
 	md.Throughput = int(100.0 * (float64(md.Count) / float64(md.MaxCount)))
 
 	// Set the address variable.
-	v, err := iotds.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr")
+	v, err := model.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr")
 	switch {
-	case errors.Is(err, iotds.ErrNoSuchEntity):
+	case errors.Is(err, datastore.ErrNoSuchEntity):
 		md.Address = "None"
 	case err != nil:
 		reportMonitorError(w, r, &data, "could not get address variable: %v", err)
@@ -212,9 +213,9 @@ func monitorLoadRoutine(
 	}
 
 	// Set the uptime and sending variable.
-	v, err = iotds.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
+	v, err = model.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
 	switch {
-	case errors.Is(err, iotds.ErrNoSuchEntity):
+	case errors.Is(err, datastore.ErrNoSuchEntity):
 		md.Sending = "black"
 	case err != nil:
 		reportMonitorError(w, r, &data, "could not get uptime variable: %v", err)
@@ -231,16 +232,16 @@ func monitorLoadRoutine(
 		return
 	}
 
-	sensors, err := iotds.GetSensorsV2(ctx, settingsStore, dev.Mac)
+	sensors, err := model.GetSensorsV2(ctx, settingsStore, dev.Mac)
 	if err != nil {
 		reportMonitorError(w, r, &data, "could not get sensors: %v", err)
 		return
 	}
 
 	for _, sensor := range sensors {
-		id := iotds.ToSID(iotds.MacDecode(sensor.Mac), sensor.Pin)
+		id := model.ToSID(model.MacDecode(sensor.Mac), sensor.Pin)
 		scalar, err := getLatestScalar(ctx, mediaStore, id)
-		if err == iotds.ErrNoSuchEntity {
+		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
 			reportMonitorError(w, r, &data, "could not get latest scalar %d: %v", id, err)
@@ -266,7 +267,7 @@ func monitorLoadRoutine(
 
 // secondsToUptime converts the uptime variable of a device to a formatted
 // string to be rendered on the page.
-func secondsToUptime(v *iotds.Variable) (uptime string, err error) {
+func secondsToUptime(v *model.Variable) (uptime string, err error) {
 	if v == nil || v.Value == "" {
 		return "None", nil
 	}
@@ -293,15 +294,15 @@ func reportMonitorError(w http.ResponseWriter, r *http.Request, d *monitorData, 
 }
 
 // getLatestScalar finds the most recent scalar within the countPeriod.
-func getLatestScalar(ctx context.Context, store iotds.Store, id int64) (*iotds.Scalar, error) {
+func getLatestScalar(ctx context.Context, store datastore.Store, id int64) (*model.Scalar, error) {
 	start := time.Now().Add(-countPeriod).Unix()
-	keys, err := iotds.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
+	keys, err := model.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
 	if err != nil {
 		return nil, err
 	}
 	if len(keys) == 0 {
-		return nil, iotds.ErrNoSuchEntity
+		return nil, datastore.ErrNoSuchEntity
 	}
-	_, ts, _ := iotds.SplitIDKey(keys[len(keys)-1].ID)
-	return iotds.GetScalar(ctx, store, id, ts)
+	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
+	return model.GetScalar(ctx, store, id, ts)
 }

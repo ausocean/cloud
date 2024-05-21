@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 type event interface{ fmt.Stringer }

@@ -40,8 +40,8 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/ausocean/av/codec/adpcm"
-	"bitbucket.org/ausocean/av/codec/pcm"
+	"github.com/ausocean/av/codec/adpcm"
+	"github.com/ausocean/av/codec/pcm"
 )
 
 // Parameters is a struct which contains the required information required to generate an

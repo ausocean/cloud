@@ -7,7 +7,7 @@ jobs:
         environment:
           GO111MODULE: "on"
 
-    working_directory: ~/go/src/bitbucket.org/ausocean/vidgrind
+    working_directory: ~/go/src/github.com/ausocean/cloud/cmd/oceanbench
 
     environment:
       TEST_RESULTS: /tmp/test-results

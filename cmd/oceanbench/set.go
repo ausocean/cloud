@@ -35,8 +35,9 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 var (
@@ -63,7 +64,7 @@ type quantity struct {
 
 // defaultQuantities provides a list of common quantities we might measure.
 // This was originally defined in the netreceiver code, see
-// bitbucket.org/ausocean/iotsvc/netreceiver/lists.py:420
+// github.com/ausocean/clientsvc/netreceiver/lists.py:420
 func defaultQuantities() []quantity {
 	return []quantity{
 		{Code: "AWA", Name: "Apparent Wind Angle", Type: "angle"},
@@ -102,12 +103,12 @@ var devTypes = []string{"Controller", "Camera", "Hydrophone", "Speaker", "Aligne
 type devicesData struct {
 	Timezone   float64
 	Mac        string
-	Device     *iotds.Device
-	Devices    []iotds.Device
-	Vars       []iotds.Variable
-	Sensors    []iotds.SensorV2
-	Actuators  []iotds.ActuatorV2
-	VarTypes   []iotds.Variable
+	Device     *model.Device
+	Devices    []model.Device
+	Vars       []model.Variable
+	Sensors    []model.SensorV2
+	Actuators  []model.ActuatorV2
+	VarTypes   []model.Variable
 	DevTypes   []string
 	Quantities []quantity
 	Funcs      []string
@@ -138,10 +139,10 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 			Pages: pages("devices"),
 		},
 		Mac:        r.FormValue("ma"),
-		Device:     &iotds.Device{Enabled: true},
+		Device:     &model.Device{Enabled: true},
 		Quantities: defaultQuantities(),
-		Funcs:      iotds.SensorFuncs(),
-		Formats:    iotds.SensorFormats(),
+		Funcs:      model.SensorFuncs(),
+		Formats:    model.SensorFormats(),
 		DevTypes:   devTypes,
 	}
 
@@ -153,8 +154,8 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	user, err := iotds.GetUser(ctx, settingsStore, skey, profile.Email)
-	if errors.Is(err, iotds.ErrNoSuchEntity) || user.Perm&iotds.WritePermission == 0 {
+	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
 		log.Println("user does not have write permissions")
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -164,14 +165,14 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		reportDevicesError(w, r, data, "get site error: %v", err)
 		return
 	}
 	data.Timezone = site.Timezone
 
-	data.Devices, err = iotds.GetDevicesBySite(ctx, settingsStore, skey)
+	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		reportDevicesError(w, r, data, "get devices by site error: %v", err)
 		return
@@ -182,45 +183,45 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	if !iotds.IsMacAddress(data.Mac) {
+	if !model.IsMacAddress(data.Mac) {
 		writeTemplate(w, r, "set/device.html", &data, "")
 		return
 	}
 
-	data.Device, err = iotds.GetDevice(ctx, settingsStore, iotds.MacEncode(data.Mac))
+	data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
 	if err != nil {
 		reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
 		return
 	}
 
-	data.Vars, err = iotds.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
-	if err != nil && !errors.Is(err, iotds.ErrNoSuchEntity) {
+	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
+	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		reportDevicesError(w, r, data, "get device variables error: %v", err)
 		return
 	}
 
-	data.VarTypes, err = iotds.GetVariablesBySite(ctx, settingsStore, skey, "_type")
-	if err != nil && !errors.Is(err, iotds.ErrNoSuchEntity) {
+	data.VarTypes, err = model.GetVariablesBySite(ctx, settingsStore, skey, "_type")
+	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		reportDevicesError(w, r, data, "get device variable types error: %v", err)
 		return
 	}
 
-	data.Sensors, err = iotds.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
+	data.Sensors, err = model.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
 	if err != nil {
 		reportDevicesError(w, r, data, "get sensors error: %v", err)
 		return
 	}
 
-	data.Actuators, err = iotds.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
+	data.Actuators, err = model.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
 	if err != nil {
 		reportDevicesError(w, r, data, "get actuators error: %v", err)
 		return
 	}
 
 	// Provide uptime and device status information.
-	v, err := iotds.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
+	v, err := model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
 	switch {
-	case errors.Is(err, iotds.ErrNoSuchEntity):
+	case errors.Is(err, datastore.ErrNoSuchEntity):
 		data.Device.SetOther("sending", "black")
 	case err != nil:
 		reportDevicesError(w, r, data, "get uptime error: %v", err)
@@ -236,7 +237,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	// Get the local address only if available.
-	v, err = iotds.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
+	v, err = model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
 	if err == nil {
 		data.Device.SetOther("localaddr", v.Value)
 	}
@@ -270,16 +271,16 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	dn := r.FormValue("dn")
 	task := r.FormValue("task")
 
-	mac := iotds.MacEncode(ma)
+	mac := model.MacEncode(ma)
 	if mac == 0 {
 		writeDevices(w, r, "MAC address missing")
 		return
 	}
 
 	setup(ctx)
-	var dev *iotds.Device
+	var dev *model.Device
 	if task != "Add" {
-		dev, err = iotds.GetDevice(ctx, settingsStore, mac)
+		dev, err = model.GetDevice(ctx, settingsStore, mac)
 		if err != nil {
 			writeDevices(w, r, err.Error())
 			return
@@ -291,8 +292,8 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if task == "Delete" {
-		iotds.DeleteDevice(ctx, settingsStore, mac)
-		iotds.DeleteVariables(ctx, settingsStore, skey, dev.Hex())
+		model.DeleteDevice(ctx, settingsStore, mac)
+		model.DeleteVariables(ctx, settingsStore, skey, dev.Hex())
 		http.Redirect(w, r, "/set/devices", http.StatusFound)
 		return
 	}
@@ -319,7 +320,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		// Generate an 8-digit random number for the device key.
 		rand.Seed(time.Now().UnixNano())
 		dkey := 10000000 + rand.Intn(100000000)
-		dev = &iotds.Device{Skey: skey, Mac: mac, Name: dn, Dkey: int64(dkey), Status: 1, Enabled: true}
+		dev = &model.Device{Skey: skey, Mac: mac, Name: dn, Dkey: int64(dkey), Status: 1, Enabled: true}
 	} else {
 		i, err := strconv.ParseInt(dk, 10, 64)
 		if err == nil {
@@ -371,7 +372,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		dev.Status = deviceStatusTest
 	}
 
-	err = iotds.PutDevice(ctx, settingsStore, dev)
+	err = model.PutDevice(ctx, settingsStore, dev)
 	if err != nil {
 		writeDevices(w, r, err.Error())
 		return
@@ -405,7 +406,7 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 	vv := strings.Join(r.Form["vv"], ",")
 	vd := r.FormValue("vd")
 
-	mac := iotds.MacEncode(ma)
+	mac := model.MacEncode(ma)
 	if mac == 0 {
 		writeDevices(w, r, "MAC address missing")
 		return
@@ -417,16 +418,16 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setup(ctx)
-	dev, err := iotds.GetDevice(ctx, settingsStore, mac)
+	dev, err := model.GetDevice(ctx, settingsStore, mac)
 	if err != nil {
 		writeDevices(w, r, err.Error())
 		return
 	}
 
 	if vd == "true" {
-		err = iotds.DeleteVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn)
+		err = model.DeleteVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn)
 	} else {
-		err = iotds.PutVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn, vv)
+		err = model.PutVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn, vv)
 	}
 
 	if err != nil {
@@ -453,7 +454,7 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 	_ = profile // ToDo: Check for write access.
 
 	ma := r.FormValue("ma")
-	mac := iotds.MacEncode(ma)
+	mac := model.MacEncode(ma)
 	if mac == 0 {
 		writeDevices(w, r, "MAC address missing")
 		return
@@ -464,7 +465,7 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	formSensor := iotds.SensorV2{
+	formSensor := model.SensorV2{
 		Name:     r.FormValue("name"),
 		Mac:      mac,
 		Pin:      pin,
@@ -478,7 +479,7 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 	if r.FormValue("delete") == "true" {
 		log.Printf("deleting sensor %d.%s", mac, pin)
-		err := iotds.DeleteSensorV2(ctx, settingsStore, mac, pin)
+		err := model.DeleteSensorV2(ctx, settingsStore, mac, pin)
 		if err != nil {
 			writeDevices(w, r, "delete sensor error: %v", err)
 			return
@@ -497,7 +498,7 @@ func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("putting sensor: %v", formSensor)
-	err = iotds.PutSensorV2(ctx, settingsStore, &formSensor)
+	err = model.PutSensorV2(ctx, settingsStore, &formSensor)
 	if err != nil {
 		writeDevices(w, r, "put sensor error: %v", err)
 		return
@@ -521,7 +522,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 	_ = profile // ToDo: Check for write access.
 
 	ma := r.FormValue("ma")
-	mac := iotds.MacEncode(ma)
+	mac := model.MacEncode(ma)
 	if mac == 0 {
 		writeDevices(w, r, "MAC address missing")
 		return
@@ -532,7 +533,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actuatorForm := iotds.ActuatorV2{
+	actuatorForm := model.ActuatorV2{
 		Name: r.FormValue("name"),
 		Mac:  mac,
 		Pin:  pin,
@@ -542,7 +543,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 	if r.FormValue("delete") == "true" {
 		log.Printf("deleting actuator, %d.%s", mac, pin)
-		err := iotds.DeleteActuatorV2(ctx, settingsStore, mac, pin)
+		err := model.DeleteActuatorV2(ctx, settingsStore, mac, pin)
 		if err != nil {
 			writeDevices(w, r, "delete actuator error: %v", err)
 			return
@@ -561,7 +562,7 @@ func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("putting actuator: %v", actuatorForm)
-	err = iotds.PutActuatorV2(ctx, settingsStore, &actuatorForm)
+	err = model.PutActuatorV2(ctx, settingsStore, &actuatorForm)
 	if err != nil {
 		writeDevices(w, r, "put actuator error: %v", err)
 		return
@@ -580,7 +581,7 @@ func setCronsHandler(w http.ResponseWriter, r *http.Request) {
 
 type dataFields struct {
 	Timezone float64
-	Crons    []iotds.Cron
+	Crons    []model.Cron
 	Actions  []string
 	commonData
 }
@@ -602,8 +603,8 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 
 	skey, _ := profileData(profile)
 
-	user, err := iotds.GetUser(ctx, settingsStore, skey, profile.Email)
-	if errors.Is(err, iotds.ErrNoSuchEntity) || user.Perm&iotds.WritePermission == 0 {
+	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
 		log.Println("user does not have write permissions")
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -613,13 +614,13 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 		return
 	}
 
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
 		return
 	}
 
-	crons, err := iotds.GetCronsBySite(ctx, settingsStore, skey)
+	crons, err := model.GetCronsBySite(ctx, settingsStore, skey)
 	if err != nil {
 		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
 		return
@@ -680,13 +681,13 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if task == "Delete" {
-		err := iotds.DeleteCron(ctx, settingsStore, skey, id)
+		err := model.DeleteCron(ctx, settingsStore, skey, id)
 		if err != nil {
 			writeCrons(w, r, fmt.Sprintf("could not delete crons: %v", err))
 			return
 		}
 
-		err = cronScheduler.Set(&iotds.Cron{Skey: skey, ID: id, Enabled: false})
+		err = cronScheduler.Set(&model.Cron{Skey: skey, ID: id, Enabled: false})
 		if err != nil {
 			writeCrons(w, r, fmt.Sprintf("could not unset cron: %v", err))
 			return
@@ -696,20 +697,20 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		writeCrons(w, r, fmt.Sprintf("could not get site: %v", err))
 		return
 	}
 
-	c := iotds.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
+	c := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
 	err = c.ParseTime(ct, site.Timezone)
 	if err != nil {
 		writeCrons(w, r, fmt.Sprintf("could not parse time: %v", err))
 		return
 	}
 
-	err = iotds.PutCron(ctx, settingsStore, &c)
+	err = model.PutCron(ctx, settingsStore, &c)
 	if err != nil {
 		writeCrons(w, r, fmt.Sprintf("could not put cron in datastore: %v", err))
 		return

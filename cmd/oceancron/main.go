@@ -32,9 +32,10 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -46,7 +47,7 @@ const (
 
 var (
 	setupMutex    sync.Mutex
-	settingsStore iotds.Store
+	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
 	auth          *gauth.UserAuth
@@ -111,15 +112,15 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = iotds.NewStore(ctx, "file", "vidgrind", "store")
+		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
 	} else {
 		log.Printf("Running in App Engine mode")
-		settingsStore, err = iotds.NewStore(ctx, "cloud", "netreceiver", "")
+		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
 	}
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	iotds.RegisterEntities()
+	model.RegisterEntities()
 
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
@@ -145,7 +146,7 @@ func setupCronScheduler(ctx context.Context) error {
 		return fmt.Errorf("could not create new scheduler: %w", err)
 	}
 
-	sites, err := iotds.GetAllSites(ctx, settingsStore)
+	sites, err := model.GetAllSites(ctx, settingsStore)
 	if err != nil {
 		if sites == nil {
 			return fmt.Errorf("could not get sites for cron initialization: %v", err)
@@ -153,7 +154,7 @@ func setupCronScheduler(ctx context.Context) error {
 		log.Printf("got sites for cron initialization but encountered error: %v", err)
 	}
 	for _, site := range sites {
-		crons, err := iotds.GetCronsBySite(ctx, settingsStore, site.Skey)
+		crons, err := model.GetCronsBySite(ctx, settingsStore, site.Skey)
 		if err != nil {
 			log.Printf("failed to get crons from site=%d: %v", site.Skey, err)
 			continue
@@ -170,27 +171,27 @@ func setupCronScheduler(ctx context.Context) error {
 	return nil
 }
 
-// timeStore implements a notify.TimeStore that uses iotds.Variable for persistence.
+// timeStore implements a notify.TimeStore that uses model.Variable for persistence.
 type timeStore struct {
 }
 
-// Get retrieves a notification time stored in an iotds.Variable.
+// Get retrieves a notification time stored in an model.Variable.
 // We prepend an underscore to keep the variable private.
 func (ts *timeStore) Get(skey int64, key string) (time.Time, error) {
-	v, err := iotds.GetVariable(context.Background(), settingsStore, skey, "_"+key)
+	v, err := model.GetVariable(context.Background(), settingsStore, skey, "_"+key)
 	switch err {
 	case nil:
 		return v.Updated, nil
-	case iotds.ErrNoSuchEntity:
+	case datastore.ErrNoSuchEntity:
 		return time.Time{}, nil // We've never sent this kind of notice previously.
 	default:
 		return time.Time{}, err // Unexpected datastore error.
 	}
 }
 
-// Set updates a notification time stored in an iotds.Variable.
+// Set updates a notification time stored in an model.Variable.
 func (ts *timeStore) Set(skey int64, key string, t time.Time) error {
-	return iotds.PutVariable(context.Background(), settingsStore, skey, "_"+key, "")
+	return model.PutVariable(context.Background(), settingsStore, skey, "_"+key, "")
 }
 
 // writeError writes http errors to the response writer, in order to provide more detailed

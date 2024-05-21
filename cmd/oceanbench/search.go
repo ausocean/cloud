@@ -40,8 +40,9 @@ import (
 	"strconv"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -89,10 +90,10 @@ type searchData struct {
 	Exporting                                      bool
 	Searching                                      bool
 	Timestamps                                     []int64
-	Clips                                          []*iotds.MtsMedia
+	Clips                                          []*model.MtsMedia
 	Type                                           string
-	Device                                         *iotds.Device
-	Devices                                        []iotds.Device
+	Device                                         *model.Device
+	Devices                                        []model.Device
 	PinType                                        byte
 	Log                                            bool
 	DataHost                                       string
@@ -157,13 +158,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		writeTemplate(w, r, searchTemplate, &sd, fmt.Sprintf("site %d not found", skey))
 		return
 	}
 	if !site.Public {
-		_, err = iotds.GetUser(ctx, settingsStore, skey, profile.Email)
+		_, err = model.GetUser(ctx, settingsStore, skey, profile.Email)
 		if err != nil {
 			writeTemplate(w, r, searchTemplate, &sd, fmt.Sprintf("site %d is private", skey))
 			return
@@ -174,7 +175,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compute default values.
-	sd.Devices, err = iotds.GetDevicesBySite(ctx, settingsStore, skey)
+	sd.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		writeTemplate(w, r, searchTemplate, &sd, "Datastore error: "+err.Error())
 		return
@@ -186,7 +187,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	// If user has input MAC/Device, set Pin field, otherwise return a blank search page.
 	if sd.Ma != "" {
-		sd.Device, err = iotds.GetDevice(ctx, settingsStore, iotds.MacEncode(sd.Ma))
+		sd.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(sd.Ma))
 		if err != nil {
 			writeTemplate(w, r, searchTemplate, &sd, "Device not found")
 			return
@@ -214,7 +215,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		fallthrough
 
 	case 'S', 'V':
-		mid := iotds.ToMID(sd.Ma, sd.Pn)
+		mid := model.ToMID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(mid))
 		if !sd.Searching {
 			writeTemplate(w, r, searchTemplate, &sd, "")
@@ -228,7 +229,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		writeTemplate(w, r, searchTemplate, &sd, "")
 
 	case 'A', 'D', 'X':
-		sid := iotds.ToSID(sd.Ma, sd.Pn)
+		sid := model.ToSID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(sid))
 		if !sd.Exporting {
 			writeTemplate(w, r, searchTemplate, &sd, "")
@@ -266,7 +267,7 @@ func searchMedia(sd *searchData, ctx context.Context, mid int64) error {
 	}
 
 	// A quick search just fetches datastore keys, from which we extract timestamps.
-	keys, err := iotds.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
+	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
 	if err != nil {
 		return fmt.Errorf("could not get MTS media keys: %w", err)
 	}
@@ -275,7 +276,7 @@ func searchMedia(sd *searchData, ctx context.Context, mid int64) error {
 	}
 
 	// Fetch the first result to get the type.
-	m, err := iotds.GetMtsMediaByKey(ctx, mediaStore, uint64(keys[0].ID))
+	m, err := model.GetMtsMediaByKey(ctx, mediaStore, uint64(keys[0].ID))
 	if err != nil {
 		return fmt.Errorf("could not get MTS media %d: %w", keys[0].ID, err)
 	}
@@ -290,7 +291,7 @@ func searchMedia(sd *searchData, ctx context.Context, mid int64) error {
 	prevTs := m.Timestamp
 	sd.Timestamps = []int64{prevTs}
 	for _, k := range keys[1:] {
-		_, ts, _ := iotds.SplitIDKey(k.ID)
+		_, ts, _ := datastore.SplitIDKey(k.ID)
 		if ts > prevTs+cp {
 			sd.Timestamps = append(sd.Timestamps, ts)
 			prevTs = ts

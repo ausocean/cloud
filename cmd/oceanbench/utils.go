@@ -28,6 +28,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,8 +39,8 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
-	"golang.org/x/net/context"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // reportError writes an error message to the logs and template.
@@ -61,7 +62,7 @@ func removeDate(s string) string {
 // acts is of form: <device.varname>=<value>,<device.varname>=<value>. For example,
 // if we need to turn on a camera and set its mode to normal:
 // ESP.CamPower=true,Camera.mode=Normal.
-func setActionVars(ctx context.Context, sKey int64, acts string, store iotds.Store) error {
+func setActionVars(ctx context.Context, sKey int64, acts string, store datastore.Store) error {
 	vars := strings.Split(acts, ",")
 	if len(vars) == 0 {
 		return errors.New("no var actions to perform")
@@ -82,15 +83,15 @@ func setActionVars(ctx context.Context, sKey int64, acts string, store iotds.Sto
 }
 
 // setVar sets cloud variables. These variable are only set if they already exist.
-func setVar(ctx context.Context, store iotds.Store, name, value string, sKey int64) error {
+func setVar(ctx context.Context, store datastore.Store, name, value string, sKey int64) error {
 	log.Printf("checking %s variable exists", name)
-	_, err := iotds.GetVariable(ctx, store, sKey, name)
+	_, err := model.GetVariable(ctx, store, sKey, name)
 	if err != nil {
 		return fmt.Errorf("could not get %s varable: %w", name, err)
 	}
 
 	log.Printf("%s variable exists, setting to value: %s", name, value)
-	err = iotds.PutVariable(ctx, store, sKey, name, value)
+	err = model.PutVariable(ctx, store, sKey, name, value)
 	if err != nil {
 		return fmt.Errorf("could not set %s variable: %w", name, err)
 	}
@@ -116,12 +117,12 @@ func addDurationToCronSpec(spec string, dur time.Duration) (string, error) {
 // registerCallCron registers a cron with action type "call". This will add the
 // provided key and function to the cron scheduler's func map, for calling
 // according to the cron spec with the provided data.
-func registerCallCron(id, spec, key string, cfg *BroadcastConfig, skey int64, store iotds.Store) error {
+func registerCallCron(id, spec, key string, cfg *BroadcastConfig, skey int64, store datastore.Store) error {
 	bytes, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("could not marshal broadcast config: %w", err)
 	}
-	c := iotds.Cron{
+	c := model.Cron{
 		Skey:    skey,
 		ID:      id,
 		Action:  "call",
@@ -131,7 +132,7 @@ func registerCallCron(id, spec, key string, cfg *BroadcastConfig, skey int64, st
 	}
 
 	// Parse the time based on the site's timezone.
-	site, err := iotds.GetSite(context.Background(), store, skey)
+	site, err := model.GetSite(context.Background(), store, skey)
 	if err != nil {
 		return fmt.Errorf("could not get site: %w", err)
 	}
@@ -141,7 +142,7 @@ func registerCallCron(id, spec, key string, cfg *BroadcastConfig, skey int64, st
 	}
 
 	// Add the cron to the scheduler and the database.
-	err = iotds.PutCron(context.Background(), store, &c)
+	err = model.PutCron(context.Background(), store, &c)
 	if err != nil {
 		return fmt.Errorf("could not put cron in datastore: %w", err)
 	}
@@ -191,7 +192,7 @@ func timeToCronSpec(timeStr string) (string, error) {
 // the datastore. An error is returned if there's no match or for other issues.
 func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
 	// Load config information for any prior broadcasts that have been saved.
-	vars, err := iotds.GetVariablesBySite(context.Background(), settingsStore, sKey, broadcastScope)
+	vars, err := model.GetVariablesBySite(context.Background(), settingsStore, sKey, broadcastScope)
 	if err != nil {
 		return nil, fmt.Errorf("could not get broadcast variables by site: %w", err)
 	}
@@ -212,8 +213,8 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
 
 	var callBackErr error
-	updateConfig := func(ety iotds.Entity) {
-		v, ok := ety.(*iotds.Variable)
+	updateConfig := func(ety datastore.Entity) {
+		v, ok := ety.(*model.Variable)
 		if !ok {
 			callBackErr = errors.New("could not cast entity to type Variable")
 			return
@@ -242,7 +243,7 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 		v.Updated = time.Now()
 	}
 
-	err := store.Update(ctx, key, updateConfig, &iotds.Variable{})
+	err := store.Update(ctx, key, updateConfig, &model.Variable{})
 	if err != nil {
 		return fmt.Errorf("could not update variable: %w", err)
 	}
@@ -268,7 +269,7 @@ func (e ErrBroadcastNotFound) Is(target error) bool {
 // broadcastFromVars searches a slice of broadcast variables for a broadcast
 // config with the provided name and returns if found, otherwise an error is
 // returned.
-func broadcastFromVars(broadcasts []iotds.Variable, name string) (*BroadcastConfig, error) {
+func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConfig, error) {
 	for _, v := range broadcasts {
 		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcastScope+".") {
 			var cfg BroadcastConfig
@@ -288,11 +289,11 @@ func broadcastFromVars(broadcasts []iotds.Variable, name string) (*BroadcastConf
 // device is considered to be sending data and the function returns
 // true, otherwise false is returned.
 func getDeviceStatus(ctx context.Context, mac int64, store Store) (bool, error) {
-	dev, err := iotds.GetDevice(ctx, store, mac)
+	dev, err := model.GetDevice(ctx, store, mac)
 	if err != nil {
 		return false, fmt.Errorf("could not get device: %w", err)
 	}
-	v, err := iotds.GetVariable(ctx, store, dev.Skey, "_"+dev.Hex()+".uptime")
+	v, err := model.GetVariable(ctx, store, dev.Skey, "_"+dev.Hex()+".uptime")
 	if err != nil {
 		return false, fmt.Errorf("could not get uptime variable: %w", err)
 	}

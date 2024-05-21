@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 func TestBasicEventBus(t *testing.T) {

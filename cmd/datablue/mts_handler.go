@@ -31,9 +31,10 @@ import (
 	"strconv"
 	"time"
 
-	"bitbucket.org/ausocean/av/container/mts"
-	"bitbucket.org/ausocean/av/container/mts/pes"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/av/container/mts"
+	"github.com/ausocean/av/container/mts/pes"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // mtsHandler receives audio/video data from devices in the form of
@@ -60,7 +61,7 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 	if err != nil {
 		writeDeviceError(w, dev, err)
 		return
@@ -111,8 +112,8 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 			resp["er"] = errInvalidSize.Error()
 			break
 		}
-		mid := iotds.ToMID(ma, pin)
-		err = writeMtsMedia(ctx, mid, gh, ts, clip, iotds.WriteMtsMedia)
+		mid := model.ToMID(ma, pin)
+		err = writeMtsMedia(ctx, mid, gh, ts, clip, model.WriteMtsMedia)
 		if err != nil {
 			log.Printf("could not write MTS media: %v", err)
 			resp["er"] = fmt.Sprintf("could not write MTS media: %v", err)
@@ -150,7 +151,7 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 // writeMtsMedia splits MTS data on PSI boundaries (~1 second for
 // video) then writes them using the supplied write function. Clips
 // should start with PSI (PAT and then PMT); anything prior is ignored.
-func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []byte, write func(context.Context, iotds.Store, *iotds.MtsMedia) error) error {
+func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []byte, write func(context.Context, datastore.Store, *model.MtsMedia) error) error {
 	if len(data) == 0 {
 		log.Printf("writeMtsMedia(%d) called with zero-length data", mid)
 		return nil
@@ -160,7 +161,7 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 	i, s, m, err := mts.FindPSI(data)
 	if err != nil {
 		log.Printf("writeMtsMedia(%d) PSI not found, len=%d", mid, len(data))
-		return write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Clip: data})
+		return write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Clip: data})
 	}
 
 	// Get the MIME type of the media. If SIDToMIMEType returns an error, i.e.
@@ -221,12 +222,12 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 			// Output up to the start of this PSI, then start a new clip.
 			ts = int64(t)
 			sz := i + psiSize + j
-			if sz > iotds.MaxBlob {
+			if sz > datastore.MaxBlob {
 				// Trim clips if they exceed the max blob size.
-				sz = iotds.MaxBlob / mts.PacketSize * mts.PacketSize
+				sz = datastore.MaxBlob / mts.PacketSize * mts.PacketSize
 				log.Printf("writeMtsMedia(%d) trimming %d bytes at end", mid, i+psiSize+j-sz)
 			}
-			err := write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data[:sz], FramePTS: fp})
+			err := write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data[:sz], FramePTS: fp})
 			if err != nil {
 				return err
 			}
@@ -240,7 +241,7 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 		}
 	}
 
-	return write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data, FramePTS: fp})
+	return write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data, FramePTS: fp})
 }
 
 // isMtsPin returns true if the pin is a video (V) or sound (S) pin, false otherwise.

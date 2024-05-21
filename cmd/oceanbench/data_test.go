@@ -38,7 +38,8 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -52,11 +53,11 @@ const (
 )
 
 func init() {
-	iotds.RegisterEntities()
+	model.RegisterEntities()
 }
 
 // TestPutScalars creates one day's worth of test data at one-minute intervals
-// starting from iotds.EpochStart (i.e., timestamps 1483228800 to 1483315200).
+// starting from datastore.EpochStart (i.e., timestamps 1483228800 to 1483315200).
 func TestPutScalars(t *testing.T) {
 	t.Log("TestPutScalars")
 	if os.Getenv("VIDGRIND_CREDENTIALS") == "" {
@@ -64,14 +65,14 @@ func TestPutScalars(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	store, err := iotds.NewStore(ctx, "cloud", "vidgrind", "")
+	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
 	if err != nil {
 		t.Errorf("NewStore failed with error: %v", err)
 	}
 
 	// Skip if data is already present.
-	id := iotds.ToSID(mac, pin)
-	scalars, err := iotds.GetScalars(ctx, store, id, []int64{iotds.EpochStart, iotds.EpochStart + minutesInDay*60})
+	id := model.ToSID(mac, pin)
+	scalars, err := model.GetScalars(ctx, store, id, []int64{datastore.EpochStart, datastore.EpochStart + minutesInDay*60})
 	if err != nil {
 		t.Errorf("GetScalars failed with error: %v", err)
 	}
@@ -79,10 +80,10 @@ func TestPutScalars(t *testing.T) {
 		t.Skip("Skipping TestPutScalars")
 	}
 
-	ts := int64(iotds.EpochStart)
+	ts := int64(datastore.EpochStart)
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
 	for i := 0; i < minutesInDay; i++ {
-		err := iotds.PutScalar(ctx, store, &iotds.Scalar{ID: id, Timestamp: ts, Value: float64(samples[i])})
+		err := model.PutScalar(ctx, store, &model.Scalar{ID: id, Timestamp: ts, Value: float64(samples[i])})
 		if err != nil {
 			t.Errorf("PutScalar failed with error: %v", err)
 		}
@@ -97,13 +98,13 @@ func TestGetScalars(t *testing.T) {
 		t.Skipf("VIDGRIND_CREDENTIALS missing")
 	}
 	ctx := context.Background()
-	store, err := iotds.NewStore(ctx, "cloud", "vidgrind", "")
+	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
 	if err != nil {
 		t.Errorf("NewStore failed with error: %v", err)
 	}
 
-	id := iotds.ToSID(mac, pin)
-	scalars, err := iotds.GetScalars(ctx, store, id, []int64{iotds.EpochStart, iotds.EpochStart + minutesInDay*60})
+	id := model.ToSID(mac, pin)
+	scalars, err := model.GetScalars(ctx, store, id, []int64{datastore.EpochStart, datastore.EpochStart + minutesInDay*60})
 	if err != nil {
 		t.Errorf("GetScalars failed with error: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestGetScalars(t *testing.T) {
 	}
 
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
-	ts := int64(iotds.EpochStart)
+	ts := int64(datastore.EpochStart)
 	for i := 0; i < minutesInDay; i++ {
 		if int64(scalars[i].Value) != samples[i] {
 			t.Errorf("#%d: expected %d, got %f", i, samples[i], scalars[i].Value)
@@ -129,7 +130,7 @@ func TestFetchScalars(t *testing.T) {
 	}
 
 	// Create a request.
-	q := fmt.Sprintf("/data/%d?ma=%s&pn=%s&ds=%d&df=%d&do=csv&tz=0", siteKey, mac, pin, iotds.EpochStart, iotds.EpochStart+minutesInDay*60)
+	q := fmt.Sprintf("/data/%d?ma=%s&pn=%s&ds=%d&df=%d&do=csv&tz=0", siteKey, mac, pin, datastore.EpochStart, datastore.EpochStart+minutesInDay*60)
 	req, err := http.NewRequest("GET", q, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +161,7 @@ func TestFetchScalars(t *testing.T) {
 	}
 
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
-	ts := int64(iotds.EpochStart)
+	ts := int64(datastore.EpochStart)
 	for i := 0; i < minutesInDay; i++ {
 		d, err := time.Parse(dateFmt, data[i][0])
 		if err != nil {

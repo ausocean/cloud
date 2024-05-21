@@ -26,13 +26,13 @@ package main
 import (
 	"testing"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
 )
 
 func TestConfigJSON(t *testing.T) {
 	// Test case 1: device key is not provided.
-	dev1 := &iotds.Device{
-		Mac:           iotds.MacEncode("00:11:22:33:44:55"),
+	dev1 := &model.Device{
+		Mac:           model.MacEncode("00:11:22:33:44:55"),
 		Wifi:          "SSID,PASS",
 		Inputs:        "S0,T0",
 		Outputs:       "D1,D2",
@@ -52,8 +52,8 @@ func TestConfigJSON(t *testing.T) {
 	}
 
 	// Test case 2: device key is provided.
-	dev2 := &iotds.Device{
-		Mac:           iotds.MacEncode("00:11:22:33:44:55"),
+	dev2 := &model.Device{
+		Mac:           model.MacEncode("00:11:22:33:44:55"),
 		Wifi:          "SSID,PASS",
 		Inputs:        "V0,T0",
 		Outputs:       "X1,D2",

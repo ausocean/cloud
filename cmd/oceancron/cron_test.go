@@ -27,58 +27,58 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
-        "github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 var cronSpecTests = []struct {
-	cron     *iotds.Cron
+	cron     *model.Cron
 	lat, lon float64
 	want     string
 	wantErr  error
 }{
 	{
-		cron:    &iotds.Cron{},
+		cron:    &model.Cron{},
 		want:    "",
 		wantErr: nil,
 	},
 	{
-		cron:    &iotds.Cron{Enabled: true},
+		cron:    &model.Cron{Enabled: true},
 		want:    "",
 		wantErr: errNoTimeSpec,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise"},
+		cron: &model.Cron{TOD: "@sunrise"},
 		lat:  1, lon: 1,
 		want:    "",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise", Enabled: true},
 		lat:  math.NaN(), lon: math.NaN(),
 		want:    "",
 		wantErr: errNoLocation,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@sunrise 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise+1h", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise+1h", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@sunrise+1h 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@noon", Enabled: true},
+		cron: &model.Cron{TOD: "@noon", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@noon 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@midnight", Enabled: true},
+		cron: &model.Cron{TOD: "@midnight", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@midnight",
 		wantErr: nil,
@@ -114,7 +114,7 @@ func TestRPC(t *testing.T) {
 	}
 
 	const url = "https://vidgrind.ausocean.org/checkbroadcasts"
-	testCron := iotds.Cron{Skey: 1, ID: "testCron", Time: time.Now(), TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
+	testCron := model.Cron{Skey: 1, ID: "testCron", Time: time.Now(), TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
 	err = cronScheduler.Set(&testCron)
 	if err != nil {
 		t.Errorf("cronScheduler.Set returned error: %v", err)

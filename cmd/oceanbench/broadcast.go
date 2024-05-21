@@ -37,9 +37,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 type Action int
@@ -47,9 +48,9 @@ type Action int
 type (
 	Cfg   = BroadcastConfig
 	Ctx   = context.Context
-	Store = iotds.Store
-	Key   = iotds.Key
-	Ety   = iotds.Entity
+	Store = datastore.Store
+	Key   = datastore.Key
+	Ety   = datastore.Entity
 )
 
 const (
@@ -86,7 +87,7 @@ const (
 
 // broadcastRequest is used by the broadcastHandler to hold broadcast information.
 type broadcastRequest struct {
-	BroadcastVars      []iotds.Variable // Holds prior saved broadcast configs.
+	BroadcastVars      []model.Variable // Holds prior saved broadcast configs.
 	CurrentBroadcast   BroadcastConfig  // Holds configuration data for broadcast config in form.
 	Cameras            []Camera         // Slice of all the cameras on the site.
 	Action             string           // Holds value of any button pressed.
@@ -142,7 +143,7 @@ type BroadcastConfig struct {
 // SensorEntry contains the information for each sensor.
 type SensorEntry struct {
 	SendMsg   bool
-	Sensor    iotds.SensorV2
+	Sensor    model.SensorV2
 	Name      string
 	DeviceMac int64
 }
@@ -198,7 +199,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			RTMPVar:         r.FormValue("rtmp-key-var"),
 			RTMPKey:         r.FormValue("rtmp-key"),
 			VidforwardHost:  r.FormValue("vidforward-host"),
-			CameraMac:       iotds.MacEncode(r.FormValue("camera-mac")),
+			CameraMac:       model.MacEncode(r.FormValue("camera-mac")),
 			OnActions:       r.FormValue("on-actions"),
 			OffActions:      r.FormValue("off-actions"),
 			SendMsg:         r.FormValue("report-sensor") == "Chat",
@@ -232,9 +233,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load config information for any existing broadcasts that have been saved.
-	req.BroadcastVars, err = iotds.GetVariablesBySite(ctx, settingsStore, sKey, broadcastScope)
+	req.BroadcastVars, err = model.GetVariablesBySite(ctx, settingsStore, sKey, broadcastScope)
 	switch err {
-	case nil, iotds.ErrNoSuchEntity:
+	case nil, datastore.ErrNoSuchEntity:
 	default:
 		reportError(w, r, req, "could not get broadcast configs variable: %v", err)
 		return
@@ -242,7 +243,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	// If we're not listing secondaries, we need to filter out any secondary broadcasts.
 	if !req.ListingSecondaries {
-		var filteredVars []iotds.Variable
+		var filteredVars []model.Variable
 		for _, v := range req.BroadcastVars {
 			if !strings.Contains(v.Name, "secondary") && !strings.Contains(v.Name, "Secondary") {
 				filteredVars = append(filteredVars, v)
@@ -263,7 +264,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get all macs from cameras that could be used on the stream.
-	devices, err := iotds.GetDevicesBySite(ctx, settingsStore, sKey)
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, sKey)
 	if err != nil {
 		reportError(w, r, req, "could not get sites devices: %v", err)
 		return
@@ -272,7 +273,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	var cam Camera
 	for _, dev := range devices {
 		if dev.Type == "Camera" {
-			cam = Camera{Name: dev.Name, MAC: iotds.MacDecode(dev.Mac)}
+			cam = Camera{Name: dev.Name, MAC: model.MacDecode(dev.Mac)}
 			req.Cameras = append(req.Cameras, cam)
 		}
 	}
@@ -382,16 +383,16 @@ func saveBroadcast(ctx context.Context, cfg *Cfg) error {
 
 // deleteBroadcast deletes a broadcast from the datastore and also updates the BroadcastVars
 // list and CurrentBroadcast config to clear the form on next page write.
-func deleteBroadcast(ctx context.Context, req *broadcastRequest, store iotds.Store) error {
+func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore.Store) error {
 	cfg := &req.CurrentBroadcast
-	err := iotds.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name)
+	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name)
 	if err != nil {
 		return fmt.Errorf("could not delete broadcast: %v", err)
 	}
 
-	req.BroadcastVars, err = iotds.GetVariablesBySite(ctx, store, cfg.SKey, broadcastScope)
+	req.BroadcastVars, err = model.GetVariablesBySite(ctx, store, cfg.SKey, broadcastScope)
 	switch err {
-	case nil, iotds.ErrNoSuchEntity:
+	case nil, datastore.ErrNoSuchEntity:
 	default:
 		return fmt.Errorf("could not get broadcast variables: %v", err)
 	}
@@ -421,8 +422,8 @@ func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) 
 	return true, nil
 }
 
-func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Request, store iotds.Store) error {
-	devices, err := iotds.GetDevicesBySite(ctx, store, req.CurrentBroadcast.SKey)
+func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Request, store datastore.Store) error {
+	devices, err := model.GetDevicesBySite(ctx, store, req.CurrentBroadcast.SKey)
 	if err != nil {
 		return fmt.Errorf("could no get devices: %w", err)
 	}
@@ -432,7 +433,7 @@ func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Reques
 		if dev.Type != "esp" && dev.Type != "Controller" {
 			continue
 		}
-		sensors, err := iotds.GetSensorsV2(ctx, store, dev.Mac)
+		sensors, err := model.GetSensorsV2(ctx, store, dev.Mac)
 		if err != nil {
 			return fmt.Errorf("could not get sensors: %w", err)
 		}
@@ -461,7 +462,7 @@ func (e ErrInvalidEndTime) Error() string {
 func saveLinkFunc() func(string, string) error {
 	return func(key, link string) error {
 		key = removeDate(key)
-		return iotds.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
+		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
 	}
 }
 
@@ -502,7 +503,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := iotds.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return
