@@ -30,7 +30,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -132,7 +131,7 @@ func setup(ctx context.Context) {
 		log.Fatalf("could not set up cron scheduler: %v", err)
 	}
 
-	err = notifier.Init(ctx, projectID, senderEmail, &timeStore{})
+	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
@@ -169,29 +168,6 @@ func setupCronScheduler(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// timeStore implements a notify.TimeStore that uses model.Variable for persistence.
-type timeStore struct {
-}
-
-// Get retrieves a notification time stored in an model.Variable.
-// We prepend an underscore to keep the variable private.
-func (ts *timeStore) Get(skey int64, key string) (time.Time, error) {
-	v, err := model.GetVariable(context.Background(), settingsStore, skey, "_"+key)
-	switch err {
-	case nil:
-		return v.Updated, nil
-	case datastore.ErrNoSuchEntity:
-		return time.Time{}, nil // We've never sent this kind of notice previously.
-	default:
-		return time.Time{}, err // Unexpected datastore error.
-	}
-}
-
-// Set updates a notification time stored in an model.Variable.
-func (ts *timeStore) Set(skey int64, key string, t time.Time) error {
-	return model.PutVariable(context.Background(), settingsStore, skey, "_"+key, "")
 }
 
 // writeError writes http errors to the response writer, in order to provide more detailed
