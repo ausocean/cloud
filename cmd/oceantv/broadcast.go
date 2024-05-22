@@ -37,10 +37,11 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/utils/nmea"
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/nmea"
 )
 
 type Action int
@@ -48,16 +49,16 @@ type Action int
 type (
 	Cfg   = BroadcastConfig
 	Ctx   = context.Context
-	Store = iotds.Store
-	Key   = iotds.Key
-	Ety   = iotds.Entity
+	Store = datastore.Store
+	Key   = datastore.Key
+	Ety   = datastore.Entity
 	Svc   = BroadcastService
 )
 
 const (
 	none Action = iota
 
-	// Actions related to vidgrind broadcast control.
+	// Actions related to broadcast control.
 	broadcastStart
 	broadcastStop
 	broadcastSave
@@ -133,7 +134,7 @@ type BroadcastConfig struct {
 // SensorEntry contains the information for each sensor.
 type SensorEntry struct {
 	SendMsg   bool
-	Sensor    iotds.SensorV2
+	Sensor    model.SensorV2
 	Name      string
 	DeviceMac int64
 }
@@ -179,13 +180,13 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	skey := int64(claims["skey"].(float64))
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %w", skey, err))
 		return
 	}
 	log.Printf("checking broadcasts for site %d", skey)
-	err = checkBroadcastsForSites(ctx, []iotds.Site{*site})
+	err = checkBroadcastsForSites(ctx, []model.Site{*site})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %w", skey, err))
 		return
@@ -194,10 +195,10 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx context.Context, sites []iotds.Site) error {
-	var cfgVars []iotds.Variable
+func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
+	var cfgVars []model.Variable
 	for _, s := range sites {
-		vars, err := iotds.GetVariablesBySite(ctx, settingsStore, s.Skey, broadcastScope)
+		vars, err := model.GetVariablesBySite(ctx, settingsStore, s.Skey, broadcastScope)
 		if err != nil {
 			log.Printf("could not get broadcast entities for site, skey: %d, name: %s, %v", s.Skey, s.Name, err)
 			continue
@@ -237,7 +238,7 @@ func performChecksInternalThroughStateMachine(
 	ctx context.Context,
 	cfg *BroadcastConfig,
 	timeNow func() time.Time,
-	store iotds.Store,
+	store datastore.Store,
 	svc BroadcastService,
 	man BroadcastManager,
 ) error {
@@ -396,7 +397,7 @@ func performChecksInternalThroughStateMachine(
 // performChecks wraps performChecksInternal and provides implementations of the
 // broadcast operations. These broadcast implementations are built around the
 // broadcast package, which employs the YouTube Live API.
-func performChecks(ctx context.Context, cfg *BroadcastConfig, store iotds.Store) error {
+func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
 	return performChecksInternalThroughStateMachine(
 		ctx,
 		cfg,
@@ -407,7 +408,7 @@ func performChecks(ctx context.Context, cfg *BroadcastConfig, store iotds.Store)
 	)
 }
 
-type BroadcastCallback func(context.Context, *BroadcastConfig, iotds.Store, BroadcastService) error
+type BroadcastCallback func(context.Context, *BroadcastConfig, datastore.Store, BroadcastService) error
 
 // handleChatMessage generates a message with sensor readings for the
 // relevant site and posts the message to the broadcast chat. This works by
@@ -429,8 +430,8 @@ func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
 		// Get the latest signal for the sensor.
 		var qty string
 
-		scalar, err := getLatestScalar(ctx, mediaStore, iotds.ToSID(iotds.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
-		if err == iotds.ErrNoSuchEntity {
+		scalar, err := getLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
+		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
 			return fmt.Errorf("could not get scalar for chat message: %v", err)
@@ -481,7 +482,7 @@ func (e ErrInvalidEndTime) Error() string {
 func saveLinkFunc() func(string, string) error {
 	return func(key, link string) error {
 		key = removeDate(key)
-		return iotds.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
+		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
 	}
 }
 
@@ -521,21 +522,21 @@ func extStop(ctx context.Context, cfg *BroadcastConfig) error {
 // saveBroadcast saves a broadcast configuration to the datastore with the
 // variable name as the broadcast name and if the broadcast uses vidforward
 // we update the vidforward configuration with a control request.
-func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store) error {
+func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
 	d, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
 	}
 
 	log.Printf("broadcast: %s, ID: %s, saving, cfg: %s", cfg.Name, cfg.ID, provideConfig(cfg))
-	err = iotds.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
+	err = model.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
 	if err != nil {
 		return fmt.Errorf("could not put broadcast data in store: %w", err)
 	}
 
 	// Ensure that the CheckBroadcast cron exists.
-	c := &iotds.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL+"/checkbroadcasts", Enabled: true}
-	err = iotds.PutCron(ctx, store, c)
+	c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL + "/checkbroadcasts", Enabled: true}
+	err = model.PutCron(ctx, store, c)
 	if err != nil {
 		return fmt.Errorf("failure verifying check broadcast cron: %w", err)
 	}
@@ -576,7 +577,7 @@ retry:
 // in healthy operation) and if it is not, change to complete.
 // Then we change the broadcast configuration Active field to false, save this
 // and stop all external streaming hardware.
-func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store, svc BroadcastService) error {
+func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService) error {
 	log.Printf("Broadcast: %s, ID: %s, stopping", cfg.Name, cfg.ID)
 
 	status, err := svc.BroadcastStatus(ctx, cfg.ID)
@@ -609,7 +610,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := iotds.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return
@@ -620,16 +621,16 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // getLatestScalar finds the most recent scalar within the countPeriod.
-func getLatestScalar(ctx context.Context, store iotds.Store, id int64) (*iotds.Scalar, error) {
+func getLatestScalar(ctx context.Context, store datastore.Store, id int64) (*model.Scalar, error) {
 	const countPeriod = 60 * time.Minute
 	start := time.Now().Add(-countPeriod).Unix()
-	keys, err := iotds.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
+	keys, err := model.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
 	if err != nil {
 		return nil, err
 	}
 	if len(keys) == 0 {
-		return nil, iotds.ErrNoSuchEntity
+		return nil, datastore.ErrNoSuchEntity
 	}
-	_, ts, _ := iotds.SplitIDKey(keys[len(keys)-1].ID)
-	return iotds.GetScalar(ctx, store, id, ts)
+	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
+	return model.GetScalar(ctx, store, id, ts)
 }

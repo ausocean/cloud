@@ -29,6 +29,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -41,13 +42,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
-	"bitbucket.org/ausocean/av/codec/wav"
-	"bitbucket.org/ausocean/av/container/mts"
-	"bitbucket.org/ausocean/av/container/mts/pes"
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/av/codec/wav"
+	"github.com/ausocean/av/container/mts"
+	"github.com/ausocean/av/container/mts/pes"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -90,7 +91,7 @@ var (
 // writeMtsMedia splits MTS data on PSI boundaries (~1 second for video) then writes them
 // using the supplied write function. Clips should start with PSI
 // (PAT and then PMT), anything prior is ignored.
-func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []byte, write func(context.Context, iotds.Store, *iotds.MtsMedia) error) error {
+func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []byte, write func(context.Context, datastore.Store, *model.MtsMedia) error) error {
 	if len(data) == 0 {
 		log.Printf("writeMtsMedia(%d) called with zero-length data", mid)
 		return nil
@@ -100,7 +101,7 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 	i, s, m, err := mts.FindPSI(data)
 	if err != nil {
 		log.Printf("writeMtsMedia(%d) PSI not found, len=%d", mid, len(data))
-		return write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Clip: data})
+		return write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Clip: data})
 	}
 
 	// Get the MIME type of the media. If SIDToMIMEType returns an error i.e.
@@ -161,11 +162,11 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 			// Output up to the start of this PSI, then start a new clip.
 			ts = int64(t)
 			sz := i + psiSize + j
-			if sz > iotds.MaxBlob && trimMTS {
-				sz = iotds.MaxBlob / mts.PacketSize * mts.PacketSize
+			if sz > datastore.MaxBlob && trimMTS {
+				sz = datastore.MaxBlob / mts.PacketSize * mts.PacketSize
 				log.Printf("writeMtsMedia(%d) trimming %d bytes at end", mid, i+psiSize+j-sz)
 			}
-			err := write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data[:sz], FramePTS: fp})
+			err := write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data[:sz], FramePTS: fp})
 			if err != nil {
 				return err
 			}
@@ -179,7 +180,7 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 		}
 	}
 
-	return write(ctx, mediaStore, &iotds.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data, FramePTS: fp})
+	return write(ctx, mediaStore, &model.MtsMedia{MID: mid, Geohash: gh, Timestamp: ts, Continues: true, Type: mime, Clip: data, FramePTS: fp})
 }
 
 type uploadData struct {
@@ -285,7 +286,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 	}
 
 	setup(ctx)
-	ok, err := hasPermission(ctx, p, mid, iotds.WritePermission)
+	ok, err := hasPermission(ctx, p, mid, model.WritePermission)
 	if err != nil {
 		return 0, fmt.Errorf("error checking permission: %w", err)
 	}
@@ -314,7 +315,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		content = content[:n]
 	}
 
-	err = writeMtsMedia(ctx, mid, gh, ts[0], content, iotds.WriteMtsMedia)
+	err = writeMtsMedia(ctx, mid, gh, ts[0], content, model.WriteMtsMedia)
 	if err != nil {
 		return 0, fmt.Errorf("error writing MTS media: %w", err)
 	}
@@ -350,7 +351,7 @@ func recvHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 	if err != nil {
 		writeDeviceError(w, dev, err)
 		return
@@ -401,8 +402,8 @@ func recvHandler(w http.ResponseWriter, r *http.Request) {
 			resp["er"] = errInvalidSize.Error()
 			break
 		}
-		mid := iotds.ToMID(ma, pin)
-		err = writeMtsMedia(ctx, mid, gh, ts, clip, iotds.WriteMtsMedia)
+		mid := model.ToMID(ma, pin)
+		err = writeMtsMedia(ctx, mid, gh, ts, clip, model.WriteMtsMedia)
 		if err != nil {
 			log.Printf("Could not create MtsMedia: %v", err)
 			resp["er"] = fmt.Sprintf("could not write mts media: %v", err)
@@ -432,16 +433,15 @@ func recvHandler(w http.ResponseWriter, r *http.Request) {
 	resp["ts"] = ts
 
 	// Insert location, if any
-	lat, lng, alt, ok := getLocation()
+	lat, lng, _, ok := getLocation()
 	if !ok && dev.Latitude != 0 && dev.Longitude != 0 {
 		// Fall back to the device location.
 		lat = dev.Latitude
 		lng = dev.Longitude
-		alt = 0
 		ok = true
 	}
 	if ok {
-		resp["ll"] = fmt.Sprintf("%0.5f,%0.5f,%0.1f", lat, lng, alt)
+		resp["ll"] = fmt.Sprintf("%0.5f,%0.5f", lat, lng)
 	}
 
 	// Return response to client as JSON
@@ -620,12 +620,12 @@ func getMedia(w http.ResponseWriter, r *http.Request, mid int64, ts []int64, ky 
 		fallthrough
 	default:
 		// Download media data.
-		var media []iotds.MtsMedia
+		var media []model.MtsMedia
 		var err error
 		if len(ky) == 0 {
-			media, err = iotds.GetMtsMedia(ctx, mediaStore, mid, nil, ts)
+			media, err = model.GetMtsMedia(ctx, mediaStore, mid, nil, ts)
 		} else {
-			media, err = iotds.GetMtsMediaByKeys(ctx, mediaStore, ky)
+			media, err = model.GetMtsMediaByKeys(ctx, mediaStore, ky)
 		}
 		if err != nil {
 			return nil, "", err
@@ -723,29 +723,29 @@ func splitTimestamps(s string, pair bool) ([]int64, error) {
 	}
 	ts := make([]int64, len(sl))
 	if sl[0] == 0 {
-		ts[0] = iotds.EpochStart
+		ts[0] = datastore.EpochStart
 	} else {
 		ts[0] = int64(sl[0])
 		if relative {
-			ts[0] += iotds.EpochStart
+			ts[0] += datastore.EpochStart
 		}
 	}
 	if len(sl) == 1 {
 		return ts, nil
 	}
 	if sl[1] == 0 {
-		ts[1] = iotds.EpochEnd
+		ts[1] = datastore.EpochEnd
 	} else {
 		ts[1] = int64(sl[1])
 		if relative {
-			ts[1] += iotds.EpochStart
+			ts[1] += datastore.EpochStart
 		}
 	}
 	return ts, nil
 }
 
 // joinMedia joins media clips into a single []byte.
-func joinMedia(clips []iotds.MtsMedia) []byte {
+func joinMedia(clips []model.MtsMedia) []byte {
 	var data []byte
 	for _, c := range clips {
 		data = append(data, c.Clip...)

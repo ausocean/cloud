@@ -19,10 +19,10 @@ can follow the official guides:
 
 1.  Clone the repository:
     ```bash
-    git clone https://bitbucket.org/ausocean/vidgrind.git
+    git clone https://github.com/ausocean/cloud.git
 2.  Change to the project directory:
     ```bash
-    cd vidgrind
+    cd cmd/oceanbench
 3.  Install node dependencies from package.json:
     ```bash
     npm install

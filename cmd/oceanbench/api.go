@@ -38,10 +38,10 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 // apiHandler handles API requests which take the form:
@@ -80,7 +80,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 				writeHttpError(w, http.StatusBadRequest, "could not parse site key from url: %v", err)
 				return
 			}
-			site, err := iotds.GetSite(ctx, settingsStore, skey)
+			site, err := model.GetSite(ctx, settingsStore, skey)
 			if err != nil {
 				writeHttpError(w, http.StatusInternalServerError, "could not get site with site key: %v: %v", strconv.Itoa(int(skey)), err)
 				return
@@ -90,7 +90,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case "sites":
-			sites, err := iotds.GetAllSites(ctx, settingsStore)
+			sites, err := model.GetAllSites(ctx, settingsStore)
 			if err != nil {
 				writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
 				return
@@ -227,13 +227,13 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		var resp []byte
 		switch prop {
 		case "put":
-			err := iotds.PutScalar(ctx, mediaStore, &iotds.Scalar{ID: args[0], Timestamp: args[1], Value: float64(args[2])})
+			err := model.PutScalar(ctx, mediaStore, &model.Scalar{ID: args[0], Timestamp: args[1], Value: float64(args[2])})
 			if err != nil {
 				writeHttpError(w, http.StatusInternalServerError, "could not put scalar: %v", err)
 				return
 			}
 		case "get":
-			scalars, err := iotds.GetScalars(ctx, mediaStore, args[0], []int64{args[1], args[2]})
+			scalars, err := model.GetScalars(ctx, mediaStore, args[0], []int64{args[1], args[2]})
 			if err != nil {
 				writeHttpError(w, http.StatusInternalServerError, "could not get scalar: %v", err)
 				return
@@ -264,7 +264,7 @@ func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health
 	if err != nil {
 		return nil, errors.New("bad request")
 	}
-	devices, err := iotds.GetDevicesBySite(ctx, settingsStore, skey)
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		return nil, errors.New("bad request")
 	}
@@ -298,8 +298,8 @@ func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health
 }
 
 // deviceHealthStatus returns the status of a device: 1 for reporting, 0 for not reporting, or -1 if unknown.
-func deviceHealthStatus(ctx context.Context, dev iotds.Device) health {
-	v, err := iotds.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
+func deviceHealthStatus(ctx context.Context, dev model.Device) health {
+	v, err := model.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
 	if err != nil {
 		return healthStatusUnknown
 	}

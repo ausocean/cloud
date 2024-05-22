@@ -34,7 +34,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/av/revid/config"
+	"github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 )
 

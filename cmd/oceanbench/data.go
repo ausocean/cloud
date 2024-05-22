@@ -35,7 +35,8 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const validFmts = "raw,csv,json,gviz"
@@ -92,7 +93,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("invalid site key in request: %s", req[2]))
 		return
 	}
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		writeError(w, fmt.Errorf("could not get the site of provided site key: %w", err))
 		return
@@ -114,7 +115,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scalars, err := iotds.GetScalars(ctx, mediaStore, iotds.ToSID(ma, pn), []int64{stUnix, ftUnix})
+	scalars, err := model.GetScalars(ctx, mediaStore, model.ToSID(ma, pn), []int64{stUnix, ftUnix})
 	if err != nil {
 		writeError(w, fmt.Errorf("could not get scalars for provided period: %w", err))
 		return
@@ -123,7 +124,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	// Apply resolution (points per hour) by skipping some records.
 	if res < 60 {
 		stepSize := 60.0 / float64(res)
-		var newScalars []iotds.Scalar
+		var newScalars []model.Scalar
 		for i := 0; i < len(scalars); i += int(stepSize) {
 			newScalars = append(newScalars, scalars[i])
 		}
@@ -131,8 +132,8 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply sensors, if any.
-	sensor, err := iotds.GetSensorV2(ctx, settingsStore, iotds.MacEncode(ma), pn)
-	if err != nil && err != iotds.ErrNoSuchEntity {
+	sensor, err := model.GetSensorV2(ctx, settingsStore, model.MacEncode(ma), pn)
+	if err != nil && err != datastore.ErrNoSuchEntity {
 		writeError(w, fmt.Errorf("could not get sensor: %w", err))
 		return
 	}

@@ -34,7 +34,8 @@ import (
 	"math"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // RateLimiter is an interface for a rate limiter.
@@ -63,9 +64,9 @@ const (
 // limiter does not exist, it is created with the given maxTokens and refillRate (tokens per hour).
 func GetOceanTokenBucketLimiter(maxTokens, refillRate float64, id string, store Store) (*OceanTokenBucketLimiter, error) {
 	var tokenBucketLimiter OceanTokenBucketLimiter
-	bucketVar, err := iotds.GetVariable(context.Background(), store, sharedSKey, tokenBucketScope+"."+id)
+	bucketVar, err := model.GetVariable(context.Background(), store, sharedSKey, tokenBucketScope+"."+id)
 	switch {
-	case errors.Is(err, iotds.ErrNoSuchEntity):
+	case errors.Is(err, datastore.ErrNoSuchEntity):
 		log.Printf("token bucket limiter not found, creating new one")
 		tokenBucketLimiter = OceanTokenBucketLimiter{
 			ID:             id,
@@ -122,7 +123,7 @@ func (l *OceanTokenBucketLimiter) store() error {
 	if err != nil {
 		return fmt.Errorf("could not marshal token bucket limiter: %w", err)
 	}
-	err = iotds.PutVariable(context.Background(), l.Store, sharedSKey, tokenBucketScope+"."+l.ID, string(data))
+	err = model.PutVariable(context.Background(), l.Store, sharedSKey, tokenBucketScope+"."+l.ID, string(data))
 	if err != nil {
 		return fmt.Errorf("could not put token bucket limiter: %w", err)
 	}

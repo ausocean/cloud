@@ -35,7 +35,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
 )
 
 // proxyScheduler is a cron client that forwards requests to a cron service, such as Ocean Cron.
@@ -48,7 +48,7 @@ type proxyScheduler struct {
 // datastore operations _before_ this calling this method, otherwise
 // changes will not be visible to the remote service.
 // TODO: Sign requests using JWT.
-func (ps *proxyScheduler) Set(cron *iotds.Cron) error {
+func (ps *proxyScheduler) Set(cron *model.Cron) error {
 	log.Printf("setting cron: %v", cron.ID)
 
 	// Create a new HTTP client.

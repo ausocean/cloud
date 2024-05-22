@@ -29,13 +29,14 @@ import (
 	"reflect"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 
-	"bitbucket.org/ausocean/av/container/mts"
-	"bitbucket.org/ausocean/av/container/mts/meta"
-	"bitbucket.org/ausocean/av/container/mts/pes"
-	"bitbucket.org/ausocean/av/container/mts/psi"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/av/container/mts"
+	"github.com/ausocean/av/container/mts/meta"
+	"github.com/ausocean/av/container/mts/pes"
+	"github.com/ausocean/av/container/mts/psi"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 var (
@@ -142,7 +143,7 @@ func TestWriteMtsMedia(t *testing.T) {
 
 		// writeMtsMedia will use this function to write the 1-second clips.
 		// In this case the function writes to our clips buffer.
-		write := func(ctx context.Context, s iotds.Store, m *iotds.MtsMedia) error {
+		write := func(ctx context.Context, s datastore.Store, m *model.MtsMedia) error {
 			got = append(got, m.Clip)
 			return nil
 		}

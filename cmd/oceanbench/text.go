@@ -33,19 +33,20 @@ import (
 	"fmt"
 	"net/http"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // getText handles text data requests. The text data and mime type are returned.
 func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, string, error) {
 	// Download text data.
-	media, err := iotds.GetText(r.Context(), mediaStore, mid, ts)
-	if err != nil && !errors.Is(err, iotds.ErrNoSuchEntity) {
+	media, err := model.GetText(r.Context(), mediaStore, mid, ts)
+	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		return nil, "", fmt.Errorf("could not get text from datastore: %w", err)
 	}
 
-	if errors.Is(err, iotds.ErrNoSuchEntity) || len(media) == 0 {
-		bds, err := iotds.GetBinaryData(r.Context(), settingsStore, mid, ts)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || len(media) == 0 {
+		bds, err := model.GetBinaryData(r.Context(), settingsStore, mid, ts)
 		if err != nil {
 			return nil, "", fmt.Errorf("could not get binary data from datastore: %w", err)
 		}
@@ -65,7 +66,7 @@ func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, strin
 }
 
 // joinText joins text data into a single []byte.
-func joinText(texts []iotds.Text) []byte {
+func joinText(texts []model.Text) []byte {
 	var data []byte
 	for _, t := range texts {
 		data = append(data, []byte(t.Data)...)
@@ -74,7 +75,7 @@ func joinText(texts []iotds.Text) []byte {
 	return data
 }
 
-func joinBinaryText(bins []iotds.BinaryData) ([]byte, error) {
+func joinBinaryText(bins []model.BinaryData) ([]byte, error) {
 	var data []byte
 	for _, b := range bins {
 		data = append(data, []byte(b.Data)...)

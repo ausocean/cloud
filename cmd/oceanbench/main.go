@@ -68,9 +68,10 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
-	"bitbucket.org/ausocean/utils/sliceutils"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/sliceutils"
 )
 
 const (
@@ -134,7 +135,7 @@ type commonData struct {
 	Profile    *gauth.Profile
 	LoginURL   string
 	LogoutURL  string
-	Users      []iotds.User
+	Users      []model.User
 	Footer     template.HTML
 }
 
@@ -146,8 +147,8 @@ var (
 	rtpEndpoint   string
 	trimMTS       bool
 	dataHost      = "https://bench.cloudblue.org"
-	mediaStore    iotds.Store
-	settingsStore iotds.Store
+	mediaStore    datastore.Store
+	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
 	auth          *gauth.UserAuth
@@ -166,7 +167,7 @@ var (
 
 // templateFuncs defines custom template functions.
 var templateFuncs = template.FuncMap{
-	"macdecode":     iotds.MacDecode,
+	"macdecode":     model.MacDecode,
 	"split":         strings.Split,
 	"part":          sliceutils.StringPart,
 	"float":         parseFloat,
@@ -331,37 +332,37 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		mediaStore, err = iotds.NewStore(ctx, "file", "vidgrind", "store")
+		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
 		if err == nil {
 			settingsStore = mediaStore
 			err = setupLocal(ctx, settingsStore)
 		}
 	} else {
 		log.Printf("Running in App Engine mode")
-		mediaStore, err = iotds.NewStore(ctx, "cloud", "vidgrind", "")
+		mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
 		if err == nil {
-			settingsStore, err = iotds.NewStore(ctx, "cloud", "netreceiver", "")
+			settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
 		}
 	}
 	if err != nil {
-		log.Fatalf("setup failed due to iotds.NewStore error: %v", err)
+		log.Fatalf("setup failed due to datastore.NewStore error: %v", err)
 	}
 
-	iotds.RegisterEntities()
+	model.RegisterEntities()
 }
 
 // setupLocal creates a local site, user and device for use in standalone mode.
-func setupLocal(ctx context.Context, store iotds.Store) error {
+func setupLocal(ctx context.Context, store datastore.Store) error {
 	standaloneData = "1:" + localSite
-	err := iotds.PutSite(ctx, store, &iotds.Site{Skey: 1, Name: localSite, Enabled: true})
+	err := model.PutSite(ctx, store, &model.Site{Skey: 1, Name: localSite, Enabled: true})
 	if err != nil {
 		return err
 	}
-	err = iotds.PutUser(ctx, store, &iotds.User{Skey: 1, Email: localEmail, Perm: iotds.ReadPermission | iotds.WritePermission | iotds.AdminPermission})
+	err = model.PutUser(ctx, store, &model.User{Skey: 1, Email: localEmail, Perm: model.ReadPermission | model.WritePermission | model.AdminPermission})
 	if err != nil {
 		return err
 	}
-	err = iotds.PutDevice(ctx, store, &iotds.Device{Skey: 1, Mac: 1, Dkey: 0, Name: localDevice, Inputs: "A0,V0,S0", MonitorPeriod: 60, Enabled: true})
+	err = model.PutDevice(ctx, store, &model.Device{Skey: 1, Mac: 1, Dkey: 0, Name: localDevice, Inputs: "A0,V0,S0", MonitorPeriod: 60, Enabled: true})
 
 	return err
 }
@@ -406,8 +407,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	writeTemplate(w, r, "index.html", &data, "")
 }
 
-func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Context, profile *gauth.Profile, data interface{}) ([]iotds.User, error) {
-	users, err := iotds.GetUsers(ctx, settingsStore, profile.Email)
+func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Context, profile *gauth.Profile, data interface{}) ([]model.User, error) {
+	users, err := model.GetUsers(ctx, settingsStore, profile.Email)
 	if err != nil {
 		return nil, fmt.Errorf("could not get users: %w", err)
 	}
@@ -419,13 +420,13 @@ func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Con
 	}
 
 	// Get all public sites, if a public site hasn't been added yet, add it.
-	publicSites, err := iotds.GetPublicSites(ctx, settingsStore)
+	publicSites, err := model.GetPublicSites(ctx, settingsStore)
 	if err != nil {
 		return nil, fmt.Errorf("could not get public sites: %w", err)
 	}
 	for _, s := range publicSites {
 		if !added[s.Skey] {
-			users = append(users, iotds.User{Skey: s.Skey, Perm: iotds.ReadPermission})
+			users = append(users, model.User{Skey: s.Skey, Perm: model.ReadPermission})
 		}
 	}
 	return users, nil
@@ -492,7 +493,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	setup(ctx)
 
-	ok, err := hasPermission(ctx, p, mid, iotds.ReadPermission)
+	ok, err := hasPermission(ctx, p, mid, model.ReadPermission)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -505,7 +506,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	var content []byte
 	var mime, name string
 
-	_, pin := iotds.FromMID(mid)
+	_, pin := model.FromMID(mid)
 	switch pin[0] {
 	case 'V', 'S':
 		content, mime, err = getMedia(w, r, mid, ts, ky)
@@ -558,25 +559,25 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 	if standalone {
 		return true, nil
 	}
-	ma, _ := iotds.FromMID(mid)
-	dev, err := iotds.GetDevice(ctx, settingsStore, iotds.MacEncode(ma))
+	ma, _ := model.FromMID(mid)
+	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
 	if err != nil {
-		if err != iotds.ErrNoSuchEntity {
+		if err != datastore.ErrNoSuchEntity {
 			return false, fmt.Errorf("error getting device: %w", err)
 		}
 		return false, nil
 	}
-	site, err := iotds.GetSite(ctx, settingsStore, dev.Skey)
+	site, err := model.GetSite(ctx, settingsStore, dev.Skey)
 	if err != nil {
 		return false, fmt.Errorf("error getting site: %w", err)
 	}
 	if site.Public {
-		return perm == iotds.ReadPermission, nil
+		return perm == model.ReadPermission, nil
 	}
 	if p == nil {
 		return false, nil // User not logged in.
 	}
-	user, err := iotds.GetUser(ctx, settingsStore, dev.Skey, p.Email)
+	user, err := model.GetUser(ctx, settingsStore, dev.Skey, p.Email)
 	if err != nil {
 		return false, fmt.Errorf("error getting user: %w", err)
 	}
@@ -642,67 +643,67 @@ func pages(selected string) []page {
 		{
 			Name: "home",
 			URL:  "/",
-			Perm: iotds.ReadPermission,
+			Perm: model.ReadPermission,
 		},
 		{
 			Name: "search",
 			URL:  "/search",
-			Perm: iotds.ReadPermission,
+			Perm: model.ReadPermission,
 		},
 		{
 			Name: "monitor",
 			URL:  "/monitor",
-			Perm: iotds.ReadPermission,
+			Perm: model.ReadPermission,
 		},
 		{
 			Name: "play",
 			URL:  "/play",
-			Perm: iotds.ReadPermission,
+			Perm: model.ReadPermission,
 		},
 		{
 			Name: "upload",
 			URL:  "/upload",
-			Perm: iotds.WritePermission,
+			Perm: model.WritePermission,
 		},
 		{
 			Name:  "settings",
 			Group: true,
-			Perm:  iotds.WritePermission,
+			Perm:  model.WritePermission,
 		},
 		{
 			Name:  "devices",
 			URL:   "/set/devices",
 			Level: 1,
-			Perm:  iotds.WritePermission,
+			Perm:  model.WritePermission,
 		},
 		{
 			Name:  "crons",
 			URL:   "/set/crons",
 			Level: 1,
-			Perm:  iotds.WritePermission,
+			Perm:  model.WritePermission,
 		},
 		{
 			Name:  "admin",
 			Group: true,
-			Perm:  iotds.AdminPermission,
+			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "site",
 			URL:   "/admin/site",
 			Level: 1,
-			Perm:  iotds.AdminPermission,
+			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "broadcast",
 			URL:   "/admin/broadcast",
 			Level: 1,
-			Perm:  iotds.AdminPermission,
+			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "utilities",
 			URL:   "/admin/utils",
 			Level: 1,
-			Perm:  iotds.AdminPermission,
+			Perm:  model.AdminPermission,
 		},
 	}
 	for i := range pages {
@@ -714,7 +715,7 @@ func pages(selected string) []page {
 }
 
 // configJSON generates JSON for a config request response given a device, varsum, and device key.
-func configJSON(dev *iotds.Device, vs int64, dk string) (string, error) {
+func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 	config := struct {
 		MAC           string `json:"ma"`
 		Wifi          string `json:"wi"`
@@ -781,17 +782,17 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 
 	var dkey int64
 	switch err {
-	case nil, iotds.ErrInvalidDeviceKey:
+	case nil, model.ErrInvalidDeviceKey:
 		dkey, _ = strconv.ParseInt(dk, 10, 64) // Can't fail.
-	case iotds.ErrMissingDeviceKey:
+	case model.ErrMissingDeviceKey:
 		// Device key defaults to zero.
-	case iotds.ErrNoSuchEntity:
+	case datastore.ErrNoSuchEntity:
 		log.Printf("/config from unknown device %s", ma)
-		writeError(w, iotds.ErrDeviceNotFound)
+		writeError(w, model.ErrDeviceNotFound)
 		return
 	default:
 		writeDeviceError(w, dev, err)
@@ -807,7 +808,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 			// We should not get here. A known, configured device is using the wrong key,
 			// so we return an error rather than forcing the device to reconfigure.
 			log.Printf("/config from device %s with invalid device key %d", ma, dkey)
-			writeError(w, iotds.ErrInvalidDeviceKey)
+			writeError(w, model.ErrInvalidDeviceKey)
 			return
 		}
 
@@ -821,7 +822,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		dev.Status = deviceStatusOK
 	}
 
-	vs, _ := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+	vs, _ := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
 	resp, err := configJSON(dev, vs, dk)
 	if err != nil {
 		log.Printf("could not generate config response JSON for device with MAC %v: %v", ma, err)
@@ -833,18 +834,18 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	// Update the device.
 	dev.Updated = time.Now()
 	dev.Protocol = vn
-	iotds.PutDevice(ctx, settingsStore, dev)
+	model.PutDevice(ctx, settingsStore, dev)
 
 	// Update the system variables for this device with the client's uptime, local address and var types.
 	if ut != "" {
-		iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
+		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
 	}
 	if la != "" {
-		iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr", la)
+		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr", la)
 	}
 	if varTypes != nil {
 		for k, v := range varTypes {
-			iotds.PutVariable(ctx, settingsStore, dev.Skey, "_type."+k, v)
+			model.PutVariable(ctx, settingsStore, dev.Skey, "_type."+k, v)
 		}
 	}
 }
@@ -862,7 +863,7 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 	if err != nil {
 		writeDeviceError(w, dev, err)
 		return
@@ -871,12 +872,12 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	if vn != "" && vn != dev.Protocol {
 		log.Printf("netsender %s updated to protocol %s", ma, vn)
 		dev.Protocol = vn
-		err := iotds.PutDevice(ctx, settingsStore, dev)
+		err := model.PutDevice(ctx, settingsStore, dev)
 		if err != nil {
 			log.Printf("error putting device %s: %v", ma, err)
 		}
 	}
-	vs, err := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		log.Printf("error getting varsum: %v", err)
 	}
@@ -928,7 +929,7 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the system variable for this device with the client's uptime.
-	err = iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
+	err = model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
 	if err != nil {
 		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
 	}
@@ -942,8 +943,8 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // processActuators updates the response map with actuator values, if any.
-func processActuators(ctx context.Context, dev *iotds.Device, respMap map[string]interface{}) error {
-	acts, err := iotds.GetActuatorsV2(ctx, settingsStore, dev.Mac)
+func processActuators(ctx context.Context, dev *model.Device, respMap map[string]interface{}) error {
+	acts, err := model.GetActuatorsV2(ctx, settingsStore, dev.Mac)
 	if err != nil {
 		return fmt.Errorf("failed to get actuators for device %d: %w", dev.Mac, err)
 	}
@@ -954,7 +955,7 @@ func processActuators(ctx context.Context, dev *iotds.Device, respMap map[string
 		}
 
 		// Actuator var names are relative to their device.
-		val, err := iotds.GetVariable(ctx, settingsStore, dev.Skey, dev.Hex()+"."+act.Var)
+		val, err := model.GetVariable(ctx, settingsStore, dev.Skey, dev.Hex()+"."+act.Var)
 		if err != nil {
 			return fmt.Errorf("failed to get actuator by %s.%s: %w", dev.Hex(), act.Pin, err)
 		}
@@ -983,9 +984,9 @@ func toInt(s string) (int64, error) {
 
 // writeScalar writes a scalar value.
 func writeScalar(r *http.Request, ma, pin string, n float64) error {
-	id := iotds.ToSID(ma, pin)
+	id := model.ToSID(ma, pin)
 	ts := time.Now().Unix()
-	return iotds.PutScalar(r.Context(), mediaStore, &iotds.Scalar{ID: id, Timestamp: ts, Value: n})
+	return model.PutScalar(r.Context(), mediaStore, &model.Scalar{ID: id, Timestamp: ts, Value: n})
 }
 
 // writeText writes text data.
@@ -999,10 +1000,10 @@ func writeText(r *http.Request, ma, pin string, n int) error {
 		return errInvalidSize
 	}
 
-	mid := iotds.ToMID(ma, pin)
+	mid := model.ToMID(ma, pin)
 	ts := time.Now().Unix()
 	tt := r.Header.Get("Content-Type")
-	return iotds.WriteText(r.Context(), mediaStore, &iotds.Text{MID: mid, Timestamp: ts, Data: string(data), Type: tt})
+	return model.WriteText(r.Context(), mediaStore, &model.Text{MID: mid, Timestamp: ts, Data: string(data), Type: tt})
 }
 
 // actHandler handles act requests.
@@ -1015,7 +1016,7 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 	if err != nil {
 		writeDeviceError(w, dev, err)
 		return
@@ -1027,7 +1028,7 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 	if dev.Status != deviceStatusOK {
 		respMap["rc"] = int(dev.Status)
 	} else {
-		vsInt, err := iotds.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
+		vsInt, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
 		if err != nil {
 			writeError(w, fmt.Errorf("could not get var sum: %w", err))
 			return
@@ -1042,7 +1043,7 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = iotds.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", "")
+	err = model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", "")
 	if err != nil {
 		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
 	}
@@ -1070,17 +1071,17 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Is this request for a valid device?
 	setup(ctx)
-	dev, err := iotds.CheckDevice(ctx, settingsStore, ma, dk)
+	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
 	if err != nil {
 		writeDeviceError(w, dev, err)
 		return
 	}
 
 	if md != "" {
-		iotds.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		iotds.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
 	}
-	vars, err := iotds.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
+	vars, err := model.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		writeError(w, err)
 		return
@@ -1094,7 +1095,7 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 		resp += `"` + v.Name + `":"` + v.Value + `",`
 
 	}
-	vs := iotds.ComputeVarSum(vars)
+	vs := model.ComputeVarSum(vars)
 	resp += `"vs":"` + strconv.Itoa(int(vs)) + `"}`
 	fmt.Fprint(w, resp)
 }
@@ -1120,7 +1121,7 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 		case "device":
 			switch req[4] {
 			case "1":
-				err := iotds.PutDevice(ctx, settingsStore, &iotds.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
+				err := model.PutDevice(ctx, settingsStore, &model.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
 				if err != nil {
 					writeHttpError(w, http.StatusInternalServerError, "could not put devices: %v", err)
 					return
@@ -1154,15 +1155,15 @@ func writeError(w http.ResponseWriter, err error) {
 }
 
 // writeDeviceError writes an error in JSON format with an optional update response code for device key errors.
-func writeDeviceError(w http.ResponseWriter, dev *iotds.Device, err error) {
+func writeDeviceError(w http.ResponseWriter, dev *model.Device, err error) {
 	var rc string
 	switch err {
-	case iotds.ErrMalformedDeviceKey, iotds.ErrInvalidDeviceKey:
+	case model.ErrMalformedDeviceKey, model.ErrInvalidDeviceKey:
 		if dev != nil {
 			log.Printf("bad request from %s: %v", dev.MAC(), err)
 		}
 		fallthrough
-	case iotds.ErrMissingDeviceKey:
+	case model.ErrMissingDeviceKey:
 		rc = `,"rc":` + strconv.Itoa(deviceStatusUpdate)
 	}
 	w.Header().Add("Content-Type", "application/json")

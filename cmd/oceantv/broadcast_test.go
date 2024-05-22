@@ -31,8 +31,8 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // TestRemoveDate tests the removeDate helper function.
@@ -136,21 +136,25 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 	d.t.Logf(format, args...)
 }
 
-// dummyStore is a dummy implementation of the iotds.Store interface.
+// dummyStore is a dummy implementation of the datastore.Store interface.
 // It basically does nothing and is used to test the broadcast functions.
 type dummyStore struct{}
 
-func (d *dummyStore) IDKey(kind string, id int64) *Key                                    { return nil }
-func (d *dummyStore) NameKey(kind, name string) *Key                                      { return nil }
-func (d *dummyStore) IncompleteKey(kind string) *Key                                      { return nil }
-func (d *dummyStore) Get(ctx Ctx, key *Key, dst Ety) error                                { return nil }
-func (d *dummyStore) DeleteMulti(ctx Ctx, keys []*Key) error                              { return nil }
-func (d *dummyStore) NewQuery(kind string, keysOnly bool, keyParts ...string) iotds.Query { return nil }
-func (d *dummyStore) GetAll(ctx Ctx, q iotds.Query, dst interface{}) ([]*Key, error)      { return nil, nil }
-func (d *dummyStore) Put(ctx Ctx, key *Key, src Ety) (*Key, error)                        { return nil, nil }
-func (d *dummyStore) Create(ctx Ctx, key *Key, src Ety) error                             { return nil }
-func (d *dummyStore) Update(ctx Ctx, key *Key, fn func(Ety), dst Ety) error               { return nil }
-func (d *dummyStore) Delete(ctx Ctx, key *Key) error                                      { return nil }
+func (d *dummyStore) IDKey(kind string, id int64) *Key       { return nil }
+func (d *dummyStore) NameKey(kind, name string) *Key         { return nil }
+func (d *dummyStore) IncompleteKey(kind string) *Key         { return nil }
+func (d *dummyStore) Get(ctx Ctx, key *Key, dst Ety) error   { return nil }
+func (d *dummyStore) DeleteMulti(ctx Ctx, keys []*Key) error { return nil }
+func (d *dummyStore) NewQuery(kind string, keysOnly bool, keyParts ...string) datastore.Query {
+	return nil
+}
+func (d *dummyStore) GetAll(ctx Ctx, q datastore.Query, dst interface{}) ([]*Key, error) {
+	return nil, nil
+}
+func (d *dummyStore) Put(ctx Ctx, key *Key, src Ety) (*Key, error)          { return nil, nil }
+func (d *dummyStore) Create(ctx Ctx, key *Key, src Ety) error               { return nil }
+func (d *dummyStore) Update(ctx Ctx, key *Key, fn func(Ety), dst Ety) error { return nil }
+func (d *dummyStore) Delete(ctx Ctx, key *Key) error                        { return nil }
 
 // dummyService is a dummy implementation of the BroadcastService interface.
 // It does nothing and is used to test the broadcast functions.

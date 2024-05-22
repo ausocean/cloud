@@ -29,27 +29,27 @@ package main
 import (
 	"testing"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
 )
 
 func TestSecondsToUptime(t *testing.T) {
 	var tests = []struct {
-		v       *iotds.Variable
+		v       *model.Variable
 		want    string
 		wantErr error
 	}{
 		{
-			v:       &iotds.Variable{Value: "90061"},
+			v:       &model.Variable{Value: "90061"},
 			want:    "1d 1h 1m 1s",
 			wantErr: nil,
 		},
 		{
-			v:       &iotds.Variable{Value: "0"},
+			v:       &model.Variable{Value: "0"},
 			want:    "0d 0h 0m 0s",
 			wantErr: nil,
 		},
 		{
-			v:       &iotds.Variable{Value: ""},
+			v:       &model.Variable{Value: ""},
 			want:    "None",
 			wantErr: nil,
 		},
@@ -59,9 +59,9 @@ func TestSecondsToUptime(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-			got, gotErr := secondsToUptime(test.v)
-			if got != test.want || gotErr != test.wantErr {
-				t.Errorf("did not get expected result for test no. %d \ngot: %s \tgotErr: %v \nwant: %s \twantErr: %v", i, got, gotErr, test.want, test.wantErr)
-			}
+		got, gotErr := secondsToUptime(test.v)
+		if got != test.want || gotErr != test.wantErr {
+			t.Errorf("did not get expected result for test no. %d \ngot: %s \tgotErr: %v \nwant: %s \twantErr: %v", i, got, gotErr, test.want, test.wantErr)
 		}
 	}
+}

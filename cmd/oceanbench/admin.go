@@ -28,6 +28,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -40,10 +41,9 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // struct role maps NetReceiver and Ocean Bench permissions.
@@ -55,8 +55,8 @@ type role struct {
 // adminData stores the data served to the admin site page.
 type adminData struct {
 	Skey      int64
-	Site      *iotds.Site
-	SiteUsers []iotds.User
+	Site      *model.Site
+	SiteUsers []model.User
 	Roles     []role
 	commonData
 }
@@ -64,8 +64,8 @@ type adminData struct {
 // utilsData stores the data served to the admin utils page.
 type utilsData struct {
 	Ma, Sn  string
-	Sites   []iotds.Site
-	Devices []iotds.Device
+	Sites   []model.Site
+	Devices []model.Device
 	Info    map[string]string
 	commonData
 }
@@ -192,19 +192,19 @@ func addSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
 	for {
 		// Create a random 31-bit number that is at least 10 digits.
 		skey = rand.Int63n((1<<31)-1000000000) + 1000000000
-		site := iotds.Site{Skey: skey, Name: sn, Public: false, Enabled: true}
-		err := iotds.CreateSite(ctx, settingsStore, &site)
+		site := model.Site{Skey: skey, Name: sn, Public: false, Enabled: true}
+		err := model.CreateSite(ctx, settingsStore, &site)
 		if err == nil {
 			break
 		}
-		if err != iotds.ErrEntityExists {
+		if err != datastore.ErrEntityExists {
 			return fmt.Errorf("cannot create site: %w", err)
 		}
 	}
 
 	// Create an admin user for the new site.
-	user := iotds.User{Skey: skey, Email: p.Email, Perm: iotds.ReadPermission | iotds.WritePermission | iotds.AdminPermission, Created: time.Now()}
-	err := iotds.PutUser(ctx, settingsStore, &user)
+	user := model.User{Skey: skey, Email: p.Email, Perm: model.ReadPermission | model.WritePermission | model.AdminPermission, Created: time.Now()}
+	err := model.PutUser(ctx, settingsStore, &user)
 	if err != nil {
 		return fmt.Errorf("cannot create user: %w", err)
 	}
@@ -269,7 +269,7 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	en := r.FormValue("en") != ""
 
 	ctx := r.Context()
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		return fmt.Errorf("cannot get site: %w", err)
 	}
@@ -283,7 +283,7 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	site.Public = pb
 	site.Confirmed = cf
 	site.Enabled = en
-	err = iotds.PutSite(ctx, settingsStore, site)
+	err = model.PutSite(ctx, settingsStore, site)
 	if err != nil {
 		return fmt.Errorf("cannot put site: %w", err)
 	}
@@ -296,18 +296,18 @@ func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	skey, _ := profileData(p)
 	ctx := r.Context()
 
-	err := iotds.DeleteSite(ctx, settingsStore, skey)
+	err := model.DeleteSite(ctx, settingsStore, skey)
 	if err != nil {
 		return fmt.Errorf("cannot delete site: %w", err)
 	}
 
-	users, err := iotds.GetUsersBySite(ctx, settingsStore, skey)
+	users, err := model.GetUsersBySite(ctx, settingsStore, skey)
 	if err != nil {
 		return fmt.Errorf("cannot get users: %w", err)
 	}
 
 	for _, user := range users {
-		err = iotds.DeleteUser(ctx, settingsStore, skey, user.Email)
+		err = model.DeleteUser(ctx, settingsStore, skey, user.Email)
 		if err != nil {
 			return fmt.Errorf("cannot delete user: %w", err)
 		}
@@ -327,8 +327,8 @@ func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	if err != nil {
 		return fmt.Errorf("cannot parse permission: %w", err)
 	}
-	user := iotds.User{Skey: skey, Email: email, Perm: perm, Created: time.Now()}
-	err = iotds.PutUser(r.Context(), settingsStore, &user)
+	user := model.User{Skey: skey, Email: email, Perm: perm, Created: time.Now()}
+	err = model.PutUser(r.Context(), settingsStore, &user)
 	if err != nil {
 		return fmt.Errorf("cannot put user: %w", err)
 	}
@@ -341,7 +341,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	skey, _ := profileData(p)
 
 	email := r.FormValue("email")
-	err := iotds.DeleteUser(r.Context(), settingsStore, skey, email)
+	err := model.DeleteUser(r.Context(), settingsStore, skey, email)
 	if err != nil {
 		return fmt.Errorf("cannot delete user: %w", err)
 	}
@@ -366,15 +366,15 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 			},
 			{
 				Name: "read",
-				Perm: iotds.ReadPermission,
+				Perm: model.ReadPermission,
 			},
 			{
 				Name: "write",
-				Perm: iotds.ReadPermission | iotds.WritePermission,
+				Perm: model.ReadPermission | model.WritePermission,
 			},
 			{
 				Name: "admin",
-				Perm: iotds.ReadPermission | iotds.WritePermission | iotds.AdminPermission,
+				Perm: model.ReadPermission | model.WritePermission | model.AdminPermission,
 			},
 		},
 	}
@@ -389,11 +389,11 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 		writeTemplate(w, r, "admin.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
 		return
 	}
-	data.Site, err = iotds.GetSite(ctx, settingsStore, skey)
+	data.Site, err = model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		log.Printf("GetSite error: %v", err)
 	}
-	data.SiteUsers, err = iotds.GetUsersBySite(ctx, settingsStore, skey)
+	data.SiteUsers, err = model.GetUsersBySite(ctx, settingsStore, skey)
 	if err != nil {
 		log.Printf("GetUsersBySite error: %v", err)
 	}
@@ -407,14 +407,14 @@ func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	skey, _ := profileData(p)
 
 	var msg string
-	devices, err := iotds.GetDevicesBySite(ctx, settingsStore, skey)
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		msg = fmt.Sprintf("cannot get devices: %v", err)
 	} else {
 		sort.Slice(devices, func(i, j int) bool { return devices[i].Name < devices[j].Name })
 	}
 
-	sites, err := iotds.GetAllSites(ctx, settingsStore)
+	sites, err := model.GetAllSites(ctx, settingsStore)
 	if err != nil {
 		msg = fmt.Sprintf("cannot get sites: %v", err)
 	} else {
@@ -466,11 +466,11 @@ func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, 
 	// Get device.
 	ma := r.FormValue("ma")
 	data.Ma = ma
-	mac := iotds.MacEncode(ma)
+	mac := model.MacEncode(ma)
 
-	dev, err := iotds.GetDevice(ctx, settingsStore, iotds.MacEncode(ma))
+	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
 	if err != nil {
-		if err == iotds.ErrNoSuchEntity {
+		if err == datastore.ErrNoSuchEntity {
 			data.Msg = "device not found"
 			return nil
 		} else {
@@ -493,9 +493,9 @@ func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, 
 		return fmt.Errorf("invalid task: %s", task)
 	}
 
-	site, err := iotds.GetSite(ctx, settingsStore, targetSkey)
+	site, err := model.GetSite(ctx, settingsStore, targetSkey)
 	if err != nil {
-		if err == iotds.ErrNoSuchEntity {
+		if err == datastore.ErrNoSuchEntity {
 			data.Msg = "site not found"
 			return nil
 		} else {
@@ -516,22 +516,22 @@ func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, 
 
 	// Update the device with its new site key.
 	dev.Skey = targetSkey
-	err = iotds.PutDevice(ctx, settingsStore, dev)
+	err = model.PutDevice(ctx, settingsStore, dev)
 	if err != nil {
 		return fmt.Errorf("cannot update device %d: %v", mac, err)
 	}
 
 	// Move the device variables (by re-creating and deleting).
-	vars, err := iotds.GetVariablesBySite(ctx, settingsStore, skey, dev.Hex())
+	vars, err := model.GetVariablesBySite(ctx, settingsStore, skey, dev.Hex())
 	if err != nil {
 		return fmt.Errorf("cannot get variables for device %d: %v", mac, err)
 	}
 	for _, v := range vars {
-		err := iotds.PutVariable(ctx, settingsStore, targetSkey, v.Name, v.Value)
+		err := model.PutVariable(ctx, settingsStore, targetSkey, v.Name, v.Value)
 		if err != nil {
 			return fmt.Errorf("cannot put variable %d.%s: %v", targetSkey, v.Name, err)
 		}
-		err = iotds.DeleteVariable(ctx, settingsStore, skey, v.Name)
+		err = model.DeleteVariable(ctx, settingsStore, skey, v.Name)
 		if err != nil {
 			return fmt.Errorf("cannot delete variable %d.%s: %v", skey, v.Name, err)
 		}
@@ -555,9 +555,9 @@ func isSuperAdmin(email string) bool {
 
 // isAdmin returns true if a user has admin privileges for the given site.
 func isAdmin(ctx context.Context, skey int64, email string) bool {
-	user, err := iotds.GetUser(ctx, settingsStore, skey, email)
+	user, err := model.GetUser(ctx, settingsStore, skey, email)
 	if err == nil {
-		return user.Perm&iotds.AdminPermission != 0
+		return user.Perm&model.AdminPermission != 0
 	}
 	return false
 }

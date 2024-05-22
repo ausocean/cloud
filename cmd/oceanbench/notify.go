@@ -27,6 +27,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -36,10 +37,10 @@ import (
 	"time"
 
 	mailjet "github.com/mailjet/mailjet-apiv3-go"
-	"golang.org/x/net/context"
 
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -68,13 +69,13 @@ func notifyOps(ctx context.Context, skey int64, kind, msg string) error {
 
 // notify sends a notification unless an identical notice was sent recently.
 func notify(ctx context.Context, skey int64, kind, recipient, msg string, mins int) error {
-	v, err := iotds.GetVariable(ctx, settingsStore, skey, "_"+kind+"."+recipient)
+	v, err := model.GetVariable(ctx, settingsStore, skey, "_"+kind+"."+recipient)
 	switch err {
 	case nil:
 		if time.Since(v.Updated) < time.Duration(mins)*time.Minute {
 			return nil // Recently notified, so nothing to do.
 		}
-	case iotds.ErrNoSuchEntity:
+	case datastore.ErrNoSuchEntity:
 		break
 	default:
 		return err // Unexpected datastore error.
@@ -112,7 +113,7 @@ func notify(ctx context.Context, skey int64, kind, recipient, msg string, mins i
 		return fmt.Errorf("could not send mail: %w", err)
 	}
 
-	err = iotds.PutVariable(ctx, settingsStore, skey, "_"+kind+"."+recipient, "")
+	err = model.PutVariable(ctx, settingsStore, skey, "_"+kind+"."+recipient, "")
 	if err != nil {
 		return fmt.Errorf("could not put variable: %w", err)
 	}
