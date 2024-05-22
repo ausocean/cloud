@@ -70,12 +70,13 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
 const (
-	version      = "0.18.0"
+	version      = "0.19.0"
 	ptsTolerance = 12000 // 133ms
 	localSite    = "localhost"
 	localDevice  = "localdevice"
@@ -85,12 +86,13 @@ const (
 )
 
 const (
+	projectID          = "oceanbench"
 	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
 	tvServiceURL       = "https://oceantv.appspot.com"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	locationID         = "Australia/Adelaide" // TODO: Use site location.
+	senderEmail        = "vidgrindservice@gmail.com"
 )
 
 // Device health statuses.
@@ -140,7 +142,6 @@ type commonData struct {
 }
 
 var (
-	projectID     = "oceanbench"
 	setupMutex    sync.Mutex
 	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/*.html"))
 	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/set/*.html"))
@@ -153,6 +154,7 @@ var (
 	standalone    bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
+	notifier      notify.Notifier
 )
 
 var (
@@ -349,6 +351,11 @@ func setup(ctx context.Context) {
 	}
 
 	model.RegisterEntities()
+
+	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
+	if err != nil {
+		log.Fatalf("could not set up email notifier: %v", err)
+	}
 }
 
 // setupLocal creates a local site, user and device for use in standalone mode.

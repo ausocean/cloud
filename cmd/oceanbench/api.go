@@ -288,7 +288,7 @@ func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health
 			msg = fmt.Sprintf("Device %d/%s is unhealthy", skey, id)
 		}
 		log.Print(msg)
-		err := notifyOps(ctx, skey, "health", msg)
+		err := notifier.SendOps(ctx, skey, "health", msg)
 		if err != nil {
 			log.Printf("unable to notify ops: %v", err)
 		}
