@@ -63,8 +63,6 @@ type quantity struct {
 }
 
 // defaultQuantities provides a list of common quantities we might measure.
-// This was originally defined in the netreceiver code, see
-// github.com/ausocean/clientsvc/netreceiver/lists.py:420
 func defaultQuantities() []quantity {
 	return []quantity{
 		{Code: "AWA", Name: "Apparent Wind Angle", Type: "angle"},
