@@ -57,16 +57,13 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -77,12 +74,9 @@ import (
 
 const (
 	version      = "0.19.0"
-	ptsTolerance = 12000 // 133ms
 	localSite    = "localhost"
 	localDevice  = "localdevice"
 	localEmail   = "localuser@localhost"
-	apiSeed      = 845681267
-	version138   = 138
 )
 
 const (
@@ -145,8 +139,6 @@ var (
 	setupMutex    sync.Mutex
 	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/*.html"))
 	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/set/*.html"))
-	rtpEndpoint   string
-	trimMTS       bool
 	dataHost      = "https://bench.cloudblue.org"
 	mediaStore    datastore.Store
 	settingsStore datastore.Store
@@ -187,16 +179,7 @@ func main() {
 			defaultPort = i
 		}
 	}
-	exp := strings.Split(os.Getenv("VIDGRIND_EXPERIMENTS"), ",")
-	if ok, i := sliceutils.ContainsStringPrefix(exp, "RTP_ENDPOINT="); ok {
-		v := exp[i][len("RTP_ENDPOINT="):]
-		log.Printf("Experiment RTP_ENDPOINT enabled: %s", v)
-		rtpEndpoint = v
-	}
-	if sliceutils.ContainsString(exp, "TRIM_MTS") {
-		log.Printf("Experiment TRIM_MTS enabled")
-		trimMTS = true
-	}
+	exp := strings.Split(os.Getenv("OCEANBENCH_EXPERIMENTS"), ",")
 	if ok, i := sliceutils.ContainsStringPrefix(exp, "DATA_HOST="); ok {
 		v := exp[i][len("DATA_HOST="):]
 		log.Printf("Experiment DATA_HOST enabled: %s", v)
@@ -237,14 +220,6 @@ func main() {
 	if err != nil {
 		log.Printf("could not get cronSecret: %v", err)
 	}
-
-	// Device requests.
-	// TODO: Remove these once all clients sending to data.cloudblue.org.
-	http.HandleFunc("/recv", recvHandler)
-	http.HandleFunc("/config", configHandler)
-	http.HandleFunc("/poll", pollHandler)
-	http.HandleFunc("/act", actHandler)
-	http.HandleFunc("/vars", varsHandler)
 
 	// User requests.
 	http.HandleFunc("/search", searchHandler)
@@ -329,7 +304,6 @@ func setup(ctx context.Context) {
 	if mediaStore != nil {
 		return
 	}
-	rand.Seed(apiSeed)
 
 	var err error
 	if standalone {
@@ -443,21 +417,6 @@ func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Con
 func warmupHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	w.Write([]byte{})
-}
-
-// cronIndexHandler renders the one and only page served in cron mode.
-func cronIndexHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-
-	if r.URL.Path != "/" {
-		// Redirect all invalid URLs to the home page.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
-	data := commonData{}
-
-	writeTemplate(w, r, "cron-index.html", &data, "")
 }
 
 // getHandler handles media and text requests, depending on the pin type.
@@ -753,360 +712,6 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 	return string(jsonBytes), nil
 }
 
-// configHandler handles configuration requests for a given device.
-func configHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-
-	q := r.URL.Query()
-	ma := q.Get("ma")
-	dk := q.Get("dk")
-	vn := q.Get("vn")
-	ut := q.Get("ut")
-	la := q.Get("la")
-	vt := q.Get("vt")
-
-	// Extract var types from the body if vt is present.
-	var varTypes map[string]string
-	if vt != "" {
-		n, err := strconv.Atoi(vt)
-		if err != nil {
-			writeError(w, errInvalidSize)
-			return
-		}
-		body := make([]byte, n)
-		_, err = io.ReadFull(r.Body, body)
-		if err != nil {
-			writeError(w, errInvalidBody)
-			return
-		}
-		err = json.Unmarshal(body, &varTypes)
-		if err != nil {
-			writeError(w, errInvalidJSON)
-			return
-		}
-	}
-
-	// Is this request for a valid device?
-	setup(ctx)
-	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
-
-	var dkey int64
-	switch err {
-	case nil, model.ErrInvalidDeviceKey:
-		dkey, _ = strconv.ParseInt(dk, 10, 64) // Can't fail.
-	case model.ErrMissingDeviceKey:
-		// Device key defaults to zero.
-	case datastore.ErrNoSuchEntity:
-		log.Printf("/config from unknown device %s", ma)
-		writeError(w, model.ErrDeviceNotFound)
-		return
-	default:
-		writeDeviceError(w, dev, err)
-		return
-	}
-
-	// NB: Only reveal the device key if it has changed.
-	dk = ""
-
-	if dev.Status == deviceStatusOK {
-		// Device is configured, so check the device key matches.
-		if dkey != dev.Dkey {
-			// We should not get here. A known, configured device is using the wrong key,
-			// so we return an error rather than forcing the device to reconfigure.
-			log.Printf("/config from device %s with invalid device key %d", ma, dkey)
-			writeError(w, model.ErrInvalidDeviceKey)
-			return
-		}
-
-	} else {
-		// Device is not configured
-		log.Printf("/config from unconfigured device %s", ma)
-		if dkey != dev.Dkey {
-			// Inform the device of its new key.
-			dk = strconv.FormatInt(dev.Dkey, 10)
-		}
-		dev.Status = deviceStatusOK
-	}
-
-	vs, _ := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
-	resp, err := configJSON(dev, vs, dk)
-	if err != nil {
-		log.Printf("could not generate config response JSON for device with MAC %v: %v", ma, err)
-		writeError(w, err)
-		return
-	}
-	fmt.Fprint(w, resp)
-
-	// Update the device.
-	dev.Updated = time.Now()
-	dev.Protocol = vn
-	model.PutDevice(ctx, settingsStore, dev)
-
-	// Update the system variables for this device with the client's uptime, local address and var types.
-	if ut != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
-	}
-	if la != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".localaddr", la)
-	}
-	if varTypes != nil {
-		for k, v := range varTypes {
-			model.PutVariable(ctx, settingsStore, dev.Skey, "_type."+k, v)
-		}
-	}
-}
-
-// pollHandler handles poll requests.
-func pollHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-
-	q := r.URL.Query()
-	ma := q.Get("ma")
-	dk := q.Get("dk")
-	ut := q.Get("ut")
-	vn := q.Get("vn")
-
-	// Is this request for a valid device?
-	setup(ctx)
-	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
-	if err != nil {
-		writeDeviceError(w, dev, err)
-		return
-	}
-	// Update the client protocol version number if it has changed.
-	if vn != "" && vn != dev.Protocol {
-		log.Printf("netsender %s updated to protocol %s", ma, vn)
-		dev.Protocol = vn
-		err := model.PutDevice(ctx, settingsStore, dev)
-		if err != nil {
-			log.Printf("error putting device %s: %v", ma, err)
-		}
-	}
-	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
-	if err != nil {
-		log.Printf("error getting varsum: %v", err)
-	}
-
-	for _, pin := range strings.Split(dev.Inputs, ",") {
-		// Get numeric value for pin, if present.
-		v := q.Get(pin)
-		if v == "" {
-			continue
-		}
-		n, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			writeError(w, errInvalidValue)
-			break
-		}
-
-		switch pin[0] {
-		case 'A', 'D', 'X':
-			err = writeScalar(r, ma, pin, n)
-
-		case 'B':
-			// Not implemented.
-
-		case 'S', 'V':
-			// Handled by /recv.
-
-		case 'T':
-			err = writeText(r, ma, pin, int(n))
-
-		default:
-			err = errInvalidPin
-		}
-
-		if err != nil {
-			writeError(w, err)
-			return
-		}
-	}
-
-	respMap := map[string]interface{}{"ma": ma, "vs": int(vs)}
-	if dev.Status != deviceStatusOK {
-		respMap["rc"] = int(dev.Status)
-	}
-
-	err = processActuators(ctx, dev, respMap)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	// Update the system variable for this device with the client's uptime.
-	err = model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
-	if err != nil {
-		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
-	}
-
-	resp, err := json.Marshal(respMap)
-	if err != nil {
-		writeError(w, fmt.Errorf("could not marshal response map %w", err))
-		return
-	}
-	w.Write(resp)
-}
-
-// processActuators updates the response map with actuator values, if any.
-func processActuators(ctx context.Context, dev *model.Device, respMap map[string]interface{}) error {
-	acts, err := model.GetActuatorsV2(ctx, settingsStore, dev.Mac)
-	if err != nil {
-		return fmt.Errorf("failed to get actuators for device %d: %w", dev.Mac, err)
-	}
-	for _, act := range acts {
-		// Ignore defunct actuators.
-		if !sliceutils.ContainsString(dev.OutputList(), act.Pin) {
-			continue
-		}
-
-		// Actuator var names are relative to their device.
-		val, err := model.GetVariable(ctx, settingsStore, dev.Skey, dev.Hex()+"."+act.Var)
-		if err != nil {
-			return fmt.Errorf("failed to get actuator by %s.%s: %w", dev.Hex(), act.Pin, err)
-		}
-
-		n, err := toInt(val.Value)
-		if err != nil {
-			return fmt.Errorf("could not convert variable value to int: %w", err)
-		}
-		respMap[act.Pin] = n
-	}
-	return nil
-}
-
-// toInt returns 1 for "true", 0 for "false", or otherwise attempts to parse the string as an integer.
-func toInt(s string) (int64, error) {
-	s = strings.ToLower(s)
-	switch s {
-	case "true":
-		return 1, nil
-	case "false":
-		return 0, nil
-	default:
-		return strconv.ParseInt(s, 10, 64)
-	}
-}
-
-// writeScalar writes a scalar value.
-func writeScalar(r *http.Request, ma, pin string, n float64) error {
-	id := model.ToSID(ma, pin)
-	ts := time.Now().Unix()
-	return model.PutScalar(r.Context(), mediaStore, &model.Scalar{ID: id, Timestamp: ts, Value: n})
-}
-
-// writeText writes text data.
-func writeText(r *http.Request, ma, pin string, n int) error {
-	data := make([]byte, n)
-	n_, err := io.ReadFull(r.Body, data)
-	if err != nil {
-		return err
-	}
-	if n != n_ {
-		return errInvalidSize
-	}
-
-	mid := model.ToMID(ma, pin)
-	ts := time.Now().Unix()
-	tt := r.Header.Get("Content-Type")
-	return model.WriteText(r.Context(), mediaStore, &model.Text{MID: mid, Timestamp: ts, Data: string(data), Type: tt})
-}
-
-// actHandler handles act requests.
-func actHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	q := r.URL.Query()
-	ma := q.Get("ma")
-	dk := q.Get("dk")
-
-	// Is this request for a valid device?
-	setup(ctx)
-	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
-	if err != nil {
-		writeDeviceError(w, dev, err)
-		return
-	}
-
-	respMap := map[string]interface{}{"ma": ma}
-
-	// If status is not okay.
-	if dev.Status != deviceStatusOK {
-		respMap["rc"] = int(dev.Status)
-	} else {
-		vsInt, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
-		if err != nil {
-			writeError(w, fmt.Errorf("could not get var sum: %w", err))
-			return
-		}
-
-		respMap["vs"] = int(vsInt)
-	}
-
-	err = processActuators(ctx, dev, respMap)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	err = model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", "")
-	if err != nil {
-		log.Printf("error putting variable %s: %v", "_"+dev.Hex()+".uptime", err)
-	}
-
-	resp, err := json.Marshal(respMap)
-	if err != nil {
-		writeError(w, fmt.Errorf("could not marshal response map %w", err))
-		return
-	}
-
-	w.Write(resp)
-}
-
-// varsHandler returns vars for a given device (except for system variables).
-// NB: Format vs as a string, not an int.
-func varsHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-
-	q := r.URL.Query()
-	ma := q.Get("ma")
-	dk := q.Get("dk")
-	md := q.Get("md")
-	er := q.Get("er")
-
-	// Is this request for a valid device?
-	setup(ctx)
-	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
-	if err != nil {
-		writeDeviceError(w, dev, err)
-		return
-	}
-
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
-	}
-	vars, err := model.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	resp := `{"id":"` + dev.Hex() + `",`
-	for _, v := range vars {
-		if v.IsSystemVariable() {
-			continue
-		}
-		resp += `"` + v.Name + `":"` + v.Value + `",`
-
-	}
-	vs := model.ComputeVarSum(vars)
-	resp += `"vs":"` + strconv.Itoa(int(vs)) + `"}`
-	fmt.Fprint(w, resp)
-}
-
 // testHandler handles test operations:
 //
 //	/test/operation/operand
@@ -1158,23 +763,8 @@ func logRequest(r *http.Request) {
 
 // writeError writes an error in JSON format.
 func writeError(w http.ResponseWriter, err error) {
-	writeDeviceError(w, nil, err)
-}
-
-// writeDeviceError writes an error in JSON format with an optional update response code for device key errors.
-func writeDeviceError(w http.ResponseWriter, dev *model.Device, err error) {
-	var rc string
-	switch err {
-	case model.ErrMalformedDeviceKey, model.ErrInvalidDeviceKey:
-		if dev != nil {
-			log.Printf("bad request from %s: %v", dev.MAC(), err)
-		}
-		fallthrough
-	case model.ErrMissingDeviceKey:
-		rc = `,"rc":` + strconv.Itoa(deviceStatusUpdate)
-	}
 	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprint(w, `{"er":"`+err.Error()+`"`+rc+`}`)
+	fmt.Fprint(w, `{"er":"`+err.Error()+`}`)
 	if debug {
 		log.Println("Wrote error: " + err.Error())
 	}
