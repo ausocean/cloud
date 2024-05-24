@@ -239,7 +239,12 @@ func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive 
 }
 
 func (s *vidforwardSecondaryLive) enter() {}
-func (s *vidforwardSecondaryLive) exit()  {}
+func (s *vidforwardSecondaryLive) exit() {
+	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	if err != nil {
+		log.Printf("broadcast: %s, ID: %s, could not stop broadcast", s.cfg.Name, s.cfg.ID)
+	}
+}
 
 type vidforwardSecondaryLiveUnhealthy struct{}
 
