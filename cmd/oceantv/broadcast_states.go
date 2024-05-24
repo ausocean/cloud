@@ -259,10 +259,20 @@ func newVidforwardSecondaryStarting(ctx *broadcastContext) *vidforwardSecondaryS
 }
 func (s *vidforwardSecondaryStarting) enter() {
 	s.LastEntered = time.Now()
+	// We pass this to createBroadcastAndRequestHardware so that it's run after
+	// broadcast creation, therefore vidforward gets up to date RTMP endpoint
+	// information.
+	onBroadcastCreation := func() error {
+		err := s.fwd.Stream(s.cfg)
+		if err != nil {
+			return fmt.Errorf("could not set vidforward mode to stream: %w", err)
+		}
+		return nil
+	}
 	createBroadcastAndRequestHardware(
 		s.broadcastContext,
 		s.cfg,
-		nil, // Don't require anything on creation.
+		onBroadcastCreation,
 	)
 }
 func (s *vidforwardSecondaryStarting) exit() {}
