@@ -135,28 +135,29 @@ func BroadcastStream(
 	svc *youtube.Service,
 	broadcast, description, stream, privacy, resolution, typ, framerate string,
 	start, end time.Time,
+	log func(string, ...interface{}),
 	opts ...googleapi.CallOption) (googleapi.ServerResponse, IDs, error) {
 
-	bID, cID, resp, err := insertBroadcast(svc, broadcast, privacy, start, end, opts...)
+	bID, cID, resp, err := insertBroadcast(svc, broadcast, privacy, start, end, log, opts...)
 	ids := IDs{BID: bID, CID: cID}
 	if err != nil {
 		return resp, ids, fmt.Errorf("could not insert broadcast: %w", err)
 	}
 
-	resp, err = setCatAndDesc(svc, broadcast, bID, description)
+	resp, err = setCatAndDesc(svc, broadcast, bID, description, log)
 	if err != nil {
 		return resp, ids, fmt.Errorf("could not set video category: %w", err)
 	}
-	log.Printf("set category response: %v", resp)
+	log("set category response: %v", resp)
 
 	// stream_id = insert_stream(youtube, args)
-	sID, resp, err := insertStream(svc, stream, resolution, typ, framerate, opts...)
+	sID, resp, err := insertStream(svc, stream, resolution, typ, framerate, log, opts...)
 	if err != nil {
 		return resp, ids, fmt.Errorf("could not insert stream: %w", err)
 	}
 	ids.SID = sID
 
-	resp, err = bindBroadcast(svc, bID, sID, opts...)
+	resp, err = bindBroadcast(svc, bID, sID, log, opts...)
 	if err != nil {
 		return resp, ids, fmt.Errorf("could not bind broadcast: %w", err)
 	}
@@ -167,8 +168,8 @@ func BroadcastStream(
 
 // CompleteBroadcast uses the YouTube API to set the broadcast status of the broadcast with
 // bId to "complete".
-func CompleteBroadcast(svc *youtube.Service, bID string) error {
-	return transition("complete", bID, 0, youtube.NewLiveBroadcastsService(svc))
+func CompleteBroadcast(svc *youtube.Service, bID string, log func(string, ...interface{})) error {
+	return transition("complete", bID, 0, youtube.NewLiveBroadcastsService(svc), log)
 }
 
 // PostChatMessage posts the provided message to the chat with the provided
@@ -205,9 +206,10 @@ func Start(
 	extStart, extStop func() error,
 	notify func(msg string) error,
 	onLiveActions func() error,
+	log func(string, ...interface{}),
 ) error {
-	log.Printf("broadcast: %s, ID: %s, start time reached. Performing setup.", name, bID)
-	err := doStatusActions(bID, sID)
+	log("starting youtube broadcast object")
+	err := doStatusActions(bID, sID, log)
 	if err != nil {
 		return fmt.Errorf("broadcast: %s, ID: %s, could not do status actions: %w", name, bID, err)
 	}
@@ -242,7 +244,7 @@ func logAndNotify(notify func(msg string) error, msg string, args ...interface{}
 
 // doStatusActions performs a series of status waits and status transitions
 // required for live status.
-func doStatusActions(bID, sID string) error {
+func doStatusActions(bID, sID string, log func(string, ...interface{})) error {
 	svc, err := GetService(context.Background(), youtube.YoutubeScope)
 	if err != nil {
 		return fmt.Errorf("could not get youtube service: %w", err)
@@ -252,7 +254,7 @@ func doStatusActions(bID, sID string) error {
 	sSvc := youtube.NewLiveStreamsService(svc)
 
 	statusActions := []struct {
-		action     func(status, id string, timeout time.Duration, svc interface{}) error
+		action     func(status, id string, timeout time.Duration, svc interface{}, log func(string, ...interface{})) error
 		status, id string
 		timeout    time.Duration
 		svc        interface{} // Acceptable types are *youtube.LiveBroadcastsService and *youtube.LiveStreamsService.
@@ -266,7 +268,7 @@ func doStatusActions(bID, sID string) error {
 	}
 
 	for i, v := range statusActions {
-		err := v.action(v.status, v.id, v.timeout, v.svc)
+		err := v.action(v.status, v.id, v.timeout, v.svc, log)
 		if err != nil {
 			return fmt.Errorf("failed to go live, could not perform status action: %d: %w", i, err)
 		}
@@ -278,12 +280,12 @@ func doStatusActions(bID, sID string) error {
 // id. The wait will terminate if timeout is exceeded.
 // Accepted types for svc are *youtube.LiveBroadcastsService and
 // *youtube.LiveStreamsService.
-func waitStatus(status, id string, timeout time.Duration, svc interface{}) error {
+func waitStatus(status, id string, timeout time.Duration, svc interface{}, log func(string, ...interface{})) error {
 	const checkIntvl = 15 * time.Second
 	chk := time.NewTicker(checkIntvl)
 	tmo := time.NewTimer(timeout)
 
-	log.Printf("waiting for %s status...", status)
+	log("waiting for %s status...", status)
 	for {
 		select {
 		case <-tmo.C: // Timeout..
@@ -304,7 +306,7 @@ func waitStatus(status, id string, timeout time.Duration, svc interface{}) error
 			}
 
 			if s == status {
-				log.Printf("status %s reached, breaking...", status)
+				log("status %s reached, breaking...", status)
 				return nil
 			}
 		}
@@ -362,16 +364,16 @@ func GetHealthStatus(svc *youtube.Service, id string) (*youtube.LiveStreamHealth
 // robustTransition transitions to another status with more leniency on errors
 // that might be caused by temporary inactive periods i.e. we retry up to
 // transitionMaxTries before returning with error.
-func robustTransition(status, id string, timeout time.Duration, svc interface{}) error {
+func robustTransition(status, id string, timeout time.Duration, svc interface{}, log func(string, ...interface{})) error {
 	const (
 		transitionMaxTries = 3
 		retryWait          = 5 * time.Second
 	)
 	var err error
 	for i := 0; i < transitionMaxTries; i++ {
-		err = transition(status, id, timeout, svc)
+		err = transition(status, id, timeout, svc, log)
 		if err != nil {
-			log.Printf("transition to %s for %s failed on attempt %d with error: %v", status, id, i, err)
+			log("transition to %s for %s failed on attempt %d with error: %v", status, id, i, err)
 			time.Sleep(retryWait)
 			continue
 		}
@@ -382,15 +384,15 @@ func robustTransition(status, id string, timeout time.Duration, svc interface{})
 
 // transition transitions to the given status for broadcast with the given id.
 // svc must have underlying type of *youtube.LiveBroadcastsService.
-func transition(status, id string, timeout time.Duration, svc interface{}) error {
-	log.Printf("ID: %s, requesting transition to %s status...", id, status)
+func transition(status, id string, timeout time.Duration, svc interface{}, log func(string, ...interface{})) error {
+	log("ID: %s, requesting transition to %s status...", id, status)
 	_, err := svc.(*youtube.LiveBroadcastsService).Transition(status, id, []string{"status"}).Do()
 	return err
 }
 
 // insertBroadcast corresponds to https://github.com/youtube/api-samples/blob/07263305b59a7c3275bc7e925f9ce6cabf774022/python/create_broadcast.py#L63-L84
-func insertBroadcast(svc *youtube.Service, broadcast, privacy string, start, end time.Time, opts ...googleapi.CallOption) (id, chatId string, servResp googleapi.ServerResponse, err error) {
-	log.Printf("inserting broadcast, name: %s, privacy: %s, start: %v, end: %v", broadcast, privacy, start, end)
+func insertBroadcast(svc *youtube.Service, broadcast, privacy string, start, end time.Time, log func(string, ...interface{}), opts ...googleapi.CallOption) (id, chatId string, servResp googleapi.ServerResponse, err error) {
+	log("inserting broadcast, name: %s, privacy: %s, start: %v, end: %v", broadcast, privacy, start, end)
 	// broadcast_id = insert_broadcast(youtube, args)
 	b := youtube.NewLiveBroadcastsService(svc)
 	resp, err := b.Insert([]string{"snippet", "status"}, &youtube.LiveBroadcast{
@@ -411,7 +413,7 @@ func insertBroadcast(svc *youtube.Service, broadcast, privacy string, start, end
 		}
 		return "", "", googleapi.ServerResponse{}, err
 	}
-	log.Printf("Broadcast %q with title %q was published at %v.",
+	log("Broadcast %q with title %q was published at %v.",
 		resp.Id, resp.Snippet.Title, resp.Snippet.PublishedAt)
 
 	return resp.Id, resp.Snippet.LiveChatId, resp.ServerResponse, nil
@@ -419,8 +421,8 @@ func insertBroadcast(svc *youtube.Service, broadcast, privacy string, start, end
 
 // setCatAndDesc sets the category and description for the broadcast. The category
 // is set to "Science & Technology".
-func setCatAndDesc(svc *youtube.Service, title, id, description string) (googleapi.ServerResponse, error) {
-	log.Printf("setting category to \"Science & Technology\" for ID: %s", id)
+func setCatAndDesc(svc *youtube.Service, title, id, description string, log func(string, ...interface{})) (googleapi.ServerResponse, error) {
+	log("setting category to \"Science & Technology\" for ID: %s", id)
 	v := youtube.NewVideosService(svc)
 	resp, err := v.Update([]string{"snippet"}, &youtube.Video{
 		Id: id,
@@ -440,8 +442,8 @@ func setCatAndDesc(svc *youtube.Service, title, id, description string) (googlea
 }
 
 // insertStream corresponds to https://github.com/youtube/api-samples/blob/07263305b59a7c3275bc7e925f9ce6cabf774022/python/create_broadcast.py#L86-L106
-func insertStream(svc *youtube.Service, stream, resolution, typ, framerate string, opts ...googleapi.CallOption) (id string, servResp googleapi.ServerResponse, err error) {
-	log.Printf("inserting stream, name: %s, res: %s, typ: %s, rate: %s", stream, resolution, typ, framerate)
+func insertStream(svc *youtube.Service, stream, resolution, typ, framerate string, log func(string, ...interface{}), opts ...googleapi.CallOption) (id string, servResp googleapi.ServerResponse, err error) {
+	log("inserting stream, name: %s, res: %s, typ: %s, rate: %s", stream, resolution, typ, framerate)
 	s := youtube.NewLiveStreamsService(svc)
 	resp, err := s.Insert([]string{"snippet", "cdn"}, &youtube.LiveStream{
 		Snippet: &youtube.LiveStreamSnippet{
@@ -459,18 +461,18 @@ func insertStream(svc *youtube.Service, stream, resolution, typ, framerate strin
 		}
 		return "", googleapi.ServerResponse{}, err
 	}
-	log.Printf("Stream %q with title %q was inserted.",
+	log("Stream %q with title %q was inserted.",
 		resp.Id, resp.Snippet.Title)
 	return resp.Id, resp.ServerResponse, nil
 }
 
 // bindBroadcast corresponds to https://github.com/youtube/api-samples/blob/07263305b59a7c3275bc7e925f9ce6cabf774022/python/create_broadcast.py#L108-L119
-func bindBroadcast(svc *youtube.Service, bID, sID string, opts ...googleapi.CallOption) (googleapi.ServerResponse, error) {
+func bindBroadcast(svc *youtube.Service, bID, sID string, log func(string, ...interface{}), opts ...googleapi.CallOption) (googleapi.ServerResponse, error) {
 	resp, err := svc.LiveBroadcasts.Bind(bID, []string{"id", "contentDetails"}).StreamId(sID).Do(opts...)
 	if err != nil {
 		return resp.ServerResponse, err
 	}
-	log.Printf("Broadcast %q was bound to stream %q.",
+	log("Broadcast %q was bound to stream %q.",
 		resp.Id, resp.ContentDetails.BoundStreamId)
 	return resp.ServerResponse, nil
 }

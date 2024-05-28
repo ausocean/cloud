@@ -67,7 +67,7 @@ func TestHandleHardwareStoppedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -122,7 +122,7 @@ func TestHandleHardwareStopFailedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -179,7 +179,7 @@ func TestHandleHardwareStartFailedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -236,7 +236,7 @@ func TestHandleHardwareStartedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -301,7 +301,7 @@ func TestHandleHardwareResetRequestEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()

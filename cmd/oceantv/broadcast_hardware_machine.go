@@ -256,7 +256,7 @@ type hardwareManager interface {
 type revidCameraClient struct{}
 
 func (c *revidCameraClient) start(ctx *broadcastContext) {
-	err := extStart(context.Background(), ctx.cfg, ctx.svc)
+	err := extStart(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not start external hardware: %v", err)
 		ctx.bus.publish(hardwareStartFailedEvent{})
@@ -265,7 +265,7 @@ func (c *revidCameraClient) start(ctx *broadcastContext) {
 }
 
 func (c *revidCameraClient) stop(ctx *broadcastContext) {
-	err := extStop(context.Background(), ctx.cfg)
+	err := extStop(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not stop external hardware: %v", err)
 		ctx.bus.publish(hardwareStopFailedEvent{})
@@ -273,7 +273,7 @@ func (c *revidCameraClient) stop(ctx *broadcastContext) {
 	}
 }
 
-func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
+func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(event event)) {
 	log("checking status of device with mac: %d", mac)
 	alive, err := getDeviceStatus(context.Background(), mac, store)
 	if err != nil {

@@ -181,12 +181,16 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = (&OceanBroadcastManager{}).SaveBroadcast(ctx, &cfg, settingsStore)
+	log := func(msg string, args ...interface{}) {
+		logForBroadcast(&cfg, msg, args...)
+	}
+
+	err = newOceanBroadcastManager(log).SaveBroadcast(ctx, &cfg, settingsStore)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	log.Printf("broadcast %s saved", cfg.Name)
+	log("broadcast saved")
 	w.WriteHeader(http.StatusOK)
 }
 

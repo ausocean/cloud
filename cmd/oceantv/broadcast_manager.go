@@ -30,7 +30,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -68,7 +67,13 @@ type BroadcastManager interface {
 
 // OceanBroadcastManager is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
-type OceanBroadcastManager struct{}
+type OceanBroadcastManager struct {
+	log func(string, ...interface{})
+}
+
+func newOceanBroadcastManager(log func(string, ...interface{})) *OceanBroadcastManager {
+	return &OceanBroadcastManager{log}
+}
 
 func (m *OceanBroadcastManager) CreateBroadcast(
 	cfg *Cfg,
@@ -163,27 +168,27 @@ func (m *OceanBroadcastManager) StartBroadcast(
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
 func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error {
-	return stopBroadcast(ctx, cfg, store, svc)
+	return stopBroadcast(ctx, cfg, store, svc, m.log)
 }
 
 // SaveBroadcast saves a broadcast to the datastore.
 // It uses AusOcean methods for saving, and updating the vidforward service if
 // configuration if in use.
 func (m *OceanBroadcastManager) SaveBroadcast(ctx Ctx, cfg *Cfg, store Store) error {
-	return saveBroadcast(ctx, cfg, store)
+	return saveBroadcast(ctx, cfg, store, m.log)
 }
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
 func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, noBroadcastCallBack BroadcastCallback) error {
-	log.Printf("broadcast: %s, ID: %s, checking status", cfg.Name, cfg.ID)
+	m.log("handling status check")
 	status, err := svc.BroadcastStatus(ctx, cfg.ID)
 	if err != nil {
 		if !errors.Is(err, broadcast.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
 		}
 
-		log.Printf("Broadcast: %s, ID: %s, no broadcast items with this configuration listed", cfg.Name, cfg.ID)
+		m.log("no broadcast items with this configuration listed")
 		err := noBroadcastCallBack(ctx, cfg, store, svc)
 		if err != nil {
 			return fmt.Errorf("could not call no broadcast callback: %w", err)
@@ -194,7 +199,7 @@ func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc
 		return nil
 	}
 
-	log.Printf("Broadcast: %s, ID: %s, status is complete or revoked", cfg.Name, cfg.ID)
+	m.log("status is complete or revoked")
 	err = noBroadcastCallBack(ctx, cfg, store, svc)
 	if err != nil {
 		return fmt.Errorf("could not call no broadcast callback: %w", err)
@@ -207,18 +212,18 @@ func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc
 // water temperature and uses the youtube API to post the message. The
 // sensors used are those specified in the configuration.
 func (m *OceanBroadcastManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
-	return handleChatMessage(ctx, cfg)
+	return handleChatMessage(ctx, cfg, m.log)
 }
 
 // HandleHealth interprets the health of a broadcast and performs external
 // hardware restart if consecutive bad health statuses are detected beyond
 // a threshold.
 func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg) error {
-	return handleHealth(ctx, cfg)
+	return handleHealth(ctx, cfg, m.log)
 }
 
 func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error {
-	log.Printf("setting up vidforward broadcasting for %v", cfg.Name)
+	m.log("setting up vidforward broadcasting for %v", cfg.Name)
 
 	// Sanity check. This should only be invoked for the primary broadcast only so make sure
 	// the name does not contain the secondary broadcast postfix.
@@ -230,11 +235,11 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	// Set the HTTPAddress variable to send to the vidforward service.
 	// Set the Outputs variable to HTTP so that we're using MPEG-TS over HTTP.
 	mac := fmt.Sprintf("%012x", cfg.CameraMac)
-	err := setVar(ctx, store, mac+"."+config.KeyHTTPAddress, cfg.VidforwardHost, cfg.SKey)
+	err := setVar(ctx, store, mac+"."+config.KeyHTTPAddress, cfg.VidforwardHost, cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the HTTPAddress variable for the camera: %w", err)
 	}
-	err = setVar(ctx, store, mac+"."+config.KeyOutputs, "HTTP", cfg.SKey)
+	err = setVar(ctx, store, mac+"."+config.KeyOutputs, "HTTP", cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the camera output to http: %w", err)
 	}
@@ -266,7 +271,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		if err != nil {
 			return fmt.Errorf("could not populate secondary broadcast fields: %w", err)
 		}
-		err = saveBroadcast(ctx, &secondaryCfg, store)
+		err = saveBroadcast(ctx, &secondaryCfg, store, m.log)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
 		}
