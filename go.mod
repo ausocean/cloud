@@ -2,6 +2,8 @@ module github.com/ausocean/cloud
 
 go 1.22.2
 
+replace github.com/ausocean/av v1.0.1 => ./av
+
 require (
 	cloud.google.com/go/storage v1.30.1
 	github.com/Comcast/gots/v2 v2.2.1
