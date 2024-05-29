@@ -73,10 +73,10 @@ import (
 )
 
 const (
-	version      = "0.19.0"
-	localSite    = "localhost"
-	localDevice  = "localdevice"
-	localEmail   = "localuser@localhost"
+	version     = "0.19.0"
+	localSite   = "localhost"
+	localDevice = "localdevice"
+	localEmail  = "localuser@localhost"
 )
 
 const (
@@ -137,8 +137,8 @@ type commonData struct {
 
 var (
 	setupMutex    sync.Mutex
-	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/*.html"))
-	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/set/*.html"))
+	templates     *template.Template
+	setTemplates  *template.Template
 	dataHost      = "https://bench.cloudblue.org"
 	mediaStore    datastore.Store
 	settingsStore datastore.Store
@@ -329,6 +329,19 @@ func setup(ctx context.Context) {
 	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
+	}
+
+	templateDir := "cmd/oceanbench/t"
+	if standalone {
+		templateDir = "t"
+	}
+	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
+	if err != nil {
+		log.Fatalf("error parsing templates: %v", err)
+	}
+	setTemplates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/set/*.html")
+	if err != nil {
+		log.Fatalf("error parsing set templates: %v", err)
 	}
 }
 
