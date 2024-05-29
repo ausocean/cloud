@@ -49,9 +49,6 @@ import (
 )
 
 const (
-	mtsPackets      = 7   // # of MPEG-TS packets per Ocean Bench packet
-	rtpHeaderSize   = 12  // per RFC 3550, there are 12 octets in every RTP packet header
-	rtpSSRC         = 1   // any value will do
 	maxKeys         = 500 // maximum number of keys per datastore call
 	hlsFragDuration = 10  // number of seconds per HLS clip
 	hlsLiveDuration = 60  // HLS playlist duration when live streaming
@@ -61,10 +58,6 @@ const (
 const (
 	mimePCM = "audio/pcm" // MIME type of PCM audio.
 	mimeWAV = "audio/wav" // MIME type of WAV audio.
-)
-
-var (
-	rtpSeqNum uint16 = 0
 )
 
 var (
