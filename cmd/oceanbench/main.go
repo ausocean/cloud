@@ -143,8 +143,8 @@ type commonData struct {
 
 var (
 	setupMutex    sync.Mutex
-	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/*.html"))
-	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("t/set/*.html"))
+	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/*.html"))
+	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/set/*.html"))
 	rtpEndpoint   string
 	trimMTS       bool
 	dataHost      = "https://bench.cloudblue.org"
