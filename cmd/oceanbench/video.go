@@ -30,12 +30,9 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -52,9 +49,6 @@ import (
 )
 
 const (
-	mtsPackets      = 7   // # of MPEG-TS packets per Ocean Bench packet
-	rtpHeaderSize   = 12  // per RFC 3550, there are 12 octets in every RTP packet header
-	rtpSSRC         = 1   // any value will do
 	maxKeys         = 500 // maximum number of keys per datastore call
 	hlsFragDuration = 10  // number of seconds per HLS clip
 	hlsLiveDuration = 60  // HLS playlist duration when live streaming
@@ -64,10 +58,6 @@ const (
 const (
 	mimePCM = "audio/pcm" // MIME type of PCM audio.
 	mimeWAV = "audio/wav" // MIME type of WAV audio.
-)
-
-var (
-	rtpSeqNum uint16 = 0
 )
 
 var (
@@ -162,7 +152,7 @@ func writeMtsMedia(ctx context.Context, mid int64, gh string, ts int64, data []b
 			// Output up to the start of this PSI, then start a new clip.
 			ts = int64(t)
 			sz := i + psiSize + j
-			if sz > datastore.MaxBlob && trimMTS {
+			if sz > datastore.MaxBlob {
 				sz = datastore.MaxBlob / mts.PacketSize * mts.PacketSize
 				log.Printf("writeMtsMedia(%d) trimming %d bytes at end", mid, i+psiSize+j-sz)
 			}
@@ -306,11 +296,8 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, fmt.Errorf("error reading body: %w", err)
 	}
 	if n%mts.PacketSize != 0 {
-		if !trimMTS {
-			return 0, errInvalidSize
-		}
 		m := n / mts.PacketSize * mts.PacketSize
-		log.Printf("upload trimming %d bytes at end", n-m)
+		log.Printf("warning: trimming %d bytes at end of %s", n-m, fh.Filename)
 		n = m
 		content = content[:n]
 	}
@@ -321,220 +308,6 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 	}
 
 	return n, nil
-}
-
-// recvHandler receives audio/video data from devices in the form of
-// short MTS clips and stores it. The response is in JSON format. For
-// a normal response, the response mirrors the request query params
-// and their values, plus a timestamp (and minus the device key which
-// is never revealed to clients). For errors, the response includes
-// the "er" param. Server-side errors are also logged. Where we
-// receive multiple pin params, POST data represents concatenated
-// clips and the pin value indicates the size of each clip. It is
-// therefore possible to combine an video with a audio clip in the
-// same body or multiple video or audio clips.
-//
-// The supplied MAC address (ma) must correspond to a valid
-// NetReceiver device and the supplied device key (dk) must to match
-// the device's. The pin type (pn) must be either V(ideo) or S(ound).
-// A missing or invalid device key is treated as zero.
-//
-// There is experimental support for optionally forwarding data onto
-// endpoints via RTP.
-func recvHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-
-	q := r.URL.Query()
-	ma := q.Get("ma")
-	dk := q.Get("dk")
-
-	// Is this request for a valid device?
-	setup(ctx)
-	dev, err := model.CheckDevice(ctx, settingsStore, ma, dk)
-	if err != nil {
-		writeDeviceError(w, dev, err)
-		return
-	}
-
-	gh := q.Get("gh")
-
-	t := q.Get("ts")
-	var ts int64
-	if t != "" {
-		ts, err = strconv.ParseInt(t, 10, 64)
-		if err != nil {
-			writeError(w, err)
-		}
-	}
-	if ts == 0 {
-		ts = time.Now().Unix()
-	}
-
-	resp := make(map[string]interface{})
-	resp["ma"] = ma
-
-	var found bool
-	for _, pin := range strings.Split(dev.Inputs, ",") {
-		if !isMtsPin(pin) {
-			continue
-		}
-		found = true
-		v := q.Get(pin)
-		if v == "" {
-			continue
-		}
-		sz, err := strconv.Atoi(v)
-		if err != nil || sz < 0 {
-			resp["er"] = errInvalidValue.Error()
-			break
-		}
-		resp[pin] = sz
-		clip := make([]byte, sz)
-		n, err := io.ReadFull(r.Body, clip)
-		// NB: An empty body (sz == 0) is _not_ considered invalid (as it is useful for testing).
-		if err != nil {
-			log.Printf("Could not read Body: %v", err)
-			break
-		}
-		if n != sz || n%mts.PacketSize != 0 {
-			log.Printf("Invalid size: n = %d, sz=%d", n, sz)
-			resp["er"] = errInvalidSize.Error()
-			break
-		}
-		mid := model.ToMID(ma, pin)
-		err = writeMtsMedia(ctx, mid, gh, ts, clip, model.WriteMtsMedia)
-		if err != nil {
-			log.Printf("Could not create MtsMedia: %v", err)
-			resp["er"] = fmt.Sprintf("could not write mts media: %v", err)
-			break
-		}
-		sid := dev.Name + "." + pin
-		ep := getEndpointsByStream(dev.Skey, sid)
-		for _, e := range ep {
-			err := forward(ctx, clip, e)
-			if err != nil {
-				log.Printf("Could not forward to endpoint %s: %v", sid, err)
-			}
-		}
-	}
-
-	if !found {
-		log.Printf("recv called without MTS data")
-	}
-
-	err = r.Body.Close()
-	if err != nil {
-		log.Printf("Could not close body: %v", err)
-		// Don't bother to inform the client
-	}
-
-	// Insert timestamp
-	resp["ts"] = ts
-
-	// Insert location, if any
-	lat, lng, _, ok := getLocation()
-	if !ok && dev.Latitude != 0 && dev.Longitude != 0 {
-		// Fall back to the device location.
-		lat = dev.Latitude
-		lng = dev.Longitude
-		ok = true
-	}
-	if ok {
-		resp["ll"] = fmt.Sprintf("%0.5f,%0.5f", lat, lng)
-	}
-
-	// Return response to client as JSON
-	jsn, err := json.Marshal(resp)
-	if err != nil {
-		log.Printf("Could not marshal JSON: %v", err)
-		return
-	}
-	fmt.Fprint(w, string(jsn))
-}
-
-// Endpoint represents a communications network destination for a stream.
-// Currently it is used just for video streams.
-type Endpoint struct {
-	Skey    string
-	Eid     string
-	Sid     string
-	Address string
-	Port    int
-	Proto   string
-	Timeout int
-	Enabled bool
-	Updated time.Time
-	Started time.Time
-}
-
-// GetEndpointsByStream returns endpoints for a given stream ID.
-// To play it in VLC, open the network stream rtp://<rtpEndpoint>:16384
-// ToDo: implement it!
-func getEndpointsByStream(skey int64, sid string) []Endpoint {
-	if rtpEndpoint == "" {
-		return []Endpoint{}
-	}
-	e := Endpoint{
-		Address: rtpEndpoint,
-		Port:    16384,
-		Proto:   "rtp",
-	}
-	return []Endpoint{e}
-}
-
-// forward sends a video clip to an endpoint.
-// We don't care if UDP packet writing fails.
-func forward(ctx context.Context, clip []byte, ep Endpoint) error {
-	conn, err := net.Dial("udp", ep.Address+":"+strconv.Itoa(ep.Port))
-	if err != nil {
-		return err
-	}
-	sz := len(clip)
-	pktSize := mtsPackets * mts.PacketSize
-
-	switch ep.Proto {
-	case "udp":
-		for pos := 0; pos < sz; pos += pktSize {
-			conn.Write(clip[pos : pos+pktSize])
-		}
-	case "rtp":
-		pkt := make([]byte, rtpHeaderSize+mtsPackets*mts.PacketSize)
-		for pos := 0; pos < sz; pos += pktSize {
-			encapsulateRtp(clip[pos:pos+pktSize], pkt, &rtpSeqNum)
-			conn.Write(pkt)
-		}
-	default:
-		return errNotImplemented
-	}
-	return nil
-}
-
-// encapsulateRtp encapsulates an MPEG-TS packet, mtsPkt, within
-// an RTP packet, pkt, setting the RTP header payload type (to 33),
-// the timestamp and incrementing the RTP sequence number.
-func encapsulateRtp(mtsPkt, pkt []byte, seq *uint16) {
-	// RTP packet encapsulates the MP2T
-	// first 12 bytes is the header
-	// byte 0: version=2, padding=0, extension=0, cc=0
-	pkt[0] = 0x80 // version (2)
-	// byte 1: marker=0, pt = 33 (MP2T)
-	pkt[1] = 33
-	// bytes 2 & 3: sequence number
-	binary.BigEndian.PutUint16(pkt[2:4], *seq)
-	if *seq == ^uint16(0) {
-		*seq = 0
-	} else {
-		*seq++
-	}
-	// bytes 4,5,6&7: timestamp
-	timestamp := uint32(time.Now().UnixNano() / 1e6) // ms timestamp
-	binary.BigEndian.PutUint32(pkt[4:8], timestamp)
-	// bytes 8,9,10&11: SSRC
-	binary.BigEndian.PutUint32(pkt[8:12], rtpSSRC)
-
-	// payload follows
-	copy(pkt[rtpHeaderSize:rtpHeaderSize+mtsPackets*mts.PacketSize], mtsPkt)
 }
 
 type playData struct {

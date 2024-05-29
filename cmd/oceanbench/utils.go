@@ -21,8 +21,7 @@ LICENSE
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  in gpl.txt.  If not, see
-  <http://www.gnu.org/licenses/>.
+  in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
 package main
@@ -57,104 +56,6 @@ func removeDate(s string) string {
 	return r.ReplaceAllString(s, "")
 }
 
-// setActionVars sets vars based on the provided string of "actions" in acts,
-// to accomplish setup/shutdown of a device(s) for streaming.
-// acts is of form: <device.varname>=<value>,<device.varname>=<value>. For example,
-// if we need to turn on a camera and set its mode to normal:
-// ESP.CamPower=true,Camera.mode=Normal.
-func setActionVars(ctx context.Context, sKey int64, acts string, store datastore.Store) error {
-	vars := strings.Split(acts, ",")
-	if len(vars) == 0 {
-		return errors.New("no var actions to perform")
-	}
-
-	for _, v := range vars {
-		parts := strings.Split(v, "=")
-		if len(parts) != 2 {
-			return fmt.Errorf("unexpected actions var format: %s", v)
-		}
-
-		err := setVar(ctx, store, parts[0], parts[1], sKey)
-		if err != nil {
-			return fmt.Errorf("could not set action var %s: %w", parts[0], err)
-		}
-	}
-	return nil
-}
-
-// setVar sets cloud variables. These variable are only set if they already exist.
-func setVar(ctx context.Context, store datastore.Store, name, value string, sKey int64) error {
-	log.Printf("checking %s variable exists", name)
-	_, err := model.GetVariable(ctx, store, sKey, name)
-	if err != nil {
-		return fmt.Errorf("could not get %s varable: %w", name, err)
-	}
-
-	log.Printf("%s variable exists, setting to value: %s", name, value)
-	err = model.PutVariable(ctx, store, sKey, name, value)
-	if err != nil {
-		return fmt.Errorf("could not set %s variable: %w", name, err)
-	}
-	return nil
-}
-
-// addDurationToCronSpec is a helper to add a duration less than and not equal to
-// 60 minutes to a cron spec.
-func addDurationToCronSpec(spec string, dur time.Duration) (string, error) {
-	timeStr, err := cronSpecToTime(spec)
-	if err != nil {
-		return "", fmt.Errorf("could not convert cron spec to time str: %w", err)
-	}
-	const layoutStr = "15:04"
-	t, err := time.Parse(layoutStr, timeStr)
-	if err != nil {
-		return "", fmt.Errorf("could not parse cam on time: %w", err)
-	}
-	timeStr = t.Add(dur).Format(layoutStr)
-	return timeToCronSpec(timeStr)
-}
-
-// registerCallCron registers a cron with action type "call". This will add the
-// provided key and function to the cron scheduler's func map, for calling
-// according to the cron spec with the provided data.
-func registerCallCron(id, spec, key string, cfg *BroadcastConfig, skey int64, store datastore.Store) error {
-	bytes, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("could not marshal broadcast config: %w", err)
-	}
-	c := model.Cron{
-		Skey:    skey,
-		ID:      id,
-		Action:  "call",
-		Var:     key, // This func will be called with the cron data as the argument.
-		Data:    string(bytes),
-		Enabled: true,
-	}
-
-	// Parse the time based on the site's timezone.
-	site, err := model.GetSite(context.Background(), store, skey)
-	if err != nil {
-		return fmt.Errorf("could not get site: %w", err)
-	}
-	err = c.ParseTime(spec, site.Timezone)
-	if err != nil {
-		return fmt.Errorf("could not parse time: %w", err)
-	}
-
-	// Add the cron to the scheduler and the database.
-	err = model.PutCron(context.Background(), store, &c)
-	if err != nil {
-		return fmt.Errorf("could not put cron in datastore: %w", err)
-	}
-
-	err = cronScheduler.Set(&c)
-	if err != nil {
-		return fmt.Errorf("could not schedule cron: %w", err)
-	}
-
-	return nil
-}
-
 // cronSpecToTime converts a cron specification string to a time in a 24 hr time
 // format (hh:mm).
 func cronSpecToTime(cronSpec string) (string, error) {
@@ -180,6 +81,7 @@ func cronSpecToTime(cronSpec string) (string, error) {
 	return fmt.Sprintf("%02d:%02d", hour, minute), nil
 }
 
+// timeToCronSpec converts a 24 hour time to a cron spec.
 func timeToCronSpec(timeStr string) (string, error) {
 	parsedTime, err := time.Parse("15:04", timeStr)
 	if err != nil {
