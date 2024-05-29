@@ -20,8 +20,6 @@ github.com/Comcast/gots/v2 v2.2.1/go.mod h1:firJ11on3eUiGHAhbY5cZNqG0OqhQ1+nSZHf
 github.com/Knetic/govaluate v3.0.0+incompatible h1:7o6+MAPhYTCF0+fdvoz1xDedhRb4f6s9Tn1Tt7/WTEg=
 github.com/Knetic/govaluate v3.0.0+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
-github.com/ausocean/av v1.0.1 h1:tAySpPDJtQKKqdgtUy9S/drJ1/m2U7ejGWs7d+SUjsU=
-github.com/ausocean/av v1.0.1/go.mod h1:qY9Hcob+nqP4K1iAXXRWJflKISyPz53CN0c+jgnZFcQ=
 github.com/ausocean/openfish v0.1.2 h1:gNxlyfkZeKNx20oNPhidR+buwsGAILuwrBP5s42pi9w=
 github.com/ausocean/openfish v0.1.2/go.mod h1:0tA6pM/N4auUcKtZAoQFsJyTIM8WM1fxWGhCrQP07ak=
 github.com/ausocean/utils v0.0.0-20240516071050-fe6d74a8ac16 h1:t9ulqrcN08K45QHMEpQAGMIV/dE3nx2jRrCWzpdeRiU=
