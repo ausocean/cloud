@@ -332,7 +332,7 @@ func setup(ctx context.Context) {
 	}
 
 	templateDir := "cmd/oceanbench/t"
-	if standalone {
+	if standalone || os.Getenv("GAE_ENV") == "" {
 		templateDir = "t"
 	}
 	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
