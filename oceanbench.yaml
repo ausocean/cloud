@@ -1,0 +1,24 @@
+# gcloud app deploy --version V --project oceanbeach oceanbeach.yaml
+runtime: go121
+
+env_variables:
+  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
+  OCEANBENCH_SECRETS: gs://ausocean/OceanBench-secrets.txt
+  OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
+  OAUTH2_CALLBACK: https://bench.cloudblue.org/oauth2callback
+  OPS_EMAIL: ops@ausocean.org
+  OPS_PERIOD: 60
+
+main: cmd/oceanbench
+
+handlers:
+  - url: /s/*
+    static_dir: cmd/oceanbench/s
+
+  - url: /(api|test).*
+    script: auto
+
+  - url: /.*
+    secure: always
+    script: auto
