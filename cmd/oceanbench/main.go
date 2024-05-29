@@ -139,7 +139,6 @@ var (
 	setupMutex    sync.Mutex
 	templates     = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/*.html"))
 	setTemplates  = template.Must(template.New("").Funcs(templateFuncs).ParseGlob("cmd/oceanbench/t/set/*.html"))
-	rtpEndpoint   string
 	dataHost      = "https://bench.cloudblue.org"
 	mediaStore    datastore.Store
 	settingsStore datastore.Store
