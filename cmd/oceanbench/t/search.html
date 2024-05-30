@@ -3,7 +3,7 @@
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ocean Bench - Search</title>
+  <title>CloudBlue | Search</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js" ></script>
   <script type="text/javascript" src="/s/logs.js"></script>
@@ -134,34 +134,24 @@
   </script>
 </head>
 <body onload="init()">
-  <header-group id="header" class="header">
-    <nav-menu id="nav-menu">
+  <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
+    <nav-menu id="nav-menu" slot="nav-menu">
       {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
           <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
         </li>
       {{- end}}
     </nav-menu>
-    <div class="heading">
-        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
-    </div>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
     </site-menu>
-    <div class="top-right">
-        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
-    </div>
   </header-group>
-  <section id="main">
-    <p>
-      <label>Site:</label>
-      <span>{{part (split .Profile.Data ":") 1}}</span>
-    </p>
+  <section id="main" class="main">
     {{if .Msg}}<div class="red">{{.Msg}}</div><br>{{end}}
-
-    <form class="border rounded p-4 container-md" action="/search" enctype="multipart/form-data" method="post" id="search" onsubmit="event.preventDefault();">
+    <h1 class="container-md">Search</h1>
+    <form class="border rounded p-4 container-md bg-white" action="/search" enctype="multipart/form-data" method="post" id="search" onsubmit="event.preventDefault();">
       <input type="hidden" name="search" value="false">
       <input type="hidden" name="export" value="false">
       <fieldset>
@@ -333,6 +323,6 @@
   {{end}}
 
   {{if and .Searching (not (or .Log .Timestamps))}}No results.{{end}}
-  {{.Footer}}
   </body>
+  {{.Footer}}
 </html>

@@ -3,40 +3,32 @@
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   <link href="/s/main.css" rel="stylesheet" type="text/css" />
-  <title>Ocean Bench - Monitor</title>
+  <title>CloudBlue | Monitor</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js"></script>
 </head>
 <body>
-  <header-group id="header" class="header">
-    <nav-menu id="nav-menu">
+  <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
+    <nav-menu id="nav-menu" slot="nav-menu">
       {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
           <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
         </li>
       {{- end}}
     </nav-menu>
-    <div class="heading">
-      <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
-    </div>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
     </site-menu>
-    <div class="top-right">
-      {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
-    </div>
   </header-group>
-    <section id="main" , class="main">
-      <p>
-        <label>Site:</label>
-        <span>{{part (split .Profile.Data ":") 1}}</span>
-      </p>
+    <section id="main" class="main">
+      <h1 class="container-md">Monitor</h1>
       <div>
         {{ range .Devices }}
-          <div class="monitor-box">
+          <div class="border rounded p-4 container-md bg-white">
             <span value="{{ .Device.MAC }}" {{if eq .Device.MAC $.Ma}} selected{{end}}>
               <span class="monitor-title">{{ if $.WritePerm }}<a href="/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>{{ else }}{{ .Device.Name }}{{ end }}</span> ({{ .Device.MAC }})<br>
               Address: {{if (.Address)}}{{ .Address }}{{end}}<br>
