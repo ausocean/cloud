@@ -18,6 +18,16 @@ Currently, OceanBench utilizes two datastores, namely NetReceiver's and VidGrind
 Deploying datastore indexes therefore requires running two commands.
 
 ```bash
-gcloud app deploy --version V --project netreceiver netreceiver_index.yaml
-gcloud app deploy --version V --project vidgrind vidgrind_index.yaml
+cp vidgrind_index.yaml index.yaml
+gcloud app deploy --project vidgrind index.yaml
+
+cp netreceiver_index.yaml index.yaml
+gcloud app deploy --project netreceiver index.yaml
+```
+
+To clean up indexes:
+
+```bash
+cp vidgrind_index.yaml index.yaml
+gcloud datastore indexes cleanup --project vidgrind index.yaml
 ```
