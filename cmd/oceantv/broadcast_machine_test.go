@@ -589,7 +589,7 @@ func TestHandleTimeEvent(t *testing.T) {
 				return nil
 			}
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 			bus.subscribe(handler)
 
 			bCtx.man = NewDummyManager(t)
@@ -695,7 +695,7 @@ func TestHandleStartFailedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -816,7 +816,7 @@ func TestHandleBadHealthEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -937,7 +937,7 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -1040,7 +1040,7 @@ func TestHandleFinishEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -1149,7 +1149,7 @@ func TestHandleStartEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
@@ -1222,7 +1222,7 @@ func TestHandleStartedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(msg string, args ...interface{}) {})
+			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()

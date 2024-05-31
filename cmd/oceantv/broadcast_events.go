@@ -94,14 +94,14 @@ type basicEventBus struct {
 	ctx        context.Context
 	handlers   []handler
 	storeEvent func(event event)
-	log        func(msg string, args ...interface{})
+	log        func(string, ...interface{})
 }
 
 // newBasicEventBus creates a new basicEventBus.
 // The context must be cancellable.
 // The storeEventAfterCancel function is called on publish when the context
 // is cancelled.
-func newBasicEventBus(ctx context.Context, storeEventAfterCancel func(event event), log func(msg string, args ...interface{})) *basicEventBus {
+func newBasicEventBus(ctx context.Context, storeEventAfterCancel func(event event), log func(string, ...interface{})) *basicEventBus {
 	return &basicEventBus{storeEvent: storeEventAfterCancel, ctx: ctx, log: log}
 }
 

@@ -239,9 +239,14 @@ func performChecksInternalThroughStateMachine(
 	cfg *BroadcastConfig,
 	timeNow func() time.Time,
 	store datastore.Store,
-	svc BroadcastService,
-	man BroadcastManager,
 ) error {
+	// Handy log wrapper that shims with interfaces that like the
+	// classic func(string, ...interface{}) signature.
+	// This can be used by a lot of the components here.
+	log := func(msg string, args ...interface{}) {
+		logForBroadcast(cfg, msg, args...)
+	}
+
 	// Don't do anything if not enabled.
 	if !cfg.Enabled {
 		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
@@ -259,13 +264,16 @@ func performChecksInternalThroughStateMachine(
 			},
 		)
 		if err != nil {
-			log.Printf("could not update config with callback: %v", err)
+			log("could not update config with callback: %v", err)
 		}
-		log.Printf("broadcast: %s, ID: %s, not enabled, not doing anything", cfg.Name, cfg.ID)
+		log("not enabled, not doing anything")
 		return nil
 	}
 
-	log.Printf("broadcast: %s, ID: %s, performing checks", cfg.Name, cfg.ID)
+	log("performing checks")
+
+	// We'll use this context to determine if anything happens after the handler
+	// has returned (we might need to store states for next time).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -274,7 +282,7 @@ func performChecksInternalThroughStateMachine(
 	// is used to do a broadcast start and this function returns. We'll save them
 	// to the config and then load them next time we perform checks.
 	storeEventsAfterCtx := func(event event) {
-		log.Printf("broadcast: %s, ID: %s, storing event after cancel: %s", cfg.Name, cfg.ID, event.String())
+		log("storing event after cancel: %s", event.String())
 		err := updateConfigWithTransaction(
 			context.Background(),
 			store,
@@ -287,19 +295,18 @@ func performChecksInternalThroughStateMachine(
 			},
 		)
 		if err != nil {
-			log.Printf("could not update config with callback: %v", err)
+			log("could not update config with callback: %v", err)
 		}
 	}
 
-	// We'll provide a custom log wrapper to the bus so that we can add the
-	// broadcast name and ID to the log messages.
-	busLogFunc := func(msg string, args ...interface{}) {
-		idArgs := []interface{}{cfg.Name, cfg.ID}
-		idArgs = append(idArgs, args...)
-		log.Printf("(name: %s, id: %s) "+msg, idArgs...)
-	}
+	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
 
-	bus := newBasicEventBus(ctx, storeEventsAfterCtx, busLogFunc)
+	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
+	svc := newYouTubeBroadcastService(log)
+
+	// Create the broadcast manager. This will manage things between the broadcast, the
+	// hardware and the YouTube broadcast service.
+	man := newOceanBroadcastManager(log)
 
 	// This handler will subscribe to the event bus and perform checks corresponding
 	// to health, status and chat message events. It will also publish events to the
@@ -321,6 +328,7 @@ func performChecksInternalThroughStateMachine(
 					bus.publish(goodHealthEvent{})
 					return nil
 				},
+				log,
 			)
 		case statusCheckDueEvent:
 			err := man.HandleStatus(
@@ -337,7 +345,7 @@ func performChecksInternalThroughStateMachine(
 				return fmt.Errorf("could not handle status: %w", err)
 			}
 		case chatMessageDueEvent:
-			handleChatMessage(context.Background(), cfg)
+			man.HandleChatMessage(context.Background(), cfg)
 		}
 		return nil
 	}
@@ -345,7 +353,7 @@ func performChecksInternalThroughStateMachine(
 	bus.subscribe(healthStatusChatHandler)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(), bus, &revidCameraClient{}}
+	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}}
 
 	// The hardware state machine will be responsible for the external camera hardware
 	// state.
@@ -364,10 +372,10 @@ func performChecksInternalThroughStateMachine(
 	for _, event := range cfg.Events {
 		e, err := stringToEvent(event)
 		if err != nil {
-			log.Printf("could not convert event string to event: %v", err)
+			log("could not convert event string to event: %v", err)
 			continue
 		}
-		log.Printf("broadcast: %s, ID: %s, publishing stored event: %s", cfg.Name, cfg.ID, e.String())
+		log("publishing stored event: %s", e.String())
 		bus.publish(e)
 	}
 
@@ -390,7 +398,7 @@ func performChecksInternalThroughStateMachine(
 	// start, stop etc.
 	bus.publish(timeEvent{time.Now()})
 
-	log.Printf("broadcast: %s, ID: %s, finishing check", cfg.Name, cfg.ID)
+	log("finishing check")
 	return nil
 }
 
@@ -403,8 +411,6 @@ func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 		cfg,
 		func() time.Time { return time.Now() },
 		store,
-		&YouTubeBroadcastService{},
-		&OceanBroadcastManager{},
 	)
 }
 
@@ -414,13 +420,13 @@ type BroadcastCallback func(context.Context, *BroadcastConfig, datastore.Store, 
 // relevant site and posts the message to the broadcast chat. This works by
 // searching the site for any registered ESP devices and looking at the latest
 // signal values on sensors which have been marked true to send a message.
-func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
+func handleChatMessage(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if !cfg.SendMsg {
-		log.Printf("Broadcast: %s, ID: %s, ignoring sensors", cfg.Name, cfg.ID)
+		log("ignoring sensors")
 		return nil
 	}
 
-	log.Printf("Broadcast: %s, ID: %s, building message", cfg.Name, cfg.ID)
+	log("building message")
 	var msg string
 
 	for _, sensor := range cfg.SensorList {
@@ -459,7 +465,7 @@ func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
 	}
 
 	if msg == "" {
-		log.Printf("Broadcast: %s, ID: %s, chat message empty", cfg.Name, cfg.ID)
+		log("chat message empty")
 		return nil
 	}
 
@@ -490,13 +496,13 @@ func saveLinkFunc() func(string, string) error {
 // external streaming hardware startup. In addition, the RTMP key is obtained
 // from the broadcast's associated stream object and used to set the devices
 // RTMPKey variable.
-func extStart(ctx context.Context, cfg *BroadcastConfig, svc BroadcastService) error {
+func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if cfg.OnActions == "" {
 		return nil
 	}
 
 	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + rtmpDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, settingsStore)
+	err := setActionVars(ctx, cfg.SKey, onActions, settingsStore, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
 	}
@@ -506,12 +512,12 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, svc BroadcastService) e
 
 // extStop uses the OffActions in the provided broadcast config to perform
 // external streaming hardware shutdown.
-func extStop(ctx context.Context, cfg *BroadcastConfig) error {
+func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if cfg.OffActions == "" {
 		return nil
 	}
 
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore)
+	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables to end stream: %w", err)
 	}
@@ -522,13 +528,13 @@ func extStop(ctx context.Context, cfg *BroadcastConfig) error {
 // saveBroadcast saves a broadcast configuration to the datastore with the
 // variable name as the broadcast name and if the broadcast uses vidforward
 // we update the vidforward configuration with a control request.
-func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
+func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, log func(string, ...interface{})) error {
 	d, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
 	}
 
-	log.Printf("broadcast: %s, ID: %s, saving, cfg: %s", cfg.Name, cfg.ID, provideConfig(cfg))
+	log("saving, cfg: %s", provideConfig(cfg))
 	err = model.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
 	if err != nil {
 		return fmt.Errorf("could not put broadcast data in store: %w", err)
@@ -544,7 +550,7 @@ func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 	return nil
 }
 
-func performRequestWithRetries(dest string, data any, maxRetries int) error {
+func performRequestWithRetries(dest string, data any, maxRetries int, log func(string, ...interface{})) error {
 	var retries int
 retry:
 	var buf bytes.Buffer
@@ -561,7 +567,7 @@ retry:
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		log.Printf("could not do http request, but retrying: %v", err)
+		log("could not do http request, but retrying: %v", err)
 		if retries <= maxRetries {
 			retries++
 			goto retry
@@ -577,8 +583,8 @@ retry:
 // in healthy operation) and if it is not, change to complete.
 // Then we change the broadcast configuration Active field to false, save this
 // and stop all external streaming hardware.
-func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService) error {
-	log.Printf("Broadcast: %s, ID: %s, stopping", cfg.Name, cfg.ID)
+func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService, log func(string, ...interface{})) error {
+	log("stopping")
 
 	status, err := svc.BroadcastStatus(ctx, cfg.ID)
 	if err != nil {
@@ -593,7 +599,7 @@ func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 	}
 
 	cfg.Active = false
-	err = saveBroadcast(ctx, cfg, store)
+	err = saveBroadcast(ctx, cfg, store, log)
 	if err != nil {
 		return fmt.Errorf("save broadcast error: %w", err)
 	}
