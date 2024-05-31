@@ -1,9 +1,10 @@
 /*
 AUTHORS
   Saxon Nelson-Milton <saxon@ausocean.org>
+  Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2022 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2022-2024 the Australian Ocean Lab (AusOcean).
 
   This is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -23,62 +24,80 @@ package model
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"time"
 
 	"github.com/ausocean/openfish/datastore"
 )
 
-const typeBinaryData = "BinaryData"
+const typeBinary = "Binary"
 
-// BinaryData a cloud type for storing binary data.
-type BinaryData struct {
-	Mac       int64
-	Timestamp int64
-	Fmt       string
-	Data      []byte
-	Pin       string
-	Date      time.Time
+// Binary represents binary data.
+//
+// The Media ID (MID) can be any identifier that uniquely identifies
+// the media source, but conventionally it is formed from the 48-bit
+// MAC address followed by the 4-bit encoding of the pin of the
+// source device. See ToMID.
+type Binary struct {
+	MID       int64          // Media ID.
+	Timestamp int64          // Timestamp (in seconds).
+	Type      string         // MIME type, if any.
+	Data      []byte         `datastore:",noindex"` // Binary data.
+	Date      time.Time      // Date/time last updated.
+	Key       *datastore.Key `datastore:"__key__"` // Not persistent but populated upon reading from the datastore.
 }
 
-// GetBinaryData retreives BinaryData entities for a given media ID, optionally
-// filtered by timestamp(s). If ts is given with len(ts) == 1, then a single entity
-// with the matching timestamp will be returned. If the ts is given with len(ts) == 2
-// then multiple entities corresponding to the range of ts[0] to ts[1] will be
-// given.
-func GetBinaryData(ctx context.Context, store datastore.Store, mid int64, ts []int64) ([]BinaryData, error) {
-	q, err := newBinaryDataQuery(store, mid, ts, false)
+// Encode serializes binary data into JSON.
+func (bin *Binary) Encode() []byte {
+	bytes, _ := json.Marshal(bin)
+	return bytes
+}
+
+// Decode deserializes binary data from JSON.
+func (bin *Binary) Decode(b []byte) error {
+	return json.Unmarshal(b, bin)
+}
+
+// Copy copies binary data bin to dst, or returns a copy of bin when dst is nil.
+func (bin *Binary) Copy(dst datastore.Entity) (datastore.Entity, error) {
+	var b *Binary
+	if dst == nil {
+		b = new(Binary)
+	} else {
+		var ok bool
+		b, ok = dst.(*Binary)
+		if !ok {
+			return nil, datastore.ErrWrongType
+		}
+	}
+	*b = *bin
+	return b, nil
+}
+
+// GetCache returns the binary cache.
+func (bin *Binary) GetCache() datastore.Cache {
+	return nil
+}
+
+// KeyID returns the Binary key ID as an unsigned integer.
+func (bin *Binary) KeyID() uint64 {
+	return uint64(bin.Key.ID)
+}
+
+// PutBinary creates or updates binary data.
+func PutBinary(ctx context.Context, store datastore.Store, bin *Binary) error {
+	k := store.IDKey(typeBinary, datastore.IDKey(bin.MID, bin.Timestamp, 0))
+	_, err := store.Put(ctx, k, bin)
+	return err
+}
+
+// GetBinary gets binary data by MID and timestamp.
+func GetBinary(ctx context.Context, store datastore.Store, mid, ts int64) (*Binary, error) {
+	k := store.IDKey(typeBinary, datastore.IDKey(mid, ts, 0))
+	var bin Binary
+	err := store.Get(ctx, k, &bin)
 	if err != nil {
-		return nil, fmt.Errorf("could not create new binary data query: %w", err)
+		return nil, err
 	}
-	var bds []BinaryData
-	_, err = store.GetAll(ctx, q, &bds)
-	return bds, err
-}
-
-func newBinaryDataQuery(store datastore.Store, mid int64, ts []int64, keysOnly bool) (datastore.Query, error) {
-	q := store.NewQuery(typeBinaryData, false, "MID", "Timestamp")
-	mac, _ := FromMID(mid)
-	q.Filter("mac =", MacEncode(mac))
-
-	if ts == nil {
-		return q, nil
-	}
-
-	if len(ts) < 1 || len(ts) > 2 {
-		return nil, fmt.Errorf("unexpected ts length: %d", len(ts))
-	}
-
-	if len(ts) == 1 {
-		q.Filter("timestamp =", ts[0])
-		return q, nil
-	}
-
-	q.Filter("timestamp >=", ts[0])
-	if ts[1] < datastore.EpochEnd {
-		q.Filter("timestamp <", ts[1])
-	}
-	q.Order("timestamp")
-
-	return q, nil
+	return &bin, err
 }
