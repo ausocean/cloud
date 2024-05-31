@@ -5,11 +5,6 @@ indexes:
   - name: MID
   - name: Timestamp
 
-- kind: MtsMedia
-  properties:
-  - name: MID
-  - name: Date
-
 - kind: Text
   properties:
   - name: MID
