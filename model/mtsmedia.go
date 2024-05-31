@@ -399,7 +399,7 @@ func newMtsMediaQuery(store datastore.Store, mid int64, gh []string, ts []int64,
 			q.Filter("Timestamp =", ts[0])
 		}
 	}
-	q.Order("Date")
+	q.Order("Timestamp")
 	return q, nil
 }
 
