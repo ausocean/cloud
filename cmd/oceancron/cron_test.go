@@ -113,7 +113,7 @@ func TestRPC(t *testing.T) {
 		t.Errorf("newScheduler returned error: %v", err)
 	}
 
-	const url = "https://vidgrind.ausocean.org/checkbroadcasts"
+	const url = "https://oceantv.appspot.com/checkbroadcasts"
 	testCron := model.Cron{Skey: 1, ID: "testCron", Time: time.Now(), TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
 	err = cronScheduler.Set(&testCron)
 	if err != nil {
