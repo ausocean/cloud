@@ -13,7 +13,7 @@ function encodeMAC(mac) {
 }
 
 // encodeMediaPin encodes a pin into a 4-bit integer.
-// Valid pins are V, S or T followed by a single digit.
+// Valid pins are V, S, T, or B followed by a single digit.
 // See mtsmedia.go for an explanation of the encoding scheme.
 function encodeMediaPin(pin) {
   var enc = Number(0);
@@ -29,6 +29,9 @@ function encodeMediaPin(pin) {
       break;
     case "T":
       enc = 8;
+      break;
+    case "B":
+      enc = 12;
       break;
     default:
       console.log("invalid pin type: " + pin.charAt(0));
@@ -95,6 +98,7 @@ function updateMID(mac, pin, id) {
     case "V":
     case "S":
     case "T":
+    case "B":
       idElem.value = toMID(macElem.value, pinElem.value).toString();
       break;
     default:

@@ -60,6 +60,7 @@ var pinMap = map[string]string{
 	"S0":  "sound",
 	"T0":  "logs",
 	"A0":  "battery voltage",
+	"B0":  "binary data",
 	"X1":  "download",
 	"X2":  "upload",
 	"X10": "analog value",
