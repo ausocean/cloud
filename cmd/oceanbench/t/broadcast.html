@@ -12,7 +12,7 @@
   <script type="text/javascript" src="/s/main.js"></script>
   <script type="text/javascript" src="/s/broadcast.js"></script>
 </head>
-<body onload="init()">
+<body>
   <header-group id="header" class="header">
     <nav-menu id="nav-menu">
       {{range .Pages -}}
@@ -97,11 +97,11 @@
         <br>
         <div id="set-times">
           <label>Start Date/Time:</label>
-          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)" value="{{if .CurrentBroadcast.StartTime}}{{.CurrentBroadcast.StartTime}}{{end}}" size="14">
+          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)" size="14">
           &nbsp;<input name="start-time-unix" type="input" id="start-time-unix" onchange="sync('start-time', 'start-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimeUnix}}{{.CurrentBroadcast.StartTimeUnix}}{{end}}" size="15">
           <br>
           <label>End Date/Time:</label>
-          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-time-unix', 'time-zone', true)" value="{{if .CurrentBroadcast.EndTime}}{{.CurrentBroadcast.EndTime}}{{end}}" size="14">
+          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-time-unix', 'time-zone', true)" size="14">
           &nbsp;<input name="end-time-unix" type="input" id="end-time-unix" onchange="sync('end-time', 'end-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimeUnix}}{{.CurrentBroadcast.EndTimeUnix}}{{end}}" size="15">
           <br>
           <label>Timezone:</label>
@@ -148,11 +148,9 @@
       <iframe width="560" height="315" src="https://www.youtube.com/embed/{{.CurrentBroadcast.ID}}" frameborder="0" allowfullscreen></iframe>
     {{end}}
   </section>
-  <!-- HTML Template -->
-  <div id="start-time-unix" data-start-time-unix="{{.CurrentBroadcast.StartTimeUnix}}"></div>
-  <div id="end-time-unix" data-end-time-unix="{{.CurrentBroadcast.EndTimeUnix}}"></div>
-  <div id="sensor-list" data-sensor-list='{{.CurrentBroadcast.SensorList}}'></div>
-  <div id="send-msg" data-send-msg="{{.CurrentBroadcast.SendMsg}}"></div>
+  <!-- These only exist to hold the data from the templates, these will be read by javascript. -->
+  <div id="sensor-list" style="display: none;" data-sensor-list='{{json .CurrentBroadcast.SensorList}}'></div>
+  <div id="send-msg" style="display: none;" data-send-msg="{{.CurrentBroadcast.SendMsg}}"></div>
 
   {{.Footer}}
 </body>

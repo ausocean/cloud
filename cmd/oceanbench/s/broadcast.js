@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-  const startTimeUnix = document.getElementById('start-time-unix').dataset.startTimeUnix;
-  const endTimeUnix = document.getElementById('end-time-unix').dataset.endTimeUnix;
+  document.getElementById('time-zone').value = getTimezone();
+  const startTimeUnix = document.getElementById('start-time-unix').value;
+  const endTimeUnix = document.getElementById('end-time-unix').value;
   const sensorList = JSON.parse(document.getElementById('sensor-list').dataset.sensorList);
   const sendMsg = document.getElementById('send-msg').dataset.sendMsg === 'true';
 

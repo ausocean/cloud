@@ -167,7 +167,8 @@ function tzFormat(tz) {
     return "+" + hh + mm;
   }
 }
-// sync syncs date and timestamp input values.
+// sync syncs date and timestamp input values. If either of these three inputs are changed, the other inputs are updated to match.
+// dateChanged signifies if the datepicker input has been used to change the date.
 function sync(dateID, tsID, tzID, dateChanged) {
   var tz = document.getElementById(tzID).value;
   if (tz == "") {
