@@ -246,7 +246,7 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 			err = writeScalar(r, ma, pin, n)
 
 		case 'B':
-			// Not implemented.
+			err = writeBinary(r, ma, pin, int(n))
 
 		case 'S', 'V':
 			// Handled by mtsHandler.
@@ -358,6 +358,23 @@ func writeText(r *http.Request, ma, pin string, n int) error {
 	ts := time.Now().Unix()
 	tt := r.Header.Get("Content-Type")
 	return model.WriteText(r.Context(), mediaStore, &model.Text{MID: mid, Timestamp: ts, Data: string(data), Type: tt})
+}
+
+// writeBinary writes binary data.
+func writeBinary(r *http.Request, ma, pin string, n int) error {
+	data := make([]byte, n)
+	n_, err := io.ReadFull(r.Body, data)
+	if err != nil {
+		return err
+	}
+	if n != n_ {
+		return errInvalidSize
+	}
+
+	mid := model.ToMID(ma, pin)
+	ts := time.Now().Unix()
+	tt := r.Header.Get("Content-Type")
+	return model.PutBinary(r.Context(), mediaStore, &model.Binary{MID: mid, Timestamp: ts, Data: data, Type: tt})
 }
 
 // actHandler handles act requests.
