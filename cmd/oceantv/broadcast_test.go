@@ -123,7 +123,7 @@ func (d *dummyManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
 	d.chatHandled = true
 	return nil
 }
-func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, goodHealthCallback func(), badHealthCallback func(string)) error {
+func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error {
 	d.healthHandled = true
 	return nil
 }
