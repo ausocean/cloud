@@ -26,31 +26,43 @@ import (
 	"github.com/ausocean/openfish/datastore"
 )
 
+// TimeStore is an interface for notification persistence
+type TimeStore interface {
+	Sendable(context.Context, int64, string) (bool, error) // Returns true if a message is sendable.
+	Sent(context.Context, int64, string) error             // Records the time a message was sent.
+}
+
 // timeStore implements a TimeStore that uses a datastore for persistence.
 type timeStore struct {
-	store datastore.Store
+	store  datastore.Store
+	period time.Duration
 }
 
-// NewTimeStore returns a TimeStore that uses a datastore for peristence.
-func NewTimeStore(store datastore.Store) TimeStore {
-	return &timeStore{store: store}
+// NewTimeStore returns a TimeStore that uses a datastore for peristence
+// and sends messages separated in time by the given least period.
+func NewTimeStore(store datastore.Store, period time.Duration) TimeStore {
+	return &timeStore{store: store, period: period}
 }
 
-// Get retrieves a notification time stored in a datastore variable.
-// We prepend an underscore to keep the variable private.
-func (ts *timeStore) Get(skey int64, key string) (time.Time, error) {
-	v, err := model.GetVariable(context.Background(), ts.store, skey, "_"+key)
+// Sendable retrieves a notification time stored in a datastore
+// variable and returns true either if (1) the specified period has
+// elapsed since the last time a message for the given site and key
+// was sent or (2) a message is being sent for the first time.
+func (ts *timeStore) Sendable(ctx context.Context, skey int64, key string) (bool, error) {
+	v, err := model.GetVariable(ctx, ts.store, skey, "_"+key) // Prepend an underscore to keep the variable private.
+
 	switch err {
 	case nil:
-		return v.Updated, nil
+		return time.Since(v.Updated) >= ts.period, nil
 	case datastore.ErrNoSuchEntity:
-		return time.Time{}, nil // We've never sent this kind of notice previously.
+		return true, nil // No record of sending this kind of message.
 	default:
-		return time.Time{}, err // Unexpected datastore error.
+		return true, err // Unexpected datastore error.
 	}
 }
 
-// Set updates a notification time stored in a datatore variable.
-func (ts *timeStore) Set(skey int64, key string, t time.Time) error {
-	return model.PutVariable(context.Background(), ts.store, skey, "_"+key, "")
+// Sent records the time that a message with the given site and key
+// was sent.
+func (ts *timeStore) Sent(ctx context.Context, skey int64, key string) error {
+	return model.PutVariable(ctx, ts.store, skey, "_"+key, "") // Automatically updates the time.
 }

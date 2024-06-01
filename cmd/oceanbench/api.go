@@ -258,7 +258,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 
 // siteHealthStatus collects health status for devices at the given site. If id is not
 // empty, only the device with the specified ID is queried. If any queried device
-// is not healthy an email notification is sent to $OPS_EMAIL.
+// is not healthy an email notification is sent.
 func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health, err error) {
 	skey, err := strconv.ParseInt(site, 10, 64)
 	if err != nil {
@@ -288,7 +288,7 @@ func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health
 			msg = fmt.Sprintf("Device %d/%s is unhealthy", skey, id)
 		}
 		log.Print(msg)
-		err := notifier.SendOps(ctx, skey, "health", msg)
+		err := notifier.Send(ctx, skey, "health", msg)
 		if err != nil {
 			log.Printf("unable to notify ops: %v", err)
 		}
