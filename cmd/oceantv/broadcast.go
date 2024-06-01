@@ -318,6 +318,7 @@ func performChecksInternalThroughStateMachine(
 			err := man.HandleHealth(
 				context.Background(),
 				cfg,
+				store,
 				func() { bus.publish(goodHealthEvent{}) },
 				func(issue string) {
 					bus.publish(badHealthEvent{})
