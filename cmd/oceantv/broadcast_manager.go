@@ -60,7 +60,7 @@ type BroadcastManager interface {
 	// HandleHealth interprets the health of a broadcast and would perform any
 	// necessary actions based on this health. For example, if the health is
 	// bad, it might restart the broadcast.
-	HandleHealth(ctx Ctx, cfg *Cfg) error
+	HandleHealth(ctx Ctx, cfg *Cfg, goodHealthCallback, badHealthCallback func()) error
 
 	SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error
 }
@@ -215,11 +215,29 @@ func (m *OceanBroadcastManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
 	return handleChatMessage(ctx, cfg, m.log)
 }
 
-// HandleHealth interprets the health of a broadcast and performs external
-// hardware restart if consecutive bad health statuses are detected beyond
-// a threshold.
-func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg) error {
-	return handleHealth(ctx, cfg, m.log)
+// HandleHealth interprets the health of a broadcast and calls the provided callbacks in response to the health.
+// For tolerance to temporary issues, we only call the badHealthCallback if the health is bad for more than 4 checks.
+func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg, goodHealthCallback, badHealthCallback func()) error {
+	m.log("handling health check")
+	hasIssue, err := checkIssues(ctx, cfg, m.log)
+	if err != nil {
+		return fmt.Errorf("could not check for stream issues: %w", err)
+	}
+
+	if !hasIssue {
+		cfg.Issues = 0
+		goodHealthCallback()
+		return nil
+	}
+	cfg.Issues++
+
+	const maxHealthIssues = 4
+	if cfg.Issues > maxHealthIssues {
+		badHealthCallback()
+		cfg.Issues = 0
+	}
+
+	return nil
 }
 
 func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error {
