@@ -20,6 +20,7 @@ package notify
 
 import (
 	"errors"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -96,7 +97,9 @@ func GetOpsEnvVars() (string, time.Duration) {
 	v := os.Getenv("OPS_PERIOD")
 	if v != "" {
 		n, err := strconv.Atoi(v)
-		if err == nil {
+		if err != nil {
+			log.Printf("could not convert OPS_PERIOD '%s' to an integer: %v", v, err)
+		} else {
 			period = n
 		}
 	}
