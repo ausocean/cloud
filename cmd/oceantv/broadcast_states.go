@@ -169,7 +169,7 @@ func (s *vidforwardPermanentLiveUnhealthy) exit()  {}
 func (s *vidforwardPermanentLiveUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.SendOps(
+		notifier.Send(
 			context.Background(),
 			s.cfg.SKey,
 			"health",
@@ -203,7 +203,7 @@ func (s *vidforwardPermanentSlateUnhealthy) exit()  {}
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.SendOps(
+		notifier.Send(
 			context.Background(),
 			s.cfg.SKey,
 			"health",
@@ -609,7 +609,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 				if _cfg.StartFailures >= maxStartFailures {
 					_cfg.StartFailures = 0
 					_cfg.Enabled = false
-					notifier.SendOps(
+					notifier.Send(
 						context.Background(),
 						_cfg.SKey,
 						"health",

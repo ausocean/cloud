@@ -326,7 +326,12 @@ func setup(ctx context.Context) {
 
 	model.RegisterEntities()
 
-	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
+	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	if err != nil {
+		log.Fatalf("could not get secrets: %v", err)
+	}
+	recipient, period := notify.GetOpsEnvVars()
+	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
