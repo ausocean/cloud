@@ -278,6 +278,7 @@ func TestHandleTimeEvent(t *testing.T) {
 				timeEvent{},
 				statusCheckDueEvent{},
 				chatMessageDueEvent{},
+				hardwareResetRequestEvent{},
 			},
 			expectedState: newDirectLiveUnhealthy(bCtx),
 			cfg: &BroadcastConfig{
