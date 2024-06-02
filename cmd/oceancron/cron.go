@@ -55,7 +55,7 @@ type scheduler struct {
 	entries map[cron.EntryID]model.Cron
 	// funcs is the mapping from function names to
 	// extension functions.
-	funcs map[string]func(string) error
+	funcs map[string]func(int64, string) error
 }
 
 // cronID uniquely identifies a cron across the whole network.
@@ -81,6 +81,7 @@ func newScheduler() (*scheduler, error) {
 		cron:    c,
 		ids:     make(map[cronID]cron.EntryID),
 		entries: make(map[cron.EntryID]model.Cron),
+		funcs:   cronFuncs,
 	}, nil
 }
 
@@ -168,10 +169,10 @@ func (s *scheduler) Set(job *model.Cron) error {
 			return fmt.Errorf("no function %q", job.Var)
 		}
 		action = func() {
-			log.Printf("cron run: calling %q at site=%v with %q: %v", job.Var, job.Skey, job.Data, err)
-			err = fn(job.Data)
+			log.Printf("cron run: calling %s(%d, %s)", job.Var, job.Skey, job.Data)
+			err = fn(job.Skey, job.Data)
 			if err != nil {
-				logAndNotify(notify, "cron: error calling %q at site=%v with %q: %v", job.Var, job.Skey, job.Data, err)
+				logAndNotify(notify, "cron: error calling %s(%d, %s): %v", job.Var, job.Skey, job.Data, err)
 			}
 		}
 
