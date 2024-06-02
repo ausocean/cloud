@@ -76,7 +76,7 @@ func check(skey int64, mac string) error {
 
 	if !healthy {
 		var msg string
-		if mac == "" {
+		if mac != "" {
 			msg = fmt.Sprintf("Site %s has unhealthy device: %s", name, mac)
 		} else {
 			msg = fmt.Sprintf("Site %s has unhealthy device(s): ", name)
