@@ -129,6 +129,7 @@ type BroadcastConfig struct {
 	StartFailures     int           // The number of times the broadcast has failed to start.
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
+	HardwareStateData []byte        // Hardware states will be marshalled and their data stored here.
 }
 
 // SensorEntry contains the information for each sensor.
