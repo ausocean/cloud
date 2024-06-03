@@ -366,7 +366,7 @@ func (s *directStarting) enter() {
 }
 func (s *directStarting) exit() {}
 func (s *directStarting) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
+	const timeout = 10 * time.Minute
 	if t.Sub(s.LastEntered) > timeout {
 		s.log("timed out starting broadcast, last entered: %v, time now: %v", s.LastEntered, t)
 		return true
