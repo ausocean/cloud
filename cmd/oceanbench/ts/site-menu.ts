@@ -11,6 +11,11 @@ class SiteMenu extends LitElement {
     @property({ type: String, attribute: 'selected-perm' })
     selectedPerm;
 
+    // If custom-handling is set to be true, the page must handle 
+    // site-change events, otherwise the site menu will force a page refresh.
+    @property({ type: Boolean, attribute: 'custom-handling' })
+    customHandling = false;
+
     @property({ type: Boolean })
     reloadConfirmed = false;
 
@@ -113,7 +118,11 @@ class SiteMenu extends LitElement {
         r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {
                 console.log("response from set site request: ", r.responseText);
-                this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
+                if (this.customHandling) {
+                    this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
+                } else {
+                    window.location.reload();
+                }
             }
         }
         r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
@@ -177,7 +186,12 @@ class SiteMenu extends LitElement {
                         // If there's not a match, ask the user if they want to reload.
                         // If the user clicks 'OK' in the confirmation dialog, reload the page.
                         if (Number(s1[0]) != Number(s2[0])) {
-                            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
+                            if (this.customHandling) {
+                                this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
+                            } else if (!this.reloadConfirmed && window.confirm("The selected site has changed. Do you want to reload the page?")) {
+                                this.reloadConfirmed = true;
+                                window.location.reload();
+                            }
                         }
                     } else {
                         console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
