@@ -25,6 +25,26 @@
       {{ if eq .CurrentBroadcast.SendMsg true}}
         document.getElementById("report-sensor").checked = true;
       {{end}}
+
+      document.getElementById("header").addEventListener("site-change", handleSiteChange)
+    }
+
+    function handleSiteChange(event) {
+      // Check that the user really wants to change the site.
+      let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?")
+      if (resp) {
+        location.assign("/admin/broadcast"); // This will empty the form.
+      } else {
+        // make a request to keep the old site.
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
+        xhr.onreadystatechange = ()=> {
+          if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
+            location.reload();
+          }
+        }
+        xhr.send()
+      }
     }
 
     function checkAll(form){
@@ -65,7 +85,7 @@
     <div class="heading">
         <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
     </div>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} custom-handling>
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
@@ -86,7 +106,7 @@
     <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
       <fieldset>
         <label>Select Broadcast:</label>
-        <select name="broadcast-select" onchange="submitSelect(this)">
+        <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
           <option value="">-- New Broadcast --</option>
           {{range .BroadcastVars}}
             <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>
