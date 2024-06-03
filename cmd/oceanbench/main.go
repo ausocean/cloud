@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "0.19.1"
+	version     = "0.20.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -86,16 +86,6 @@ const (
 	tvServiceURL       = "https://oceantv.appspot.com"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	senderEmail        = "vidgrindservice@gmail.com"
-)
-
-// Device health statuses.
-type health int
-
-const (
-	healthStatusUnknown health = iota - 1
-	healthStatusBad
-	healthStatusGood
 )
 
 // Device state statuses.
