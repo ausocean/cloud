@@ -110,10 +110,10 @@ class SiteMenu extends LitElement {
             return;
         }
         let r = new XMLHttpRequest();
-        r.onreadystatechange = function () {
+        r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {
                 console.log("response from set site request: ", r.responseText);
-                window.location.reload();
+                this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
             }
         }
         r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
@@ -177,10 +177,7 @@ class SiteMenu extends LitElement {
                         // If there's not a match, ask the user if they want to reload.
                         // If the user clicks 'OK' in the confirmation dialog, reload the page.
                         if (Number(s1[0]) != Number(s2[0])) {
-                            if (!this.reloadConfirmed && window.confirm("The selected site has changed. Do you want to reload the page?")) {
-                                this.reloadConfirmed = true;
-                                window.location.reload();
-                            }
+                            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
                         }
                     } else {
                         console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
