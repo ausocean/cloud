@@ -29,7 +29,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
@@ -39,7 +38,7 @@ import (
 // opsHealthNotify sends a health email notification for site with skey and message
 // msg.
 func opsHealthNotify(ctx context.Context, sKey int64, msg string) error {
-	return notifier.SendOps(ctx, sKey, "health", msg)
+	return notifier.Send(ctx, sKey, "health", msg)
 }
 
 // opsHealthNotifyFunc returns a closure using opsHealthNotify to be given to the
@@ -54,9 +53,9 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 // to resolve problems. Number of successive issues are stored in the broadcast
 // config, and if a maximum is reached the streaming hardware is power cycled
 // in an attempt to resolve issues.
-func handleHealth(ctx context.Context, cfg *BroadcastConfig) error {
-	log.Printf("broadcast: %s, ID: %s, handling health check", cfg.Name, cfg.ID)
-	hasIssue, err := checkIssues(ctx, cfg)
+func handleHealth(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+	log("handling health check")
+	hasIssue, err := checkIssues(ctx, cfg, log)
 	if err != nil {
 		return fmt.Errorf("could not check for stream issues: %w", err)
 	}
@@ -72,9 +71,10 @@ func handleHealth(ctx context.Context, cfg *BroadcastConfig) error {
 		// We don't want to restart the hardware if slate is enabled, but we
 		// should notify ops given that this will be a problem with vidforward.
 		if cfg.Slate {
-			msg := fmt.Sprintf("Broadcast: %s, ID: %s, exceeded allowable successive issues, but slate is enabled, so not restarting hardware", cfg.Name, cfg.ID)
-			log.Println(msg)
-			err = opsHealthNotify(ctx, cfg.SKey, msg)
+			msg := "exceeded allowable successive issues, but slate is enabled, so not restarting hardware"
+			emailMsg := fmt.Sprintf("Broadcast: %s, ID: %s, %s", cfg.Name, cfg.ID, msg)
+			log(msg)
+			err = opsHealthNotify(ctx, cfg.SKey, emailMsg)
 			if err != nil {
 				return fmt.Errorf("could not send notification for poor stream health: %w", err)
 			}
@@ -83,8 +83,8 @@ func handleHealth(ctx context.Context, cfg *BroadcastConfig) error {
 			return nil
 		}
 
-		log.Printf("Broadcast: %s, ID: %s, exceeded allowable successive issues, restarting hardware", cfg.Name, cfg.ID)
-		err = extStop(ctx, cfg)
+		log("exceeded allowable successive issues, restarting hardware")
+		err = extStop(ctx, cfg, log)
 		if err != nil {
 			return fmt.Errorf("external hardware stop error: %w", err)
 		}
@@ -94,7 +94,7 @@ func handleHealth(ctx context.Context, cfg *BroadcastConfig) error {
 		const stopWait = 2 * time.Minute
 		time.Sleep(stopWait)
 
-		err = extStart(ctx, cfg, &YouTubeBroadcastService{})
+		err = extStart(ctx, cfg, log)
 		if err != nil {
 			return fmt.Errorf("external hardware start error: %w", err)
 		}
@@ -112,9 +112,9 @@ func handleHealth(ctx context.Context, cfg *BroadcastConfig) error {
 // successive issues are stored in the broadcast config, and if a maximum is reached
 // the badHealthCallback is called. The goodHealthCallback is called when the health
 // check is successful.
-func handleHealthWithCallback(ctx context.Context, cfg *BroadcastConfig, store Store, svc Svc, badHealthCallback, goodHealthCallback BroadcastCallback) error {
-	log.Printf("broadcast: %s, ID: %s, handling health check", cfg.Name, cfg.ID)
-	hasIssue, err := checkIssues(ctx, cfg)
+func handleHealthWithCallback(ctx context.Context, cfg *BroadcastConfig, store Store, svc Svc, badHealthCallback, goodHealthCallback BroadcastCallback, log func(string, ...interface{})) error {
+	log("handling health check")
+	hasIssue, err := checkIssues(ctx, cfg, log)
 	if err != nil {
 		return fmt.Errorf("could not check for stream issues: %w", err)
 	}
@@ -142,7 +142,7 @@ func handleHealthWithCallback(ctx context.Context, cfg *BroadcastConfig, store S
 // that are considered severe and/or might eventually require a hardware restart
 // in an attempt to resolve. We first check for configuration issues e.g. incorrect
 // resolution and then we check for basic issues, e.g. insufficient data.
-func checkIssues(ctx context.Context, cfg *BroadcastConfig) (bool, error) {
+func checkIssues(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) (bool, error) {
 	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
 	if err != nil {
 		return false, fmt.Errorf("could not get youtube service: %w", err)
@@ -155,7 +155,7 @@ func checkIssues(ctx context.Context, cfg *BroadcastConfig) (bool, error) {
 
 	var foundIssue bool
 	for _, v := range health.ConfigurationIssues {
-		log.Printf("broadcast: %s, ID: %s, configuration issue, reason: %s, severity: %s, type: %s, last updated (seconds): %d", cfg.Name, cfg.ID, v.Reason, v.Severity, v.Type, health.LastUpdateTimeSeconds)
+		log("configuration issue, reason: %s, severity: %s, type: %s, last updated (seconds): %d", v.Reason, v.Severity, v.Type, health.LastUpdateTimeSeconds)
 
 		if v.Severity == "error" {
 			msg := "broadcast: %s\n ID: %s\n, configuration issue:\n \tdescription: %s, \treason: %s, \tseverity: %s, \ttype: %s, \tlast updated (seconds): %d"
@@ -167,7 +167,7 @@ func checkIssues(ctx context.Context, cfg *BroadcastConfig) (bool, error) {
 		}
 	}
 
-	log.Printf("broadcast: %s, ID: %s, stream health check, status: %s", cfg.Name, cfg.ID, health.Status)
+	log("stream health check, status: %s", health.Status)
 	switch health.Status {
 	case "noData", "revoked":
 		foundIssue = true

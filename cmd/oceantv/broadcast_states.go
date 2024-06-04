@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -21,9 +20,7 @@ type broadcastContext struct {
 }
 
 func (ctx *broadcastContext) log(msg string, args ...interface{}) {
-	idArgs := []interface{}{ctx.cfg.Name, ctx.cfg.ID}
-	idArgs = append(idArgs, args...)
-	log.Printf("(name: %s, id: %s) "+msg, idArgs...)
+	logForBroadcast(ctx.cfg, msg, args...)
 }
 
 type state interface {
@@ -172,7 +169,7 @@ func (s *vidforwardPermanentLiveUnhealthy) exit()  {}
 func (s *vidforwardPermanentLiveUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.SendOps(
+		notifier.Send(
 			context.Background(),
 			s.cfg.SKey,
 			"health",
@@ -206,7 +203,7 @@ func (s *vidforwardPermanentSlateUnhealthy) exit()  {}
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.SendOps(
+		notifier.Send(
 			context.Background(),
 			s.cfg.SKey,
 			"health",
@@ -242,7 +239,7 @@ func (s *vidforwardSecondaryLive) enter() {}
 func (s *vidforwardSecondaryLive) exit() {
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
 	if err != nil {
-		log.Printf("broadcast: %s, ID: %s, could not stop broadcast", s.cfg.Name, s.cfg.ID)
+		s.log("could not stop broadcast")
 	}
 }
 
@@ -313,7 +310,7 @@ func (s *directLive) enter() {}
 func (s *directLive) exit() {
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
 	if err != nil {
-		log.Printf("broadcast: %s, ID: %s, could not stop broadcast", s.cfg.Name, s.cfg.ID)
+		s.log("could not stop broadcast")
 	}
 }
 
@@ -328,7 +325,7 @@ func (s *directLiveUnhealthy) enter() {}
 func (s *directLiveUnhealthy) exit() {
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
 	if err != nil {
-		log.Printf("broadcast: %s, ID: %s, could not stop broadcast", s.cfg.Name, s.cfg.ID)
+		s.log("could not stop broadcast", s.cfg.Name, s.cfg.ID)
 	}
 }
 
@@ -612,7 +609,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 				if _cfg.StartFailures >= maxStartFailures {
 					_cfg.StartFailures = 0
 					_cfg.Enabled = false
-					notifier.SendOps(
+					notifier.Send(
 						context.Background(),
 						_cfg.SKey,
 						"health",

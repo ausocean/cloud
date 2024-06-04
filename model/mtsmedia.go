@@ -399,7 +399,7 @@ func newMtsMediaQuery(store datastore.Store, mid int64, gh []string, ts []int64,
 			q.Filter("Timestamp =", ts[0])
 		}
 	}
-	q.Order("Date")
+	q.Order("Timestamp")
 	return q, nil
 }
 
@@ -550,10 +550,14 @@ func FromMID(mid int64) (string, string) {
 func putMtsPin(pin string) byte {
 	var b byte
 	switch pin[0] {
+	case 'V':
+		// Zero.
 	case 'S':
 		b = 0x04
 	case 'T':
 		b = 0x08
+	case 'B':
+		b = 0x0C
 	}
 	pn := int(pin[1] - '0')
 	b |= byte(pn)
@@ -572,6 +576,8 @@ func getMtsPin(b byte) string {
 		s[0] = 'S'
 	case 2:
 		s[0] = 'T'
+	case 3:
+		s[0] = 'B'
 	}
 	return string(s)
 }

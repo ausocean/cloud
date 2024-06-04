@@ -1,12 +1,10 @@
 # Readme
 
-Video Grinder (VidGrind) is a cloud service for receiving and storing media and
-data from AusOcean devices.
+Ocean Bench, part of Ausocean's [Cloud Blue](https://www.cloudblue.org),
+is a cloud service for analyzing ocean data.
 
-VidGrind is written in Go and runs on Google App Engine
+Ocean Bench is written in Go and runs on Google App Engine
 Standard Edition (part of Google Cloud.)
-
-VidGrind's predecessor is NetReceiver (from which it is derived).
 
 ## Installation and Usage
 
@@ -38,24 +36,6 @@ can follow the official guides:
 
 # See Also
 
-* [VidGrind service](http://vidgrind.appspot.com)
-* [NetReceiver service](https://netreceiver.appspot.com)
+* [Ocean Bench service](https://bench.cloudblue.org)
 * [AusOcean](https://www.ausocean.org)
 
-# License
-
-Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
-
-It is free software: you can redistribute it and/or modify them
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either version 3 of the License, or (at your
-option) any later version.
-
-It is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
-for more details.
-
-You should have received a copy of the GNU General Public License
-along with NetReceiver in gpl.txt. If not, see
-<http://www.gnu.org/licenses>.

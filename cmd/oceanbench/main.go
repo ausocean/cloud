@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "0.19.0"
+	version     = "0.20.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -86,16 +86,6 @@ const (
 	tvServiceURL       = "https://oceantv.appspot.com"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	senderEmail        = "vidgrindservice@gmail.com"
-)
-
-// Device health statuses.
-type health int
-
-const (
-	healthStatusUnknown health = iota - 1
-	healthStatusBad
-	healthStatusGood
 )
 
 // Device state statuses.
@@ -327,7 +317,12 @@ func setup(ctx context.Context) {
 
 	model.RegisterEntities()
 
-	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
+	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	if err != nil {
+		log.Fatalf("could not get secrets: %v", err)
+	}
+	recipient, period := notify.GetOpsEnvVars()
+	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}

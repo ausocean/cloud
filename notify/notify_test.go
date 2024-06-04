@@ -22,50 +22,111 @@ import (
 	"context"
 	"os"
 	"testing"
-	"time"
+
+	"github.com/ausocean/cloud/gauth"
 )
 
 const (
 	projectID = "test"
 	kind      = "test"
-	sender    = "vidgrindservice@gmail.com"
-	recipient = "vidgrindservice@gmail.com"
 	message   = "This is a test."
-	minPeriod = 1
+	recipient = "testing@ausocean.org"
 )
 
 // testStore implements a dummy time store for testing purposes.
 type testStore struct {
-	count int
+	Attempted int
+	Delivered int
 }
 
 // TestStore tests the time store functionality.
+// For this test, we supply a test store without any secrets.
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
 	n := Notifier{}
 	ts := testStore{}
-	err := n.Init(ctx, "", "", &ts)
+	err := n.Init(WithStore(&ts))
 	if err != nil {
 		t.Errorf("Init failed with error: %v", err)
 	}
 
-	err = n.Send(ctx, 0, kind, recipient, message, minPeriod)
-	if err != nil {
-		t.Errorf("Send failed with error: %v", err)
+	// Even numbered attempts should not be delivered.
+	tests1 := []struct {
+		attempted int
+		delivered int
+	}{
+		{
+			attempted: 1,
+			delivered: 1,
+		},
+		{
+			attempted: 2,
+			delivered: 1,
+		},
+		{
+			attempted: 3,
+			delivered: 2,
+		},
 	}
-	err = n.Send(ctx, 0, kind, recipient, message, minPeriod)
-	if err != nil {
-		t.Errorf("Send failed with error: %v", err)
+
+	for i, test := range tests1 {
+		err = n.Send(ctx, 0, kind, message)
+		if err != nil {
+			t.Errorf("Send #%d failed with error: %v", i, err)
+		}
+		if ts.Attempted != test.attempted {
+			t.Errorf("Expected attempted to be %d, got  %d", test.attempted, ts.Attempted)
+		}
+		if ts.Delivered != test.delivered {
+			t.Errorf("Expected delivered to be %d, got %d", test.delivered, ts.Delivered)
+		}
 	}
-	err = n.Send(ctx, 0, kind, recipient, message, minPeriod)
-	if err != nil {
-		t.Errorf("Send failed with error: %v", err)
+
+	// Now try with filters.
+	tests2 := []struct {
+		filter    string
+		attempted int
+		delivered int
+	}{
+		{
+			filter:    "test",
+			attempted: 4,
+			delivered: 2,
+		},
+		{
+			filter:    "test",
+			attempted: 5,
+			delivered: 3,
+		},
+		{
+			filter:    "Error:",
+			attempted: 5,
+			delivered: 3,
+		},
+	}
+	for i, test := range tests2 {
+		// Re-initialize with the filter.
+		err = n.Init(WithFilter(test.filter), WithStore(&ts))
+		if err != nil {
+			t.Errorf("Init failed with error: %v", err)
+		}
+		err = n.Send(ctx, 0, kind, message)
+		if err != nil {
+			t.Errorf("Send #%d failed with error: %v", i, err)
+		}
+		if ts.Attempted != test.attempted {
+			t.Errorf("Expected attempted to be %d, got  %d", test.attempted, ts.Attempted)
+		}
+		if ts.Delivered != test.delivered {
+			t.Errorf("Expected delivered to be %d, got %d", test.delivered, ts.Delivered)
+		}
 	}
 }
 
 // TestSend tests sending an actual email.
-// It is recommended to run this only locally.
+// For this test, we supply secrets and a test recipient.
+// It is recommended to run this only locally, as it sends actual emails.
 func TestSend(t *testing.T) {
 	if os.Getenv("TEST_SECRETS") == "" {
 		t.Skip("TEST_SECRETS required for TestSend")
@@ -74,28 +135,34 @@ func TestSend(t *testing.T) {
 	ctx := context.Background()
 	n := Notifier{}
 
-	err := n.Init(ctx, projectID, sender, nil)
+	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	if err != nil {
+		t.Errorf("Could not get secrets for %s: %v", projectID, err)
+	}
+
+	err = n.Init(WithSecrets(secrets), WithRecipient(recipient))
 	if err != nil {
 		t.Errorf("Init failed with error: %v", err)
 	}
 
-	err = n.Send(ctx, 0, kind, recipient, message, minPeriod)
+	err = n.Send(ctx, 0, kind, message)
 	if err != nil {
 		t.Errorf("Send failed with error: %v", err)
 	}
 }
 
-// Get alternates between returning the current time and a time long past.
-func (ts *testStore) Get(skey int64, key string) (time.Time, error) {
-	ts.count++
-	if ts.count%2 == 0 {
-		return time.Now(), nil
+// Sendable alternates between returning true and false.
+func (ts *testStore) Sendable(ctx context.Context, skey int64, key string) (bool, error) {
+	ts.Attempted++
+	if ts.Attempted%2 == 0 {
+		return false, nil
 	} else {
-		return time.Time{}, nil
+		return true, nil
 	}
 }
 
-// Set is a no-op.
-func (ts *testStore) Set(skey int64, key string, t time.Time) error {
+// Sent just increments the sent counter.
+func (ts *testStore) Sent(ctx context.Context, skey int64, key string) error {
+	ts.Delivered++
 	return nil
 }

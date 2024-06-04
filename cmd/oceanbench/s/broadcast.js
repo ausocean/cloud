@@ -17,7 +17,27 @@ document.addEventListener('DOMContentLoaded', function() {
   if (sendMsg) {
     document.getElementById("report-sensor").checked = true;
   }
+
+  document.getElementById("header").addEventListener("site-change", handleSiteChange)
 });
+
+function handleSiteChange(event) {
+  // Check that the user really wants to change the site.
+  let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?")
+  if (resp) {
+    location.assign("/admin/broadcast"); // This will empty the form.
+  } else {
+    // make a request to keep the old site.
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
+    xhr.onreadystatechange = ()=> {
+      if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
+        location.reload();
+      }
+    }
+    xhr.send()
+  }
+}
 
 function checkAll(form) {
   const sensorList = JSON.parse(document.getElementById('sensor-list').dataset.sensorList);

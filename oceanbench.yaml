@@ -1,4 +1,4 @@
-# gcloud app deploy --version V --project oceanbeach oceanbeach.yaml
+# gcloud app deploy --version V --project oceanbench oceanbench.yaml
 runtime: go121
 
 env_variables:

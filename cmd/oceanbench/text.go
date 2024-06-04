@@ -6,6 +6,7 @@ AUTHORS
   Scott Barnard <scott@ausocean.org>
   Trek Hopton <trek@ausocean.org>
   Saxon Nelson-Milton <saxon@ausocean.org>
+  Alan Noble <alan@ausocean.org>
 
 LICENSE
   Copyright (C) 2020-2024 the Australian Ocean Lab (AusOcean)
@@ -45,22 +46,6 @@ func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, strin
 		return nil, "", fmt.Errorf("could not get text from datastore: %w", err)
 	}
 
-	if errors.Is(err, datastore.ErrNoSuchEntity) || len(media) == 0 {
-		bds, err := model.GetBinaryData(r.Context(), settingsStore, mid, ts)
-		if err != nil {
-			return nil, "", fmt.Errorf("could not get binary data from datastore: %w", err)
-		}
-		if len(bds) == 0 {
-			const genericMimeType = "application/octet-stream"
-			return []byte{}, genericMimeType, nil
-		}
-		data, err := joinBinaryText(bds)
-		if err != nil {
-			return nil, "", fmt.Errorf("could not join binary text: %w", err)
-		}
-		return data, bds[0].Fmt, nil
-	}
-
 	mime := media[0].Type
 	return joinText(media), mime, nil
 }
@@ -73,13 +58,4 @@ func joinText(texts []model.Text) []byte {
 		data = append(data, []byte("\n")...)
 	}
 	return data
-}
-
-func joinBinaryText(bins []model.BinaryData) ([]byte, error) {
-	var data []byte
-	for _, b := range bins {
-		data = append(data, []byte(b.Data)...)
-		data = append(data, []byte("\n")...)
-	}
-	return data, nil
 }

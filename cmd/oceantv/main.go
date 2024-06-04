@@ -44,7 +44,6 @@ const (
 	projectID          = "oceantv"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	senderEmail        = "vidgrindservice@gmail.com" // TODO: Change this.
 	locationID         = "Australia/Adelaide"        // TODO: Use site location.
 )
 
@@ -134,7 +133,13 @@ func setup(ctx context.Context) {
 		log.Printf("could not get cronSecret: %v", err)
 	}
 
-	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
+	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	if err != nil {
+		log.Fatalf("could not get secrets: %v", err)
+	}
+	recipient, period := notify.GetOpsEnvVars()
+
+	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
@@ -181,12 +186,16 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = (&OceanBroadcastManager{}).SaveBroadcast(ctx, &cfg, settingsStore)
+	log := func(msg string, args ...interface{}) {
+		logForBroadcast(&cfg, msg, args...)
+	}
+
+	err = newOceanBroadcastManager(log).SaveBroadcast(ctx, &cfg, settingsStore)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	log.Printf("broadcast %s saved", cfg.Name)
+	log("broadcast saved")
 	w.WriteHeader(http.StatusOK)
 }
 

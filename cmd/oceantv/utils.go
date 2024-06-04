@@ -41,6 +41,14 @@ import (
 	"github.com/ausocean/openfish/datastore"
 )
 
+// logForBroadcast logs a message with the broadcast name and ID.
+// This is useful to keep track of logs for different broadcasts.
+func logForBroadcast(cfg *BroadcastConfig, msg string, args ...interface{}) {
+	idArgs := []interface{}{cfg.Name, cfg.ID}
+	idArgs = append(idArgs, args...)
+	log.Printf("(name: %s, id: %s) "+msg, idArgs...)
+}
+
 // removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.
 func removeDate(s string) string {
 	const dateRegex = "[0-3][0-9]/[0-3][0-9]/(?:[0-9][0-9])?[0-9][0-9]"
@@ -53,7 +61,7 @@ func removeDate(s string) string {
 // acts is of form: <device.varname>=<value>,<device.varname>=<value>. For example,
 // if we need to turn on a camera and set its mode to normal:
 // ESP.CamPower=true,Camera.mode=Normal.
-func setActionVars(ctx context.Context, sKey int64, acts string, store datastore.Store) error {
+func setActionVars(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error {
 	vars := strings.Split(acts, ",")
 	if len(vars) == 0 {
 		return errors.New("no var actions to perform")
@@ -65,7 +73,7 @@ func setActionVars(ctx context.Context, sKey int64, acts string, store datastore
 			return fmt.Errorf("unexpected actions var format: %s", v)
 		}
 
-		err := setVar(ctx, store, parts[0], parts[1], sKey)
+		err := setVar(ctx, store, parts[0], parts[1], sKey, log)
 		if err != nil {
 			return fmt.Errorf("could not set action var %s: %w", parts[0], err)
 		}
@@ -74,14 +82,14 @@ func setActionVars(ctx context.Context, sKey int64, acts string, store datastore
 }
 
 // setVar sets cloud variables. These variable are only set if they already exist.
-func setVar(ctx context.Context, store datastore.Store, name, value string, sKey int64) error {
-	log.Printf("checking %s variable exists", name)
+func setVar(ctx context.Context, store datastore.Store, name, value string, sKey int64, log func(string, ...interface{})) error {
+	log("checking %s variable exists", name)
 	_, err := model.GetVariable(ctx, store, sKey, name)
 	if err != nil {
 		return fmt.Errorf("could not get %s varable: %w", name, err)
 	}
 
-	log.Printf("%s variable exists, setting to value: %s", name, value)
+	log("%s variable exists, setting to value: %s", name, value)
 	err = model.PutVariable(ctx, store, sKey, name, value)
 	if err != nil {
 		return fmt.Errorf("could not set %s variable: %w", name, err)

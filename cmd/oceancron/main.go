@@ -41,7 +41,6 @@ const (
 	projectID          = "oceancron"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	senderEmail        = "vidgrindservice@gmail.com"
 )
 
 var (
@@ -131,7 +130,12 @@ func setup(ctx context.Context) {
 		log.Fatalf("could not set up cron scheduler: %v", err)
 	}
 
-	err = notifier.Init(ctx, projectID, senderEmail, notify.NewTimeStore(settingsStore))
+	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	if err != nil {
+		log.Fatalf("could not get secrets: %v", err)
+	}
+	recipient, period := notify.GetOpsEnvVars()
+	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}

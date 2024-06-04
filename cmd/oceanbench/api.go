@@ -28,7 +28,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -36,9 +35,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
-
-	"context"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -186,32 +182,6 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-	case "health":
-		// Authorization is not currently required for health operations.
-		switch prop {
-		case "site":
-			// Device ID is optional.
-			id := ""
-			if len(req) == 6 {
-				id = req[5]
-			}
-
-			h, err := siteHealthStatus(ctx, val, id)
-			if err != nil {
-				writeHttpError(w, http.StatusBadRequest, "could not get site health: %v", err)
-				return
-			}
-
-			resp, err := json.Marshal(h)
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not marshal JSON to response: %v", err)
-				return
-			}
-			w.Write(resp)
-
-			return
-		}
-
 	case "scalar":
 		// Authorization is not currently required for scalar operations.
 		args, err := splitNumbers(val)
@@ -254,59 +224,6 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeHttpError(w, http.StatusBadRequest, "invalid url path, expected /get{/site, /sites}, /set/site, /test{/upload, /download}, or /health/site, got: /%v/%v", req[2], req[3])
-}
-
-// siteHealthStatus collects health status for devices at the given site. If id is not
-// empty, only the device with the specified ID is queried. If any queried device
-// is not healthy an email notification is sent to $OPS_EMAIL.
-func siteHealthStatus(ctx context.Context, site, id string) (h map[string]health, err error) {
-	skey, err := strconv.ParseInt(site, 10, 64)
-	if err != nil {
-		return nil, errors.New("bad request")
-	}
-	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
-	if err != nil {
-		return nil, errors.New("bad request")
-	}
-
-	h = make(map[string]health)
-	healthy := true
-	for _, dev := range devices {
-		if id == "" || id == dev.Name {
-			h[dev.Name] = deviceHealthStatus(ctx, dev)
-			if h[dev.Name] == healthStatusBad {
-				healthy = false
-			}
-		}
-	}
-
-	if !healthy {
-		var msg string
-		if id == "" {
-			msg = fmt.Sprintf("Site %d is unhealthy", skey)
-		} else {
-			msg = fmt.Sprintf("Device %d/%s is unhealthy", skey, id)
-		}
-		log.Print(msg)
-		err := notifier.SendOps(ctx, skey, "health", msg)
-		if err != nil {
-			log.Printf("unable to notify ops: %v", err)
-		}
-	}
-
-	return h, nil
-}
-
-// deviceHealthStatus returns the status of a device: 1 for reporting, 0 for not reporting, or -1 if unknown.
-func deviceHealthStatus(ctx context.Context, dev model.Device) health {
-	v, err := model.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
-	if err != nil {
-		return healthStatusUnknown
-	}
-	if time.Since(v.Updated) < time.Duration(2*dev.MonitorPeriod)*time.Second {
-		return healthStatusGood
-	}
-	return healthStatusBad
 }
 
 // splitNumbers splits a comma-separated string of numbers, ignoring the decimal part.
