@@ -171,15 +171,6 @@ var templateFuncs = template.FuncMap{
 	"json":          toJSON,
 }
 
-func toJSON(v interface{}) string {
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		// Handle the error by returning a string representation of the error.
-		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
-	}
-	return string(bytes)
-}
-
 func main() {
 	defaultPort := 8080
 	v := os.Getenv("PORT")
