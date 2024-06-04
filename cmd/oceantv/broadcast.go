@@ -165,35 +165,28 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims, err := gauth.GetClaims(r.Header.Get("Authorization"), cronSecret)
 	if err != nil {
-		log.Printf("request from %s has invalid claims: %v", r.RemoteAddr, err)
-		writeError(w, http.StatusUnauthorized, err)
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid claims: %v", r.RemoteAddr, err))
 		return
 	}
 	if claims["iss"] != cronServiceAccount {
-		log.Printf("request from %s has invalid issuer: %q", r.RemoteAddr, claims["iss"])
-		writeError(w, http.StatusUnauthorized, fmt.Errorf("invalid issuer"))
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid issuer: %q", r.RemoteAddr, claims["iss"]))
 		return
 	}
 	if _, ok := claims["skey"].(float64); !ok {
-		log.Printf("request from %s has invalid skey: %q", r.RemoteAddr, claims["skey"])
-		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid site key"))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("request from %s has invalid skey: %q", r.RemoteAddr, claims["skey"]))
 		return
 	}
 
 	skey := int64(claims["skey"].(float64))
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		err = fmt.Errorf("error getting site %d: %v", skey, err)
-		log.Printf(err.Error())
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %v", skey, err))
 		return
 	}
 	log.Printf("checking broadcasts for site %d", skey)
 	err = checkBroadcastsForSites(ctx, []model.Site{*site})
 	if err != nil {
-		err = fmt.Errorf("error checking broadcasts for site %d: %v", skey, err)
-		log.Printf(err.Error())
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %v", skey, err))
 		return
 	}
 	fmt.Fprint(w, "OK")
