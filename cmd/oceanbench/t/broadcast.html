@@ -10,70 +10,9 @@
   </style>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js"></script>
-  <script type="text/javascript">
-    function init() {
-      document.getElementById('time-zone').value = getTimezone();
-      {{if .CurrentBroadcast.StartTimeUnix}}sync('start-time', 'start-time-unix', 'time-zone', false);{{end}}
-      {{if .CurrentBroadcast.EndTimeUnix}}sync('end-time', 'end-time-unix', 'time-zone', false);{{end}}
-
-      {{ range .CurrentBroadcast.SensorList }}
-        {{if eq .SendMsg true}}
-          document.getElementById("{{ .Name }}").checked = true;
-        {{end}}
-      {{ end }}
-
-      {{ if eq .CurrentBroadcast.SendMsg true}}
-        document.getElementById("report-sensor").checked = true;
-      {{end}}
-
-      document.getElementById("header").addEventListener("site-change", handleSiteChange)
-    }
-
-    function handleSiteChange(event) {
-      // Check that the user really wants to change the site.
-      let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?")
-      if (resp) {
-        location.assign("/admin/broadcast"); // This will empty the form.
-      } else {
-        // make a request to keep the old site.
-        let xhr = new XMLHttpRequest();
-        xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
-        xhr.onreadystatechange = ()=> {
-          if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-            location.reload();
-          }
-        }
-        xhr.send()
-      }
-    }
-
-    function checkAll(form){
-      {{ range .CurrentBroadcast.SensorList }}
-        form.querySelector("input[id='{{ .Name }}']").checked = true;
-      {{ end }}
-      form.submit()
-    }
-
-    function uncheckAll(form){
-      {{ range .CurrentBroadcast.SensorList }}
-        form.querySelector("input[id='{{ .Name }}']").checked = false;
-      {{ end }}
-      form.submit()
-    }
-
-    function buttonClick(button){
-      button.form.querySelector("input[name='action']").value = button.value
-      button.form.submit()
-    }
-
-    function submitSelect(select){
-      select.form.querySelector("input[name='action']").value = "broadcast-select"
-      select.form.submit();
-    }
-
-  </script>
+  <script type="text/javascript" src="/s/broadcast.js"></script>
 </head>
-<body onload="init()">
+<body>
   <header-group id="header" class="header">
     <nav-menu id="nav-menu">
       {{range .Pages -}}
@@ -158,11 +97,11 @@
         <br>
         <div id="set-times">
           <label>Start Date/Time:</label>
-          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)" value="{{if .CurrentBroadcast.StartTime}}{{.CurrentBroadcast.StartTime}}{{end}}" size="14">
+          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)" size="14">
           &nbsp;<input name="start-time-unix" type="input" id="start-time-unix" onchange="sync('start-time', 'start-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimeUnix}}{{.CurrentBroadcast.StartTimeUnix}}{{end}}" size="15">
           <br>
           <label>End Date/Time:</label>
-          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-time-unix', 'time-zone', true)" value="{{if .CurrentBroadcast.EndTime}}{{.CurrentBroadcast.EndTime}}{{end}}" size="14">
+          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-time-unix', 'time-zone', true)" size="14">
           &nbsp;<input name="end-time-unix" type="input" id="end-time-unix" onchange="sync('end-time', 'end-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimeUnix}}{{.CurrentBroadcast.EndTimeUnix}}{{end}}" size="15">
           <br>
           <label>Timezone:</label>
@@ -209,6 +148,10 @@
       <iframe width="560" height="315" src="https://www.youtube.com/embed/{{.CurrentBroadcast.ID}}" frameborder="0" allowfullscreen></iframe>
     {{end}}
   </section>
+  <!-- These only exist to hold the data from the templates, these will be read by javascript. -->
+  <div id="sensor-list" style="display: none;" data-sensor-list='{{json .CurrentBroadcast.SensorList}}'></div>
+  <div id="send-msg" style="display: none;" data-send-msg="{{.CurrentBroadcast.SendMsg}}"></div>
+
   {{.Footer}}
 </body>
 </html>

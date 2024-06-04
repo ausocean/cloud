@@ -97,10 +97,8 @@ type BroadcastConfig struct {
 	Description       string        // The broadcast description shown below viewing window.
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
-	StartTime         string        // Start time of the broadcast in yy/mm/dd, hh:mm format.
 	StartTimeUnix     string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
-	EndTime           string        // End time of the broadcast in yy/mm/dd, hh:mm format.
 	EndTimeUnix       string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.

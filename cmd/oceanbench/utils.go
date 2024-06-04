@@ -5,6 +5,7 @@ DESCRIPTION
 AUTHORS
   Saxon Nelson-Milton <saxon@ausocean.org>
   Russell Stanley <russell@ausocean.org>
+  Trek Hopton <trek@ausocean.org>
 
 LICENSE
   Copyright (C) 2021-2024 the Australian Ocean Lab (AusOcean)
@@ -357,4 +358,14 @@ func provideConfig(cfg *BroadcastConfig) string {
 		return fmt.Sprintf("%v", trimDescriptionFromConfig(cfg))
 	}
 	return fmt.Sprintf("(config logging disabled) Events: %v, HardwareState: %v", cfg.Events, cfg.HardwareState)
+}
+
+// toJSON
+func toJSON(v interface{}) string {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		// Handle the error by returning a string representation of the error.
+		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
+	}
+	return string(bytes)
 }

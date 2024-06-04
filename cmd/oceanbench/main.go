@@ -158,6 +158,7 @@ var templateFuncs = template.FuncMap{
 	"localdate":     formatLocalDate,
 	"localtime":     formatLocalTime,
 	"localdatetime": formatLocalDateTime,
+	"json":          toJSON,
 }
 
 func main() {

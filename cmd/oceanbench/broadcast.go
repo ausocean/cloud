@@ -278,7 +278,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If we loaded prior settings, rewrite the template to fill the fields.
+	// If we just loaded existing broadcast settings by selecting a broadcast, write the response.
 	if loaded {
 		writeTemplate(w, r, "broadcast.html", &req, "")
 		return
