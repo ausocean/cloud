@@ -28,20 +28,17 @@ import (
 	mailjet "github.com/mailjet/mailjet-apiv3-go"
 )
 
-const (
-	defaultSender    = "vidgrindservice@gmail.com"
-	defaultRecipient = "ops@ausocean.org"
-)
+const defaultSender = "vidgrindservice@gmail.com"
 
 // Notifier represents a notifier that uses the MailJet API to send email.
 type Notifier struct {
-	mutex       sync.Mutex // Lock access.
-	sender      string     // Sender email address.
-	recipient   string     // Recipient email address.
-	store       TimeStore  // Notification store (optional).
-	filters     []string   // Message filters (optional).
-	publicKey   string     // Public key for accessing MailJet API.
-	privateKey  string     // Public key for accessing MailJet API.
+	mutex      sync.Mutex // Lock access.
+	sender     string     // Sender email address.
+	recipients []string   // Recipient email addresses.
+	store      TimeStore  // Notification store (optional).
+	filters    []string   // Message filters (optional).
+	publicKey  string     // Public key for accessing MailJet API.
+	privateKey string     // Public key for accessing MailJet API.
 }
 
 // Init initializes a notifier with the supplied options. See
@@ -57,7 +54,7 @@ func (n *Notifier) Init(options ...Option) error {
 
 	// Set default values.
 	n.sender = defaultSender
-	n.recipient = defaultRecipient
+	n.recipients = nil
 	n.store = nil
 	n.filters = nil
 	n.publicKey = ""
@@ -80,29 +77,33 @@ func (n *Notifier) Init(options ...Option) error {
 func (n *Notifier) Send(ctx context.Context, skey int64, kind, msg string) error {
 	for _, f := range n.filters {
 		if !strings.Contains(msg, f) {
-			log.Printf("filter '%s' applied: not sending %s message to %s", f, kind, n.recipient)
+			log.Printf("filter '%s' applied: not sending %s message to %s", f, kind, n.Recipients())
 			return nil
 		}
 	}
 
 	if n.store != nil {
-		sendable, err := n.store.Sendable(ctx, skey, kind+"."+n.recipient)
+		sendable, err := n.store.Sendable(ctx, skey, kind+"."+n.Recipients())
 		if err != nil {
 			log.Printf("store.IsSendable returned error: %v", err)
 		}
 		if !sendable {
-			log.Printf("too soon to send %s a %s message", n.recipient, kind)
+			log.Printf("too soon to send %s message to %s", kind, n.Recipients())
 			return nil
 		}
 	}
 
-	log.Printf("sending %s a %s message", n.recipient, kind)
+	log.Printf("sending %s message to %s", kind, n.Recipients())
 
 	if n.publicKey != "" && n.privateKey != "" {
 		clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
+		var recipients mailjet.RecipientsV31
+		for _, recipient := range n.recipients {
+			recipients = append(recipients, mailjet.RecipientV31{Email: recipient})
+		}
 		info := []mailjet.InfoMessagesV31{{
 			From:     &mailjet.RecipientV31{Email: n.sender},
-			To:       &mailjet.RecipientsV31{mailjet.RecipientV31{Email: n.recipient}},
+			To:       &recipients,
 			Subject:  strings.Title(kind) + " notification",
 			TextPart: msg,
 		}}
@@ -115,11 +116,16 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind, msg string) error
 	}
 
 	if n.store != nil {
-		err := n.store.Sent(ctx, skey, kind+"."+n.recipient)
+		err := n.store.Sent(ctx, skey, kind+"."+n.Recipients())
 		if err != nil {
 			log.Printf("store.Sent returned error: %v", err)
 		}
 	}
 
 	return nil
+}
+
+// Recipients returns a comma-separated list of recipients.
+func (n *Notifier) Recipients() string {
+	return strings.Join(n.recipients, ",")
 }

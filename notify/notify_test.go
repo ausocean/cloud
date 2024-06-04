@@ -30,7 +30,6 @@ const (
 	projectID = "test"
 	kind      = "test"
 	message   = "This is a test."
-	recipient = "testing@ausocean.org"
 )
 
 // testStore implements a dummy time store for testing purposes.
@@ -46,86 +45,69 @@ func TestStore(t *testing.T) {
 
 	n := Notifier{}
 	ts := testStore{}
-	err := n.Init(WithStore(&ts))
-	if err != nil {
-		t.Errorf("Init failed with error: %v", err)
-	}
 
 	// Even numbered attempts should not be delivered.
-	tests1 := []struct {
-		attempted int
-		delivered int
-	}{
-		{
-			attempted: 1,
-			delivered: 1,
-		},
-		{
-			attempted: 2,
-			delivered: 1,
-		},
-		{
-			attempted: 3,
-			delivered: 2,
-		},
-	}
-
-	for i, test := range tests1 {
-		err = n.Send(ctx, 0, kind, message)
-		if err != nil {
-			t.Errorf("Send #%d failed with error: %v", i, err)
-		}
-		if ts.Attempted != test.attempted {
-			t.Errorf("Expected attempted to be %d, got  %d", test.attempted, ts.Attempted)
-		}
-		if ts.Delivered != test.delivered {
-			t.Errorf("Expected delivered to be %d, got %d", test.delivered, ts.Delivered)
-		}
-	}
-
-	// Now try with filters.
-	tests2 := []struct {
+	tests := []struct {
+		recipient string
 		filter    string
 		attempted int
 		delivered int
 	}{
 		{
+			recipient: "nobody",
+			attempted: 1,
+			delivered: 1,
+		},
+		{
+			recipient: "nobody",
+			attempted: 2,
+			delivered: 1,
+		},
+		{
+			recipient: "nobody",
+			attempted: 3,
+			delivered: 2,
+		},
+		{
+			recipient: "nobody",
 			filter:    "test",
 			attempted: 4,
 			delivered: 2,
 		},
 		{
+			recipient: "nobody",
 			filter:    "test",
 			attempted: 5,
 			delivered: 3,
 		},
 		{
+			recipient: "nobody",
 			filter:    "Error:",
 			attempted: 5,
 			delivered: 3,
 		},
 	}
-	for i, test := range tests2 {
-		// Re-initialize with the filter.
-		err = n.Init(WithFilter(test.filter), WithStore(&ts))
+
+	for i, test := range tests {
+		err := n.Init(WithRecipient(test.recipient), WithFilter(test.filter), WithStore(&ts))
 		if err != nil {
-			t.Errorf("Init failed with error: %v", err)
+			t.Errorf("%d: Init failed with error: %v", i, err)
 		}
 		err = n.Send(ctx, 0, kind, message)
 		if err != nil {
-			t.Errorf("Send #%d failed with error: %v", i, err)
+			t.Errorf("%d: Send failed with error: %v", i, err)
 		}
 		if ts.Attempted != test.attempted {
-			t.Errorf("Expected attempted to be %d, got  %d", test.attempted, ts.Attempted)
+			t.Errorf("%d: Expected attempted to be %d, got  %d", i, test.attempted, ts.Attempted)
 		}
 		if ts.Delivered != test.delivered {
-			t.Errorf("Expected delivered to be %d, got %d", test.delivered, ts.Delivered)
+			t.Errorf("%d: Expected delivered to be %d, got %d", i, test.delivered, ts.Delivered)
 		}
 	}
 }
 
-// TestSend tests sending an actual email.
-// For this test, we supply secrets and a test recipient.
+// TestSend tests sending actual emails.
+// For this test, we supply Mailjet API secrets and recipients.
 // It is recommended to run this only locally, as it sends actual emails.
 func TestSend(t *testing.T) {
 	if os.Getenv("TEST_SECRETS") == "" {
@@ -140,14 +122,33 @@ func TestSend(t *testing.T) {
 		t.Errorf("Could not get secrets for %s: %v", projectID, err)
 	}
 
-	err = n.Init(WithSecrets(secrets), WithRecipient(recipient))
-	if err != nil {
-		t.Errorf("Init failed with error: %v", err)
+	tests := []struct {
+		recipients []string
+		ok         bool
+	}{
+		{
+			recipients: []string{"testing@ausocean.org"},
+			ok:         true,
+		},
+		{
+			recipients: []string{"user1@rfc-5322.invalid", "user2@rfc-5322.invalid"},
+			ok:         true,
+		},
+		{
+			recipients: []string{"rfc-5322.invalid"},
+			ok:         false,
+		},
 	}
 
-	err = n.Send(ctx, 0, kind, message)
-	if err != nil {
-		t.Errorf("Send failed with error: %v", err)
+	for i, test := range tests {
+		err := n.Init(WithSecrets(secrets), WithRecipients(test.recipients))
+		if err != nil {
+			t.Errorf("%d: Init failed with error: %v", i, err)
+		}
+		err = n.Send(ctx, 0, kind, message)
+		if test.ok && err != nil {
+			t.Errorf("%d: Unexpected error %v", i, err)
+		}
 	}
 }
 

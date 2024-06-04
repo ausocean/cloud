@@ -36,18 +36,31 @@ func WithSender(sender string) Option {
 	}
 }
 
-// WithRecipient sets the recipient email address.
+// WithRecipient sets a single recipient email address.
 func WithRecipient(recipient string) Option {
 	return func(n *Notifier) error {
-		n.recipient = recipient
+		n.recipients = []string{recipient}
+		return nil
+	}
+}
+
+// WithRecipients sets multiple recipient email addresses.
+func WithRecipients(recipients []string) Option {
+	return func(n *Notifier) error {
+		n.recipients = recipients
 		return nil
 	}
 }
 
 // WithFilter applies a filter string. If multiple WithFilter options
 // are applied, they form a compound conjunctive filter.
+// Specifiying an empty filter string clears the filter.
 func WithFilter(filter string) Option {
 	return func(n *Notifier) error {
+		if filter == "" {
+			n.filters = nil
+			return nil
+		}
 		n.filters = append(n.filters, filter)
 		return nil
 	}
