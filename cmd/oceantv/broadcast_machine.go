@@ -199,7 +199,10 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *vidforwardSecondaryStarting:
 		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), event)
 	case *directStarting:
-		sm.transitionIfTimedOut(sm.currentState, newDirectIdle(sm.ctx), event)
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(event.Time) {
+			onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("direct starting timed out"))
+		}
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
