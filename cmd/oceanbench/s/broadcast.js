@@ -8,34 +8,40 @@ document.addEventListener('DOMContentLoaded', function() {
   if (startTimeUnix) sync('start-time', 'start-time-unix', 'time-zone', false);
   if (endTimeUnix) sync('end-time', 'end-time-unix', 'time-zone', false);
 
-  sensorList.forEach(sensor => {
-    if (sensor.SendMsg) {
-      document.getElementById(sensor.Name).checked = true;
-    }
-  });
+  if (sensorList){
+      sensorList.forEach(sensor => {
+      if (sensor.SendMsg) {
+        document.getElementById(sensor.Name).checked = true;
+      }
+    });
+  }
 
   if (sendMsg) {
     document.getElementById("report-sensor").checked = true;
   }
 
-  document.getElementById("header").addEventListener("site-change", handleSiteChange)
+  document.getElementById("header").addEventListener("site-change", handleSiteChange);
 });
 
 function handleSiteChange(event) {
   // Check that the user really wants to change the site.
-  let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?")
+  let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?");
+
+  // Remove the site menu to prevent other events triggering more dialog boxes.
+  const menu = document.getElementById("sitemenu");
+  menu.remove(menu);
   if (resp) {
-    location.assign("/admin/broadcast"); // This will empty the form.
+    location.assign("admin/broadcast"); // This will empty the form.
   } else {
     // make a request to keep the old site.
     let xhr = new XMLHttpRequest();
     xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
     xhr.onreadystatechange = ()=> {
       if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-        location.reload();
+        console.log("request to keep previous selected site successful");
       }
     }
-    xhr.send()
+    xhr.send();
   }
 }
 
