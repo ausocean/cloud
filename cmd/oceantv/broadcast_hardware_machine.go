@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
-type hardwareRestarting struct{ *broadcastContext }
+type hardwareRestarting struct {
+	*broadcastContext `json:"-"`
+}
 
 func newHardwareRestarting(ctx *broadcastContext) *hardwareRestarting {
 	return &hardwareRestarting{ctx}
@@ -18,17 +22,32 @@ func (s *hardwareRestarting) enter() {
 }
 func (s *hardwareRestarting) exit() {}
 
-type hardwareStarting struct{ *broadcastContext }
+type hardwareStarting struct {
+	*broadcastContext `json:"-"`
+	LastEntered       time.Time
+}
 
 func newHardwareStarting(ctx *broadcastContext) *hardwareStarting {
-	return &hardwareStarting{ctx}
+	return &hardwareStarting{broadcastContext: ctx}
 }
 func (s *hardwareStarting) enter() {
+	s.LastEntered = time.Now()
 	s.camera.start(s.broadcastContext)
 }
 func (s *hardwareStarting) exit() {}
 
-type hardwareStopping struct{ *broadcastContext }
+func (s *hardwareStarting) timedOut(t time.Time) bool {
+	const timeout = 5 * time.Minute
+	if t.Sub(s.LastEntered) > timeout {
+		s.log("timed out starting hardware, last entered: %v, time now: %v", s.LastEntered, t)
+		return true
+	}
+	return false
+}
+
+type hardwareStopping struct {
+	*broadcastContext `json:"-"`
+}
 
 func newHardwareStopping(ctx *broadcastContext) *hardwareStopping { return &hardwareStopping{ctx} }
 func (s *hardwareStopping) enter() {
@@ -69,6 +88,11 @@ func getHardwareState(ctx *broadcastContext) state {
 	default:
 		panic(fmt.Sprintf("invalid hardware state: %s", ctx.cfg.HardwareState))
 	}
+
+	err := json.Unmarshal(ctx.cfg.HardwareStateData, &_state)
+	if err != nil {
+		ctx.log("unexpected error when unmarshaling hardware state data; this could mean we have an unexpected state: %v", err)
+	}
 	return _state
 }
 
@@ -102,16 +126,22 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 	default:
 		// Do nothing.
 	}
-	return nil
+	return sm.saveHardwareStateToConfig()
 }
 
-func (sm *hardwareStateMachine) handleTimeEvent(_ timeEvent) {
+func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	sm.log("handling time event")
 	eventIfStatus := func(e event, status bool) {
 		sm.ctx.camera.publishEventIfStatus(e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(t.Time) {
+			sm.ctx.bus.publish(hardwareStartFailedEvent{})
+			sm.transition(newHardwareOff())
+			return
+		}
 		eventIfStatus(hardwareStartedEvent{}, true)
 	case *hardwareStopping:
 		eventIfStatus(hardwareStoppedEvent{}, false)
@@ -218,17 +248,7 @@ func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareRe
 }
 
 func (sm *hardwareStateMachine) transition(newState state) {
-	err := updateConfigWithTransaction(
-		context.Background(),
-		sm.ctx.store,
-		sm.ctx.cfg.SKey,
-		sm.ctx.cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			_cfg.HardwareState = hardwareStateToString(newState)
-			*sm.ctx.cfg = *_cfg
-			return nil
-		},
-	)
+	err := sm.saveHardwareStateToConfig()
 	if err != nil {
 		sm.log("could not update hardware state in config to transition: %v", err)
 		return
@@ -284,4 +304,23 @@ func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac i
 		publish(event)
 		return
 	}
+}
+
+func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {
+	return updateConfigWithTransaction(
+		context.Background(),
+		sm.ctx.store,
+		sm.ctx.cfg.SKey,
+		sm.ctx.cfg.Name,
+		func(_cfg *BroadcastConfig) error {
+			_cfg.HardwareState = hardwareStateToString(sm.currentState)
+			hardwareStateData, err := json.Marshal(sm.currentState)
+			if err != nil {
+				return fmt.Errorf("could not marshal hardware state data: %v", err)
+			}
+			_cfg.HardwareStateData = hardwareStateData
+			*sm.ctx.cfg = *_cfg
+			return nil
+		},
+	)
 }
