@@ -403,7 +403,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "directLiveUnhealthy",
-			s:    &directLiveUnhealthy{ctx},
+			s:    newDirectLiveUnhealthy(ctx),
 			equal: func(a, b state) bool {
 				return true
 			},
