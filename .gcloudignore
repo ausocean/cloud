@@ -1,0 +1,34 @@
+# datablue
+cmd/datablue/.git
+cmd/datablue/.gitignore
+cmd/oceanbench/.circleci
+cmd/datablue/datablue
+cmd/datablue/*~
+cmd/datablue/#*
+cmd/datablue/store/*
+# oceanbench
+cmd/oceanbench/.git
+cmd/oceanbench/.gitignore
+cmd/oceanbench/.circleci
+cmd/oceanbench/oceanbench
+cmd/oceanbench/*~
+cmd/oceanbench/#*
+cmd/oceanbench/store/*
+cmd/oceanbench/node_modules/
+cmd/oceanbench/.stylelintrc.json
+# oceantv
+cmd/oceantv/.git
+cmd/oceantv/.gitignore
+cmd/oceanbench/.circleci
+cmd/oceantv/oceantv
+cmd/oceantv/*~
+cmd/oceantv/#*
+cmd/oceantv/store/*
+# oceancron
+cmd/oceancron/.git
+cmd/oceancron/.gitignore
+cmd/oceanbench/.circleci
+cmd/oceancron/oceancron
+cmd/oceancron/*~
+cmd/oceancron/#*
+cmd/oceancron/store/*

@@ -37,10 +37,11 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/utils/nmea"
-	"bitbucket.org/ausocean/iotsvc/gauth"
-	"bitbucket.org/ausocean/iotsvc/iotds"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/nmea"
 )
 
 type Action int
@@ -48,16 +49,16 @@ type Action int
 type (
 	Cfg   = BroadcastConfig
 	Ctx   = context.Context
-	Store = iotds.Store
-	Key   = iotds.Key
-	Ety   = iotds.Entity
+	Store = datastore.Store
+	Key   = datastore.Key
+	Ety   = datastore.Entity
 	Svc   = BroadcastService
 )
 
 const (
 	none Action = iota
 
-	// Actions related to vidgrind broadcast control.
+	// Actions related to broadcast control.
 	broadcastStart
 	broadcastStop
 	broadcastSave
@@ -96,10 +97,8 @@ type BroadcastConfig struct {
 	Description       string        // The broadcast description shown below viewing window.
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
-	StartTime         string        // Start time of the broadcast in yy/mm/dd, hh:mm format.
 	StartTimeUnix     string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
-	EndTime           string        // End time of the broadcast in yy/mm/dd, hh:mm format.
 	EndTimeUnix       string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
@@ -133,7 +132,7 @@ type BroadcastConfig struct {
 // SensorEntry contains the information for each sensor.
 type SensorEntry struct {
 	SendMsg   bool
-	Sensor    iotds.SensorV2
+	Sensor    model.SensorV2
 	Name      string
 	DeviceMac int64
 }
@@ -166,38 +165,38 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims, err := gauth.GetClaims(r.Header.Get("Authorization"), cronSecret)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, err)
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid claims: %v", r.RemoteAddr, err))
 		return
 	}
 	if claims["iss"] != cronServiceAccount {
-		writeError(w, http.StatusUnauthorized, fmt.Errorf("invalid issuer"))
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid issuer: %q", r.RemoteAddr, claims["iss"]))
 		return
 	}
 	if _, ok := claims["skey"].(float64); !ok {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid site key"))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("request from %s has invalid skey: %q", r.RemoteAddr, claims["skey"]))
 		return
 	}
 
 	skey := int64(claims["skey"].(float64))
-	site, err := iotds.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %w", skey, err))
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %v", skey, err))
 		return
 	}
 	log.Printf("checking broadcasts for site %d", skey)
-	err = checkBroadcastsForSites(ctx, []iotds.Site{*site})
+	err = checkBroadcastsForSites(ctx, []model.Site{*site})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %w", skey, err))
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %v", skey, err))
 		return
 	}
 	fmt.Fprint(w, "OK")
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx context.Context, sites []iotds.Site) error {
-	var cfgVars []iotds.Variable
+func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
+	var cfgVars []model.Variable
 	for _, s := range sites {
-		vars, err := iotds.GetVariablesBySite(ctx, settingsStore, s.Skey, broadcastScope)
+		vars, err := model.GetVariablesBySite(ctx, settingsStore, s.Skey, broadcastScope)
 		if err != nil {
 			log.Printf("could not get broadcast entities for site, skey: %d, name: %s, %v", s.Skey, s.Name, err)
 			continue
@@ -237,10 +236,15 @@ func performChecksInternalThroughStateMachine(
 	ctx context.Context,
 	cfg *BroadcastConfig,
 	timeNow func() time.Time,
-	store iotds.Store,
-	svc BroadcastService,
-	man BroadcastManager,
+	store datastore.Store,
 ) error {
+	// Handy log wrapper that shims with interfaces that like the
+	// classic func(string, ...interface{}) signature.
+	// This can be used by a lot of the components here.
+	log := func(msg string, args ...interface{}) {
+		logForBroadcast(cfg, msg, args...)
+	}
+
 	// Don't do anything if not enabled.
 	if !cfg.Enabled {
 		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
@@ -258,13 +262,16 @@ func performChecksInternalThroughStateMachine(
 			},
 		)
 		if err != nil {
-			log.Printf("could not update config with callback: %v", err)
+			log("could not update config with callback: %v", err)
 		}
-		log.Printf("broadcast: %s, ID: %s, not enabled, not doing anything", cfg.Name, cfg.ID)
+		log("not enabled, not doing anything")
 		return nil
 	}
 
-	log.Printf("broadcast: %s, ID: %s, performing checks", cfg.Name, cfg.ID)
+	log("performing checks")
+
+	// We'll use this context to determine if anything happens after the handler
+	// has returned (we might need to store states for next time).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -273,7 +280,7 @@ func performChecksInternalThroughStateMachine(
 	// is used to do a broadcast start and this function returns. We'll save them
 	// to the config and then load them next time we perform checks.
 	storeEventsAfterCtx := func(event event) {
-		log.Printf("broadcast: %s, ID: %s, storing event after cancel: %s", cfg.Name, cfg.ID, event.String())
+		log("storing event after cancel: %s", event.String())
 		err := updateConfigWithTransaction(
 			context.Background(),
 			store,
@@ -286,19 +293,18 @@ func performChecksInternalThroughStateMachine(
 			},
 		)
 		if err != nil {
-			log.Printf("could not update config with callback: %v", err)
+			log("could not update config with callback: %v", err)
 		}
 	}
 
-	// We'll provide a custom log wrapper to the bus so that we can add the
-	// broadcast name and ID to the log messages.
-	busLogFunc := func(msg string, args ...interface{}) {
-		idArgs := []interface{}{cfg.Name, cfg.ID}
-		idArgs = append(idArgs, args...)
-		log.Printf("(name: %s, id: %s) "+msg, idArgs...)
-	}
+	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
 
-	bus := newBasicEventBus(ctx, storeEventsAfterCtx, busLogFunc)
+	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
+	svc := newYouTubeBroadcastService(log)
+
+	// Create the broadcast manager. This will manage things between the broadcast, the
+	// hardware and the YouTube broadcast service.
+	man := newOceanBroadcastManager(log)
 
 	// This handler will subscribe to the event bus and perform checks corresponding
 	// to health, status and chat message events. It will also publish events to the
@@ -320,6 +326,7 @@ func performChecksInternalThroughStateMachine(
 					bus.publish(goodHealthEvent{})
 					return nil
 				},
+				log,
 			)
 		case statusCheckDueEvent:
 			err := man.HandleStatus(
@@ -336,7 +343,7 @@ func performChecksInternalThroughStateMachine(
 				return fmt.Errorf("could not handle status: %w", err)
 			}
 		case chatMessageDueEvent:
-			handleChatMessage(context.Background(), cfg)
+			man.HandleChatMessage(context.Background(), cfg)
 		}
 		return nil
 	}
@@ -344,7 +351,7 @@ func performChecksInternalThroughStateMachine(
 	bus.subscribe(healthStatusChatHandler)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(), bus, &revidCameraClient{}}
+	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}}
 
 	// The hardware state machine will be responsible for the external camera hardware
 	// state.
@@ -363,10 +370,10 @@ func performChecksInternalThroughStateMachine(
 	for _, event := range cfg.Events {
 		e, err := stringToEvent(event)
 		if err != nil {
-			log.Printf("could not convert event string to event: %v", err)
+			log("could not convert event string to event: %v", err)
 			continue
 		}
-		log.Printf("broadcast: %s, ID: %s, publishing stored event: %s", cfg.Name, cfg.ID, e.String())
+		log("publishing stored event: %s", e.String())
 		bus.publish(e)
 	}
 
@@ -389,37 +396,35 @@ func performChecksInternalThroughStateMachine(
 	// start, stop etc.
 	bus.publish(timeEvent{time.Now()})
 
-	log.Printf("broadcast: %s, ID: %s, finishing check", cfg.Name, cfg.ID)
+	log("finishing check")
 	return nil
 }
 
 // performChecks wraps performChecksInternal and provides implementations of the
 // broadcast operations. These broadcast implementations are built around the
 // broadcast package, which employs the YouTube Live API.
-func performChecks(ctx context.Context, cfg *BroadcastConfig, store iotds.Store) error {
+func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
 	return performChecksInternalThroughStateMachine(
 		ctx,
 		cfg,
 		func() time.Time { return time.Now() },
 		store,
-		&YouTubeBroadcastService{},
-		&OceanBroadcastManager{},
 	)
 }
 
-type BroadcastCallback func(context.Context, *BroadcastConfig, iotds.Store, BroadcastService) error
+type BroadcastCallback func(context.Context, *BroadcastConfig, datastore.Store, BroadcastService) error
 
 // handleChatMessage generates a message with sensor readings for the
 // relevant site and posts the message to the broadcast chat. This works by
 // searching the site for any registered ESP devices and looking at the latest
 // signal values on sensors which have been marked true to send a message.
-func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
+func handleChatMessage(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if !cfg.SendMsg {
-		log.Printf("Broadcast: %s, ID: %s, ignoring sensors", cfg.Name, cfg.ID)
+		log("ignoring sensors")
 		return nil
 	}
 
-	log.Printf("Broadcast: %s, ID: %s, building message", cfg.Name, cfg.ID)
+	log("building message")
 	var msg string
 
 	for _, sensor := range cfg.SensorList {
@@ -429,8 +434,8 @@ func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
 		// Get the latest signal for the sensor.
 		var qty string
 
-		scalar, err := getLatestScalar(ctx, mediaStore, iotds.ToSID(iotds.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
-		if err == iotds.ErrNoSuchEntity {
+		scalar, err := getLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
+		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
 			return fmt.Errorf("could not get scalar for chat message: %v", err)
@@ -458,7 +463,7 @@ func handleChatMessage(ctx context.Context, cfg *BroadcastConfig) error {
 	}
 
 	if msg == "" {
-		log.Printf("Broadcast: %s, ID: %s, chat message empty", cfg.Name, cfg.ID)
+		log("chat message empty")
 		return nil
 	}
 
@@ -481,7 +486,7 @@ func (e ErrInvalidEndTime) Error() string {
 func saveLinkFunc() func(string, string) error {
 	return func(key, link string) error {
 		key = removeDate(key)
-		return iotds.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
+		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
 	}
 }
 
@@ -489,13 +494,13 @@ func saveLinkFunc() func(string, string) error {
 // external streaming hardware startup. In addition, the RTMP key is obtained
 // from the broadcast's associated stream object and used to set the devices
 // RTMPKey variable.
-func extStart(ctx context.Context, cfg *BroadcastConfig, svc BroadcastService) error {
+func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if cfg.OnActions == "" {
 		return nil
 	}
 
 	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + rtmpDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, settingsStore)
+	err := setActionVars(ctx, cfg.SKey, onActions, settingsStore, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
 	}
@@ -505,12 +510,12 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, svc BroadcastService) e
 
 // extStop uses the OffActions in the provided broadcast config to perform
 // external streaming hardware shutdown.
-func extStop(ctx context.Context, cfg *BroadcastConfig) error {
+func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if cfg.OffActions == "" {
 		return nil
 	}
 
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore)
+	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables to end stream: %w", err)
 	}
@@ -521,21 +526,21 @@ func extStop(ctx context.Context, cfg *BroadcastConfig) error {
 // saveBroadcast saves a broadcast configuration to the datastore with the
 // variable name as the broadcast name and if the broadcast uses vidforward
 // we update the vidforward configuration with a control request.
-func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store) error {
+func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, log func(string, ...interface{})) error {
 	d, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
 	}
 
-	log.Printf("broadcast: %s, ID: %s, saving, cfg: %s", cfg.Name, cfg.ID, provideConfig(cfg))
-	err = iotds.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
+	log("saving, cfg: %s", provideConfig(cfg))
+	err = model.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
 	if err != nil {
 		return fmt.Errorf("could not put broadcast data in store: %w", err)
 	}
 
 	// Ensure that the CheckBroadcast cron exists.
-	c := &iotds.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL+"/checkbroadcasts", Enabled: true}
-	err = iotds.PutCron(ctx, store, c)
+	c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL + "/checkbroadcasts", Enabled: true}
+	err = model.PutCron(ctx, store, c)
 	if err != nil {
 		return fmt.Errorf("failure verifying check broadcast cron: %w", err)
 	}
@@ -543,7 +548,7 @@ func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store)
 	return nil
 }
 
-func performRequestWithRetries(dest string, data any, maxRetries int) error {
+func performRequestWithRetries(dest string, data any, maxRetries int, log func(string, ...interface{})) error {
 	var retries int
 retry:
 	var buf bytes.Buffer
@@ -560,7 +565,7 @@ retry:
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		log.Printf("could not do http request, but retrying: %v", err)
+		log("could not do http request, but retrying: %v", err)
 		if retries <= maxRetries {
 			retries++
 			goto retry
@@ -576,8 +581,8 @@ retry:
 // in healthy operation) and if it is not, change to complete.
 // Then we change the broadcast configuration Active field to false, save this
 // and stop all external streaming hardware.
-func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store, svc BroadcastService) error {
-	log.Printf("Broadcast: %s, ID: %s, stopping", cfg.Name, cfg.ID)
+func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService, log func(string, ...interface{})) error {
+	log("stopping")
 
 	status, err := svc.BroadcastStatus(ctx, cfg.ID)
 	if err != nil {
@@ -592,7 +597,7 @@ func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store iotds.Store,
 	}
 
 	cfg.Active = false
-	err = saveBroadcast(ctx, cfg, store)
+	err = saveBroadcast(ctx, cfg, store, log)
 	if err != nil {
 		return fmt.Errorf("save broadcast error: %w", err)
 	}
@@ -609,7 +614,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := iotds.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return
@@ -620,16 +625,16 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // getLatestScalar finds the most recent scalar within the countPeriod.
-func getLatestScalar(ctx context.Context, store iotds.Store, id int64) (*iotds.Scalar, error) {
+func getLatestScalar(ctx context.Context, store datastore.Store, id int64) (*model.Scalar, error) {
 	const countPeriod = 60 * time.Minute
 	start := time.Now().Add(-countPeriod).Unix()
-	keys, err := iotds.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
+	keys, err := model.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
 	if err != nil {
 		return nil, err
 	}
 	if len(keys) == 0 {
-		return nil, iotds.ErrNoSuchEntity
+		return nil, datastore.ErrNoSuchEntity
 	}
-	_, ts, _ := iotds.SplitIDKey(keys[len(keys)-1].ID)
-	return iotds.GetScalar(ctx, store, id, ts)
+	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
+	return model.GetScalar(ctx, store, id, ts)
 }

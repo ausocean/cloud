@@ -25,60 +25,60 @@ import (
 	"fmt"
 	"math"
 	"testing"
-	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
-        "github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 var cronSpecTests = []struct {
-	cron     *iotds.Cron
+	cron     *model.Cron
 	lat, lon float64
 	want     string
 	wantErr  error
 }{
 	{
-		cron:    &iotds.Cron{},
+		cron:    &model.Cron{},
 		want:    "",
 		wantErr: nil,
 	},
 	{
-		cron:    &iotds.Cron{Enabled: true},
+		cron:    &model.Cron{Enabled: true},
 		want:    "",
 		wantErr: errNoTimeSpec,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise"},
+		cron: &model.Cron{TOD: "@sunrise"},
 		lat:  1, lon: 1,
 		want:    "",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise", Enabled: true},
 		lat:  math.NaN(), lon: math.NaN(),
 		want:    "",
 		wantErr: errNoLocation,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@sunrise 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@sunrise+1h", Enabled: true},
+		cron: &model.Cron{TOD: "@sunrise+1h", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@sunrise+1h 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@noon", Enabled: true},
+		cron: &model.Cron{TOD: "@noon", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@noon 1 1",
 		wantErr: nil,
 	},
 	{
-		cron: &iotds.Cron{TOD: "@midnight", Enabled: true},
+		cron: &model.Cron{TOD: "@midnight", Enabled: true},
 		lat:  1, lon: 1,
 		want:    "@midnight",
 		wantErr: nil,
@@ -100,24 +100,35 @@ func TestCronSpec(t *testing.T) {
 	}
 }
 
-func TestRPC(t *testing.T) {
+func TestRun(t *testing.T) {
+	// We can't use the normal setup function, which would load production cron jobs.
 	ctx := context.Background()
 	var err error
+	settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
+	if err != nil {
+		t.Errorf("could not set up datastore: %v", err)
+	}
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil {
 		t.Errorf("could not get cronSecret: %v", err)
 	}
-
-	cronScheduler, err = newScheduler()
+	testScheduler, err := newScheduler()
 	if err != nil {
 		t.Errorf("newScheduler returned error: %v", err)
 	}
 
-	const url = "https://vidgrind.ausocean.org/checkbroadcasts"
-	testCron := iotds.Cron{Skey: 1, ID: "testCron", Time: time.Now(), TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
-	err = cronScheduler.Set(&testCron)
+	// Create and run some crons.
+	const url = "https://tv.cloudblue.org/checkbroadcasts"
+	cron1 := model.Cron{Skey: 1, ID: "cron1", TOD: "* * * * *", Action: "rpc", Var: url, Enabled: true}
+	err = testScheduler.Set(&cron1)
 	if err != nil {
-		t.Errorf("cronScheduler.Set returned error: %v", err)
+		t.Errorf("cronScheduler.Set(%s) returned error: %v", cron1.ID, err)
 	}
-	cronScheduler.run()
+	cron2 := model.Cron{Skey: 1, ID: "cron2", TOD: "* * * * *", Action: "call", Var: "check", Data: "00:00:00:00:00:01", Enabled: true}
+	err = testScheduler.Set(&cron2)
+	if err != nil {
+		t.Errorf("cronScheduler.Set(%s) returned error: %v", cron2.ID, err)
+	}
+
+	testScheduler.run()
 }

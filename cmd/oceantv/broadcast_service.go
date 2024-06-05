@@ -82,6 +82,11 @@ func (y YouTubeResponse) HTTPHeader() http.Header { return googleapi.ServerRespo
 // YouTubeBroadcastService is a BroadcastService implementation for YouTube.
 type YouTubeBroadcastService struct {
 	limiter RateLimiter
+	log     func(string, ...interface{})
+}
+
+func newYouTubeBroadcastService(log func(string, ...interface{})) *YouTubeBroadcastService {
+	return &YouTubeBroadcastService{log: log}
 }
 
 // WithRateLimiter is a BroadcastOption that sets the rate limiter for a
@@ -140,6 +145,7 @@ func (s *YouTubeBroadcastService) CreateBroadcast(
 		framerate,
 		start,
 		end,
+		s.log,
 	)
 	if err != nil {
 		return YouTubeResponse{}, broadcast.IDs{}, "", fmt.Errorf("could not broadcast stream: %w response: %v", err, resp)
@@ -173,6 +179,7 @@ func (s *YouTubeBroadcastService) StartBroadcast(
 		extStop,
 		notify,
 		onLiveActions,
+		s.log,
 	)
 }
 
@@ -197,7 +204,7 @@ func (s *YouTubeBroadcastService) CompleteBroadcast(ctx context.Context, id stri
 	if err != nil {
 		return fmt.Errorf("get service error: %w", err)
 	}
-	err = broadcast.CompleteBroadcast(svc, id)
+	err = broadcast.CompleteBroadcast(svc, id, s.log)
 	if err != nil {
 		return fmt.Errorf("complete broadcast error: %w", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 type broadcastStateMachine struct {
@@ -315,9 +315,9 @@ func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 	sm.log("handling started event")
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentStarting:
-		sm.transition(&vidforwardPermanentLive{})
+		sm.transition(newVidforwardPermanentLive())
 	case *vidforwardSecondaryStarting:
-		sm.transition(&vidforwardSecondaryLive{})
+		sm.transition(newVidforwardSecondaryLive(sm.ctx))
 	case *directStarting:
 		sm.transition(&directLive{})
 	default:

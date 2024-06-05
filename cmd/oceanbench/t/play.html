@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ocean Bench media player</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link href="/s/main.css" rel="stylesheet" type="text/css" />
+  <link href="/s/play.css" rel="stylesheet" type="text/css" />
+  <link href="/s/filter.css" rel="stylesheet" type="text/css" />
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <script type="text/javascript" src="/s/player/audio/pcm-to-wav.js"></script>
+  <script type="text/javascript" src="/s/player/audio/adpcm.js"></script>
+  <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/wavesurfer.js"></script>
+  <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/plugin/wavesurfer.spectrogram.js"></script>
+  <script type="module" src="/s/play.js"></script>
+</head>
+<body>
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+    <div id="msg" class="red"></div>
+    <div class="row my-3">
+      <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a class="nav-link btn btn-primary" id="mjpeg-tab" href="/play?out=x-motion-jpeg">Video (MJPEG)</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link btn btn-primary" id="h264-tab" href="/play?out=h264">Video (H264)</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link btn btn-primary" id="audio-tab" href="/play?out=pcm">Audio</a>
+        </li>
+      </ul>
+    </div>
+    <div class="row my-3">
+      <div class="col-sm-auto">
+        <label for="url">URL: </label>
+      </div>
+      <div class="col">
+        <input type="text" id="url" class="form-control">
+      </div>
+      <div class="col-sm-auto">
+        <button id="loadBtn" class="btn btn-primary">Load</button>
+      </div>
+    </div>
+    <div class="flex-row" id="liverow">
+      <div class="flex-column width-100">
+        <button id="liveBtn">Live stream</button>
+      </div>
+      <div class="flex-column">
+        <fieldset>
+          <label>Media ID:</label>
+          <input type="input" id="id" {{if .MID}} value="{{ .MID}}" {{end}}>
+          <br>
+          <label>Buffer:</label>
+          <input type="input" id="fd" value="10" size="2"> seconds
+          <br>
+        </fieldset>
+      </div>
+    </div>
+    <div id="specific"></div>
+    <div id="view"></div>
+    <br>
+  </section>
+  <footer id="sticky-footer" class="footer fixed-bottom py-4 bg-dark text-white-50" style="width: 100%;">
+    <div class="container text-center">
+      <small>&copy;2019-2021 Australian Ocean Laboratory Limited (AusOcean) (<a rel="license" href="https://www.ausocean.org/license">License</a>)</small>
+    </div>
+  </footer>
+</body>
+
+</html>

@@ -32,7 +32,7 @@ import (
 
 	"cloud.google.com/go/storage"
 
-	"bitbucket.org/ausocean/utils/filemap"
+	"github.com/ausocean/utils/filemap"
 )
 
 // The URL scheme that represents a Google Storage Bucket.

@@ -37,8 +37,8 @@ import (
 	"github.com/kortschak/sun"
 	cron "github.com/robfig/cron/v3"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 // The location ID consistent with IANA Time Zone database convention.
@@ -52,10 +52,10 @@ type scheduler struct {
 	// ids is a mapping from site/cron to cron id.
 	ids map[cronID]cron.EntryID
 	// entries is a mapping from cron id to cron state.
-	entries map[cron.EntryID]iotds.Cron
+	entries map[cron.EntryID]model.Cron
 	// funcs is the mapping from function names to
 	// extension functions.
-	funcs map[string]func(string) error
+	funcs map[string]func(int64, string) error
 }
 
 // cronID uniquely identifies a cron across the whole network.
@@ -80,7 +80,8 @@ func newScheduler() (*scheduler, error) {
 	return &scheduler{
 		cron:    c,
 		ids:     make(map[cronID]cron.EntryID),
-		entries: make(map[cron.EntryID]iotds.Cron),
+		entries: make(map[cron.EntryID]model.Cron),
+		funcs:   cronFuncs,
 	}, nil
 }
 
@@ -91,7 +92,7 @@ func newScheduler() (*scheduler, error) {
 // ID. Therefore, the scheduler cannot differentiate between deleted
 // and disabled crons. Both are removed from the scheduler but the
 // latter persist in the datastore (unbeknownst to the scheduler).
-func (s *scheduler) Set(job *iotds.Cron) error {
+func (s *scheduler) Set(job *model.Cron) error {
 	log.Printf("setting cron: %v", job.ID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -142,12 +143,12 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 	// Build a job from the action, var and data values.
 	ctx := context.Background()
 	var action func()
-	notify := func(msg string) error { return notifier.SendOps(ctx, job.Skey, "health", msg) }
+	notify := func(msg string) error { return notifier.Send(ctx, job.Skey, "health", msg) }
 	switch strings.ToLower(job.Action) {
 	case "set":
 		action = func() {
 			log.Printf("cron run: setting %s=%q for site=%d: %v", job.Var, job.Data, job.Skey, err)
-			err = iotds.PutVariable(ctx, settingsStore, job.Skey, job.Var, job.Data)
+			err = model.PutVariable(ctx, settingsStore, job.Skey, job.Var, job.Data)
 			if err != nil {
 				logAndNotify(notify, "cron: error setting %s=%q for site=%d: %v", job.Var, job.Data, job.Skey, err)
 			}
@@ -156,7 +157,7 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 	case "del":
 		action = func() {
 			log.Printf("cron run: deleting %s for site=%d: %v", job.Var, job.Skey, err)
-			err = iotds.DeleteVariable(ctx, settingsStore, job.Skey, job.Var)
+			err = model.DeleteVariable(ctx, settingsStore, job.Skey, job.Var)
 			if err != nil {
 				logAndNotify(notify, "cron: error deleting %s for site=%d: %v", job.Var, job.Skey, err)
 			}
@@ -168,10 +169,10 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 			return fmt.Errorf("no function %q", job.Var)
 		}
 		action = func() {
-			log.Printf("cron run: calling %q at site=%v with %q: %v", job.Var, job.Skey, job.Data, err)
-			err = fn(job.Data)
+			log.Printf("cron run: calling %s(%d, %s)", job.Var, job.Skey, job.Data)
+			err = fn(job.Skey, job.Data)
 			if err != nil {
-				logAndNotify(notify, "cron: error calling %q at site=%v with %q: %v", job.Var, job.Skey, job.Data, err)
+				logAndNotify(notify, "cron: error calling %s(%d, %s): %v", job.Var, job.Skey, job.Data, err)
 			}
 		}
 
@@ -180,19 +181,21 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 		if err != nil {
 			return fmt.Errorf("invalid cron rpc URL %s: %w", job.Var, err)
 		}
-		reader := bytes.NewReader([]byte(job.Data))
-		req, err := http.NewRequest("POST", job.Var, reader)
-		if err != nil {
-			return fmt.Errorf("invalid cron rpc request %s: %w", job.Var, err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		tokString, err := gauth.PutClaims(map[string]interface{}{"iss": cronServiceAccount, "skey": job.Skey}, cronSecret)
-		if err != nil {
-			return fmt.Errorf("error signing claims: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+tokString)
 		action = func() {
 			log.Printf("cron run: rpc %s at site=%v", job.Var, job.Skey)
+			reader := bytes.NewReader([]byte(job.Data))
+			req, err := http.NewRequest("POST", job.Var, reader)
+			if err != nil {
+				logAndNotify(notify, "cron: rpc %s request invalid: %v", job.Var, err)
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			tokString, err := gauth.PutClaims(map[string]interface{}{"iss": cronServiceAccount, "skey": job.Skey}, cronSecret)
+			if err != nil {
+				logAndNotify(notify, "cron: rpc %s request error signing claims: %v", job.Var, err)
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+tokString)
 			clt := &http.Client{}
 			resp, err := clt.Do(req)
 			if err != nil {
@@ -207,7 +210,7 @@ func (s *scheduler) Set(job *iotds.Cron) error {
 	case "email":
 		action = func() {
 			log.Printf("cron run: email sent at %v\nvar=%s\ndata=%q", time.Now(), job.Var, job.Data)
-			err := notifier.SendOps(ctx, job.Skey, "cron",
+			err := notifier.Send(ctx, job.Skey, "cron",
 				fmt.Sprintf("cron email sent at %v\nvar=%s\ndata=%q",
 					time.Now(), job.Var, job.Data))
 			if err != nil {
@@ -240,7 +243,7 @@ func (s *scheduler) run() {
 }
 
 // isSameCron returns true if two crons are completely identical.
-func isSameCron(a, b iotds.Cron) bool {
+func isSameCron(a, b model.Cron) bool {
 	if !a.Time.Equal(b.Time) {
 		return false
 	}
@@ -253,7 +256,7 @@ func isSameCron(a, b iotds.Cron) bool {
 // geographic location. The spec line makes use of cron predefined scheduling
 // definitions implemented by github.com/robfig/cron/v3 and
 // github.com/kortschak/sun.
-func cronSpec(c *iotds.Cron, lat, lon float64) (string, error) {
+func cronSpec(c *model.Cron, lat, lon float64) (string, error) {
 	if !c.Enabled {
 		return "", nil
 	}
@@ -306,10 +309,10 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	id := req[4]
 
-	var cron *iotds.Cron
+	var cron *model.Cron
 	switch op {
 	case "set":
-		cron, err = iotds.GetCron(ctx, settingsStore, skey, id)
+		cron, err = model.GetCron(ctx, settingsStore, skey, id)
 		if err != nil {
 			log.Printf("could not get cron %s: %v", id, err)
 			writeError(w, http.StatusInternalServerError, "could not get cron "+id)
@@ -317,7 +320,7 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "unset":
-		cron = &iotds.Cron{Skey: skey, ID: id, Enabled: false}
+		cron = &model.Cron{Skey: skey, ID: id, Enabled: false}
 
 	default:
 		writeError(w, http.StatusBadRequest, "invalid operation: "+op)

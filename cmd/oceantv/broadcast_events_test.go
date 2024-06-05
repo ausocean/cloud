@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 func TestBasicEventBus(t *testing.T) {
@@ -18,7 +18,7 @@ func TestBasicEventBus(t *testing.T) {
 		storedEvents = append(storedEvents, event)
 	}
 
-	log := func(msg string, args ...interface{}) {}
+	log := func(string, ...interface{}) {}
 
 	bus := newBasicEventBus(ctx, storeMock, log)
 

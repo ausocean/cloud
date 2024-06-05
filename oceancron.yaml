@@ -1,3 +1,4 @@
+# gcloud app deploy --project oceancron --version 1 oceancron.yaml
 runtime: go121
 
 env_variables:
@@ -5,6 +6,8 @@ env_variables:
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
   OPS_EMAIL: ops@ausocean.org
   OPS_PERIOD: 60
+
+main: cmd/oceancron
 
 handlers:
   - url: /.*

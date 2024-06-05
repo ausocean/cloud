@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <title>Ocean Bench Admin</title>
+  <script type="module" src="/s/lit/header-group.js"></script>
+  <script type="text/javascript" src="/s/main.js" ></script>
+  <script type="text/javascript">
+  function updateUser() {
+    return copyFormValues('update_user', 'users', {'email':'input', 'perm':'select'});
+  }
+  function deleteUser() {
+    return copyFormValues('delete_user', 'users', {'email':'input'});
+  }
+  </script>
+</head>
+<body>
+  <header-group id="header" class="header">
+    <nav-menu id="nav-menu">
+      {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+        </li>
+      {{- end}}
+    </nav-menu>
+    <div class="heading">
+        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
+    </div>
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
+      {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+      {{- end}}
+    </site-menu>
+    <div class="top-right">
+        {{if .Profile}}<a href="{{.LogoutURL}}">Log out</a>{{end}}
+    </div>
+  </header-group>
+  <section id="main" class="main">
+  {{if .Msg}}
+  <div class="red">{{.Msg}}</div><br>
+  {{end}}
+	
+  <!-- site details -->
+  <div class="rounded-box">
+    <span class="bold">Site</span>
+    <hr>
+    <div>
+      <form class="inline" enctype="multipart/form-data" action="/admin/site/update" method="post">
+        <label>Name:</label>
+        <input type="text" name="sn" value="{{ .Site.Name }}" class="dbl bold"><br>
+        <label>Site Key:</label>
+        <input type="text" name="sk" value="{{ .Site.Skey }}" class="full" readonly><br>
+        <label>Timezone:</label>
+        <input type="text" name="tz" value="{{ .Site.Timezone }}" class="half"> hours &plusmn; UTC<br>
+        <label>Location:</label>
+        <input type="text" name="ll" value="{{ .Site.Latitude}},{{ .Site.Longitude }}" class="full"> (lat,lng)<br>
+        <label>Notify period:</label>
+        <input type="text" name="np" value="{{ .Site.NotifyPeriod }}" class="half"> hour{{if gt .Site.NotifyPeriod 1 }}s{{end}}<br>
+        <label>Public:</label>
+        <input type="checkbox" name="pb" {{if .Site.Public }}checked{{end}}><br>
+        <label>Confirmed:</label>
+        <input type="checkbox" name="cf" {{if .Site.Confirmed }}checked{{end}}><br>
+        <label>Enabled:</label>
+        <input type="checkbox" name="en" {{if .Site.Enabled }}checked{{end}}><br>
+        <input type="submit" value="Update" />
+      </form>
+      <form class="inline" enctype="multipart/form-data" action="/admin/site/delete" method="post" onsubmit="return confirm('Really delete site?');">
+        <input type="submit" value="Delete">
+      </form>
+    </div> 
+  </div><!--rounded box --> 
+  <br>
+
+  <!-- user details -->
+  <div class="rounded-box">
+    <span class="bold">Users</span>
+    <hr>
+    <table id="users">
+      <tr>
+        <th class="select"></th>
+        <th class="full">Email</th>
+        <th class="half">Role</th>
+      </tr>
+      {{ range .SiteUsers }}
+      {{$perm := .Perm}}
+      <tr>
+      <form id="{{ .Email }}">
+        <td class="select"><input type="checkbox" name="select"></td>
+        <td class="full"><input type="text" name="email" value="{{ .Email }}" class="full id" readonly></td>
+        <td class="half">
+          <select name="perm" class="half">
+            <option value="">- Select -</option>{{ range $.Roles }}
+            <option value="{{ .Perm }}"{{if eq .Perm $perm }} selected{{end}}>{{ .Name }}</option>{{end}}
+          </select>
+        </td>
+      </form>
+      </tr>
+      {{end}}
+      <tr>
+      <form enctype="multipart/form-data" action="/admin/user/add" method="post">
+        <td class="select"><input type="submit" value="Add"></td>
+        <td class="full"><input type="text" name="email" class="full"></td>
+        <td class="half">
+          <select name="perm" class="half">
+            <option value="">- Select -</option>{{ range .Roles }}
+            <option value="{{ .Perm }}">{{ .Name }}</option>{{end}}
+          </select>
+        </td>
+      </form>
+      </tr>
+    </table>
+    <div>
+      <form class="inline" enctype="multipart/form-data" id="update_user" action="/admin/user/update" method="post" onsubmit="return updateUser();">
+        <input type="hidden" name="email">
+        <input type="hidden" name="perm">
+        <input type="submit" value="Update">
+      </form>
+      <form class="inline" enctype="multipart/form-data" id="delete_user" action="/admin/user/delete" method="post" onsubmit="return deleteUser();">
+        <input type="hidden" name="email">
+        <input type="submit" value="Delete">
+      </form>
+    </div>
+  </div><!--rounded box --> 
+
+  </section>
+  {{.Footer}}
+  </body>
+</html>

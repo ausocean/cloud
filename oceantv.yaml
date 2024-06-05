@@ -1,3 +1,4 @@
+# gcloud app deploy --version V --project oceantv oceantv.yaml
 runtime: go121
 
 env_variables:
@@ -7,6 +8,8 @@ env_variables:
   OCEANTV_SECRETS: gs://ausocean/OceanTV-secrets.txt
   OPS_EMAIL: ops@ausocean.org
   OPS_PERIOD: 60
+
+main: cmd/oceantv
 
 handlers:
   - url: /.*

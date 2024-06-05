@@ -30,13 +30,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
 
-	"bitbucket.org/ausocean/iotsvc/iotds"
+	"github.com/ausocean/cloud/model"
 )
 
 type ForwardingService interface {
@@ -52,18 +51,20 @@ const (
 	vidforwardStatusSlate vidforwardStatus = "slate"
 )
 
-type VidforwardService struct{}
+type VidforwardService struct {
+	log func(string, ...interface{})
+}
 
-func NewVidforwardService() *VidforwardService {
-	return &VidforwardService{}
+func NewVidforwardService(log func(string, ...interface{})) *VidforwardService {
+	return &VidforwardService{log}
 }
 
 func (v *VidforwardService) Stream(cfg *BroadcastConfig) error {
-	return vidforwardRequest(cfg, vidforwardStatusPlay)
+	return vidforwardRequest(cfg, vidforwardStatusPlay, v.log)
 }
 
 func (v *VidforwardService) Slate(cfg *BroadcastConfig) error {
-	return vidforwardRequest(cfg, vidforwardStatusSlate)
+	return vidforwardRequest(cfg, vidforwardStatusSlate, v.log)
 }
 
 func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error {
@@ -105,7 +106,7 @@ func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file 
 	return nil
 }
 
-func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus) error {
+func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus, log func(string, ...interface{})) error {
 	primary, secondary := cfg, cfg
 	var err error
 
@@ -133,17 +134,17 @@ func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus) error {
 		MAC, Status string
 		URLs        []string
 	}{
-		MAC:    iotds.MacDecode(primary.CameraMac),
+		MAC:    model.MacDecode(primary.CameraMac),
 		URLs:   urls,
 		Status: string(status),
 	}
 
-	log.Printf("broadcast: %s, ID: %s, attempting to update vidforward configuration, data: %+v", cfg.Name, cfg.ID, data)
+	log("attempting to update vidforward configuration, data: %+v", data)
 
 	// We're allowing some tolerance to failed requests here because it may be that we've
 	// caught vidforward during a service restart.
 	const maxRetries = 3
-	err = performRequestWithRetries("http://"+cfg.VidforwardHost+"/control", data, maxRetries)
+	err = performRequestWithRetries("http://"+cfg.VidforwardHost+"/control", data, maxRetries, log)
 	if err != nil {
 		return fmt.Errorf("could not perform request with retries: %v", err)
 	}
