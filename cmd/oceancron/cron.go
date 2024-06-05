@@ -181,19 +181,21 @@ func (s *scheduler) Set(job *model.Cron) error {
 		if err != nil {
 			return fmt.Errorf("invalid cron rpc URL %s: %w", job.Var, err)
 		}
-		reader := bytes.NewReader([]byte(job.Data))
-		req, err := http.NewRequest("POST", job.Var, reader)
-		if err != nil {
-			return fmt.Errorf("invalid cron rpc request %s: %w", job.Var, err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		tokString, err := gauth.PutClaims(map[string]interface{}{"iss": cronServiceAccount, "skey": job.Skey}, cronSecret)
-		if err != nil {
-			return fmt.Errorf("error signing claims: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+tokString)
 		action = func() {
 			log.Printf("cron run: rpc %s at site=%v", job.Var, job.Skey)
+			reader := bytes.NewReader([]byte(job.Data))
+			req, err := http.NewRequest("POST", job.Var, reader)
+			if err != nil {
+				logAndNotify(notify, "cron: rpc %s request invalid: %v", job.Var, err)
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			tokString, err := gauth.PutClaims(map[string]interface{}{"iss": cronServiceAccount, "skey": job.Skey}, cronSecret)
+			if err != nil {
+				logAndNotify(notify, "cron: rpc %s request error signing claims: %v", job.Var, err)
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+tokString)
 			clt := &http.Client{}
 			resp, err := clt.Do(req)
 			if err != nil {
