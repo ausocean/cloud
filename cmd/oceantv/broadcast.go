@@ -313,21 +313,15 @@ func performChecksInternalThroughStateMachine(
 	healthStatusChatHandler := func(event event) error {
 		switch event.(type) {
 		case healthCheckDueEvent:
-			handleHealthWithCallback(
+			err := man.HandleHealth(
 				context.Background(),
 				cfg,
-				store,
-				svc,
-				func(Ctx, *Cfg, Store, Svc) error {
-					bus.publish(badHealthEvent{})
-					return nil
-				},
-				func(Ctx, *Cfg, Store, Svc) error {
-					bus.publish(goodHealthEvent{})
-					return nil
-				},
-				log,
+				func() { bus.publish(goodHealthEvent{}) },
+				func() { bus.publish(badHealthEvent{}) },
 			)
+			if err != nil {
+				return fmt.Errorf("could not handle health: %w", err)
+			}
 		case statusCheckDueEvent:
 			err := man.HandleStatus(
 				context.Background(),
