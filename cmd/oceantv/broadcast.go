@@ -317,7 +317,13 @@ func performChecksInternalThroughStateMachine(
 				context.Background(),
 				cfg,
 				func() { bus.publish(goodHealthEvent{}) },
-				func() { bus.publish(badHealthEvent{}) },
+				func(issue string) {
+					bus.publish(badHealthEvent{})
+					err := opsHealthNotify(ctx, cfg.SKey, fmt.Sprintf("broadcast: %s\n ID: %s\n, poor stream health, status: %s", cfg.Name, cfg.ID, issue))
+					if err != nil {
+						log("could not send notification for poor stream health: %v", err)
+					}
+				},
 			)
 			if err != nil {
 				return fmt.Errorf("could not handle health: %w", err)
