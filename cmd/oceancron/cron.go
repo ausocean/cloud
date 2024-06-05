@@ -143,7 +143,7 @@ func (s *scheduler) Set(job *model.Cron) error {
 	// Build a job from the action, var and data values.
 	ctx := context.Background()
 	var action func()
-	notify := func(msg string) error { return notifier.Send(ctx, job.Skey, "health", msg) }
+	notify := func(msg string) error { return notifier.Send(ctx, job.Skey, "cron", msg) }
 	switch strings.ToLower(job.Action) {
 	case "set":
 		action = func() {
