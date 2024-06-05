@@ -56,9 +56,9 @@ function setup() {
   doCalcs();
 
   // Setup waves.
-  amplitude = c*sc/2; // Amplitude of the sine wave
-  frequency = 0.005; // Frequency of the sine wave
-  phaseShift = 0; // Phase shift of the sine wave
+  amplitude = c*sc/2; // Amplitude of the sine wave.
+  frequency = 0.005; // Frequency of the sine wave.
+  phaseShift = 0; // Phase shift of the sine wave.
   period = 0.01;
   
   let indent = 400;
@@ -78,7 +78,7 @@ function setup() {
   separation.changed(updateSeparation);
   
   slider = createSlider(0, 100, sc);
-  slider.position(winw-250, 45);
+  slider.position(winw-350, 45);
   slider.style('width', '200px');
   
   // Add an event listener to detect changes in the slider value.
@@ -99,14 +99,33 @@ function draw() {
   text("mooring line length (with 0.5m slack):                           " + l.toFixed(2), 40, 120);
   
   // Scale.
-  text("scale (pixel:meter): " + sc, winw-250, 45);
-  line(winw-100-1*sc, 80, winw-100, 80);
-  text("1m", winw-80, 85);
+  text("scale (pixel:meter): " + sc, winw-350, 45);
+  stroke(0);
+  strokeWeight(1);
+  line(winw-200-1*sc, 80, winw-200, 80);
+  strokeWeight(0);
+  text("1m", winw-180, 85);
 
   // Seafloor.
   let bedh = 200;
   fill(255,230,180);
   rect(0,winh-bedh, winw, bedh-1);
+
+  // Vertical ruler
+  let tickPos = winh - bedh;
+  let tickLabel = 0;
+  while (tickPos >= 0) {
+    strokeWeight(1);
+    stroke(0);
+    fill(0);
+    line(winw, tickPos, winw - 10, tickPos);
+    textAlign(RIGHT, CENTER);
+    strokeWeight(0);
+    text(tickLabel + "m", winw - 25, tickPos);
+    tickPos-=sc;
+    tickLabel+=1;
+  }
+  textAlign(LEFT, BASELINE);
 
   // Sea.
   stroke(100);
@@ -119,16 +138,16 @@ function draw() {
 
   noFill();
   let waveRef = maxSeaPos + amplitude + amplitude * sin(frequency * winw/2 + phaseShift);
-  // beginShape();
-  // for (let xx = 0; xx < winw; xx++) {
-  //   let yy = amplitude * sin(frequency * xx + phaseShift);
-  //   vertex(xx, maxSeaPos + amplitude + yy);
-  // }
-  // endShape();
+  beginShape();
+  for (let xx = 0; xx < winw; xx++) {
+    let yy = amplitude * sin(frequency * xx + phaseShift);
+    vertex(xx, maxSeaPos + amplitude + yy);
+  }
+  endShape();
 
   // Rig.
   stroke(0);
-  //let rigRef = waveRef;
+  // Set rigRef to waveRef if you want the rig position to follow the wave.
   let rigRef = maxSeaPos;
   let pontoonw = 1.5;
   let pontoonh = 0.15;
@@ -157,7 +176,7 @@ function draw() {
   line(winw/2-(pontoonw*sc)/2,rigRef,winw/2-(w*sc)/2,rigRef+y*sc);
   line(winw/2+(pontoonw*sc)/2,rigRef,winw/2+(w*sc)/2,rigRef+y*sc);
 
-  //phaseShift+=period;
+  phaseShift+=period;
 }
 
 function doCalcs(){
@@ -172,6 +191,7 @@ function doCalcs(){
   b = d+c-y;
   h = sqrt(pow(a, 2) + pow(b, 2));
   l = h+0.5;
+  // Print spreadsheet values.
   console.log("s1: ", ss);
   console.log("a: ", a);
   console.log("b: ", b);
