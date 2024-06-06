@@ -76,7 +76,6 @@ func newScheduler() (*scheduler, error) {
 		return nil, err
 	}
 	c := cron.New(cron.WithParser(sun.Parser{}), cron.WithLocation(loc))
-	c.Start() // We will not stop the cron.
 	return &scheduler{
 		cron:    c,
 		ids:     make(map[cronID]cron.EntryID),

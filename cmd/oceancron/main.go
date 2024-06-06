@@ -171,6 +171,8 @@ func setupCronScheduler(ctx context.Context) error {
 		log.Printf("set %d crons for site=%d", len(crons), site.Skey)
 	}
 
+	// Only start scheduler after adding all jobs.
+	cronScheduler.cron.Start()
 	return nil
 }
 
