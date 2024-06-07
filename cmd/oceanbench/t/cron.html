@@ -29,14 +29,7 @@
         </li>
       {{- end}}
     </nav-menu>
-<<<<<<< HEAD
-    <div class="heading">
-        <img src="/s/tiny_logo.png" alt="AusOcean logo"> Ocean Bench v{{.Version}}
-    </div>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}}>
-=======
     <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
->>>>>>> 4b9d7e7 (OceanBench: Update styling for a consistent UI.)
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
