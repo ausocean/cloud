@@ -68,7 +68,7 @@ class HeaderGroup extends LitElement {
             ? html`
                 <slot name="nav-menu"></slot>
                 <div id="top-bar">
-                    <h1 id="title">VidGrind</h1>
+                    <h1 id="title">CloudBlue</h1>
                     <slot @permission-change=${this._onPermissionChange} id="site-menu" name="site-menu"></slot>
                 </div>
                 <a id="logout" href="${this.logoutURL}">Log out</a>
@@ -77,7 +77,7 @@ class HeaderGroup extends LitElement {
             : html`
                 <slot name="nav-menu"></slot>
                 <div id="top-bar">
-                    <h1 id="title">VidGrind</h1>
+                    <h1 id="title">CloudBlue</h1>
                     <slot id="site-menu" name="site-menu"></slot>
                 </div>
             `

@@ -43,7 +43,6 @@
         <fieldset>
           <label>Select Broadcast:</label>
           <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
-          <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
             <option value="">-- New Broadcast --</option>
             {{range .BroadcastVars}}
               <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>
