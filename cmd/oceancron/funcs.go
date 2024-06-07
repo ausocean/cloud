@@ -47,8 +47,8 @@ const (
 
 // check is a built-in function for site and/or device checking. If
 // mac is specified, it checks just that device. Otherwise, it checks
-// all devices for the given site. If any device is not healthy, an
-// email notification is sent.
+// all devices for the given site. If any device is not healthy, a
+// "site" notification is sent.
 func check(skey int64, mac string) error {
 	ctx := context.Background()
 
@@ -61,31 +61,36 @@ func check(skey int64, mac string) error {
 		return fmt.Errorf("getting devices for site %d failed with error: %v", skey, err)
 	}
 
-	h := make(map[string]string)
+	type deviceStatus struct {
+		name   string
+		status string
+	}
+	h := make(map[string]deviceStatus)
 	healthy := true
 	mac = strings.ToUpper(mac)
 
 	for _, dev := range devices {
 		if mac == "" || mac == dev.MAC() {
-			h[dev.MAC()] = checkDevice(ctx, dev)
-			if h[dev.Name] != healthStatusGood {
+			status := checkDevice(ctx, dev)
+			if status != healthStatusGood {
 				healthy = false
 			}
+			h[dev.MAC()] = deviceStatus{name: dev.Name, status: status}
 		}
 	}
 
 	if !healthy {
 		var msg string
 		if mac != "" {
-			msg = fmt.Sprintf("Site %s has unhealthy device: %s", name, mac)
+			msg = fmt.Sprintf("Site %s has unhealthy device: %s (%s)", name, h[mac].name, mac)
 		} else {
-			msg = fmt.Sprintf("Site %s has unhealthy device(s): ", name)
+			msg = fmt.Sprintf("Site %s has unhealthy device(s):", name)
 			for k, v := range h {
-				msg += fmt.Sprintf("%s:%s ", k, v)
+				msg += fmt.Sprintf("\n%s (%s): %s ", v.name, k, v.status)
 			}
 		}
 		log.Print(msg)
-		err := notifier.Send(ctx, skey, "health", msg)
+		err := notifier.Send(ctx, skey, "site", msg)
 		if err != nil {
 			return err
 		}
