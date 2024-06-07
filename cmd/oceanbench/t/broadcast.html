@@ -22,7 +22,7 @@
         </li>
       {{- end}}
     </nav-menu>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
+    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu" custom-handling>
       {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
       {{- end}}
@@ -36,12 +36,13 @@
       <br>
     {{end}}
     <br>
-    <h1 class="container-md">Broadcast</h1>
 
+    <h1 class="container-md">Broadcast</h1>
     <div class="border rounded p-4 container-md bg-white">
       <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
         <fieldset>
           <label>Select Broadcast:</label>
+          <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
           <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
             <option value="">-- New Broadcast --</option>
             {{range .BroadcastVars}}
