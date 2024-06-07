@@ -215,6 +215,7 @@ func main() {
 	// User requests.
 	http.HandleFunc("/search", searchHandler)
 	http.HandleFunc("/play", playHandler)
+	http.HandleFunc("/learn/mooring", mooringHandler)
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/set/devices/edit/var", editVarHandler)
 	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
