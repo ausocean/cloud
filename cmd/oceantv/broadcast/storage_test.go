@@ -34,9 +34,9 @@ func TestGoogleStorageAddr(t *testing.T) {
 		testURI = "gs://" + wantBkt + "/" + wantObj
 	)
 
-	bkt, obj, err := googlestorageAddr(testURI)
+	bkt, obj, err := googleStorageAddr(testURI)
 	if err != nil {
-		t.Fatalf("did not expect error: %v from googlestorageAddr", err)
+		t.Fatalf("did not expect error: %v from googleStorageAddr", err)
 	}
 
 	if bkt != wantBkt {
