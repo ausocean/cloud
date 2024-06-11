@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('time-zone').value = getTimezone();
-  const startTimeUnix = document.getElementById('start-time-unix').value;
-  const endTimeUnix = document.getElementById('end-time-unix').value;
+  const startTimestamp = document.getElementById('start-timestamp').value;
+  const endTimestamp = document.getElementById('end-timestamp').value;
   const sensorList = JSON.parse(document.getElementById('sensor-list').dataset.sensorList);
   const sendMsg = document.getElementById('send-msg').dataset.sendMsg === 'true';
 
-  if (startTimeUnix) sync('start-time', 'start-time-unix', 'time-zone', false);
-  if (endTimeUnix) sync('end-time', 'end-time-unix', 'time-zone', false);
+  if (startTimestamp) sync('start-time', 'start-timestamp', 'time-zone', false);
+  if (endTimestamp) sync('end-time', 'end-timestamp', 'time-zone', false);
 
   sensorList.forEach(sensor => {
     if (sensor.SendMsg) {

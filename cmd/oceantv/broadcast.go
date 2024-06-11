@@ -97,9 +97,9 @@ type BroadcastConfig struct {
 	Description       string        // The broadcast description shown below viewing window.
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
-	StartTimeUnix     string        // Start time of the broadcast in unix format.
+	StartTimestamp    string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
-	EndTimeUnix       string        // End time of the broadcast in unix format.
+	EndTimestamp      string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
 	CameraMac         int64         // Camera hardware's MAC address.
@@ -146,11 +146,11 @@ type Camera struct {
 // parseStartEnd takes the start and end time unix strings from the broadcast
 // and provides these as time.Time.
 func (c *BroadcastConfig) parseStartEnd() error {
-	sInt, err := strconv.ParseInt(c.StartTimeUnix, 10, 64)
+	sInt, err := strconv.ParseInt(c.StartTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix start time: %w", err)
 	}
-	eInt, err := strconv.ParseInt(c.EndTimeUnix, 10, 64)
+	eInt, err := strconv.ParseInt(c.EndTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix end time: %w", err)
 	}

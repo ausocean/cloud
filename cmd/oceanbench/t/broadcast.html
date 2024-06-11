@@ -97,15 +97,15 @@
         <br>
         <div id="set-times">
           <label>Start Date/Time:</label>
-          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)" size="14">
-          &nbsp;<input name="start-time-unix" type="input" id="start-time-unix" onchange="sync('start-time', 'start-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimeUnix}}{{.CurrentBroadcast.StartTimeUnix}}{{end}}" size="15">
+          <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14">
+          &nbsp;<input name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15">
           <br>
           <label>End Date/Time:</label>
-          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-time-unix', 'time-zone', true)" size="14">
-          &nbsp;<input name="end-time-unix" type="input" id="end-time-unix" onchange="sync('end-time', 'end-time-unix', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimeUnix}}{{.CurrentBroadcast.EndTimeUnix}}{{end}}" size="15">
+          <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14">
+          &nbsp;<input name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
           <br>
           <label>Timezone:</label>
-          <input id="time-zone" size="1" onchange="sync('start-time', 'start-time-unix', 'time-zone', true)">
+          <input id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
           <br>
         </div>
         <label>Live Chat:</label>
