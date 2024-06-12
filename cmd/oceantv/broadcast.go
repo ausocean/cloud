@@ -103,6 +103,7 @@ type BroadcastConfig struct {
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
 	CameraMac         int64         // Camera hardware's MAC address.
+	ControllerMac     int64         // Controller hardware's MAC address (device controlling power to camera).
 	OnActions         string        // A series of actions to be used for power up of camera hardware.
 	OffActions        string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar           string        // The variable name that holds the RTMP URL and key.
