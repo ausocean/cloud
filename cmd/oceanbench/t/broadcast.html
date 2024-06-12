@@ -76,7 +76,17 @@
             <option>Select</option>
             {{end}}
             {{range .Cameras}}
-              <option value="{{.MAC}}" {{if eq .MAC (macdecode $.CurrentBroadcast.CameraMac) }}selected{{end}}>{{.Name}}</option>
+              <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
+          {{ end }}
+          </select>
+          <br>
+          <label>Controller:</label>
+          <select name="controller-mac">
+            {{if not .CurrentBroadcast.ControllerMAC}}
+              <option>Select</option>
+            {{end}}
+            {{range .Controllers}}
+              <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
             {{ end }}
           </select>
           <br>

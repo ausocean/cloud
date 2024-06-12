@@ -89,7 +89,8 @@ const (
 type broadcastRequest struct {
 	BroadcastVars      []model.Variable // Holds prior saved broadcast configs.
 	CurrentBroadcast   BroadcastConfig  // Holds configuration data for broadcast config in form.
-	Cameras            []Camera         // Slice of all the cameras on the site.
+	Cameras            []model.Device   // Slice of all the cameras on the site.
+	Controllers        []model.Device   // Slice of all the controllers on the site.
 	Action             string           // Holds value of any button pressed.
 	ListingSecondaries bool             // Are we listing secondary broadcasts?
 	commonData
@@ -114,6 +115,7 @@ type BroadcastConfig struct {
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
 	CameraMac         int64         // Camera hardware's MAC address.
+	ControllerMAC     int64         // Controller hardware's MAC adress (controller used to power camera).
 	OnActions         string        // A series of actions to be used for power up of camera hardware.
 	OffActions        string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar           string        // The variable name that holds the RTMP URL and key.
@@ -146,11 +148,6 @@ type SensorEntry struct {
 	Sensor    model.SensorV2
 	Name      string
 	DeviceMac int64
-}
-
-type Camera struct {
-	Name string // Name of camera device.
-	MAC  string // Encoded MAC address of associated camera device.
 }
 
 // parseStartEnd takes the start and end time unix strings from the broadcast
@@ -200,6 +197,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			RTMPKey:         r.FormValue("rtmp-key"),
 			VidforwardHost:  r.FormValue("vidforward-host"),
 			CameraMac:       model.MacEncode(r.FormValue("camera-mac")),
+			ControllerMAC:   model.MacEncode(r.FormValue("controller-mac")),
 			OnActions:       r.FormValue("on-actions"),
 			OffActions:      r.FormValue("off-actions"),
 			SendMsg:         r.FormValue("report-sensor") == "Chat",
@@ -263,18 +261,18 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get all macs from cameras that could be used on the stream.
+	// Get all Cameras and Controllers that could be used by the broadcast.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, sKey)
 	if err != nil {
 		reportError(w, r, req, "could not get sites devices: %v", err)
 		return
 	}
 
-	var cam Camera
 	for _, dev := range devices {
 		if dev.Type == "Camera" {
-			cam = Camera{Name: dev.Name, MAC: model.MacDecode(dev.Mac)}
-			req.Cameras = append(req.Cameras, cam)
+			req.Cameras = append(req.Cameras, dev)
+		} else if dev.Type == "Controller" {
+			req.Controllers = append(req.Controllers, dev)
 		}
 	}
 
