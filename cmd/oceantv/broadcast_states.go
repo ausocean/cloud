@@ -571,7 +571,16 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 }
 
 func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConfig, onCreation func() error) {
-	err := ctx.man.CreateBroadcast(
+	background := context.Background()
+	controllerIsOn, err := getDeviceStatus(background, cfg.ControllerMac, settingsStore)
+	if err != nil {
+		onFailureClosure(ctx, cfg)(fmt.Errorf("could not get controller status: %v", err))
+		return
+	} else if !controllerIsOn {
+		notifier.Send(background, cfg.SKey, "health", "The controller is not reporting, likely due to low rig voltage.")
+		onFailureClosure(ctx, cfg)(fmt.Errorf("could not get controller status: %v", err))
+	}
+	err = ctx.man.CreateBroadcast(
 		cfg,
 		ctx.store,
 		ctx.svc,
