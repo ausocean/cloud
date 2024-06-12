@@ -24,25 +24,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function handleSiteChange(event) {
-  // Check that the user really wants to change the site.
-  let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?");
-
-  // Remove the site menu to prevent other events triggering more dialog boxes.
-  const menu = document.getElementById("sitemenu");
-  menu.remove(menu);
-  if (resp) {
-    location.assign("admin/broadcast"); // This will empty the form.
-  } else {
-    // make a request to keep the old site.
+    // Make a request to change site.
     let xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
+    xhr.open("GET", "/api/set/site/"+event.detail["newSite"]);
     xhr.onreadystatechange = ()=> {
       if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-        console.log("request to keep previous selected site successful");
+        location.assign("/admin/broadcast"); // This will empty the form.
       }
     }
     xhr.send();
-  }
 }
 
 function checkAll(form) {
