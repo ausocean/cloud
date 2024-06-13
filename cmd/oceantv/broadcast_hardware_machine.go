@@ -32,6 +32,16 @@ func newHardwareStarting(ctx *broadcastContext) *hardwareStarting {
 }
 func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
+	if s.cfg.ControllerMAC != 0 {
+		controllerIsOn, err := getDeviceStatus(context.Background(), s.cfg.ControllerMAC, settingsStore)
+		if err != nil {
+			disableBroadcast(s.cfg, 1, fmt.Errorf("failed to get controller status: %v", err))
+			return
+		} else if !controllerIsOn {
+			disableBroadcast(s.cfg, 1, fmt.Errorf("controller not reporting, likely due to low voltage"))
+			return
+		}
+	}
 	s.camera.start(s.broadcastContext)
 }
 func (s *hardwareStarting) exit() {}

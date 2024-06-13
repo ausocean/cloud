@@ -571,16 +571,6 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 }
 
 func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConfig, onCreation func() error) {
-	if cfg.ControllerMac != 0 {
-		controllerIsOn, err := getDeviceStatus(context.Background(), cfg.ControllerMac, settingsStore)
-		if err != nil {
-			disableBroadcast(cfg, 1, fmt.Errorf("failed to get controller status: %v", err))
-			return
-		} else if !controllerIsOn {
-			disableBroadcast(cfg, 1, fmt.Errorf("controller not reporting, likely due to low voltage"))
-			return
-		}
-	}
 	err := ctx.man.CreateBroadcast(
 		cfg,
 		ctx.store,
