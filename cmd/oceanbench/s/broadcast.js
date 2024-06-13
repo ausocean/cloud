@@ -8,35 +8,31 @@ document.addEventListener('DOMContentLoaded', function() {
   if (startTimestamp) sync('start-time', 'start-timestamp', 'time-zone', false);
   if (endTimestamp) sync('end-time', 'end-timestamp', 'time-zone', false);
 
-  sensorList.forEach(sensor => {
-    if (sensor.SendMsg) {
-      document.getElementById(sensor.Name).checked = true;
-    }
-  });
+  if (sensorList){
+      sensorList.forEach(sensor => {
+      if (sensor.SendMsg) {
+        document.getElementById(sensor.Name).checked = true;
+      }
+    });
+  }
 
   if (sendMsg) {
     document.getElementById("report-sensor").checked = true;
   }
 
-  document.getElementById("header").addEventListener("site-change", handleSiteChange)
+  document.getElementById("header").addEventListener("site-change", handleSiteChange);
 });
 
 function handleSiteChange(event) {
-  // Check that the user really wants to change the site.
-  let resp = confirm("Unsaved changes may be lost!\nAre you sure you want to change sites?")
-  if (resp) {
-    location.assign("/admin/broadcast"); // This will empty the form.
-  } else {
-    // make a request to keep the old site.
+    // Make a request to change site.
     let xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/set/site/"+event.detail["previousSite"]);
+    xhr.open("GET", "/api/set/site/"+event.detail["newSite"]);
     xhr.onreadystatechange = ()=> {
       if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-        location.reload();
+        location.assign("/admin/broadcast"); // This will empty the form.
       }
     }
-    xhr.send()
-  }
+    xhr.send();
 }
 
 function checkAll(form) {

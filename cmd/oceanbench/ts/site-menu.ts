@@ -114,19 +114,20 @@ class SiteMenu extends LitElement {
             console.log("invalid key, no site selected");
             return;
         }
-        let r = new XMLHttpRequest();
-        r.onreadystatechange = () => {
-            if (r.readyState == XMLHttpRequest.DONE) {
-                console.log("response from set site request: ", r.responseText);
-                if (this.customHandling) {
-                    this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
-                } else {
+        if (this.customHandling) {
+            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey+":"+selectedName} }));
+            this.selectedData = selectedKey+":"+selectedName;
+        } else {
+            let r = new XMLHttpRequest();
+            r.onreadystatechange = () => {
+                if (r.readyState == XMLHttpRequest.DONE) {
+                    console.log("response from set site request: ", r.responseText);
                     window.location.reload();
                 }
             }
-        };
-        r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
-        r.send();
+            r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
+            r.send();
+        }
 
         if (selectedOpt.slot != this.selectedPerm) {
             this.selectedPerm = selectedOpt.slot;
@@ -183,14 +184,26 @@ class SiteMenu extends LitElement {
                         const currentData = r.responseText;
                         let s1 = currentData.split(":");
                         let s2 = this.selectedData.split(":");
-                        // If there's not a match, ask the user if they want to reload.
+                        // If there's not a match, and no custom handling, ask the user if they want to reload.
                         // If the user clicks 'OK' in the confirmation dialog, reload the page.
                         if (Number(s1[0]) != Number(s2[0])) {
-                            if (this.customHandling) {
-                                this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData } }));
-                            } else if (!this.reloadConfirmed && window.confirm("The selected site has changed. Do you want to reload the page?")) {
-                                this.reloadConfirmed = true;
-                                window.location.reload();
+                            let prevSite = this.selectedData;
+                            this.selectedData = currentData;
+                            if (window.confirm("The selected site has changed from "+s2[1]+" to "+s1[1]+". Do you want to load the new site page? Unsaved changes may be lost.")) {
+                                if (this.customHandling) {
+                                    this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: prevSite, newSite: this.selectedData } }));
+                                } else {
+                                    window.location.reload();
+                                }
+                            } else {
+                                let r = new XMLHttpRequest();
+                                r.onreadystatechange = () => {
+                                    if (r.readyState == XMLHttpRequest.DONE) {
+                                        console.log("response from set site request: ", r.responseText);
+                                    }
+                                }
+                                r.open("GET", "/api/set/site/" + prevSite, true);
+                                r.send();
                             }
                         }
                     } else {
