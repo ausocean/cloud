@@ -643,14 +643,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 				// TODO: make this configurable in config.
 				const maxStartFailures = 3
 				if _cfg.StartFailures >= maxStartFailures {
-					_cfg.StartFailures = 0
-					_cfg.Enabled = false
-					notifier.Send(
-						context.Background(),
-						_cfg.SKey,
-						"health",
-						fmt.Sprintf("Broadcast %s has failed to start %d times so it has been disabled.", _cfg.Name, maxStartFailures),
-					)
+					disableBroadcast(_cfg, maxStartFailures, err)
 				}
 				*cfg = *_cfg
 				return nil
@@ -660,6 +653,17 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 			ctx.log("could not update config after failed start: %v", err)
 		}
 	}
+}
+
+func disableBroadcast(cfg *BroadcastConfig, maxStartFailures int, reason error) {
+	cfg.StartFailures = 0
+	cfg.Enabled = false
+	notifier.Send(
+		context.Background(),
+		cfg.SKey,
+		"health",
+		fmt.Sprintf("Broadcast %s has failed to start %d times so it has been disabled. Error: %v", cfg.Name, maxStartFailures, reason),
+	)
 }
 
 func stateToString(state state) string {
