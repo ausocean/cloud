@@ -107,7 +107,7 @@ class SiteMenu extends LitElement {
 
     handleSiteChange(event: Event) {
         const target = event.target as HTMLSelectElement;
-        const selectedOpt = target.options[target.selectedIndex]
+        const selectedOpt = target.options[target.selectedIndex];
         const selectedName = selectedOpt.label;
         const selectedKey = target.value;
         if (!containsInt(selectedKey)) {
@@ -129,9 +129,9 @@ class SiteMenu extends LitElement {
             r.send();
         }
 
-        if (selectedOpt.slot != this.selectedPerm){
+        if (selectedOpt.slot != this.selectedPerm) {
             this.selectedPerm = selectedOpt.slot;
-            this.dispatchEvent(new CustomEvent('permission-change', {bubbles: true, composed: true, detail: {selectedPerm: permNumber.get(this.selectedPerm)}}));
+            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: permNumber.get(this.selectedPerm) } }));
         }
     }
 
@@ -143,7 +143,7 @@ class SiteMenu extends LitElement {
         option.selected = Number(s[0]) == key;
         if (option.selected) {
             this.selectedPerm = option.slot;
-            this.dispatchEvent(new CustomEvent('permission-change', {bubbles: true, composed: true, detail: {selectedPerm: permNumber.get(this.selectedPerm)}})); //TODO: only trigger if changed.
+            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: permNumber.get(this.selectedPerm) } })); //TODO: only trigger if changed.
             option.innerText = s[1];
             option.style.display = "block";
 
@@ -161,7 +161,7 @@ class SiteMenu extends LitElement {
         document.addEventListener("visibilitychange", this.checkSiteChange.bind(this));
         window.addEventListener("focus", this.checkSiteChange.bind(this));
     }
-    
+
     disconnectedCallback() {
         super.disconnectedCallback();
 
@@ -210,7 +210,7 @@ class SiteMenu extends LitElement {
                         console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
                     }
                 }
-            }
+            };
             r.open("GET", "/api/get/profile/data", true);
             r.send();
         }

@@ -97,9 +97,9 @@ type BroadcastConfig struct {
 	Description       string        // The broadcast description shown below viewing window.
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
-	StartTimeUnix     string        // Start time of the broadcast in unix format.
+	StartTimestamp    string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
-	EndTimeUnix       string        // End time of the broadcast in unix format.
+	EndTimestamp      string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
 	CameraMac         int64         // Camera hardware's MAC address.
@@ -127,6 +127,7 @@ type BroadcastConfig struct {
 	StartFailures     int           // The number of times the broadcast has failed to start.
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
+	HardwareStateData []byte        // Hardware states will be marshalled and their data stored here.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -145,11 +146,11 @@ type Camera struct {
 // parseStartEnd takes the start and end time unix strings from the broadcast
 // and provides these as time.Time.
 func (c *BroadcastConfig) parseStartEnd() error {
-	sInt, err := strconv.ParseInt(c.StartTimeUnix, 10, 64)
+	sInt, err := strconv.ParseInt(c.StartTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix start time: %w", err)
 	}
-	eInt, err := strconv.ParseInt(c.EndTimeUnix, 10, 64)
+	eInt, err := strconv.ParseInt(c.EndTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix end time: %w", err)
 	}
@@ -313,21 +314,22 @@ func performChecksInternalThroughStateMachine(
 	healthStatusChatHandler := func(event event) error {
 		switch event.(type) {
 		case healthCheckDueEvent:
-			handleHealthWithCallback(
+			err := man.HandleHealth(
 				context.Background(),
 				cfg,
 				store,
-				svc,
-				func(Ctx, *Cfg, Store, Svc) error {
+				func() { bus.publish(goodHealthEvent{}) },
+				func(issue string) {
 					bus.publish(badHealthEvent{})
-					return nil
+					err := opsHealthNotify(ctx, cfg.SKey, fmt.Sprintf("broadcast: %s\n ID: %s\n, poor stream health, status: %s", cfg.Name, cfg.ID, issue))
+					if err != nil {
+						log("could not send notification for poor stream health: %v", err)
+					}
 				},
-				func(Ctx, *Cfg, Store, Svc) error {
-					bus.publish(goodHealthEvent{})
-					return nil
-				},
-				log,
 			)
+			if err != nil {
+				return fmt.Errorf("could not handle health: %w", err)
+			}
 		case statusCheckDueEvent:
 			err := man.HandleStatus(
 				context.Background(),

@@ -137,7 +137,7 @@ function initMJPEG() {
   // Slider has range 1 - 10000 for now. Should be determined by clip duration.
   document.getElementById("view").innerHTML = `
     <img src="" id="viewer" style="width:100%;">
-    <button id="playPauseBtn" disabled="true">Play / Pause</button>
+    <button id="playPauseBtn" disabled="true" class="btn btn-primary">Play / Pause</button>
     <div class="slidecontainer" style="width=100%;">
       <input type="range" min="1" max="10000" value="0" id="slider" disabled="true" style="width:100%;">
     </div>

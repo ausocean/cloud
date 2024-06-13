@@ -107,10 +107,10 @@ type BroadcastConfig struct {
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
 	StartTime         string        // Start time of the broadcast in yy/mm/dd, hh:mm format.
-	StartTimeUnix     string        // Start time of the broadcast in unix format.
+	StartTimestamp    string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
 	EndTime           string        // End time of the broadcast in yy/mm/dd, hh:mm format.
-	EndTimeUnix       string        // End time of the broadcast in unix format.
+	EndTimestamp      string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
 	CameraMac         int64         // Camera hardware's MAC address.
@@ -156,11 +156,11 @@ type Camera struct {
 // parseStartEnd takes the start and end time unix strings from the broadcast
 // and provides these as time.Time.
 func (c *BroadcastConfig) parseStartEnd() error {
-	sInt, err := strconv.ParseInt(c.StartTimeUnix, 10, 64)
+	sInt, err := strconv.ParseInt(c.StartTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix start time: %w", err)
 	}
-	eInt, err := strconv.ParseInt(c.EndTimeUnix, 10, 64)
+	eInt, err := strconv.ParseInt(c.EndTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix end time: %w", err)
 	}
@@ -193,9 +193,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			Privacy:         r.FormValue("privacy"),
 			Resolution:      r.FormValue("resolution"),
 			StartTime:       r.FormValue("start-time"),
-			StartTimeUnix:   r.FormValue("start-time-unix"),
+			StartTimestamp:  r.FormValue("start-timestamp"),
 			EndTime:         r.FormValue("end-time"),
-			EndTimeUnix:     r.FormValue("end-time-unix"),
+			EndTimestamp:    r.FormValue("end-timestamp"),
 			RTMPVar:         r.FormValue("rtmp-key-var"),
 			RTMPKey:         r.FormValue("rtmp-key"),
 			VidforwardHost:  r.FormValue("vidforward-host"),
@@ -224,7 +224,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	// This is how we populate the time.Time representations of the start and end
 	// times.
-	if cfg.StartTimeUnix != "" {
+	if cfg.StartTimestamp != "" {
 		err = cfg.parseStartEnd()
 		if err != nil {
 			reportError(w, r, req, "could not parse start and end times: %v", err)

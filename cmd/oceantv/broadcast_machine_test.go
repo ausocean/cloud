@@ -278,6 +278,7 @@ func TestHandleTimeEvent(t *testing.T) {
 				timeEvent{},
 				statusCheckDueEvent{},
 				chatMessageDueEvent{},
+				hardwareResetRequestEvent{},
 			},
 			expectedState: newDirectLiveUnhealthy(bCtx),
 			cfg: &BroadcastConfig{
@@ -566,8 +567,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directStarting timed out",
 			initialState:   &directStarting{broadcastContext: bCtx, LastEntered: now},
-			event:          timeEvent{now.Add(6 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, hardwareStopRequestEvent{}},
+			event:          timeEvent{now.Add(11 * time.Minute)},
+			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg:            &BroadcastConfig{},
 		},

@@ -307,26 +307,49 @@ func newDirectLive(ctx *broadcastContext) *directLive {
 	return &directLive{ctx}
 }
 func (s *directLive) enter() {}
-func (s *directLive) exit() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
-	if err != nil {
-		s.log("could not stop broadcast")
-	}
-}
+func (s *directLive) exit()  {}
 
 type directLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
+	LastResetAttempt  time.Time
+	Attempts          int
 }
 
 func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
-	return &directLiveUnhealthy{ctx}
+	return &directLiveUnhealthy{broadcastContext: ctx}
 }
 func (s *directLiveUnhealthy) enter() {}
-func (s *directLiveUnhealthy) exit() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
-	if err != nil {
-		s.log("could not stop broadcast", s.cfg.Name, s.cfg.ID)
+func (s *directLiveUnhealthy) exit()  {}
+func (s *directLiveUnhealthy) fix() {
+	notify := func(msg string) {
+		notifier.Send(context.Background(), s.cfg.SKey, "health", msg)
 	}
+
+	const resetInterval = 5 * time.Minute
+	if time.Since(s.LastResetAttempt) <= resetInterval {
+		return
+	}
+
+	s.Attempts++
+
+	var (
+		e   event
+		msg string
+	)
+
+	const maxAttempts = 3
+	if s.Attempts > maxAttempts {
+		msg = "failed to fix broadcast, requesting broadcast finish (attempts: %d, max attempts: %d)"
+		e = finishEvent{}
+	} else {
+		msg = "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)"
+		e = hardwareResetRequestEvent{}
+	}
+
+	s.log(msg, s.Attempts)
+	notify(fmt.Sprintf("broadcast: %s, id: %s) "+msg, s.cfg.Name, s.cfg.ID, s.Attempts, maxAttempts))
+	s.bus.publish(e)
+	s.LastResetAttempt = time.Now()
 }
 
 type directStarting struct {
@@ -343,7 +366,7 @@ func (s *directStarting) enter() {
 }
 func (s *directStarting) exit() {}
 func (s *directStarting) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
+	const timeout = 10 * time.Minute
 	if t.Sub(s.LastEntered) > timeout {
 		s.log("timed out starting broadcast, last entered: %v, time now: %v", s.LastEntered, t)
 		return true
@@ -357,6 +380,10 @@ type directIdle struct {
 
 func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{ctx} }
 func (s *directIdle) enter() {
+	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	if err != nil {
+		s.log("could not stop broadcast: %v", err)
+	}
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 func (s *directIdle) exit() {}
