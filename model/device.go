@@ -39,6 +39,18 @@ import (
 // typeDevice is the name of the datastore device type.
 const typeDevice = "Device"
 
+// Device state statuses.
+const (
+	DeviceStatusOK = iota
+	DeviceStatusUpdate
+	DeviceStatusReboot
+	DeviceStatusDebug
+	DeviceStatusUpgrade
+	DeviceStatusAlarm
+	DeviceStatusTest
+	DeviceStatusShutdown
+)
+
 var (
 	ErrDeviceNotEnabled   = errors.New("device not enabled")
 	ErrDeviceNotFound     = errors.New("device not found")
@@ -171,20 +183,22 @@ func (dev *Device) Hex() string {
 // Return the device status as text.
 func (dev *Device) StatusText() string {
 	switch dev.Status {
-	case 0:
+	case DeviceStatusOK:
 		return "ok"
-	case 1:
+	case DeviceStatusUpdate:
 		return "update"
-	case 2:
+	case DeviceStatusReboot:
 		return "reboot"
-	case 3:
+	case DeviceStatusDebug:
 		return "debug"
-	case 4:
+	case DeviceStatusUpgrade:
 		return "upgrade"
-	case 5:
+	case DeviceStatusAlarm:
 		return "alarm"
-	case 6:
+	case DeviceStatusTest:
 		return "test"
+	case DeviceStatusShutdown:
+		return "shutdown"
 	default:
 		return "unknown"
 	}
@@ -388,23 +402,21 @@ func IsMacAddress(mac string) bool {
 	return true
 }
 
-// Retain these for the sensor/actuator migration then remove.
-func (dev *Device) InputListWithID() []string {
-	ins := strings.ReplaceAll(dev.Inputs, " ", "")
-	split := strings.Split(ins, ",")
-	var out []string
-	for _, s := range split {
-		out = append(out, dev.Name+"."+s)
+// DeviceIsUp returns true if the device exists and is up, or false
+// otherwise. Up status is determined by checking the uptime variable
+// associated with the device. The device is considered to be up if
+// the uptime is less than twice the monitor period,
+func DeviceIsUp(ctx context.Context, store datastore.Store, mac int64) (bool, error) {
+	dev, err := GetDevice(ctx, store, mac)
+	if err != nil {
+		return false, fmt.Errorf("could not get device: %w", err)
 	}
-	return out
-}
-
-func (dev *Device) OutputListWithID() []string {
-	outs := strings.ReplaceAll(dev.Outputs, " ", "")
-	split := strings.Split(outs, ",")
-	var out []string
-	for _, s := range split {
-		out = append(out, dev.Name+"."+s)
+	v, err := GetVariable(ctx, store, dev.Skey, "_"+dev.Hex()+".uptime")
+	if err != nil {
+		return false, fmt.Errorf("could not get uptime variable: %w", err)
 	}
-	return out
+	if time.Since(v.Updated) < time.Duration(2*int(dev.MonitorPeriod))*time.Second {
+		return true, nil
+	}
+	return false, nil
 }
