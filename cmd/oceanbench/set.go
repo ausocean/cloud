@@ -38,6 +38,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/nmea"
 )
 
 var (
@@ -56,43 +57,6 @@ func setDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	writeDevices(w, r, "")
 }
 
-// quantity describes a shorthand code, name and type for a quantity or measure.
-// For example: quantity{Name: "Apparent Wind Speed", Code: "AWS", Type: "speed"}.
-type quantity struct {
-	Name, Code, Type string
-}
-
-// defaultQuantities provides a list of common quantities we might measure.
-func defaultQuantities() []quantity {
-	return []quantity{
-		{Code: "AWA", Name: "Apparent Wind Angle", Type: "angle"},
-		{Code: "AWS", Name: "Apparent Wind Speed", Type: "speed"},
-		{Code: "AUD", Name: "Audio", Type: "audio"},
-		{Code: "BIN", Name: "Boolean", Type: "bool"},
-		{Code: "DIS", Name: "Distance", Type: "length"},
-		{Code: "DPT", Name: "Depth", Type: "length"},
-		{Code: "GGA", Name: "GPS Fix", Type: "position"},
-		{Code: "DCV", Name: "DC Voltage", Type: "voltage"},
-		{Code: "ACV", Name: "AC Voltage", Type: "voltage"},
-		{Code: "HDM", Name: "Heading (Magnetic)", Type: "angle"},
-		{Code: "HDT", Name: "Heading (True)", Type: "angle"},
-		{Code: "MMB", Name: "Humidity", Type: "percent"},
-		{Code: "MTA", Name: "Air Pressure", Type: "pressure"},
-		{Code: "MWH", Name: "Air Temperature", Type: "temperature"},
-		{Code: "MTW", Name: "Water Temperature", Type: "temperature"},
-		{Code: "PPT", Name: "Precipitation", Type: "length"},
-		{Code: "SOG", Name: "Speed Over Ground", Type: "speed"},
-		{Code: "STW", Name: "Speed Thru Water", Type: "speed"},
-		{Code: "TBD", Name: "Turbidity", Type: "turbidity"},
-		{Code: "TWA", Name: "True Wind Angle", Type: "angle"},
-		{Code: "TWG", Name: "True Wind Gust", Type: "speed"},
-		{Code: "TWS", Name: "True Wind Speed", Type: "speed"},
-		{Code: "MWS", Name: "Wave Height", Type: "distance"},
-		{Code: "VID", Name: "Video", Type: "video"},
-		{Code: "OTH", Name: "Other", Type: "unknown"},
-	}
-}
-
 // devTypes are valid device types.
 var devTypes = []string{"Controller", "Camera", "Hydrophone", "Speaker", "Aligner"}
 
@@ -108,7 +72,7 @@ type devicesData struct {
 	Actuators  []model.ActuatorV2
 	VarTypes   []model.Variable
 	DevTypes   []string
-	Quantities []quantity
+	Quantities []nmea.Quantity
 	Funcs      []string
 	Formats    []string
 	commonData
@@ -138,7 +102,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		},
 		Mac:        r.FormValue("ma"),
 		Device:     &model.Device{Enabled: true},
-		Quantities: defaultQuantities(),
+		Quantities: nmea.DefaultQuantities(),
 		Funcs:      model.SensorFuncs(),
 		Formats:    model.SensorFormats(),
 		DevTypes:   devTypes,
