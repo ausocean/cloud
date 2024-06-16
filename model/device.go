@@ -6,7 +6,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
   This is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -386,25 +386,4 @@ func IsMacAddress(mac string) bool {
 		}
 	}
 	return true
-}
-
-// Retain these for the sensor/actuator migration then remove.
-func (dev *Device) InputListWithID() []string {
-	ins := strings.ReplaceAll(dev.Inputs, " ", "")
-	split := strings.Split(ins, ",")
-	var out []string
-	for _, s := range split {
-		out = append(out, dev.Name+"."+s)
-	}
-	return out
-}
-
-func (dev *Device) OutputListWithID() []string {
-	outs := strings.ReplaceAll(dev.Outputs, " ", "")
-	split := strings.Split(outs, ",")
-	var out []string
-	for _, s := range split {
-		out = append(out, dev.Name+"."+s)
-	}
-	return out
 }
