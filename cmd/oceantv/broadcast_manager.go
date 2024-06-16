@@ -35,6 +35,9 @@ import (
 
 	"github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/nmea"
 )
 
 // BroadcastManager is an interface for managing broadcasts.
@@ -68,11 +71,14 @@ type BroadcastManager interface {
 // OceanBroadcastManager is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcastManager struct {
+	svc BroadcastService
 	log func(string, ...interface{})
 }
 
-func newOceanBroadcastManager(log func(string, ...interface{})) *OceanBroadcastManager {
-	return &OceanBroadcastManager{log}
+// newOceanBroadcastManager creates a new OceanBroadcastManager.
+// svc may be nil, but any methods that require it will panic.
+func newOceanBroadcastManager(svc BroadcastService, log func(string, ...interface{})) *OceanBroadcastManager {
+	return &OceanBroadcastManager{svc: svc, log: log}
 }
 
 func (m *OceanBroadcastManager) CreateBroadcast(
@@ -208,18 +214,71 @@ func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc
 	return nil
 }
 
-// HandleChatMessage generates chat messages containing sensor info such as
-// water temperature and uses the youtube API to post the message. The
-// sensors used are those specified in the configuration.
+// HandleChatMessage generates a message with sensor readings for the
+// relevant site and posts the message to the broadcast chat. This works by
+// searching the site for any registered ESP devices and looking at the latest
+// signal values on sensors which have been marked true to send a message.
 func (m *OceanBroadcastManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
-	return handleChatMessage(ctx, cfg, m.log)
+	if !cfg.SendMsg {
+		m.log("ignoring sensors")
+		return nil
+	}
+
+	m.log("building message")
+	var msg string
+
+	for _, sensor := range cfg.SensorList {
+		if !sensor.SendMsg {
+			continue
+		}
+		// Get the latest signal for the sensor.
+		var qty string
+
+		scalar, err := getLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
+		if err == datastore.ErrNoSuchEntity {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("could not get scalar for chat message: %v", err)
+		}
+
+		value, err := sensor.Sensor.Transform(scalar.Value)
+		if err != nil {
+			return fmt.Errorf("could not transform scalar: %v", err)
+		}
+
+		for _, q := range nmea.DefaultQuantities() {
+			if q.Code == sensor.Sensor.Quantity {
+				qty = q.Name
+			}
+		}
+
+		// Add the latest sensor value to the message.
+		var line string
+		if msg == "" {
+			line = fmt.Sprintf("%s: %3.1f %s ", qty, value, sensor.Sensor.Units)
+		} else {
+			line = fmt.Sprintf("| %s: %3.1f %s ", qty, value, sensor.Sensor.Units)
+		}
+		msg += line
+	}
+
+	if msg == "" {
+		m.log("chat message empty")
+		return nil
+	}
+
+	err := m.svc.PostChatMessage(cfg.CID, msg)
+	if err != nil {
+		return fmt.Errorf("broadcast chat message post error: %w", err)
+	}
+	return nil
 }
 
 // HandleHealth interprets the health of a broadcast and calls the provided callbacks in response to the health.
 // For tolerance to temporary issues, we only call the badHealthCallback if the health is bad for more than 4 checks.
 func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error {
 	m.log("handling health check")
-	issue, err := checkIssues(ctx, cfg, m.log)
+	issue, err := m.svc.BroadcastHealth(ctx, cfg.SID)
 	if err != nil {
 		return fmt.Errorf("could not check for stream issues: %w", err)
 	}
@@ -229,6 +288,7 @@ func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goo
 		goodHealthCallback()
 		return nil
 	}
+	m.log("issue found: %s", issue)
 
 	cfg.Issues++
 	const maxHealthIssues = 4

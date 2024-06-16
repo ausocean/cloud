@@ -67,8 +67,10 @@ type BroadcastService interface {
 	) error
 
 	BroadcastStatus(ctx context.Context, id string) (string, error)
+	BroadcastHealth(ctx context.Context, sid string) (string, error)
 	RTMPKey(ctx context.Context, streamName string) (string, error)
 	CompleteBroadcast(ctx context.Context, id string) error
+	PostChatMessage(cID, msg string) error
 }
 
 // YouTubeResponse implements the ServerResponse interface for YouTube.
@@ -81,12 +83,13 @@ func (y YouTubeResponse) HTTPHeader() http.Header { return googleapi.ServerRespo
 
 // YouTubeBroadcastService is a BroadcastService implementation for YouTube.
 type YouTubeBroadcastService struct {
-	limiter RateLimiter
-	log     func(string, ...interface{})
+	limiter  RateLimiter
+	log      func(string, ...interface{})
+	tokenURI string
 }
 
-func newYouTubeBroadcastService(log func(string, ...interface{})) *YouTubeBroadcastService {
-	return &YouTubeBroadcastService{log: log}
+func newYouTubeBroadcastService(tokenURI string, log func(string, ...interface{})) *YouTubeBroadcastService {
+	return &YouTubeBroadcastService{log: log, tokenURI: tokenURI}
 }
 
 // WithRateLimiter is a BroadcastOption that sets the rate limiter for a
@@ -125,7 +128,7 @@ func (s *YouTubeBroadcastService) CreateBroadcast(
 		}
 	}
 
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return YouTubeResponse{}, broadcast.IDs{}, "", fmt.Errorf("could not get service: %w", err)
 	}
@@ -179,6 +182,7 @@ func (s *YouTubeBroadcastService) StartBroadcast(
 		extStop,
 		notify,
 		onLiveActions,
+		s.tokenURI,
 		s.log,
 	)
 }
@@ -186,7 +190,7 @@ func (s *YouTubeBroadcastService) StartBroadcast(
 // BroadcastStatus gets the status of the broadcast identification id using the
 // YouTube API.
 func (s *YouTubeBroadcastService) BroadcastStatus(ctx context.Context, id string) (string, error) {
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("get service error: %w", err)
 	}
@@ -197,10 +201,56 @@ func (s *YouTubeBroadcastService) BroadcastStatus(ctx context.Context, id string
 	return status, nil
 }
 
+// BroadcastHealth gets the health of the stream with identification sid using
+// the YouTube API. Currently the implementation returns an empty string if we
+// consider the health to be OK.
+//
+// NOTE: an empty string is returned on good, ok or bad health, otherwise the
+// type of the issue is returned. This is done because one of good, ok, or
+// bad is generally a function of the bandwidth at the time, which there is
+// little we can do about. The possibility remains that at some point we'll
+// want to know of what it is however.
+//
+// Similarly, we don't consider configuration issues to be problematic,
+// unless they are of error severity. This may also need to be revisited.
+func (s *YouTubeBroadcastService) BroadcastHealth(ctx context.Context, sid string) (string, error) {
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+	if err != nil {
+		return "", fmt.Errorf("could not get youtube service: %w", err)
+	}
+
+	health, err := broadcast.GetHealthStatus(svc, sid)
+	if err != nil {
+		return "", fmt.Errorf("could not get health status: %w", err)
+	}
+
+	for _, v := range health.ConfigurationIssues {
+		if v.Severity != "error" {
+			continue
+		}
+
+		return fmt.Sprintf(
+			"configuration issue: %s, reason: %s, severity: %s, type: %s, last updated (seconds): %d",
+			v.Description,
+			v.Reason,
+			v.Severity,
+			v.Type,
+			health.LastUpdateTimeSeconds,
+		), nil
+	}
+
+	switch health.Status {
+	case "noData", "revoked":
+		return health.Status, nil
+	}
+
+	return "", nil
+}
+
 // CompleteBroadcast transitions a broadcast with identification id to complete
 // status using the YouTube API.
 func (s *YouTubeBroadcastService) CompleteBroadcast(ctx context.Context, id string) error {
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return fmt.Errorf("get service error: %w", err)
 	}
@@ -214,7 +264,7 @@ func (s *YouTubeBroadcastService) CompleteBroadcast(ctx context.Context, id stri
 // RTMPKey gets the broadcast RTMP key for the provided stream name using the
 // YouTube API.
 func (s *YouTubeBroadcastService) RTMPKey(ctx context.Context, streamName string) (string, error) {
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("get service error: %w", err)
 	}
@@ -223,4 +273,10 @@ func (s *YouTubeBroadcastService) RTMPKey(ctx context.Context, streamName string
 		return "", fmt.Errorf("get RTMP key error: %w", err)
 	}
 	return key, nil
+}
+
+// PostChatMessage posts a chat message with the provided message and token URI
+// to the chat identification cID using the YouTube API.
+func (s *YouTubeBroadcastService) PostChatMessage(cID, msg string) error {
+	return broadcast.PostChatMessage(cID, s.tokenURI, msg)
 }

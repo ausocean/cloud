@@ -179,8 +179,10 @@ func (d *dummyService) StartBroadcast(
 	return nil
 }
 func (d *dummyService) BroadcastStatus(ctx Ctx, id string) (string, error) { return "", nil }
+func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error) { return "", nil }
 func (d *dummyService) RTMPKey(ctx Ctx, streamName string) (string, error) { return "", nil }
 func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error         { return nil }
+func (d *dummyService) PostChatMessage(id, msg string) error               { return nil }
 
 type dummyForwardingService struct{}
 

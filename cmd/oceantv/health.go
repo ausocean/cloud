@@ -28,10 +28,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
-	"google.golang.org/api/youtube/v3"
 )
 
 // opsHealthNotify sends a health email notification for site with skey and message
@@ -46,39 +42,4 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 	return func(msg string) error {
 		return opsHealthNotify(ctx, cfg.SKey, msg)
 	}
-}
-
-// checkIssues checks for any broadcast issues and returns the type of issue if
-// found as a string. If no issues are found an empty string is returned.
-func checkIssues(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) (string, error) {
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope)
-	if err != nil {
-		return "", fmt.Errorf("could not get youtube service: %w", err)
-	}
-
-	health, err := broadcast.GetHealthStatus(svc, cfg.SID)
-	if err != nil {
-		return "", fmt.Errorf("could not get health status: %w", err)
-	}
-
-	for _, v := range health.ConfigurationIssues {
-		log("configuration issue, reason: %s, severity: %s, type: %s, last updated (seconds): %d", v.Reason, v.Severity, v.Type, health.LastUpdateTimeSeconds)
-
-		if v.Severity == "error" {
-			msg := "broadcast: %s\n ID: %s\n, configuration issue:\n \tdescription: %s, \treason: %s, \tseverity: %s, \ttype: %s, \tlast updated (seconds): %d"
-			err = opsHealthNotify(ctx, cfg.SKey, fmt.Sprintf(msg, cfg.Name, cfg.ID, v.Description, v.Reason, v.Severity, v.Type, health.LastUpdateTimeSeconds))
-			if err != nil {
-				return v.Type, fmt.Errorf("could not send notification for configuration issue of error severity: %w", err)
-			}
-			return v.Type, nil
-		}
-	}
-
-	log("stream health check, status: %s", health.Status)
-	switch health.Status {
-	case "noData", "revoked":
-		return health.Status, nil
-	}
-
-	return "", nil
 }

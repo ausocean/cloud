@@ -44,7 +44,7 @@ const (
 	projectID          = "oceantv"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	locationID         = "Australia/Adelaide"        // TODO: Use site location.
+	locationID         = "Australia/Adelaide" // TODO: Use site location.
 )
 
 var (
@@ -190,7 +190,10 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		logForBroadcast(&cfg, msg, args...)
 	}
 
-	err = newOceanBroadcastManager(log).SaveBroadcast(ctx, &cfg, settingsStore)
+	// Use the broadcast manager to save the broadcast.
+	// We can provide a nil BroadcastService given that SaveBroadcast
+	// won't need this.
+	err = newOceanBroadcastManager(nil, log).SaveBroadcast(ctx, &cfg, settingsStore)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
