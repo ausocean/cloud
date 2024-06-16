@@ -40,8 +40,8 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
-	"github.com/ausocean/utils/nmea"
 )
 
 type Action int
@@ -128,6 +128,7 @@ type BroadcastConfig struct {
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
 	HardwareStateData []byte        // Hardware states will be marshalled and their data stored here.
+	Account           string        // The YouTube account email that this broadcast is associated with.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -301,11 +302,12 @@ func performChecksInternalThroughStateMachine(
 	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
-	svc := newYouTubeBroadcastService(log)
+	tokenURI := utils.TokenURIFromAccount(cfg.Account)
+	svc := newYouTubeBroadcastService(tokenURI, log)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the YouTube broadcast service.
-	man := newOceanBroadcastManager(log)
+	man := newOceanBroadcastManager(svc, log)
 
 	// This handler will subscribe to the event bus and perform checks corresponding
 	// to health, status and chat message events. It will also publish events to the
@@ -415,66 +417,6 @@ func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 }
 
 type BroadcastCallback func(context.Context, *BroadcastConfig, datastore.Store, BroadcastService) error
-
-// handleChatMessage generates a message with sensor readings for the
-// relevant site and posts the message to the broadcast chat. This works by
-// searching the site for any registered ESP devices and looking at the latest
-// signal values on sensors which have been marked true to send a message.
-func handleChatMessage(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
-	if !cfg.SendMsg {
-		log("ignoring sensors")
-		return nil
-	}
-
-	log("building message")
-	var msg string
-
-	for _, sensor := range cfg.SensorList {
-		if !sensor.SendMsg {
-			continue
-		}
-		// Get the latest signal for the sensor.
-		var qty string
-
-		scalar, err := getLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
-		if err == datastore.ErrNoSuchEntity {
-			continue
-		} else if err != nil {
-			return fmt.Errorf("could not get scalar for chat message: %v", err)
-		}
-
-		value, err := sensor.Sensor.Transform(scalar.Value)
-		if err != nil {
-			return fmt.Errorf("could not transform scalar: %v", err)
-		}
-
-		for _, q := range nmea.DefaultQuantities() {
-			if q.Code == sensor.Sensor.Quantity {
-				qty = q.Name
-			}
-		}
-
-		// Add the latest sensor value to the message.
-		var line string
-		if msg == "" {
-			line = fmt.Sprintf("%s: %3.1f %s ", qty, value, sensor.Sensor.Units)
-		} else {
-			line = fmt.Sprintf("| %s: %3.1f %s ", qty, value, sensor.Sensor.Units)
-		}
-		msg += line
-	}
-
-	if msg == "" {
-		log("chat message empty")
-		return nil
-	}
-
-	err := broadcast.PostChatMessage(cfg.CID, msg)
-	if err != nil {
-		return fmt.Errorf("broadcast chat message post error: %w", err)
-	}
-	return nil
-}
 
 type ErrInvalidEndTime struct {
 	start, end time.Time

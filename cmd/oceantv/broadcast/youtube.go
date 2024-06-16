@@ -72,8 +72,10 @@ type IDs struct {
 
 // getService returns a google authorised and configured youtube service for use
 // by the google YouTube API.
-func GetService(ctx context.Context, scope string) (*youtube.Service, error) {
-	tok, err := getToken(ctx, youtubeCredentials)
+// tokenURI is the URI to the file where the token is stored.
+// e.g. "gs://ausocean/some-account@ausocean.org.json"
+func GetService(ctx context.Context, scope string, tokenURI string) (*youtube.Service, error) {
+	tok, err := getToken(ctx, tokenURI)
 	if err != nil {
 		return nil, fmt.Errorf("could not get youtube credentials token: %w", err)
 	}
@@ -89,9 +91,9 @@ func GetService(ctx context.Context, scope string) (*youtube.Service, error) {
 	}
 
 	if production {
-		err = saveTokObj(ctx, tok, youtubeCredentials)
+		err = saveTokObj(ctx, tok, tokenURI)
 	} else {
-		err = saveTokFile(tok, youtubeCredentials)
+		err = saveTokFile(tok, tokenURI)
 	}
 
 	if err != nil {
@@ -103,13 +105,13 @@ func GetService(ctx context.Context, scope string) (*youtube.Service, error) {
 
 // GenerateToken manually generates/regenerates a token. This can be called in
 // the case that there's an indication the current token has expired.
-func GenerateToken(ctx context.Context, w http.ResponseWriter, r *http.Request, scope string) error {
+func GenerateToken(ctx context.Context, w http.ResponseWriter, r *http.Request, scope, tokenURI string) error {
 	cfg, err := googleConfig(ctx, scope)
 	if err != nil {
 		return fmt.Errorf("could not get google config: %w", err)
 	}
 
-	genToken(w, r, cfg, youtubeCredentials)
+	genToken(w, r, cfg, tokenURI)
 	return nil
 }
 
@@ -174,8 +176,8 @@ func CompleteBroadcast(svc *youtube.Service, bID string, log func(string, ...int
 
 // PostChatMessage posts the provided message to the chat with the provided
 // chat identification.
-func PostChatMessage(cID, msg string) error {
-	svc, err := GetService(context.Background(), youtube.YoutubeScope)
+func PostChatMessage(cID, msg, tokenURI string) error {
+	svc, err := GetService(context.Background(), youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return fmt.Errorf("could not get youtube service: %w", err)
 	}
@@ -206,10 +208,11 @@ func Start(
 	extStart, extStop func() error,
 	notify func(msg string) error,
 	onLiveActions func() error,
+	tokenURI string,
 	log func(string, ...interface{}),
 ) error {
 	log("starting youtube broadcast object")
-	err := doStatusActions(bID, sID, log)
+	err := doStatusActions(bID, sID, tokenURI, log)
 	if err != nil {
 		return fmt.Errorf("broadcast: %s, ID: %s, could not do status actions: %w", name, bID, err)
 	}
@@ -244,8 +247,8 @@ func logAndNotify(notify func(msg string) error, msg string, args ...interface{}
 
 // doStatusActions performs a series of status waits and status transitions
 // required for live status.
-func doStatusActions(bID, sID string, log func(string, ...interface{})) error {
-	svc, err := GetService(context.Background(), youtube.YoutubeScope)
+func doStatusActions(bID, sID, tokenURI string, log func(string, ...interface{})) error {
+	svc, err := GetService(context.Background(), youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return fmt.Errorf("could not get youtube service: %w", err)
 	}

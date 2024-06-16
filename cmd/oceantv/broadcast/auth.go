@@ -43,10 +43,7 @@ import (
 )
 
 // Authorisation related constants.
-const (
-	youtubeCredsRedirect = "/ytCredsCallback"
-	youtubeCredentials   = "gs://ausocean/youtube-api-credentials.json"
-)
+const youtubeCredsRedirect = "/ytCredsCallback"
 
 // Exported error values.
 var ErrGeneratedToken = errors.New("needed to generate token")
@@ -141,6 +138,9 @@ func genToken(w http.ResponseWriter, r *http.Request, config *oauth2.Config, url
 			if err != nil {
 				log.Printf("could not save new token: %v", err)
 			}
+
+			completionRedirect := "https://" + r.Host + "/admin/broadcast"
+			http.Redirect(w, r, completionRedirect, http.StatusSeeOther)
 		},
 	)
 
