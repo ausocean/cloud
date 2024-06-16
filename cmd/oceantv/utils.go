@@ -193,26 +193,6 @@ func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConf
 	return nil, ErrBroadcastNotFound{name}
 }
 
-// getDeviceStatus gets the status of a device given its MAC address.
-// The status is determined by checking the uptime variable of the
-// device. If the uptime is less than twice the monitor period, the
-// device is considered to be sending data and the function returns
-// true, otherwise false is returned.
-func getDeviceStatus(ctx context.Context, mac int64, store Store) (bool, error) {
-	dev, err := model.GetDevice(ctx, store, mac)
-	if err != nil {
-		return false, fmt.Errorf("could not get device: %w", err)
-	}
-	v, err := model.GetVariable(ctx, store, dev.Skey, "_"+dev.Hex()+".uptime")
-	if err != nil {
-		return false, fmt.Errorf("could not get uptime variable: %w", err)
-	}
-	if time.Since(v.Updated) < time.Duration(2*int(dev.MonitorPeriod))*time.Second {
-		return true, nil
-	}
-	return false, nil
-}
-
 var logConfigs = false
 
 func provideConfig(cfg *BroadcastConfig) string {

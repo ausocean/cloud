@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/ausocean/cloud/model"
 )
@@ -70,24 +69,25 @@ func check(skey int64, mac string) error {
 	mac = strings.ToUpper(mac)
 
 	for _, dev := range devices {
-		if mac == "" || mac == dev.MAC() {
-			status := checkDevice(ctx, dev)
-			if status != healthStatusGood {
+		ma := dev.MAC()
+		if mac == "" || mac == ma {
+			status := "UP"
+			up, err := model.DeviceIsUp(ctx, settingsStore, dev.Mac)
+			if err != nil {
+				log.Printf("DeviceIsUp returned error: %v", err)
+			}
+			if !up {
+				status = "DOWN"
 				healthy = false
 			}
-			h[dev.MAC()] = deviceStatus{name: dev.Name, status: status}
+			h[ma] = deviceStatus{name: dev.Name, status: status}
 		}
 	}
 
 	if !healthy {
-		var msg string
-		if mac != "" {
-			msg = fmt.Sprintf("Site %s has unhealthy device: %s (%s)", name, h[mac].name, mac)
-		} else {
-			msg = fmt.Sprintf("Site %s has unhealthy device(s):", name)
-			for k, v := range h {
-				msg += fmt.Sprintf("\n%s (%s): %s ", v.name, k, v.status)
-			}
+		msg := fmt.Sprintf("Site %s:", name)
+		for k, v := range h {
+			msg += fmt.Sprintf("\n\tDevice %s (%s) is %s ", v.name, k, v.status)
 		}
 		log.Print(msg)
 		err := notifier.Send(ctx, skey, "site", msg)
@@ -97,18 +97,4 @@ func check(skey int64, mac string) error {
 	}
 
 	return nil
-}
-
-// checkDevice returns the status of a device, which is determined by
-// whether or not the device has responded within that two monitor
-// periods.
-func checkDevice(ctx context.Context, dev model.Device) string {
-	v, err := model.GetVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime")
-	if err != nil {
-		return healthStatusUnknown
-	}
-	if time.Since(v.Updated) < time.Duration(2*dev.MonitorPeriod)*time.Second {
-		return healthStatusGood
-	}
-	return healthStatusBad
 }
