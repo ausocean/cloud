@@ -48,7 +48,7 @@ import (
 // value is still returned along with the error, allowing creation of this
 // object by writing to it.
 func getObject(ctx context.Context, uri string) (*storage.ObjectHandle, error) {
-	bktName, objName, err := googlestorageAddr(uri)
+	bktName, objName, err := googleStorageAddr(uri)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse uri: %w", err)
 	}
@@ -130,7 +130,7 @@ func objTok(ctx context.Context, url string) (*oauth2.Token, error) {
 // fileTok extracts an oauth2.Token from a file with name specified by the given
 // URL.
 func fileTok(uri string) (*oauth2.Token, error) {
-	_, name, err := googlestorageAddr(uri)
+	_, name, err := googleStorageAddr(uri)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse uri: %w", err)
 	}
@@ -151,7 +151,7 @@ func fileTok(uri string) (*oauth2.Token, error) {
 
 // saveTokFile saves the given oauth2.Token to a file with name of the provided URL.
 func saveTokFile(tok *oauth2.Token, uri string) error {
-	_, name, err := googlestorageAddr(uri)
+	_, name, err := googleStorageAddr(uri)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func saveTokFile(tok *oauth2.Token, uri string) error {
 	return json.NewEncoder(f).Encode(tok)
 }
 
-func googlestorageAddr(addr string) (bucket, object string, err error) {
+func googleStorageAddr(addr string) (bucket, object string, err error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return "", "", err
