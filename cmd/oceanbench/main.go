@@ -88,18 +88,6 @@ const (
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
 
-// Device state statuses.
-const (
-	deviceStatusOK = iota
-	deviceStatusUpdate
-	deviceStatusReboot
-	deviceStatusDebug
-	deviceStatusUpgrade
-	deviceStatusAlarm
-	deviceStatusTest
-	deviceStatusShutdown
-)
-
 // page defines one page of the web app.
 type page struct {
 	Name     string

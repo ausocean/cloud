@@ -319,19 +319,19 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch task {
 	case "Update":
-		dev.Status = deviceStatusUpdate
+		dev.Status = model.DeviceStatusUpdate
 	case "Reboot":
-		dev.Status = deviceStatusReboot
+		dev.Status = model.DeviceStatusReboot
 	case "Shutdown":
-		dev.Status = deviceStatusShutdown
+		dev.Status = model.DeviceStatusShutdown
 	case "Debug":
-		dev.Status = deviceStatusDebug
+		dev.Status = model.DeviceStatusDebug
 	case "Upgrade":
-		dev.Status = deviceStatusUpgrade
+		dev.Status = model.DeviceStatusUpgrade
 	case "Alarm":
-		dev.Status = deviceStatusAlarm
+		dev.Status = model.DeviceStatusAlarm
 	case "Test":
-		dev.Status = deviceStatusTest
+		dev.Status = model.DeviceStatusTest
 	}
 
 	err = model.PutDevice(ctx, settingsStore, dev)
