@@ -39,12 +39,6 @@ import (
 	"github.com/ausocean/utils/sliceutils"
 )
 
-// Device state statuses.
-const (
-	deviceStatusOK = iota
-	deviceStatusUpdate
-)
-
 var (
 	errInvalidBody  = errors.New("invalid body")
 	errInvalidJSON  = errors.New("invalid JSON")
@@ -123,7 +117,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	// NB: Only reveal the device key if it has changed.
 	dk = ""
 
-	if dev.Status == deviceStatusOK {
+	if dev.Status == model.DeviceStatusOK {
 		// Device is configured, so check the device key matches.
 		if dkey != dev.Dkey {
 			// We should not get here. A known, configured device is using the wrong key,
@@ -140,7 +134,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 			// Inform the device of its new key.
 			dk = strconv.FormatInt(dev.Dkey, 10)
 		}
-		dev.Status = deviceStatusOK
+		dev.Status = model.DeviceStatusOK
 	}
 
 	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
@@ -271,7 +265,7 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respMap := map[string]interface{}{"ma": ma, "vs": int(vs)}
-	if dev.Status != deviceStatusOK {
+	if dev.Status != model.DeviceStatusOK {
 		respMap["rc"] = int(dev.Status)
 	}
 
@@ -396,7 +390,7 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 	respMap := map[string]interface{}{"ma": ma}
 
 	// If status is not okay.
-	if dev.Status != deviceStatusOK {
+	if dev.Status != model.DeviceStatusOK {
 		respMap["rc"] = int(dev.Status)
 	} else {
 		vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
@@ -552,7 +546,7 @@ func writeDeviceError(w http.ResponseWriter, dev *model.Device, err error) {
 		}
 		fallthrough
 	case model.ErrMissingDeviceKey:
-		rc = `,"rc":` + strconv.Itoa(deviceStatusUpdate)
+		rc = `,"rc":` + strconv.Itoa(model.DeviceStatusUpdate)
 	}
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, `{"er":"`+err.Error()+`"`+rc+`}`)
