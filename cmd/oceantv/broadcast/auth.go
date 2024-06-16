@@ -127,7 +127,7 @@ func genToken(w http.ResponseWriter, r *http.Request, config *oauth2.Config, url
 		youtubeCredsRedirect,
 		func(w http.ResponseWriter, r *http.Request) {
 			code := r.FormValue("code")
-			tok, err := config.Exchange(oauth2.NoContext, code)
+			tok, err := config.Exchange(context.Background(), code)
 			if err != nil {
 				log.Printf("could not exchange token: %v", err)
 			}
