@@ -72,7 +72,7 @@ func check(skey int64, mac string) error {
 		ma := dev.MAC()
 		if mac == "" || mac == ma {
 			status := "UP"
-			up, err := model.DeviceIsUp(ctx, settingsStore, dev.Mac)
+			up, err := model.DeviceIsUp(ctx, settingsStore, ma)
 			if err != nil {
 				log.Printf("DeviceIsUp returned error: %v", err)
 			}

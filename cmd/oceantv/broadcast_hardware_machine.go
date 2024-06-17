@@ -297,7 +297,7 @@ func (c *revidCameraClient) stop(ctx *broadcastContext) {
 
 func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(event event)) {
 	log("checking status of device with mac: %d", mac)
-	alive, err := model.DeviceIsUp(context.Background(), store, mac)
+	alive, err := model.DeviceIsUp(context.Background(), store, model.MacDecode(mac))
 	if err != nil {
 		log("could not get device status: %v", err)
 		return
