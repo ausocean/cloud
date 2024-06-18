@@ -405,7 +405,7 @@ func IsMacAddress(mac string) bool {
 // DeviceIsUp returns true if the device exists and is up, or false
 // otherwise. Up status is determined by checking the uptime variable
 // associated with the device. The device is considered to be up if
-// the uptime is less than twice the monitor period.
+// the uptime has been updated within the last two monitor periods.
 func DeviceIsUp(ctx context.Context, store datastore.Store, mac string) (bool, error) {
 	dev, err := GetDevice(ctx, store, MacEncode(mac))
 	if err != nil {
