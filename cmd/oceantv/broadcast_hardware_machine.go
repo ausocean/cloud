@@ -34,6 +34,18 @@ func newHardwareStarting(ctx *broadcastContext) *hardwareStarting {
 }
 func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
+	if s.cfg.ControllerMAC != 0 {
+		controllerIsOn, err := model.DeviceIsUp(context.Background(), settingsStore, model.MacDecode(s.cfg.ControllerMAC))
+		if err != nil {
+			s.log("error getting controller status: %v", err)
+			s.bus.publish(controllerFailureEvent{})
+			return
+		} else if !controllerIsOn {
+			s.log("controller not responding")
+			s.bus.publish(controllerFailureEvent{})
+			return
+		}
+	}
 	s.camera.start(s.broadcastContext)
 }
 func (s *hardwareStarting) exit() {}
@@ -125,6 +137,8 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareStartRequestEvent(event.(hardwareStartRequestEvent))
 	case hardwareStopRequestEvent:
 		sm.handleHardwareStopRequestEvent(event.(hardwareStopRequestEvent))
+	case controllerFailureEvent:
+		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
 	default:
 		// Do nothing.
 	}
@@ -244,6 +258,16 @@ func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareRe
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareRestarting, *hardwareStarting, *hardwareStopping:
 		// Ignore.
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+}
+
+func (sm *hardwareStateMachine) handleControllerFailureEvent(event controllerFailureEvent) {
+	sm.log("handling controller failure event")
+	switch sm.currentState.(type) {
+	case *hardwareOn, *hardwareRestarting, *hardwareStopping, *hardwareStarting:
+		sm.transition(newHardwareOff())
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}

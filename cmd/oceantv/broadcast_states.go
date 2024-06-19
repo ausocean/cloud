@@ -611,13 +611,13 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConf
 		ctx.svc,
 	)
 	if err != nil {
-		onFailureClosure(ctx, cfg)(fmt.Errorf("could not create broadcast: %v", err))
+		onFailureClosure(ctx, cfg, false)(fmt.Errorf("could not create broadcast: %v", err))
 		return
 	}
 	if onCreation != nil {
 		err = onCreation()
 		if err != nil {
-			onFailureClosure(ctx, cfg)(fmt.Errorf("could not create broadcast: %v", err))
+			onFailureClosure(ctx, cfg, false)(fmt.Errorf("could not create broadcast: %v", err))
 			return
 		}
 	}
@@ -640,20 +640,20 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 		ctx.svc,
 		nil,
 		onSuccess,
-		onFailureClosure(ctx, cfg),
+		onFailureClosure(ctx, cfg, false),
 	)
 }
 
-func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err error) {
+func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirstFail bool) func(err error) {
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
 		ctx.bus.publish(startFailedEvent{})
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
-			if _cfg.StartFailures >= maxStartFailures {
+			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
 				_cfg.StartFailures = 0
 				_cfg.Enabled = false
-				ctx.logAndNotify(broadcastGeneric, "failed to start %d times, disabling", maxStartFailures)
+				ctx.logAndNotify(broadcastGeneric, "failed to start %d times, disabling (disabled on first start: %v, error: %v)", maxStartFailures, disableOnFirstFail, err)
 			}
 		}),
 			"could not update config after failed start",
