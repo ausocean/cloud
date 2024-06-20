@@ -68,12 +68,11 @@
           <div class="d-flex gap-3 flex-row">
           {{range .Settings.Privacy}}
             <div>
-              <input type="radio" name="privacy" id="{{.}}">
+              <input type="radio" name="privacy" value="{{.}}" {{if eq . $.CurrentBroadcast.Privacy}}checked{{end}}>
               {{.}}
             </div>
           {{end}}
           </div>
-          <br>
           <label>Resolution:</label>
           <input type="input" name="resolution" value="{{.CurrentBroadcast.Resolution}}">
           <br>
