@@ -4,7 +4,7 @@
   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <link href="/s/broadcast_main.css" rel="stylesheet" type="text/css"/>
   <title>Broadcast</title>
   <style type="text/css">
     .actions { width: 400px; }
@@ -41,73 +41,103 @@
     <div class="border rounded p-4 container-md bg-white">
       <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
         <fieldset>
-          <div>
-            <label>Select Broadcast:</label>
-            <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
+          <div class="d-flex align-items-center gap-1">
+            <label for="broadcast-select" class="w-25 text-end">Select Broadcast:</label>
+            <select name="broadcast-select" class="form-select w-50 h-auto align-items-center" onchange="submitSelect(this)" id="broadcast-name-select">
               <option value="">-- New Broadcast --</option>
               {{range .BroadcastVars}}
                 <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>
               {{end}}
             </select>
           </div>
-          <div>
-            <label class="advanced">List Secondary Broadcasts:</label>
-            <input class="advanced" type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
+          <div class="d-flex align-items-center gap-1">
+            <div class="w-25"></div>
+            <input class="advanced h-auto" type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
+            <small class="advanced">List Secondary Broadcasts</small>
           </div>
-          <div>
-            <label>Broadcast Name:</label>
-            <input type="input" name="broadcast-name" value="{{.CurrentBroadcast.Name}}">
+          <div class="d-flex align-items-center gap-1">
+            <label for="broadcast-name" class="w-25 text-end">Broadcast Name:</label>
+            <input type="input" name="broadcast-name" class="form-control align-items-center w-50" value="{{.CurrentBroadcast.Name}}">
           </div>
-          <div>
-            <label>Enabled:</label>
-            <input type="checkbox" name="enabled" value="enabled" {{if .CurrentBroadcast.Enabled}}checked{{end}}>
-          </div>
-          <div>
-            <label>Channel:</label>
-            <input type="input" name="account" value="{{.CurrentBroadcast.Account}}" readonly>
-          </div>
-          <div>
-            <label>Description:</label>
-            <textarea id="description-box" type="input" name="description">{{.CurrentBroadcast.Description}}</textarea>
-          </div>
-          <div>
-            <label>Stream Name:</label>
-            <input type="input" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
-          </div>
-          <label>Privacy:</label>
-          <div class="d-flex gap-3 flex-row">
-          {{range .Settings.Privacy}}
-            <div>
-              <input type="radio" name="privacy" value="{{.}}" {{if eq . $.CurrentBroadcast.Privacy}}checked{{end}}>
-              {{.}}
+          <div class="d-flex align-items-center gap-1">
+            <div class="w-25"></div>
+            <div class="form-check form-switch d-flex align-items-center gap-1 p-0">
+              <input type="checkbox" name="enabled" class="form-check-input m-0" role="switch" value="enabled" {{if .CurrentBroadcast.Enabled}}checked{{end}}>
+              <small>Enabled</small>
             </div>
-          {{end}}
           </div>
-          <div>
-            <label>Resolution:</label>
-            <div class="d-flex gap-3 flex-row">
-            {{range .Settings.Resolution}}
+          <div class="d-flex align-items-center gap-1">
+            <label for="account" class="w-25 text-end">Channel:</label>
+            <div class="d-flex align-items-center gap-2 w-50">
+              <input type="input" name="account" class="form-control align-items-center" value="{{.CurrentBroadcast.Account}}" readonly>
+              <button class="btn btn-primary w-50" onclick="buttonClick(this)" value="broadcast-token">Generate Token</button>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-1">
+            <div class="w-25"></div>
+            <div class="d-flex align-items-center gap-3 flex-row">
+            {{range .Settings.Privacy}}
               <div>
-                <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
-                {{.}}
+                <input type="radio" name="privacy" value="{{.}}" id="{{.}}-radio" {{if eq . $.CurrentBroadcast.Privacy}}checked{{end}}>
+                <label class="text-capitalize" for="{{.}}-radio">{{.}}</label>
               </div>
             {{end}}
             </div>
           </div>
-          <div>
-            <label>Camera:</label>
-            <select name="camera-mac">
-              {{if not .CurrentBroadcast.CameraMac}}
-              <option>Select</option>
-              {{end}}
-              {{range .Cameras}}
-                <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
-            {{ end }}
-            </select>
+          <div class="d-flex align-items-top gap-1">
+            <label for="description" class="w-25 text-end">Description:</label>
+            <textarea id="description-box" class="form-control w-50" type="input" name="description">{{.CurrentBroadcast.Description}}</textarea>
           </div>
-          <div>
-            <label>Controller:</label>
-            <select name="controller-mac">
+          <div class="d-flex align-items-center gap-1">
+            <label for="stream-name" class="w-25 text-end">Stream Name:</label>
+            <input type="input" class="form-control w-50" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
+          </div>
+          <div id="set-times">
+            <div class="d-flex align-items-center gap-1">
+              <label for="start-time" class="w-25 text-end">Start Date/Time:</label>
+              <div class="d-flex gap-2 w-50">
+                <input name="start-time" class="form-control" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14">
+                <input class="advanced form-control"  name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15">
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <label for="end-time" class="w-25 text-end">End Date/Time:</label>
+              <div class="d-flex gap-2 w-50">
+                <input name="end-time" class="form-control" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14">
+                <input class="advanced form-control" name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <label class="w-25 text-end">Timezone:</label>
+              <div class="w-25">
+                <input class="w-50 form-control" id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
+              </div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-1">
+            <label for="camera-mac" class="w-25 text-end">Camera:</label>
+            <div class="w-50 d-flex align-items-center justify-content-between">
+              <select name="camera-mac" class="form-select w-50">
+                {{if not .CurrentBroadcast.CameraMac}}
+                <option>Select</option>
+                {{end}}
+                {{range .Cameras}}
+                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
+              {{ end }}
+              </select>
+              <div class="d-flex gap-3 flex-row">
+              {{range .Settings.Resolution}}
+                <div>
+                  <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
+                  {{.}}
+                </div>
+              {{end}}
+              </div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-1">
+            <label for="controller-mac" class="w-25 text-end">Controller:</label>
+            <select name="controller-mac" class="form-select w-50">
               {{if not .CurrentBroadcast.ControllerMAC}}
                 <option>Select</option>
               {{end}}
@@ -116,68 +146,64 @@
               {{ end }}
             </select>
           </div>
-          <div>
-            <label>On Actions:</label>
-            <input type="input" name="on-actions" value="{{.CurrentBroadcast.OnActions}}" class="actions">
+          <div class="d-flex align-items-center gap-1">
+            <label for="on-actions" class="w-25 text-end">On Actions:</label>
+            <input type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions">
+          </div><div class="d-flex align-items-center gap-1">
+            <label for="off-actions" class="w-25 text-end">Off Actions:</label>
+            <input type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions">
           </div>
-          <div>
-            <label>Off Actions:</label>
-            <input type="input" name="off-actions" value="{{.CurrentBroadcast.OffActions}}" class="actions">
+          <div class="d-flex align-items-center gap-1">
+            <label for="rtmp-key-var" class="w-25 text-end">RTMP URL Variable:</label>
+            <input type="input" name="rtmp-key-var" class="w-50 form-control" value="{{.CurrentBroadcast.RTMPVar}}">
           </div>
-          <div>
-            <label>RTMP URL Variable:</label>
-            <input type="input" name="rtmp-key-var" value="{{.CurrentBroadcast.RTMPVar}}">
+          <div class="d-flex align-items-center gap-1">
+            <label class="advanced w-25 text-end">RTMP Key:</label>
+            <input class="advanced w-50 form-control" type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
           </div>
-          <div>
-            <label class="advanced">RTMP Key:</label>
-            <input class="advanced"type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
-          </div>
-          <div id="set-times">
-            <label>Start Date/Time:</label>
-            <div class="d-flex gap-2">
-              <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14">
-              <input class="advanced" name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15">
-            </div>
-            <label>End Date/Time:</label>
-            <div class="d-flex gap-2">
-              <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14">
-              <input class="advanced" name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
-            </div>
-            <label>Timezone:</label>
-            <input id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
-            <br>
-          </div>
-          <div>
-            <label>Live Chat:</label>
+          <div class="d-flex align-items-center gap-1">
+            <label for="report-sensor" class="w-25 text-end">Live Data in Chat:</label>
             <input type="checkbox" name="report-sensor" id="report-sensor" value="Chat">
           </div>
-          <div>
-            <label class="advanced">Sensors:</label>
-            <button class="advanced" onclick="checkAll(this.form)">Add All</button>
-            <button class="advanced" onclick="uncheckAll(this.form)">Clear All</button>
+          <div class="d-flex align-items-center gap-1">
+            <label class="advanced w-25 text-end">Sensors:</label>
+            <button class="advanced btn btn-primary btn-sm" onclick="checkAll(this.form)">Add All</button>
+            <button class="advanced btn btn-primary btn-sm" onclick="uncheckAll(this.form)">Clear All</button>
             {{ range .CurrentBroadcast.SensorList }}
               <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
             {{ end }}
           </div>
-          <label class="advanced">Health Check:</label>
-          <input class="advanced" type="checkbox" name="check-health" value="checking-health" {{if .CurrentBroadcast.CheckingHealth}}checked{{end}}>
-          <label class="advanced">Use Vidforward:</label>
-          <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward" {{if .CurrentBroadcast.UsingVidforward}}checked{{end}}>
-          <label class="advanced">Vidforward Host:</label>
-          <input class="advanced" type="input" name="vidforward-host" value="{{.CurrentBroadcast.VidforwardHost}}">
-          <label class="advanced">Slate File:</label>
-          <input class="advanced" type="file" name="slate-file">
-          <button class="advanced" onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
+          <p class="d-flex align-items-center gap-1">
+            <label for="check-health" class="advanced w-25 text-end">Health Check:</label>
+            <input class="advanced" type="checkbox" name="check-health" value="checking-health" {{if .CurrentBroadcast.CheckingHealth}}checked{{end}}>
+          </p>
+          <p class="d-flex align-items-center gap-1">
+            <label for="use-vidforward" class="advanced w-25 text-end">Use Vidforward:</label>
+            <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward" {{if .CurrentBroadcast.UsingVidforward}}checked{{end}}>
+          </p>
+          <div class="d-flex align-items-center gap-1">
+            <label for="vidforward-host" class="advanced w-25 text-end">Vidforward Host:</label>
+            <input class="advanced w-50 form-control" type="input" name="vidforward-host" value="{{.CurrentBroadcast.VidforwardHost}}">
+          </div>
+          <div class="d-flex align-items-center gap-1">
+            <label for="slate-file" class="advanced w-25 text-end">Slate File:</label>
+            <div class="d-flex w-50 gap-2">
+              <input class="advanced form-control" type="file" name="slate-file">
+              <button class="advanced w-50 btn btn-primary" onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
+            </div>
+          </div>
         </fieldset>
-        <br>
         <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}">
         <input type="hidden" name="active" value="{{.CurrentBroadcast.Active}}">
-        <button onclick="buttonClick(this)" value="broadcast-save">Save</button>
-        <button onclick="buttonClick(this)" value="broadcast-delete">Delete</button>
-        <button onclick="buttonClick(this)" value="broadcast-token">Generate Token</button>
-      <br>
-        <label for="adv-toggle">Advanced Options:</label>
-        <input type="checkbox" id="adv-options-toggle" name="adv-toggle" onchange="toggleAdvanced(checked)">
+        <div class="d-flex w-100 gap-2">
+          <div class="w-25"></div>
+          <button class="btn btn-primary" onclick="buttonClick(this)" value="broadcast-save">Save</button>
+          <button class="btn btn-primary" onclick="buttonClick(this)" value="broadcast-delete">Delete</button>
+        </div>
+        <div class="w-100 d-flex justify-content-end gap-1">
+          <label for="adv-toggle">Advanced Options:</label>
+          <input type="checkbox" id="adv-options-toggle" name="adv-toggle" onchange="toggleAdvanced(checked)">
+        </div>
 
         <!--This hidden field stores the value of button presses.-->
         <input type="hidden" name="action" value="">
