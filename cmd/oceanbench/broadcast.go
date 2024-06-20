@@ -97,7 +97,7 @@ type broadcastRequest struct {
 	commonData
 }
 
-// Settings contains constant values to be used to populat the form with limited options.
+// Settings contains constant values to be used to populate the form with limited options.
 type Settings struct {
 	Resolution []string
 	Privacy    []string

@@ -74,8 +74,14 @@
           {{end}}
           </div>
           <label>Resolution:</label>
-          <input type="input" name="resolution" value="{{.CurrentBroadcast.Resolution}}">
-          <br>
+          <div class="d-flex gap-3 flex-row">
+          {{range .Settings.Resolution}}
+            <div>
+              <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
+              {{.}}
+            </div>
+          {{end}}
+          </div>
           <label>Camera:</label>
           <select name="camera-mac">
             {{if not .CurrentBroadcast.CameraMac}}
