@@ -70,6 +70,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	ut := q.Get("ut")
 	la := q.Get("la")
 	vt := q.Get("vt")
+	md := q.Get("md")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -117,7 +118,8 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	// NB: Only reveal the device key if it has changed.
 	dk = ""
 
-	if dev.Status == model.DeviceStatusOK {
+	switch dev.Status {
+	case model.DeviceStatusOK:
 		// Device is configured, so check the device key matches.
 		if dkey != dev.Dkey {
 			// We should not get here. A known, configured device is using the wrong key,
@@ -127,8 +129,13 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-	} else {
-		// Device is not configured
+	case model.DeviceStatusUpgrade:
+		if md == "Upgraded" {
+			log.Printf("device %s upgrade completed", ma)
+			dev.Status = model.DeviceStatusOK
+		} // Else upgrade in progress.
+
+	default:
 		log.Printf("/config from unconfigured device %s", ma)
 		if dkey != dev.Dkey {
 			// Inform the device of its new key.
@@ -160,6 +167,9 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	model.PutDevice(ctx, settingsStore, dev)
 
 	// Update the variables corresponding to the client's uptime, local address and var types.
+	if md != "" {
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+	}
 	if ut != "" {
 		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
 	}
@@ -174,6 +184,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // configJSON generates JSON for a config request response given a device, varsum, and device key.
+// Includes the response code ("rc") when it is non-zero.
 func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 	config := struct {
 		MAC           string `json:"ma"`
@@ -182,9 +193,11 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Outputs       string `json:"op"`
 		MonitorPeriod int    `json:"mp"`
 		ActPeriod     int    `json:"ap"`
+		Type          string `json:"ct"`
 		Version       string `json:"cv"`
 		Vs            int64  `json:"vs"`
 		DK            string `json:"dk,omitempty"`
+		RC            int    `json:"rc,omitempty"`
 	}{
 		MAC:           dev.MAC(),
 		Wifi:          dev.Wifi,
@@ -192,9 +205,11 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Outputs:       dev.Outputs,
 		MonitorPeriod: int(dev.MonitorPeriod),
 		ActPeriod:     int(dev.ActPeriod),
+		Type:          dev.Type,
 		Version:       dev.Version,
 		Vs:            vs,
 		DK:            dk,
+		RC:            int(dev.Status),
 	}
 
 	jsonBytes, err := json.Marshal(config)
@@ -460,6 +475,7 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 		resp += `"` + v.Name + `":"` + v.Value + `",`
 
 	}
+
 	vs := model.ComputeVarSum(vars)
 	resp += `"vs":"` + strconv.Itoa(int(vs)) + `"}`
 	fmt.Fprint(w, resp)
