@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   document.getElementById("header").addEventListener("site-change", handleSiteChange);
+
+  let advancedOpts = document.getElementsByClassName("advanced");
+  for (opt of advancedOpts) {
+    opt.style.display = "none";
+  }
 });
 
 function handleSiteChange(event) {
@@ -59,4 +64,8 @@ function buttonClick(button) {
 function submitSelect(select) {
   select.form.querySelector("input[name='action']").value = "broadcast-select";
   select.form.submit();
+}
+
+function toggleAdvanced() {
+
 }

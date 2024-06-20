@@ -49,9 +49,9 @@
             {{end}}
           </select>
           <br>
-          <label>List Secondary Broadcasts:</label>
-          <input type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
-          <br>
+          <label class="advanced">List Secondary Broadcasts:</label>
+          <input class="advanced" type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
+          <br class="advanced">
           <label>Broadcast Name:</label>
           <input type="input" name="broadcast-name" value="{{.CurrentBroadcast.Name}}">
           <br>
@@ -114,18 +114,20 @@
           <label>RTMP URL Variable:</label>
           <input type="input" name="rtmp-key-var" value="{{.CurrentBroadcast.RTMPVar}}">
           <br>
-          <label>RTMP Key:</label>
-          <input type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
-          <br>
+          <label class="advanced">RTMP Key:</label>
+          <input class="advanced"type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
+          <br class="advanced">
           <div id="set-times">
             <label>Start Date/Time:</label>
-            <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14">
-            &nbsp;<input name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15">
-            <br>
+            <div class="d-flex gap-2">
+              <input name="start-time" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14">
+              <input class="advanced" name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15">
+            </div>
             <label>End Date/Time:</label>
-            <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14">
-            &nbsp;<input name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
-            <br>
+            <div class="d-flex gap-2">
+              <input name="end-time" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14">
+              <input class="advanced" name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
+            </div>
             <label>Timezone:</label>
             <input id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
             <br>
@@ -133,27 +135,27 @@
           <label>Live Chat:</label>
           <input type="checkbox" name="report-sensor" id="report-sensor" value="Chat">
           <br>
-          <label>Sensors:</label>
-          <button onclick="checkAll(this.form)">Add All</button>
-          <button onclick="uncheckAll(this.form)">Clear All</button>
+          <label class="advanced">Sensors:</label>
+          <button class="advanced" onclick="checkAll(this.form)">Add All</button>
+          <button class="advanced" onclick="uncheckAll(this.form)">Clear All</button>
           {{ range .CurrentBroadcast.SensorList }}
-            <input type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
+            <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
           {{ end }}
-          <br>
-          <label>Health Check:</label>
-          <input type="checkbox" name="check-health" value="checking-health" {{if .CurrentBroadcast.CheckingHealth}}checked{{end}}>
-          <br>
-          <label>Use Vidforward:</label>
-          <input type="checkbox" name="use-vidforward" value="using-vidforward" {{if .CurrentBroadcast.UsingVidforward}}checked{{end}}>
-          <br>
-          <label>Vidforward Host:</label>
-          <input type="input" name="vidforward-host" value="{{.CurrentBroadcast.VidforwardHost}}">
-          <br>
-          <label>Slate File:</label>
-          <input type="file" name="slate-file">
-          <br>
-          <button onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
-          <br>
+          <br class="advanced">
+          <label class="advanced">Health Check:</label>
+          <input class="advanced" type="checkbox" name="check-health" value="checking-health" {{if .CurrentBroadcast.CheckingHealth}}checked{{end}}>
+          <br class="advanced">
+          <label class="advanced">Use Vidforward:</label>
+          <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward" {{if .CurrentBroadcast.UsingVidforward}}checked{{end}}>
+          <br class="advanced">
+          <label class="advanced">Vidforward Host:</label>
+          <input class="advanced" type="input" name="vidforward-host" value="{{.CurrentBroadcast.VidforwardHost}}">
+          <br class="advanced">
+          <label class="advanced">Slate File:</label>
+          <input class="advanced" type="file" name="slate-file">
+          <br class="advanced">
+          <button class="advanced" onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
+          <br class="advanced">
         </fieldset>
         <br>
         <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}">
@@ -162,6 +164,8 @@
         <button onclick="buttonClick(this)" value="broadcast-delete">Delete</button>
         <button onclick="buttonClick(this)" value="broadcast-token">Generate Token</button>
       <br>
+        <label for="adv-toggle">Advanced Options:</label>
+        <input type="checkbox" name="adv-toggle" onchange="toggleAdvanced(checked)">
 
         <!--This hidden field stores the value of button presses.-->
         <input type="hidden" name="action" value="">
