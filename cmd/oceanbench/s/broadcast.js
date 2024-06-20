@@ -1,4 +1,5 @@
 var advancedOpts;
+var adv = false;
 
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('time-zone').value = getTimezone();
@@ -24,9 +25,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById("header").addEventListener("site-change", handleSiteChange);
 
+  // Read the cookie for the advanced settings.
+  let cookies = document.cookie.split(";", 5);
+  for (c of cookies) {
+    let cpair = c
+      .trim()
+      .split("=", 2);
+    if (cpair[0] == "advanced") {
+      adv = cpair[1] == "on" ? true : false;
+    }
+  }
+
   advancedOpts = document.getElementsByClassName("advanced");
   for (opt of advancedOpts) {
-    opt.style.display = "none";
+    adv ? document.getElementById("adv-options-toggle").checked = true : opt.style.display = "none";
   }
 });
 
@@ -72,4 +84,6 @@ function toggleAdvanced(checked) {
   for (opt of advancedOpts) {
     checked ? opt.style.removeProperty("display") : opt.style.display = "none";
   }
+
+  document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
 }
