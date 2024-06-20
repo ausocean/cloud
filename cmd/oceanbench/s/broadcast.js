@@ -1,3 +1,5 @@
+var advancedOpts;
+
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('time-zone').value = getTimezone();
   const startTimestamp = document.getElementById('start-timestamp').value;
@@ -22,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById("header").addEventListener("site-change", handleSiteChange);
 
-  let advancedOpts = document.getElementsByClassName("advanced");
+  advancedOpts = document.getElementsByClassName("advanced");
   for (opt of advancedOpts) {
     opt.style.display = "none";
   }
@@ -66,6 +68,8 @@ function submitSelect(select) {
   select.form.submit();
 }
 
-function toggleAdvanced() {
-
+function toggleAdvanced(checked) {
+  for (opt of advancedOpts) {
+    checked ? opt.style.removeProperty("display") : opt.style.display = "none";
+  }
 }
