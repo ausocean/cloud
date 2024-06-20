@@ -68,11 +68,23 @@
           <input type="input" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
           <br>
           <label>Privacy:</label>
-          <input type="input" name="privacy" value="{{.CurrentBroadcast.Privacy}}">
-          <br>
+          <div class="d-flex gap-3 flex-row">
+          {{range .Settings.Privacy}}
+            <div>
+              <input type="radio" name="privacy" value="{{.}}" {{if eq . $.CurrentBroadcast.Privacy}}checked{{end}}>
+              {{.}}
+            </div>
+          {{end}}
+          </div>
           <label>Resolution:</label>
-          <input type="input" name="resolution" value="{{.CurrentBroadcast.Resolution}}">
-          <br>
+          <div class="d-flex gap-3 flex-row">
+          {{range .Settings.Resolution}}
+            <div>
+              <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
+              {{.}}
+            </div>
+          {{end}}
+          </div>
           <label>Camera:</label>
           <select name="camera-mac">
             {{if not .CurrentBroadcast.CameraMac}}
