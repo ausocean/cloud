@@ -58,6 +58,9 @@
           <label>Enabled:</label>
           <input type="checkbox" name="enabled" value="enabled" {{if .CurrentBroadcast.Enabled}}checked{{end}}>
           <br>
+          <label>Channel:</label>
+          <input type="input" name="account" value="{{.CurrentBroadcast.Account}}" readonly>
+          <br>
           <label>Description:</label>
           <textarea id="description-box" type="input" name="description">{{.CurrentBroadcast.Description}}</textarea>
           <br>
