@@ -210,6 +210,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			CamOff:          r.FormValue("cam-off"),
 			CheckingHealth:  r.FormValue("check-health") == "checking-health",
 			Enabled:         r.FormValue("enabled") == "enabled",
+			Account:         r.FormValue("account"),
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
