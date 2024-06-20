@@ -41,32 +41,39 @@
     <div class="border rounded p-4 container-md bg-white">
       <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
         <fieldset>
-          <label>Select Broadcast:</label>
-          <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
-            <option value="">-- New Broadcast --</option>
-            {{range .BroadcastVars}}
-              <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>
-            {{end}}
-          </select>
-          <br>
-          <label class="advanced">List Secondary Broadcasts:</label>
-          <input class="advanced" type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
-          <br class="advanced">
-          <label>Broadcast Name:</label>
-          <input type="input" name="broadcast-name" value="{{.CurrentBroadcast.Name}}">
-          <br>
-          <label>Enabled:</label>
-          <input type="checkbox" name="enabled" value="enabled" {{if .CurrentBroadcast.Enabled}}checked{{end}}>
-          <br>
-          <label>Channel:</label>
-          <input type="input" name="account" value="{{.CurrentBroadcast.Account}}" readonly>
-          <br>
-          <label>Description:</label>
-          <textarea id="description-box" type="input" name="description">{{.CurrentBroadcast.Description}}</textarea>
-          <br>
-          <label>Stream Name:</label>
-          <input type="input" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
-          <br>
+          <div>
+            <label>Select Broadcast:</label>
+            <select name="broadcast-select" onchange="submitSelect(this)" id="broadcast-name-select">
+              <option value="">-- New Broadcast --</option>
+              {{range .BroadcastVars}}
+                <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>
+              {{end}}
+            </select>
+          </div>
+          <div>
+            <label class="advanced">List Secondary Broadcasts:</label>
+            <input class="advanced" type="checkbox" name="list-secondaries" value="listing-secondaries" onchange="this.form.submit()" {{if .ListingSecondaries}}checked{{end}}>
+          </div>
+          <div>
+            <label>Broadcast Name:</label>
+            <input type="input" name="broadcast-name" value="{{.CurrentBroadcast.Name}}">
+          </div>
+          <div>
+            <label>Enabled:</label>
+            <input type="checkbox" name="enabled" value="enabled" {{if .CurrentBroadcast.Enabled}}checked{{end}}>
+          </div>
+          <div>
+            <label>Channel:</label>
+            <input type="input" name="account" value="{{.CurrentBroadcast.Account}}" readonly>
+          </div>
+          <div>
+            <label>Description:</label>
+            <textarea id="description-box" type="input" name="description">{{.CurrentBroadcast.Description}}</textarea>
+          </div>
+          <div>
+            <label>Stream Name:</label>
+            <input type="input" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
+          </div>
           <label>Privacy:</label>
           <div class="d-flex gap-3 flex-row">
           {{range .Settings.Privacy}}
@@ -76,47 +83,55 @@
             </div>
           {{end}}
           </div>
-          <label>Resolution:</label>
-          <div class="d-flex gap-3 flex-row">
-          {{range .Settings.Resolution}}
-            <div>
-              <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
-              {{.}}
+          <div>
+            <label>Resolution:</label>
+            <div class="d-flex gap-3 flex-row">
+            {{range .Settings.Resolution}}
+              <div>
+                <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}}>
+                {{.}}
+              </div>
+            {{end}}
             </div>
-          {{end}}
           </div>
-          <label>Camera:</label>
-          <select name="camera-mac">
-            {{if not .CurrentBroadcast.CameraMac}}
-            <option>Select</option>
-            {{end}}
-            {{range .Cameras}}
-              <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
-          {{ end }}
-          </select>
-          <br>
-          <label>Controller:</label>
-          <select name="controller-mac">
-            {{if not .CurrentBroadcast.ControllerMAC}}
+          <div>
+            <label>Camera:</label>
+            <select name="camera-mac">
+              {{if not .CurrentBroadcast.CameraMac}}
               <option>Select</option>
-            {{end}}
-            {{range .Controllers}}
-              <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
+              {{end}}
+              {{range .Cameras}}
+                <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
             {{ end }}
-          </select>
-          <br>
-          <label>On Actions:</label>
-          <input type="input" name="on-actions" value="{{.CurrentBroadcast.OnActions}}" class="actions">
-          <br>
-          <label>Off Actions:</label>
-          <input type="input" name="off-actions" value="{{.CurrentBroadcast.OffActions}}" class="actions">
-          <br>
-          <label>RTMP URL Variable:</label>
-          <input type="input" name="rtmp-key-var" value="{{.CurrentBroadcast.RTMPVar}}">
-          <br>
-          <label class="advanced">RTMP Key:</label>
-          <input class="advanced"type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
-          <br class="advanced">
+            </select>
+          </div>
+          <div>
+            <label>Controller:</label>
+            <select name="controller-mac">
+              {{if not .CurrentBroadcast.ControllerMAC}}
+                <option>Select</option>
+              {{end}}
+              {{range .Controllers}}
+                <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
+              {{ end }}
+            </select>
+          </div>
+          <div>
+            <label>On Actions:</label>
+            <input type="input" name="on-actions" value="{{.CurrentBroadcast.OnActions}}" class="actions">
+          </div>
+          <div>
+            <label>Off Actions:</label>
+            <input type="input" name="off-actions" value="{{.CurrentBroadcast.OffActions}}" class="actions">
+          </div>
+          <div>
+            <label>RTMP URL Variable:</label>
+            <input type="input" name="rtmp-key-var" value="{{.CurrentBroadcast.RTMPVar}}">
+          </div>
+          <div>
+            <label class="advanced">RTMP Key:</label>
+            <input class="advanced"type="input" name="rtmp-key" value="{{.CurrentBroadcast.RTMPKey}}">
+          </div>
           <div id="set-times">
             <label>Start Date/Time:</label>
             <div class="d-flex gap-2">
@@ -132,30 +147,27 @@
             <input id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
             <br>
           </div>
-          <label>Live Chat:</label>
-          <input type="checkbox" name="report-sensor" id="report-sensor" value="Chat">
-          <br>
-          <label class="advanced">Sensors:</label>
-          <button class="advanced" onclick="checkAll(this.form)">Add All</button>
-          <button class="advanced" onclick="uncheckAll(this.form)">Clear All</button>
-          {{ range .CurrentBroadcast.SensorList }}
-            <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
-          {{ end }}
-          <br class="advanced">
+          <div>
+            <label>Live Chat:</label>
+            <input type="checkbox" name="report-sensor" id="report-sensor" value="Chat">
+          </div>
+          <div>
+            <label class="advanced">Sensors:</label>
+            <button class="advanced" onclick="checkAll(this.form)">Add All</button>
+            <button class="advanced" onclick="uncheckAll(this.form)">Clear All</button>
+            {{ range .CurrentBroadcast.SensorList }}
+              <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
+            {{ end }}
+          </div>
           <label class="advanced">Health Check:</label>
           <input class="advanced" type="checkbox" name="check-health" value="checking-health" {{if .CurrentBroadcast.CheckingHealth}}checked{{end}}>
-          <br class="advanced">
           <label class="advanced">Use Vidforward:</label>
           <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward" {{if .CurrentBroadcast.UsingVidforward}}checked{{end}}>
-          <br class="advanced">
           <label class="advanced">Vidforward Host:</label>
           <input class="advanced" type="input" name="vidforward-host" value="{{.CurrentBroadcast.VidforwardHost}}">
-          <br class="advanced">
           <label class="advanced">Slate File:</label>
           <input class="advanced" type="file" name="slate-file">
-          <br class="advanced">
           <button class="advanced" onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
-          <br class="advanced">
         </fieldset>
         <br>
         <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}">
