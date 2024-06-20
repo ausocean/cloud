@@ -65,7 +65,14 @@
           <input type="input" name="stream-name" value="{{.CurrentBroadcast.StreamName}}">
           <br>
           <label>Privacy:</label>
-          <input type="input" name="privacy" value="{{.CurrentBroadcast.Privacy}}">
+          <div class="d-flex gap-3 flex-row">
+          {{range .Settings.Privacy}}
+            <div>
+              <input type="radio" name="privacy" id="{{.}}">
+              {{.}}
+            </div>
+          {{end}}
+          </div>
           <br>
           <label>Resolution:</label>
           <input type="input" name="resolution" value="{{.CurrentBroadcast.Resolution}}">

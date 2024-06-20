@@ -91,9 +91,16 @@ type broadcastRequest struct {
 	CurrentBroadcast   BroadcastConfig  // Holds configuration data for broadcast config in form.
 	Cameras            []model.Device   // Slice of all the cameras on the site.
 	Controllers        []model.Device   // Slice of all the controllers on the site.
+	Settings           Settings         // A struct containing options for some settings that have limited options.
 	Action             string           // Holds value of any button pressed.
 	ListingSecondaries bool             // Are we listing secondary broadcasts?
 	commonData
+}
+
+// Settings contains constant values to be used to populat the form with limited options.
+type Settings struct {
+	Resolution []string
+	Privacy    []string
 }
 
 // BroadcastConfig holds configuration data for a YouTube broadcast.
@@ -209,6 +216,10 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
+		Settings: Settings{
+			Resolution: []string{"1080p"},
+			Privacy:    []string{"unlisted", "private", "public"},
+		},
 	}
 
 	ctx := r.Context()
