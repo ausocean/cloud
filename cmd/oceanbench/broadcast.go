@@ -38,9 +38,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
+	"google.golang.org/api/youtube/v3"
 )
 
 type Action int
@@ -140,6 +143,7 @@ type BroadcastConfig struct {
 	StartFailures     int           // The number of times the broadcast has failed to start.
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
+	Account           string        // The YouTube account email that this broadcast is associated with.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -291,6 +295,19 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch action {
+	case broadcastToken:
+		tokenURI := utils.TokenURIFromAccount(profile.Email)
+		err = broadcast.GenerateToken(ctx, w, r, youtube.YoutubeScope, tokenURI)
+		if err != nil {
+			reportError(w, r, req, "could not generate token: %v", err)
+			return
+		}
+
+		// Store the account email in the broadcast config.
+		cfg.Account = profile.Email
+
+		// Fallthrough to save broadcast configuration.
+		fallthrough
 	case broadcastSave:
 		err := saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
