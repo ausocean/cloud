@@ -35,6 +35,11 @@ import (
 	"github.com/ausocean/openfish/datastore"
 )
 
+const (
+	version   = "v0.2.0"
+	projectID = "datablue"
+)
+
 var (
 	setupMutex    sync.Mutex
 	mediaStore    datastore.Store
@@ -91,7 +96,7 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 // test that the service is running. Devices do not use this endpoint.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
-	w.Write([]byte("OK"))
+	w.Write([]byte(projectID + " " + version))
 }
 
 // setup executes per-instance one-time warmup and is used to
