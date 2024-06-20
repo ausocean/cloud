@@ -176,9 +176,17 @@
               <label class="advanced w-25 text-end">Sensors:</label>
               <button class="advanced btn btn-primary btn-sm" onclick="checkAll(this.form)">Add All</button>
               <button class="advanced btn btn-primary btn-sm" onclick="uncheckAll(this.form)">Clear All</button>
-              {{ range .CurrentBroadcast.SensorList }}
-                <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">{{ .Sensor.Name }}
-              {{ end }}
+            </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <div class="w-25"></div>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                {{ range .CurrentBroadcast.SensorList }}
+                  <div class="d-flex gap-1">
+                    <input class="advanced" type="checkbox" name="{{ .Name }}" id="{{ .Name }}" value="{{ .Sensor.Name }}">
+                    <p class="advanced">{{ .Sensor.Name }}</p>
+                  </div>
+                {{ end }}
+              </div>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="check-health" class="advanced w-25 text-end">Health Check:</label>
@@ -222,7 +230,11 @@
     </div>
 
     {{if .CurrentBroadcast.ID}}
-      <iframe width="560" height="315" src="https://www.youtube.com/embed/{{.CurrentBroadcast.ID}}" frameborder="0" allowfullscreen></iframe>
+    <div class="border rounded p-4 container-md bg-white mt-5 d-flex justify-content-center">
+      <div class="rounded overflow-hidden" style="height: 315px; width: 560px;"> 
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/{{.CurrentBroadcast.ID}}" frameborder="0" allowfullscreen></iframe>
+      </div>
+    </div>
     {{end}}
   </section>
   <!-- These only exist to hold the data from the templates, these will be read by javascript. -->
