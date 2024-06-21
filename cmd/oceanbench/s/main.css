@@ -11,7 +11,6 @@ h1 { margin-bottom: 10px; font-size: 2em; font-weight: bold }
 h2 { font-size: 1.2em; }
 h3 { font-size: 1.0em; font-weight: normal; color: #0077BB; }
 p { padding: 0 0 0 0 }
-label { float: left; text-align: right; width: 200px; margin-right: 5px; }
 legend { color: #0077BB; width: 100%; margin-bottom: 10px; }
 li { padding: 2px; }
 
@@ -31,7 +30,6 @@ span.std { width: 200px; }
 span.width-300 { width: 300px; }
 span.dbl { width: 400px; }
 select { margin-bottom: 2px; height: 30px; }
-input { margin-bottom: 2px; }
 input.half { width: 90px; }
 input.width-302 { width: 300px; }
 input:read-only { background-color: #eee; }
@@ -141,8 +139,4 @@ th.wide { width: 20rem; }
 
 .table > :not(caption) > * > * {
   padding: 0;
-}
-
-input[type="checkbox"] {
-  height: 30px;
 }
