@@ -116,6 +116,7 @@ func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 
 	// TODO: Check redirect URL.
 	oauthFlowSession.Values["redirect"] = r.FormValue("redirect")
+	oauthFlowSession.Values["uri"] = r.FormValue("uri")
 
 	err = oauthFlowSession.Save(r, w)
 	if err != nil {
@@ -125,6 +126,44 @@ func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 	// NB: Offline access is required to obtain a refresh token.
 	url := cfg.gConfig.AuthCodeURL(sessID, oauth2.ApprovalForce, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusFound)
+	return nil
+}
+
+func (cfg *YTConfig) CallbackHandler(w http.ResponseWriter, r *http.Request) error {
+	cfg.Lock()
+	defer cfg.Unlock()
+
+	oauthFlowSession, err := cfg.store.Get(r, r.FormValue("state"))
+	if err != nil {
+		return fmt.Errorf("could not get state parameter from session store: %w", err)
+	}
+
+	redirectURL, ok := oauthFlowSession.Values["redirect"].(string)
+	if !ok {
+		return fmt.Errorf("redirect key %v does not exist in oauthFlowSession.Values", "redirect")
+	}
+	uri, ok := oauthFlowSession.Values["uri"].(string)
+	if !ok {
+		return fmt.Errorf("redirect key %v does not exist in oauthFlowSession.Values", "uri")
+	}
+
+	code := r.FormValue("code")
+	tok, err := cfg.gConfig.Exchange(context.Background(), code)
+	if err != nil {
+		log.Printf("could not exchange token: %v", err)
+	}
+
+	if production {
+		err = saveTokObj(context.Background(), tok, uri)
+	} else {
+		err = saveTokFile(tok, uri)
+	}
+
+	if err != nil {
+		log.Printf("could not save new token: %v", err)
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 	return nil
 }
 
