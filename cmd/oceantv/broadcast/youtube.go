@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/gauth"
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -100,6 +101,30 @@ func (cfg *YTConfig) Init(ctx context.Context) error {
 
 	// Configure cookie storage to be used for session state.
 	cfg.store = sessions.NewCookieStore([]byte(secrets["sessionKey"]))
+	return nil
+}
+
+func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request) error {
+	cfg.Lock()
+	defer cfg.Unlock()
+
+	sessID := uuid.New().String()
+	oauthFlowSession, err := cfg.store.New(r, sessID)
+	if err != nil {
+		return fmt.Errorf("could not create session %s: %w", sessID, err)
+	}
+
+	// TODO: Check redirect URL.
+	oauthFlowSession.Values["redirect"] = r.FormValue("redirect")
+
+	err = oauthFlowSession.Save(r, w)
+	if err != nil {
+		return fmt.Errorf("could not save session: %s: %w", sessID, err)
+	}
+
+	// NB: Offline access is required to obtain a refresh token.
+	url := cfg.gConfig.AuthCodeURL(sessID, oauth2.ApprovalForce, oauth2.AccessTypeOffline)
+	http.Redirect(w, r, url, http.StatusFound)
 	return nil
 }
 
