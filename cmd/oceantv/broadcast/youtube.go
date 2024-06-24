@@ -40,8 +40,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
@@ -68,6 +70,14 @@ var (
 
 type IDs struct {
 	BID, SID, CID string
+}
+
+// YTConfig stores the state of oauth flows for a youtube authenticaion pipeline.
+type YTConfig struct {
+	sync.Mutex
+	ProjectID string
+	gConfig   *oauth2.Config
+	store     sessions.Store
 }
 
 // getService returns a google authorised and configured youtube service for use
@@ -106,12 +116,15 @@ func GetService(ctx context.Context, scope string, tokenURI string) (*youtube.Se
 // GenerateToken manually generates/regenerates a token. This can be called in
 // the case that there's an indication the current token has expired.
 func GenerateToken(ctx context.Context, w http.ResponseWriter, r *http.Request, scope, tokenURI string) error {
-	cfg, err := googleConfig(ctx, scope)
+	config, err := googleConfig(ctx, scope)
 	if err != nil {
 		return fmt.Errorf("could not get google config: %w", err)
 	}
+	config.RedirectURL = "http://" + r.Host + youtubeCredsRedirect
 
-	genToken(w, r, cfg, tokenURI)
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	http.Redirect(w, r, authURL, http.StatusSeeOther)
+
 	return nil
 }
 
