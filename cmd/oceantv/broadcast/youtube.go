@@ -50,7 +50,6 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
-	"google.golang.org/api/people/v1"
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -87,7 +86,7 @@ func (cfg *YTConfig) Init(ctx context.Context) error {
 	cfg.Lock()
 	defer cfg.Unlock()
 
-	gConfig, err := googleConfig(ctx, youtube.YoutubeScope, people.UserinfoProfileScope, people.UserinfoEmailScope)
+	gConfig, err := googleConfig(ctx, youtube.YoutubeScope, "email", "profile")
 	if err != nil {
 		return fmt.Errorf("could not get google config: %w", err)
 	}

@@ -65,6 +65,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -123,6 +124,7 @@ var (
 	debug         bool
 	standalone    bool
 	auth          *gauth.UserAuth
+	ytConfig      *broadcast.YTConfig
 	tvURL         = tvServiceURL
 	notifier      notify.Notifier
 )
@@ -218,6 +220,7 @@ func main() {
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
+	http.HandleFunc("/ytCredsCallback", ytCallbackHandler)
 	http.HandleFunc("/live/", liveHandler)
 	http.HandleFunc("/monitor", monitorHandler)
 	http.HandleFunc("/play/audiorequest", filterHandler)
@@ -229,6 +232,7 @@ func main() {
 	http.HandleFunc("/admin/user/delete", adminHandler)
 	http.HandleFunc("/admin/site", adminHandler)
 	http.HandleFunc("/admin/broadcast", adminHandler)
+	http.HandleFunc("/admin/broadcast/auth", broadcastAuthHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
 	http.HandleFunc("/data/", dataHandler)
 	http.HandleFunc("/", indexHandler)
@@ -261,6 +265,10 @@ func main() {
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
 		auth.Init()
 		host = "" // Host is determined by App Engine.
+
+		log.Println("Initialising YT Auth")
+		ytConfig = &broadcast.YTConfig{ProjectID: projectID}
+		ytConfig.Init(ctx)
 	}
 
 	cronScheduler = proxyScheduler{url: cronURL}

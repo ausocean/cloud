@@ -353,6 +353,37 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	writeTemplate(w, r, "broadcast.html", &req, "")
 }
 
+func broadcastAuthHandler(w http.ResponseWriter, r *http.Request) {
+	profile, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+	tokenURI := utils.TokenURIFromAccount(profile.Email)
+	err = ytConfig.AuthHandler(w, r, tokenURI)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeError(w, err)
+		return
+	}
+}
+
+func ytCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	if standalone {
+		return
+	}
+	err := ytConfig.CallbackHandler(w, r)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeError(w, err)
+	}
+
+}
+
 func stringToAction(s string, req broadcastRequest) Action {
 	buttonPress := func(s string) Action {
 		res, ok := map[string]Action{
