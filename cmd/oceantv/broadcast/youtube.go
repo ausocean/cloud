@@ -43,6 +43,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/gauth"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -78,6 +79,28 @@ type YTConfig struct {
 	ProjectID string
 	gConfig   *oauth2.Config
 	store     sessions.Store
+}
+
+func (cfg *YTConfig) Init(ctx context.Context) error {
+	cfg.Lock()
+	defer cfg.Unlock()
+
+	gConfig, err := googleConfig(ctx, youtube.YoutubeScope)
+	if err != nil {
+		return fmt.Errorf("could not get google config: %w", err)
+	}
+
+	cfg.gConfig = gConfig
+
+	// Get our client secrets.
+	secrets, err := gauth.GetSecrets(ctx, cfg.ProjectID, []string{"clientSecret", "sessionKey"})
+	if err != nil {
+		return fmt.Errorf("GetSecrets failed with error: %v", err)
+	}
+
+	// Configure cookie storage to be used for session state.
+	cfg.store = sessions.NewCookieStore([]byte(secrets["sessionKey"]))
+	return nil
 }
 
 // getService returns a google authorised and configured youtube service for use
