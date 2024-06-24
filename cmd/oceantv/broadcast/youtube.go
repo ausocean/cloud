@@ -50,6 +50,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
+	"google.golang.org/api/people/v1"
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -86,7 +87,7 @@ func (cfg *YTConfig) Init(ctx context.Context) error {
 	cfg.Lock()
 	defer cfg.Unlock()
 
-	gConfig, err := googleConfig(ctx, youtube.YoutubeScope)
+	gConfig, err := googleConfig(ctx, youtube.YoutubeScope, people.UserinfoProfileScope, people.UserinfoEmailScope)
 	if err != nil {
 		return fmt.Errorf("could not get google config: %w", err)
 	}
@@ -104,7 +105,7 @@ func (cfg *YTConfig) Init(ctx context.Context) error {
 	return nil
 }
 
-func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request) error {
+func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request, uri string) error {
 	cfg.Lock()
 	defer cfg.Unlock()
 
@@ -116,7 +117,7 @@ func (cfg *YTConfig) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 
 	// TODO: Check redirect URL.
 	oauthFlowSession.Values["redirect"] = r.FormValue("redirect")
-	oauthFlowSession.Values["uri"] = r.FormValue("uri")
+	oauthFlowSession.Values["uri"] = uri
 
 	err = oauthFlowSession.Save(r, w)
 	if err != nil {
@@ -152,6 +153,15 @@ func (cfg *YTConfig) CallbackHandler(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		log.Printf("could not exchange token: %v", err)
 	}
+
+	profile, err := gauth.FetchProfile(oauth2.NewClient(r.Context(), cfg.gConfig.TokenSource(r.Context(), tok)))
+	if err != nil {
+		return fmt.Errorf("unabled to fetch profile: %w", err)
+	}
+
+	log.Println(profile)
+
+	redirectURL += "?account=" + profile.Email
 
 	if production {
 		err = saveTokObj(context.Background(), tok, uri)
@@ -214,13 +224,13 @@ func GenerateToken(ctx context.Context, w http.ResponseWriter, r *http.Request, 
 
 // googleConfig creates and returns an oauth2.Config from the provided context
 // and scope.
-func googleConfig(ctx context.Context, scope string) (*oauth2.Config, error) {
+func googleConfig(ctx context.Context, scope ...string) (*oauth2.Config, error) {
 	secrets, err := getSecrets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get client secrets: %w", err)
 	}
 
-	cfg, err := google.ConfigFromJSON(secrets, scope)
+	cfg, err := google.ConfigFromJSON(secrets, scope...)
 	if err != nil {
 		return nil, fmt.Errorf("could not create config from client secrets: %w", err)
 	}
