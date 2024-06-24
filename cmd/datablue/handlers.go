@@ -71,6 +71,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	la := q.Get("la")
 	vt := q.Get("vt")
 	md := q.Get("md")
+	er := q.Get("er")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -130,7 +131,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case model.DeviceStatusUpgrade:
-		if md == "Upgraded" {
+		if md == "Completed" {
 			log.Printf("device %s upgrade completed", ma)
 			dev.Status = model.DeviceStatusOK
 		} // Else upgrade in progress.
@@ -169,6 +170,7 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	// Update the variables corresponding to the client's uptime, local address and var types.
 	if md != "" {
 		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
 	}
 	if ut != "" {
 		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
