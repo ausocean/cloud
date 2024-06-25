@@ -43,6 +43,7 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
@@ -74,7 +75,7 @@ type IDs struct {
 	BID, SID, CID string
 }
 
-// YTConfig stores the state of oauth flows for a youtube authenticaion pipeline.
+// YTConfig stores the state of oauth flows for a youtube authentication pipeline.
 type YTConfig struct {
 	sync.Mutex
 	ProjectID string
@@ -147,12 +148,30 @@ func (cfg *YTConfig) CallbackHandler(w http.ResponseWriter, r *http.Request) err
 		return fmt.Errorf("redirect key %v does not exist in oauthFlowSession.Values", "uri")
 	}
 
+	// Check for a current token under the uri.
+	var tok *oauth2.Token
+	if production {
+		tok, err = objTok(r.Context(), uri)
+	} else {
+		tok, err = fileTok(uri)
+	}
+
+	if err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+		return fmt.Errorf("error checking for token in store: %w", err)
+	} else if err == nil {
+		// The token was found and returned, we should not overwrite it.
+		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		return nil
+	}
+
+	// Otherwise we should get a new token.
 	code := r.FormValue("code")
-	tok, err := cfg.gConfig.Exchange(context.Background(), code)
+	tok, err = cfg.gConfig.Exchange(context.Background(), code)
 	if err != nil {
 		log.Printf("could not exchange token: %v", err)
 	}
 
+	// Write the new token to the store.
 	if production {
 		err = saveTokObj(context.Background(), tok, uri)
 	} else {
