@@ -248,6 +248,7 @@ func TestHandleTimeEvent(t *testing.T) {
 				timeEvent{},
 				statusCheckDueEvent{},
 				chatMessageDueEvent{},
+				hardwareResetRequestEvent{},
 			},
 			expectedState: newVidforwardPermanentLiveUnhealthy(bCtx),
 			cfg: &BroadcastConfig{

@@ -77,6 +77,8 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleBadHealthEvent(event.(badHealthEvent))
 	case goodHealthEvent:
 		sm.handleGoodHealthEvent(event.(goodHealthEvent))
+	case fixFailureEvent:
+		sm.handleFixFailureEvent(event.(fixFailureEvent))
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.
@@ -131,6 +133,10 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 		sm.transition(newVidforwardSecondaryLiveUnhealthy())
 	case *directLive:
 		sm.transition(newDirectLiveUnhealthy(sm.ctx))
+	case *vidforwardPermanentFailure:
+		msg := "getting bad health event in permanent failure state, check forwarder"
+		sm.log(msg)
+		notifier.Send(context.Background(), sm.ctx.cfg.SKey, "health", fmtForBroadcastLog(sm.ctx.cfg, msg))
 	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
 		// Do nothing.
 	default:
@@ -206,6 +212,17 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
+}
+
+func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) error {
+	sm.log("handling fix failure event")
+	switch sm.currentState.(type) {
+	case *vidforwardPermanentLiveUnhealthy:
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	default:
+		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
+	}
+	return nil
 }
 
 func (sm *broadcastStateMachine) transitionIfTimedOut(s state, to state, t timeEvent) {
