@@ -35,7 +35,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 
@@ -113,37 +112,4 @@ func getSecrets(ctx context.Context) ([]byte, error) {
 		}
 	}
 	return secrets, nil
-}
-
-// genToken redirects the user to an authorisation page for generation of an
-// authorisation token.
-func genToken(w http.ResponseWriter, r *http.Request, config *oauth2.Config, url string) {
-	config.RedirectURL = "https://" + r.Host + youtubeCredsRedirect
-
-	http.HandleFunc(
-		youtubeCredsRedirect,
-		func(w http.ResponseWriter, r *http.Request) {
-			code := r.FormValue("code")
-			tok, err := config.Exchange(context.Background(), code)
-			if err != nil {
-				log.Printf("could not exchange token: %v", err)
-			}
-
-			if production {
-				err = saveTokObj(context.Background(), tok, url)
-			} else {
-				err = saveTokFile(tok, url)
-			}
-
-			if err != nil {
-				log.Printf("could not save new token: %v", err)
-			}
-
-			completionRedirect := "https://" + r.Host + "/admin/broadcast"
-			http.Redirect(w, r, completionRedirect, http.StatusSeeOther)
-		},
-	)
-
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	http.Redirect(w, r, authURL, http.StatusSeeOther)
 }

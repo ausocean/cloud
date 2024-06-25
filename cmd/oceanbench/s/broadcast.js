@@ -75,6 +75,31 @@ function buttonClick(button) {
   button.form.submit();
 }
 
+async function genToken() {
+  let account = await authenticate();
+  document.getElementById("account").value = account;
+  console.log("got account:", account);
+}
+
+async function authenticate() {
+  return new Promise((resolve) => {
+    let account;
+    let popup = window.open("/admin/broadcast/auth?redirect=/admin/broadcast", "popup", "popup=true");
+    const checkPopup = setInterval(() => {
+      if (popup.window.location.href.includes("localhost:8080")) {
+        let urlParams = new URLSearchParams(popup.location.search);
+        account = urlParams.get('account');
+        popup.close();
+      }
+      if (!popup || popup.closed) {
+        clearInterval(checkPopup);
+        resolve(account);
+      }
+
+    }, 200);
+  });
+}
+
 function submitSelect(select) {
   select.form.querySelector("input[name='action']").value = "broadcast-select";
   select.form.submit();
