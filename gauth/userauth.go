@@ -250,7 +250,7 @@ func (ua *UserAuth) CallbackHandler(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	clt := oauth2.NewClient(ctx, ua.cfg.TokenSource(ctx, tok))
-	profile, err := fetchProfile(clt)
+	profile, err := FetchProfile(clt)
 	if err != nil {
 		return fmt.Errorf("could not fetch profile: %w", err)
 	}
@@ -266,11 +266,11 @@ func (ua *UserAuth) CallbackHandler(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-// fetchProfile retrieves profile info for the logged-in user, i.e.,
+// FetchProfile retrieves profile info for the logged-in user, i.e.,
 // the user associated with the client's OAuth token, via the Google
 // People API, which must be enabled for the App Engine project.
 // See https://developers.google.com/people/v1/read-people.
-func fetchProfile(clt *http.Client) (*Profile, error) {
+func FetchProfile(clt *http.Client) (*Profile, error) {
 	peopleService, err := people.New(clt)
 	if err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func (ua *UserAuth) GetProfile(w http.ResponseWriter, r *http.Request) (*Profile
 	}
 	clt := ua.cfg.Client(ctx, newTok)
 	data := profile.Data // Save optional data.
-	profile, err = fetchProfile(clt)
+	profile, err = FetchProfile(clt)
 	if err != nil {
 		return nil, fmt.Errorf("fetch profile error: %w", err)
 	}
