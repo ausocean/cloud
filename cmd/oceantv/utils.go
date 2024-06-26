@@ -44,9 +44,13 @@ import (
 // logForBroadcast logs a message with the broadcast name and ID.
 // This is useful to keep track of logs for different broadcasts.
 func logForBroadcast(cfg *BroadcastConfig, msg string, args ...interface{}) {
+	log.Println(fmtForBroadcastLog(cfg, msg, args...))
+}
+
+func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) string {
 	idArgs := []interface{}{cfg.Name, cfg.ID}
 	idArgs = append(idArgs, args...)
-	log.Printf("(name: %s, id: %s) "+msg, idArgs...)
+	return fmt.Sprintf("(name: %s, id: %s) "+msg, idArgs...)
 }
 
 // removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.

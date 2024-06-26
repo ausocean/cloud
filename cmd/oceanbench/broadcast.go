@@ -152,6 +152,7 @@ type BroadcastConfig struct {
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
 	Account           string        // The YouTube account email that this broadcast is associated with.
+	InFailure         bool          // True if the broadcast is in a failure state.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -219,6 +220,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			CheckingHealth:  r.FormValue("check-health") == "checking-health",
 			Enabled:         r.FormValue("enabled") == "enabled",
 			Account:         r.FormValue("account"),
+			InFailure:       r.FormValue("in-failure") == "in-failure",
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",

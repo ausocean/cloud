@@ -159,28 +159,65 @@ func (s *vidforwardPermanentTransitionSlateToLive) timedOut(t time.Time) bool {
 type vidforwardPermanentLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
+	Attempts          int
 }
 
 func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPermanentLiveUnhealthy {
-	return &vidforwardPermanentLiveUnhealthy{ctx, time.Now()}
+	return &vidforwardPermanentLiveUnhealthy{broadcastContext: ctx}
 }
 func (s *vidforwardPermanentLiveUnhealthy) enter() {}
 func (s *vidforwardPermanentLiveUnhealthy) exit()  {}
 func (s *vidforwardPermanentLiveUnhealthy) fix() {
+	notify := func(msg string) {
+		notifier.Send(context.Background(), s.cfg.SKey, "health", msg)
+	}
+
 	const resetInterval = 5 * time.Minute
-	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.Send(
-			context.Background(),
-			s.cfg.SKey,
-			"health",
-			fmt.Sprintf("Broadcast %s is unhealthy, attempting hardware restart", s.cfg.Name),
-		)
+	if time.Since(s.LastResetAttempt) <= resetInterval {
+		return
+	}
+
+	s.Attempts++
+
+	var (
+		e   event
+		msg string
+	)
+
+	const maxAttempts = 3
+	if s.Attempts > maxAttempts {
+		msg = "failed to fix permanent broadcast, transitioning to slate (attempts: %d, max attempts: %d)"
+		e = fixFailureEvent{}
+	} else {
+		msg = "attempting to fix permanent broadcast by hardware restart and forward stream re-request (attempts: %d, max attempts: %d)"
 		err := s.fwd.Stream(s.cfg)
 		if err != nil {
 			s.log("could not set vidforward mode to slate: %v", err)
 		}
-		s.bus.publish(hardwareResetRequestEvent{})
-		s.LastResetAttempt = time.Now()
+		e = hardwareResetRequestEvent{}
+	}
+
+	s.log(msg, s.Attempts)
+	notify(fmt.Sprintf("broadcast: %s, id: %s) "+msg, s.cfg.Name, s.cfg.ID, s.Attempts, maxAttempts))
+	s.bus.publish(e)
+	s.LastResetAttempt = time.Now()
+}
+
+type vidforwardPermanentFailure struct {
+	*broadcastContext `json: "-"`
+}
+
+func newVidforwardPermanentFailure(ctx *broadcastContext) *vidforwardPermanentFailure {
+	return &vidforwardPermanentFailure{ctx}
+}
+func (s *vidforwardPermanentFailure) enter() { s.requestSlate() }
+func (s *vidforwardPermanentFailure) exit()  {}
+func (s *vidforwardPermanentFailure) fix()   { s.requestSlate() }
+func (s *vidforwardPermanentFailure) requestSlate() {
+	s.bus.publish(hardwareStopRequestEvent{})
+	err := s.fwd.Slate(s.cfg)
+	if err != nil {
+		s.log("could not request forwarder slate mode: %v", err)
 	}
 }
 
@@ -432,6 +469,14 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = true
 		cfg.Transitioning = false
+	case *vidforwardPermanentFailure:
+		cfg.Active = true
+		cfg.Slate = true
+		cfg.UsingVidforward = true
+		cfg.AttemptingToStart = false
+		cfg.Unhealthy = false
+		cfg.Transitioning = false
+		cfg.InFailure = true
 	case *vidforwardPermanentIdle:
 		cfg.Active = false
 		cfg.Slate = false
@@ -515,7 +560,15 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 
 func broadcastCfgToState(ctx *broadcastContext) state {
 	isSecondary := strings.Contains(ctx.cfg.Name, secondaryBroadcastPostfix)
-	vid, active, slate, unhealthy, starting, transitioning := ctx.cfg.UsingVidforward, ctx.cfg.Active, ctx.cfg.Slate, ctx.cfg.Unhealthy, ctx.cfg.AttemptingToStart, ctx.cfg.Transitioning
+	var (
+		vid           = ctx.cfg.UsingVidforward
+		active        = ctx.cfg.Active
+		slate         = ctx.cfg.Slate
+		unhealthy     = ctx.cfg.Unhealthy
+		starting      = ctx.cfg.AttemptingToStart
+		transitioning = ctx.cfg.Transitioning
+		inFailure     = ctx.cfg.InFailure
+	)
 	var newState state
 	switch {
 	case vid && !slate && !unhealthy && starting && !isSecondary:
@@ -526,14 +579,16 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 		newState = newVidforwardPermanentTransitionLiveToSlate(ctx)
 	case vid && active && !slate && unhealthy && !starting && !isSecondary:
 		newState = newVidforwardPermanentLiveUnhealthy(ctx)
-	case vid && active && slate && !unhealthy && !starting && !isSecondary && !transitioning:
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && !transitioning && !inFailure:
 		newState = newVidforwardPermanentSlate()
 	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning:
 		newState = newVidforwardPermanentTransitionSlateToLive(ctx)
-	case vid && active && slate && unhealthy && !starting && !isSecondary:
+	case vid && active && slate && unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentSlateUnhealthy(ctx)
 	case vid && !active && !slate && !unhealthy && !starting && !isSecondary:
 		newState = newVidforwardPermanentIdle(ctx)
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && inFailure:
+		newState = newVidforwardPermanentFailure(ctx)
 	case !vid && active && !slate && !unhealthy && !starting && isSecondary:
 		fallthrough
 	case vid && active && !slate && !unhealthy && !starting && isSecondary:
