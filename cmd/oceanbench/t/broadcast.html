@@ -129,7 +129,7 @@
               <input class="advanced" name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15">
             </div>
             <label>Timezone:</label>
-            <input id="time-zone" size="1" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)">
+            <input id="time-zone" size="3" value="{{if .Site.Timezone}}{{.Site.Timezone}}{{end}}" readonly>
             <br>
           </div>
           <label>Live Chat:</label>
