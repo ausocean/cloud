@@ -68,6 +68,7 @@ var (
 	ErrNoBroadcastItems = errors.New("no broadcast items")
 )
 
+// Broadcast ID, Stream ID and Chat ID.
 type IDs struct {
 	BID, SID, CID string
 }

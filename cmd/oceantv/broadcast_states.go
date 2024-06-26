@@ -605,7 +605,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 }
 
 func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConfig, onCreation func() error) {
-	err := ctx.man.CreateBroadcast(
+	err := ctx.man.CreateBroadcastIfNeeded(
 		cfg,
 		ctx.store,
 		ctx.svc,

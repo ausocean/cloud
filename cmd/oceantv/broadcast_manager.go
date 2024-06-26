@@ -43,6 +43,7 @@ import (
 // BroadcastManager is an interface for managing broadcasts.
 type BroadcastManager interface {
 	CreateBroadcast(cfg *Cfg, store Store, svc BroadcastService) error
+	CreateBroadcastIfNeeded(cfg *Cfg, store Store, svc BroadcastService) error
 
 	StartBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, extStart func() error,
 		onSuccess func(),
@@ -127,6 +128,31 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
 	}
+	return nil
+}
+
+func (m *OceanBroadcastManager) CreateBroadcastIfNeeded(
+	cfg *Cfg,
+	store Store,
+	svc BroadcastService,
+) error {
+	// If the broadcast doesn't have an ID or is revoked or completed, create a new broadcast.
+	ctx := context.Background()
+	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	if err != nil {
+		return fmt.Errorf("could not get broadcast status: %v", err)
+	}
+	if cfg.ID == "" || status == broadcast.StatusRevoked || status == broadcast.StatusComplete {
+		err := m.CreateBroadcast(
+			cfg,
+			store,
+			svc,
+		)
+		if err != nil {
+			return fmt.Errorf("could not create broadcast: %v", err)
+		}
+	}
+
 	return nil
 }
 
