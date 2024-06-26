@@ -81,6 +81,10 @@ type slateResetRequested struct{}
 
 func (e slateResetRequested) String() string { return "slateResetRequested" }
 
+type fixFailureEvent struct{}
+
+func (e fixFailureEvent) String() string { return "fixFailureEvent" }
+
 type handler func(event) error
 
 type eventBus interface {
@@ -150,6 +154,7 @@ func stringToEvent(name string) (event, error) {
 		"hardwareStartedEvent":      hardwareStartedEvent{},
 		"hardwareStoppedEvent":      hardwareStoppedEvent{},
 		"slateResetRequested":       slateResetRequested{},
+		"fixFailureEvent":           fixFailureEvent{},
 	}
 
 	event, ok := eventMap[name]

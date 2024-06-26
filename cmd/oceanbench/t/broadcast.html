@@ -69,6 +69,13 @@
               </div>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
+              <div class="w-25"></div>
+              <div class="form-check form-switch d-flex align-items-center gap-1 p-0">
+                <input type="checkbox" name="in-failure" class="form-check-input m-0" role="switch" value="in-failure" {{if .CurrentBroadcast.InFailure}}checked{{end}}>
+                <small>Failure Mode</small>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
               <label for="account" class="w-25 text-end">Channel:</label>
               <div class="d-flex align-items-center gap-2 w-50">
                 <input type="input" name="account" class="form-control align-items-center" value="{{.CurrentBroadcast.Account}}" readonly>

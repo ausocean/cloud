@@ -226,6 +226,11 @@ func TestBroadcastCfgToState(t *testing.T) {
 			want: newVidforwardPermanentLiveUnhealthy(ctx),
 		},
 		{
+			name: "Vidforward Permanent Failure",
+			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
+			want: newVidforwardPermanentFailure(ctx),
+		},
+		{
 			name: "Vidforward Permanent Slate",
 			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentSlate(),
@@ -345,6 +350,13 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 			s:    &vidforwardPermanentLiveUnhealthy{broadcastContext: ctx, LastResetAttempt: time.Now()},
 			equal: func(a, b state) bool {
 				return a.(*vidforwardPermanentLiveUnhealthy).LastResetAttempt.Equal(b.(*vidforwardPermanentLiveUnhealthy).LastResetAttempt)
+			},
+		},
+		{
+			desc: "vidforwardPermanentFailure",
+			s:    &vidforwardPermanentFailure{broadcastContext: ctx},
+			equal: func(a, b state) bool {
+				return true
 			},
 		},
 		{
