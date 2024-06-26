@@ -1,7 +1,7 @@
 # datablue
 cmd/datablue/.git
 cmd/datablue/.gitignore
-cmd/oceanbench/.circleci
+cmd/datablue/.circleci
 cmd/datablue/datablue
 cmd/datablue/*~
 cmd/datablue/#*
@@ -19,7 +19,7 @@ cmd/oceanbench/.stylelintrc.json
 # oceantv
 cmd/oceantv/.git
 cmd/oceantv/.gitignore
-cmd/oceanbench/.circleci
+cmd/oceantv/.circleci
 cmd/oceantv/oceantv
 cmd/oceantv/*~
 cmd/oceantv/#*
@@ -27,8 +27,16 @@ cmd/oceantv/store/*
 # oceancron
 cmd/oceancron/.git
 cmd/oceancron/.gitignore
-cmd/oceanbench/.circleci
+cmd/oceancron/.circleci
 cmd/oceancron/oceancron
 cmd/oceancron/*~
 cmd/oceancron/#*
 cmd/oceancron/store/*
+# oceancenter
+cmd/oceancenter/.git
+cmd/oceancenter/.gitignore
+cmd/oceancenter/.circleci
+cmd/oceancenter/oceancenter
+cmd/oceancenter/*~
+cmd/oceancenter/#*
+cmd/oceancenter/store/*
