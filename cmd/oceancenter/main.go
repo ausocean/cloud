@@ -21,8 +21,8 @@ LICENSE
   <http://www.gnu.org/licenses/>.
 */
 
-// Ocean Center is a cloud service for remove device management, including:
-// 
+// Ocean Center is a cloud service for remote device management, including:
+//
 // - device software installation
 // - device software upgrades
 // - device enabling and disabling
@@ -47,12 +47,16 @@ const (
 	version   = "v0.1.0"
 )
 
-var (
+// service defines the properties of our web service.
+type service struct {
 	setupMutex    sync.Mutex
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
-)
+}
+
+// app is an instance of our service.
+var app *service = &service{}
 
 func main() {
 	defaultPort := 8083
@@ -66,22 +70,21 @@ func main() {
 
 	var host string
 	var port int
-	flag.BoolVar(&debug, "debug", false, "Run in debug mode.")
-	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
+	flag.BoolVar(&app.debug, "debug", false, "Run in debug mode.")
+	flag.BoolVar(&app.standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
 	ctx := context.Background()
-	setup(ctx)
+	app.setup(ctx)
 
 	// Serve static files when running locally
 	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
 	http.Handle("/dl/", http.StripPrefix("/dl", http.FileServer(http.Dir("dl"))))
 
-	http.HandleFunc("/install", installHandler)
-	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/", app.indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
@@ -89,28 +92,28 @@ func main() {
 
 // indexHandler handles requests for the home page and is here just to
 // test that the service is running. Devices do not use this endpoint.
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func (svc *service) indexHandler(w http.ResponseWriter, r *http.Request) {
+	svc.logRequest(r)
 	w.Write([]byte(projectID + " " + version))
 }
 
 // setup executes per-instance one-time warmup and is used to
-// initialize the datastore. Any errors are considered fatal.
-func setup(ctx context.Context) {
-	setupMutex.Lock()
-	defer setupMutex.Unlock()
+// initialize the service. Any errors are considered fatal.
+func (svc *service) setup(ctx context.Context) {
+	svc.setupMutex.Lock()
+	defer svc.setupMutex.Unlock()
 
-	if settingsStore != nil {
+	if svc.settingsStore != nil {
 		return
 	}
 
 	var err error
-	if standalone {
+	if svc.standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
 	} else {
 		log.Printf("Running in App Engine mode")
-		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
+		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
 	}
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
@@ -118,33 +121,11 @@ func setup(ctx context.Context) {
 	model.RegisterEntities()
 }
 
-// installHandler handles all software installation requests originating from a device.
-// TODO: Implement this.
-func installHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-}
-
-// writeError writes http errors to the response writer, in order to provide more detailed
-// response errors in a concise manner.
-func writeError(w http.ResponseWriter, code int, msg string, args ...interface{}) {
-	errorMsg := "%s: "
-	if msg != "" {
-		errorMsg += msg
-	}
-	if len(args) > 0 {
-		errorMsg += ": "
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code), args)
-	} else {
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code))
-	}
-	http.Error(w, errorMsg, code)
-}
-
 // logRequest logs a request if in debug mode and standalone mode.
 // It does nothing in App Engine mode as App Engine logs requests
 // automatically.
-func logRequest(r *http.Request) {
-	if !(debug || standalone) {
+func (svc *service) logRequest(r *http.Request) {
+	if !(svc.debug || svc.standalone) {
 		return
 	}
 	if r.URL.RawQuery == "" {
