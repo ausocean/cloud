@@ -199,8 +199,17 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 			sm.ctx.bus.publish(startEvent{})
 			return
 		}
-	case *vidforwardPermanentStarting, *vidforwardPermanentTransitionLiveToSlate, *vidforwardPermanentTransitionSlateToLive:
-		sm.transitionIfTimedOut(sm.currentState, newVidforwardPermanentIdle(sm.ctx), event)
+	case *vidforwardPermanentTransitionLiveToSlate:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(event.Time) {
+			notifier.Send(
+				context.Background(),
+				sm.ctx.cfg.SKey,
+				"health",
+				"transition from live to slate timed out, staying in live state, check forwarding service",
+			)
+			sm.transition(newVidforwardPermanentLive())
+		}
 		sm.publishHealthEvent(event)
 	case *vidforwardSecondaryStarting:
 		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), event)
@@ -208,6 +217,22 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
 			onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("direct starting timed out"))
+		}
+	case *vidforwardPermanentStarting:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(event.Time) {
+			onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("permanent starting timed out"))
+		}
+	case *vidforwardPermanentTransitionSlateToLive:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(event.Time) {
+			notifier.Send(
+				context.Background(),
+				sm.ctx.cfg.SKey,
+				"health",
+				"transition from slate to live timed out, transitioning to failure slate state",
+			)
+			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
