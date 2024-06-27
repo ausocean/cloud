@@ -189,7 +189,12 @@ function sync(dateID, tsID, tzID, dateChanged) {
     if (s.length == 16) {
       s += ":00"; // Append seconds to make RFC3339 compliant.
     }
-    s += tzFormat(tz);
+    // If the timezone is not in UTC offset format, try to convert it from an offset number.
+    if(!checkUTCOffset(tz)){
+      s += tzFormat(tz);
+    } else {
+      s += tz;
+    }
     const ts = new Date(s).getTime() / 1000;
     document.getElementById(tsID).value = ts.toString();
   } else {
@@ -203,4 +208,9 @@ function sync(dateID, tsID, tzID, dateChanged) {
     const dt = new Date(ts * 1000).toISOString().slice(0, -1);
     document.getElementById(dateID).value = dt;
   }
+}
+
+function checkUTCOffset(tz) {
+  const utcOffsetRegex = /^[+-](?:2[0-3]|[01][0-9]):[0-5][0-9]$/;
+  return utcOffsetRegex.test(tz);
 }

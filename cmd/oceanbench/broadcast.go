@@ -97,6 +97,7 @@ type broadcastRequest struct {
 	Settings           Settings         // A struct containing options for some settings that have limited options.
 	Action             string           // Holds value of any button pressed.
 	ListingSecondaries bool             // Are we listing secondary broadcasts?
+	Site               *model.Site
 	commonData
 }
 
@@ -277,6 +278,12 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not load existing settings for broadcast: %v", err)
 			return
 		}
+	}
+
+	// Get site to use the site's timezone.
+	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
+	if err != nil {
+		log.Printf("GetSite error: %v", err)
 	}
 
 	// Get all Cameras and Controllers that could be used by the broadcast.
