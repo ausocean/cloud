@@ -248,6 +248,7 @@ func TestHandleTimeEvent(t *testing.T) {
 				timeEvent{},
 				statusCheckDueEvent{},
 				chatMessageDueEvent{},
+				hardwareResetRequestEvent{},
 			},
 			expectedState: newVidforwardPermanentLiveUnhealthy(bCtx),
 			cfg: &BroadcastConfig{
@@ -536,7 +537,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "vidforwardPermanentStarting timed out",
 			initialState:   &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
 			event:          timeEvent{now.Add(6 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardPermanentIdle(bCtx),
 			cfg:            &BroadcastConfig{},
 		},

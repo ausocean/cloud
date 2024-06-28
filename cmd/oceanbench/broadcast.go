@@ -97,6 +97,7 @@ type broadcastRequest struct {
 	Settings           Settings         // A struct containing options for some settings that have limited options.
 	Action             string           // Holds value of any button pressed.
 	ListingSecondaries bool             // Are we listing secondary broadcasts?
+	Site               *model.Site
 	commonData
 }
 
@@ -151,6 +152,7 @@ type BroadcastConfig struct {
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
 	Account           string        // The YouTube account email that this broadcast is associated with.
+	InFailure         bool          // True if the broadcast is in a failure state.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -218,6 +220,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			CheckingHealth:  r.FormValue("check-health") == "checking-health",
 			Enabled:         r.FormValue("enabled") == "enabled",
 			Account:         r.FormValue("account"),
+			InFailure:       r.FormValue("in-failure") == "in-failure",
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
@@ -277,6 +280,12 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get site to use the site's timezone.
+	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
+	if err != nil {
+		log.Printf("GetSite error: %v", err)
+	}
+
 	// Get all Cameras and Controllers that could be used by the broadcast.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, sKey)
 	if err != nil {
@@ -309,9 +318,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
-		err = broadcast.GenerateToken(ctx, w, r, youtube.YoutubeScope, tokenURI)
+		err = broadcast.AuthChannel(ctx, w, r, youtube.YoutubeScope, tokenURI)
 		if err != nil {
-			reportError(w, r, req, "could not generate token: %v", err)
+			reportError(w, r, req, "could not authenticate channel: %v", err)
 			return
 		}
 
