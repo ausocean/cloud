@@ -318,9 +318,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
-		err = broadcast.GenerateToken(ctx, w, r, youtube.YoutubeScope, tokenURI)
+		err = broadcast.AuthChannel(ctx, w, r, youtube.YoutubeScope, tokenURI)
 		if err != nil {
-			reportError(w, r, req, "could not generate token: %v", err)
+			reportError(w, r, req, "could not authenticate channel: %v", err)
 			return
 		}
 

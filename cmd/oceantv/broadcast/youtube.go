@@ -39,9 +39,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
@@ -101,6 +103,24 @@ func GetService(ctx context.Context, scope string, tokenURI string) (*youtube.Se
 	}
 
 	return s, nil
+}
+
+// AuthChannel checks for a current token under the passed tokenURI, and generates one if it does not
+// yet exist.
+func AuthChannel(ctx context.Context, w http.ResponseWriter, r *http.Request, scope, tokenURI string) error {
+	// Don't regenerate a token if one already exists.
+	_, err := getToken(ctx, tokenURI)
+
+	if err == nil {
+		// Token exists.
+		return nil
+	}
+	if !errors.Is(err, storage.ErrObjectNotExist) && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error getting token with uri: %s: %w", tokenURI, err)
+	}
+
+	// No token with the given URI exists yet. Generate a new token.
+	return GenerateToken(ctx, w, r, scope, tokenURI)
 }
 
 // GenerateToken manually generates/regenerates a token. This can be called in
