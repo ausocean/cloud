@@ -22,6 +22,10 @@ type broadcastContext struct {
 func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 	logForBroadcast(ctx.cfg, msg, args...)
 }
+func (ctx *broadcastContext) logAndNotify(msg string, args ...interface{}) {
+	logForBroadcast(ctx.cfg, msg, args...)
+	notifier.Send(context.Background(), ctx.cfg.SKey, "health", fmtForBroadcastLog(ctx.cfg, msg, args...))
+}
 
 type state interface {
 	enter()

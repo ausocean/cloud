@@ -116,6 +116,12 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("hardware start failed"))
+	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
+		sm.logAndNotify("hardware failure event in permanent live state, moving to failure slate state")
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case *vidforwardPermanentTransitionSlateToLive:
+		sm.logAndNotify("hardware failure event in transition from slate to live, moving to failure slate state")
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -399,4 +405,8 @@ func (sm *broadcastStateMachine) unexpectedEvent(event event, state state) {
 
 func (sm *broadcastStateMachine) log(msg string, args ...interface{}) {
 	sm.ctx.log(msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotify(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(msg, args...)
 }
