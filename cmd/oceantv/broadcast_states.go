@@ -24,7 +24,10 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 }
 func (ctx *broadcastContext) logAndNotify(msg string, args ...interface{}) {
 	logForBroadcast(ctx.cfg, msg, args...)
-	notifier.Send(context.Background(), ctx.cfg.SKey, "health", fmtForBroadcastLog(ctx.cfg, msg, args...))
+	err := notifier.Send(context.Background(), ctx.cfg.SKey, "health", fmtForBroadcastLog(ctx.cfg, msg, args...))
+	if err != nil {
+		logForBroadcast(ctx.cfg, "could not send health notification: %v", err)
+	}
 }
 
 type state interface {
@@ -172,10 +175,6 @@ func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPerma
 func (s *vidforwardPermanentLiveUnhealthy) enter() {}
 func (s *vidforwardPermanentLiveUnhealthy) exit()  {}
 func (s *vidforwardPermanentLiveUnhealthy) fix() {
-	notify := func(msg string) {
-		notifier.Send(context.Background(), s.cfg.SKey, "health", msg)
-	}
-
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) <= resetInterval {
 		return
@@ -201,8 +200,7 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 		e = hardwareResetRequestEvent{}
 	}
 
-	s.log(msg, s.Attempts)
-	notify(fmt.Sprintf("broadcast: %s, id: %s) "+msg, s.cfg.Name, s.cfg.ID, s.Attempts, maxAttempts))
+	s.logAndNotify(msg, s.Attempts, maxAttempts)
 	s.bus.publish(e)
 	s.LastResetAttempt = time.Now()
 }
@@ -244,12 +242,7 @@ func (s *vidforwardPermanentSlateUnhealthy) exit()  {}
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		notifier.Send(
-			context.Background(),
-			s.cfg.SKey,
-			"health",
-			fmt.Sprintf("Broadcast %s slate is unhealthy, vidforward reconfiguration", s.cfg.Name),
-		)
+		s.logAndNotify("slate is unhealthy, requesting vidforward reconfiguration")
 		err := s.fwd.Slate(s.cfg)
 		if err != nil {
 			s.log("could not set vidforward mode to slate: %v", err)
@@ -362,10 +355,6 @@ func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
 func (s *directLiveUnhealthy) enter() {}
 func (s *directLiveUnhealthy) exit()  {}
 func (s *directLiveUnhealthy) fix() {
-	notify := func(msg string) {
-		notifier.Send(context.Background(), s.cfg.SKey, "health", msg)
-	}
-
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) <= resetInterval {
 		return
@@ -387,8 +376,7 @@ func (s *directLiveUnhealthy) fix() {
 		e = hardwareResetRequestEvent{}
 	}
 
-	s.log(msg, s.Attempts)
-	notify(fmt.Sprintf("broadcast: %s, id: %s) "+msg, s.cfg.Name, s.cfg.ID, s.Attempts, maxAttempts))
+	s.logAndNotify(msg, s.Attempts, maxAttempts)
 	s.bus.publish(e)
 	s.LastResetAttempt = time.Now()
 }
@@ -695,12 +683,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 				if _cfg.StartFailures >= maxStartFailures {
 					_cfg.StartFailures = 0
 					_cfg.Enabled = false
-					notifier.Send(
-						context.Background(),
-						_cfg.SKey,
-						"health",
-						fmt.Sprintf("Broadcast %s has failed to start %d times so it has been disabled.", _cfg.Name, maxStartFailures),
-					)
+					ctx.logAndNotify("Broadcast %s has failed to start %d times so it has been disabled.", _cfg.Name, maxStartFailures)
 				}
 				*cfg = *_cfg
 				return nil
