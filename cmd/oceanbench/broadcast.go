@@ -219,7 +219,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			CamOff:          r.FormValue("cam-off"),
 			CheckingHealth:  r.FormValue("check-health") == "checking-health",
 			Enabled:         r.FormValue("enabled") == "enabled",
-			Account:         r.FormValue("account"),
 			InFailure:       r.FormValue("in-failure") == "in-failure",
 		},
 		Action:             r.FormValue("action"),
@@ -326,10 +325,15 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Store the account email in the broadcast config.
 		cfg.Account = profile.Email
-
-		// Fallthrough to save broadcast configuration.
-		fallthrough
+		err := saveBroadcast(ctx, &req.CurrentBroadcast)
+		if err != nil {
+			reportError(w, r, req, "could not save broadcast: %v", err)
+			return
+		}
 	case broadcastSave:
+		// If we haven't just generated a token we should keep the same account
+		// that the config previously had.
+		cfg.Account = getExistingAccount(req.BroadcastVars, cfg)
 		err := saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
 			reportError(w, r, req, "could not save broadcast: %v", err)
@@ -456,6 +460,17 @@ func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) 
 	req.CurrentBroadcast = *cfg
 
 	return true, nil
+}
+
+// getExistingAccount will return the current associated account of the broadcast with the current config
+// name. This should be used to ensure that the associated account is only updated using the generate token method.
+// If no broadcast/account is found, then an empty string will be returned
+func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) string {
+	cfg, err := broadcastFromVars(broadcasts, cfg.Name)
+	if err != nil {
+		return ""
+	}
+	return cfg.Account
 }
 
 func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Request, store datastore.Store) error {
