@@ -1,0 +1,15 @@
+{
+  "device": "camera",
+  "description": "Install rv in /opt/ausocean/bin.",   
+  "version": "v1.0.0",
+  "components": [
+    {
+    "name": "rv",
+    "version": "v1.6.0",
+    "executable": true,
+    "dir": "/opt/ausocean/bin",
+    "checksum": "8a02536e2cb7874f92ac7181e375c954"
+    }
+  ]
+}
+  
