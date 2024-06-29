@@ -140,9 +140,7 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 	case *directLive:
 		sm.transition(newDirectLiveUnhealthy(sm.ctx))
 	case *vidforwardPermanentFailure:
-		msg := "getting bad health event in permanent failure state, check forwarder"
-		sm.log(msg)
-		notifier.Send(context.Background(), sm.ctx.cfg.SKey, "health", fmtForBroadcastLog(sm.ctx.cfg, msg))
+		sm.logAndNotify("getting bad health event in permanent failure state")
 	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
 		// Do nothing.
 	default:
@@ -208,12 +206,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *vidforwardPermanentTransitionLiveToSlate:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			notifier.Send(
-				context.Background(),
-				sm.ctx.cfg.SKey,
-				"health",
-				"transition from live to slate timed out, staying in live state, check forwarding service",
-			)
+			sm.logAndNotify("transition from live to slate timed out, staying in live state, check forwarding service")
 			sm.transition(newVidforwardPermanentLive())
 		}
 		sm.publishHealthEvent(event)
@@ -232,12 +225,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *vidforwardPermanentTransitionSlateToLive:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			notifier.Send(
-				context.Background(),
-				sm.ctx.cfg.SKey,
-				"health",
-				"transition from slate to live timed out, transitioning to failure slate state",
-			)
+			sm.ctx.logAndNotify("transition from slate to live timed out, transitioning to failure slate state")
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 	default:
