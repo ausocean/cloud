@@ -53,6 +53,14 @@ func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) s
 	return fmt.Sprintf("(name: %s, id: %s) "+msg, idArgs...)
 }
 
+func try(err error, msg string, log func(string, ...interface{})) bool {
+	if err != nil {
+		log(msg+": %v", err)
+		return false
+	}
+	return true
+}
+
 // removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.
 func removeDate(s string) string {
 	const dateRegex = "[0-3][0-9]/[0-3][0-9]/(?:[0-9][0-9])?[0-9][0-9]"

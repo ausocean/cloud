@@ -62,10 +62,7 @@ func (s *vidforwardPermanentStarting) enter() {
 	cfg := *s.cfg
 	cfg.End = cfg.End.AddDate(1, 0, 0)
 
-	// Make sure secondary broadcast is set up.
-	err := s.man.SetupSecondary(context.Background(), s.cfg, s.store)
-	if err != nil {
-		s.log("could not setup secondary broadcast: %v", err)
+	if !try(s.man.SetupSecondary(context.Background(), s.cfg, s.store), "could not setup secondary broadcast", s.log) {
 		s.bus.publish(startFailedEvent{})
 		return
 	}
@@ -115,10 +112,7 @@ func (s *vidforwardPermanentTransitionLiveToSlate) enter() {
 	s.LastEntered = time.Now()
 
 	s.bus.publish(hardwareStopRequestEvent{})
-	err := s.fwd.Slate(s.cfg)
-	if err != nil {
-		s.log("could not set vidforward mode to stream: %v", err)
-	}
+	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }
 func (s *vidforwardPermanentTransitionLiveToSlate) exit() {}
 func (s *vidforwardPermanentTransitionLiveToSlate) isHardwareStopped() bool {
@@ -145,10 +139,7 @@ func newVidforwardPermanentTransitionSlateToLive(ctx *broadcastContext) *vidforw
 func (s *vidforwardPermanentTransitionSlateToLive) enter() {
 	s.LastEntered = time.Now()
 	s.bus.publish(hardwareStartRequestEvent{})
-	err := s.fwd.Stream(s.cfg)
-	if err != nil {
-		s.log("could not set vidforward mode to stream: %v", err)
-	}
+	try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
 }
 func (s *vidforwardPermanentTransitionSlateToLive) exit() {}
 func (s *vidforwardPermanentTransitionSlateToLive) isHardwareStarted() bool {
@@ -193,10 +184,7 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 		e = fixFailureEvent{}
 	} else {
 		msg = "attempting to fix permanent broadcast by hardware restart and forward stream re-request (attempts: %d, max attempts: %d)"
-		err := s.fwd.Stream(s.cfg)
-		if err != nil {
-			s.log("could not set vidforward mode to slate: %v", err)
-		}
+		try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
 		e = hardwareResetRequestEvent{}
 	}
 
@@ -217,10 +205,7 @@ func (s *vidforwardPermanentFailure) exit()  {}
 func (s *vidforwardPermanentFailure) fix()   { s.requestSlate() }
 func (s *vidforwardPermanentFailure) requestSlate() {
 	s.bus.publish(hardwareStopRequestEvent{})
-	err := s.fwd.Slate(s.cfg)
-	if err != nil {
-		s.log("could not request forwarder slate mode: %v", err)
-	}
+	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }
 
 type vidforwardPermanentSlate struct{}
@@ -243,10 +228,7 @@ func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
 		s.logAndNotify("slate is unhealthy, requesting vidforward reconfiguration")
-		err := s.fwd.Slate(s.cfg)
-		if err != nil {
-			s.log("could not set vidforward mode to slate: %v", err)
-		}
+		try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 		s.LastResetAttempt = time.Now()
 	}
 }
@@ -271,10 +253,7 @@ func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive 
 
 func (s *vidforwardSecondaryLive) enter() {}
 func (s *vidforwardSecondaryLive) exit() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
-	if err != nil {
-		s.log("could not stop broadcast")
-	}
+	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
 }
 
 type vidforwardSecondaryLiveUnhealthy struct{}
@@ -409,10 +388,7 @@ type directIdle struct {
 
 func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{ctx} }
 func (s *directIdle) enter() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
-	if err != nil {
-		s.log("could not stop broadcast: %v", err)
-	}
+	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct idle entry", s.log)
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 func (s *directIdle) exit() {}

@@ -366,19 +366,21 @@ func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 }
 
 func (sm *broadcastStateMachine) transition(newState state) {
-	err := updateConfigWithTransaction(
-		context.Background(),
-		sm.ctx.store,
-		sm.ctx.cfg.SKey,
-		sm.ctx.cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			updateBroadcastBasedOnState(newState, _cfg)
-			*sm.ctx.cfg = *_cfg
-			return nil
-		},
-	)
-	if err != nil {
-		sm.log("could not update config for transition: %v", err)
+	if !try(
+		updateConfigWithTransaction(
+			context.Background(),
+			sm.ctx.store,
+			sm.ctx.cfg.SKey,
+			sm.ctx.cfg.Name,
+			func(_cfg *BroadcastConfig) error {
+				updateBroadcastBasedOnState(newState, _cfg)
+				*sm.ctx.cfg = *_cfg
+				return nil
+			},
+		),
+		"could not update config for transition",
+		sm.logAndNotify,
+	) {
 		return
 	}
 	sm.log("transitioning from %s to %s", stateToString(sm.currentState), stateToString(newState))
