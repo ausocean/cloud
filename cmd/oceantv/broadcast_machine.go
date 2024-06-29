@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/ausocean/cloud/notify"
 )
 
 type broadcastStateMachine struct {
@@ -94,10 +96,10 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("hardware start failed"))
 	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
-		sm.logAndNotify("hardware failure event in permanent live state, moving to failure slate state")
+		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case *vidforwardPermanentTransitionSlateToLive:
-		sm.logAndNotify("hardware failure event in transition from slate to live, moving to failure slate state")
+		sm.logAndNotify(broadcastHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -117,7 +119,7 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 	case *directLive:
 		sm.transition(newDirectLiveUnhealthy(sm.ctx))
 	case *vidforwardPermanentFailure:
-		sm.logAndNotify("getting bad health event in permanent failure state")
+		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
 	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
 		// Do nothing.
 	default:
@@ -183,7 +185,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *vidforwardPermanentTransitionLiveToSlate:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			sm.logAndNotify("transition from live to slate timed out, staying in live state, check forwarding service")
+			sm.logAndNotify(broadcastForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
 			sm.transition(newVidforwardPermanentLive())
 		}
 		sm.publishHealthEvent(event)
@@ -202,7 +204,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *vidforwardPermanentTransitionSlateToLive:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			sm.ctx.logAndNotify("transition from slate to live timed out, transitioning to failure slate state")
+			sm.ctx.logAndNotify(broadcastGeneric, "transition from slate to live timed out, transitioning to failure slate state")
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 	default:
@@ -346,7 +348,7 @@ func (sm *broadcastStateMachine) transition(newState state) {
 	if !try(
 		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(newState, _cfg) }),
 		"could not update config for transition",
-		sm.logAndNotify,
+		sm.logAndNotifySoftware,
 	) {
 		return
 	}
@@ -364,6 +366,10 @@ func (sm *broadcastStateMachine) log(msg string, args ...interface{}) {
 	sm.ctx.log(msg, args...)
 }
 
-func (sm *broadcastStateMachine) logAndNotify(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(msg, args...)
+func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(k, msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(broadcastSoftware, msg, args...)
 }

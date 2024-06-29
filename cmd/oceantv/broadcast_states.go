@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ausocean/cloud/notify"
 )
 
 type broadcastContext struct {
@@ -22,9 +24,18 @@ type broadcastContext struct {
 func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 	logForBroadcast(ctx.cfg, msg, args...)
 }
-func (ctx *broadcastContext) logAndNotify(msg string, args ...interface{}) {
+
+const (
+	broadcastGeneric   notify.Kind = "broadcast-generic"   // Problems where cause is unknown.
+	broadcastForwarder notify.Kind = "broadcast-forwarder" // Problems related to out forwarding service i.e. can't stream slate.
+	broadcastHardware  notify.Kind = "broadcast-hardware"  // Problems related to streaming hardware i.e. controllers and cameras.
+	broadcastNetwork   notify.Kind = "broadcast-network"   // Problems related to bad bandwidth, generally indicated by bad health events.
+	broadcastSoftware  notify.Kind = "broadcast-software"  // Problems related to the functioning of our broadcast software.
+)
+
+func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
 	logForBroadcast(ctx.cfg, msg, args...)
-	err := notifier.Send(context.Background(), ctx.cfg.SKey, "health", fmtForBroadcastLog(ctx.cfg, msg, args...))
+	err := notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
 		logForBroadcast(ctx.cfg, "could not send health notification: %v", err)
 	}
@@ -188,7 +199,7 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 		e = hardwareResetRequestEvent{}
 	}
 
-	s.logAndNotify(msg, s.Attempts, maxAttempts)
+	s.logAndNotify(broadcastGeneric, msg, s.Attempts, maxAttempts)
 	s.bus.publish(e)
 	s.LastResetAttempt = time.Now()
 }
@@ -227,7 +238,7 @@ func (s *vidforwardPermanentSlateUnhealthy) exit()  {}
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		s.logAndNotify("slate is unhealthy, requesting vidforward reconfiguration")
+		s.logAndNotify(broadcastForwarder, "slate is unhealthy, requesting vidforward reconfiguration")
 		try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 		s.LastResetAttempt = time.Now()
 	}
@@ -355,7 +366,7 @@ func (s *directLiveUnhealthy) fix() {
 		e = hardwareResetRequestEvent{}
 	}
 
-	s.logAndNotify(msg, s.Attempts, maxAttempts)
+	s.logAndNotify(broadcastHardware, msg, s.Attempts, maxAttempts)
 	s.bus.publish(e)
 	s.LastResetAttempt = time.Now()
 }
@@ -642,7 +653,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 			if _cfg.StartFailures >= maxStartFailures {
 				_cfg.StartFailures = 0
 				_cfg.Enabled = false
-				ctx.logAndNotify("failed to start %d times, disabling", maxStartFailures)
+				ctx.logAndNotify(broadcastGeneric, "failed to start %d times, disabling", maxStartFailures)
 			}
 		}),
 			"could not update config after failed start",
