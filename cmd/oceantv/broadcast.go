@@ -249,25 +249,26 @@ func performChecksInternalThroughStateMachine(
 		logForBroadcast(cfg, msg, args...)
 	}
 
+	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
+	tokenURI := utils.TokenURIFromAccount(cfg.Account)
+	svc := newYouTubeBroadcastService(tokenURI, log)
+
+	// Create the broadcast manager. This will manage things between the broadcast, the
+	// hardware and the YouTube broadcast service.
+	man := newOceanBroadcastManager(svc, cfg, store, log)
+
 	// Don't do anything if not enabled.
 	if !cfg.Enabled {
 		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
-		err := updateConfigWithTransaction(
-			context.Background(),
-			store,
-			cfg.SKey,
-			cfg.Name,
-			func(_cfg *BroadcastConfig) error {
+		try(
+			man.Save(nil, func(_cfg *BroadcastConfig) {
 				_cfg.AttemptingToStart = false
 				_cfg.Transitioning = false
 				_cfg.Active = false
-				*cfg = *_cfg
-				return nil
-			},
+			}),
+			"could not update config with callback",
+			log,
 		)
-		if err != nil {
-			log("could not update config with callback: %v", err)
-		}
 		log("not enabled, not doing anything")
 		return nil
 	}
@@ -285,31 +286,16 @@ func performChecksInternalThroughStateMachine(
 	// to the config and then load them next time we perform checks.
 	storeEventsAfterCtx := func(event event) {
 		log("storing event after cancel: %s", event.String())
-		err := updateConfigWithTransaction(
-			context.Background(),
-			store,
-			cfg.SKey,
-			cfg.Name,
-			func(_cfg *BroadcastConfig) error {
+		try(
+			man.Save(nil, func(_cfg *BroadcastConfig) {
 				_cfg.Events = append(_cfg.Events, event.String())
-				*cfg = *_cfg
-				return nil
-			},
+			}),
+			"could not update config with callback",
+			log,
 		)
-		if err != nil {
-			log("could not update config with callback: %v", err)
-		}
 	}
 
 	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
-
-	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
-	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := newYouTubeBroadcastService(tokenURI, log)
-
-	// Create the broadcast manager. This will manage things between the broadcast, the
-	// hardware and the YouTube broadcast service.
-	man := newOceanBroadcastManager(svc, log)
 
 	// This handler will subscribe to the event bus and perform checks corresponding
 	// to health, status and chat message events. It will also publish events to the
@@ -383,17 +369,7 @@ func performChecksInternalThroughStateMachine(
 		bus.publish(e)
 	}
 
-	err = updateConfigWithTransaction(
-		context.Background(),
-		store,
-		cfg.SKey,
-		cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			_cfg.Events = nil
-			*cfg = *_cfg
-			return nil
-		},
-	)
+	err = man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Events = nil })
 	if err != nil {
 		return fmt.Errorf("could not clear config events: %w", err)
 	}

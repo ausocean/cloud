@@ -191,9 +191,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the broadcast manager to save the broadcast.
-	// We can provide a nil BroadcastService given that SaveBroadcast
+	// We can provide a nil BroadcastService given that Save
 	// won't need this.
-	err = newOceanBroadcastManager(nil, log).SaveBroadcast(ctx, &cfg, settingsStore)
+	err = newOceanBroadcastManager(nil, &cfg, settingsStore, log).Save(ctx, nil)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

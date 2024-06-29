@@ -57,17 +57,19 @@ func TestRemoveDate(t *testing.T) {
 
 // dummyManager is a dummy implementation of the broadcastManager interface.
 type dummyManager struct {
+	cfg                                                                *Cfg
 	startDone                                                          chan struct{}
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
 	savedCfgs                                                          map[string]*Cfg
 	t                                                                  *testing.T
 }
 
-func NewDummyManager(t *testing.T) *dummyManager {
+func NewDummyManager(t *testing.T, cfg *Cfg) *dummyManager {
 	log.Println("creating dummy manager")
 	return &dummyManager{
 		t:         t,
 		startDone: make(chan struct{}),
+		cfg:       cfg,
 	}
 }
 
@@ -106,13 +108,13 @@ func (d *dummyManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) er
 	d.stopped = true
 	return nil
 }
-func (d *dummyManager) SaveBroadcast(ctx Ctx, cfg *Cfg, store Store) error {
+func (d *dummyManager) Save(ctx Ctx, update func(*BroadcastConfig)) error {
 	d.saved = true
-	d.logf("saving broadcast: %s", cfg.Name)
+	d.logf("saving broadcast: %s", d.cfg.Name)
 	if d.savedCfgs == nil {
 		d.savedCfgs = make(map[string]*Cfg)
 	}
-	d.savedCfgs[cfg.Name] = cfg
+	d.savedCfgs[d.cfg.Name] = d.cfg
 	return nil
 }
 func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call BroadcastCallback) error {

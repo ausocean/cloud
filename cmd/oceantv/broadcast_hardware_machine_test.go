@@ -69,9 +69,9 @@ func TestHandleHardwareStoppedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
+			bCtx.man = NewDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -124,9 +124,9 @@ func TestHandleHardwareStopFailedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
+			bCtx.man = NewDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -181,9 +181,9 @@ func TestHandleHardwareStartFailedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
+			bCtx.man = NewDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -238,9 +238,9 @@ func TestHandleHardwareStartedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
+			bCtx.man = NewDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -303,9 +303,9 @@ func TestHandleHardwareResetRequestEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
+			bCtx.man = NewDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)

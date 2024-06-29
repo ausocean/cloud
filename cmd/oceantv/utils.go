@@ -125,7 +125,7 @@ func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
 }
 
 // TODO: document this.
-func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, broadcast string, update func(cfg *BroadcastConfig) error) error {
+func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, broadcast string, update func(cfg *BroadcastConfig)) error {
 	name := broadcastScope + "." + broadcast
 	sep := strings.Index(name, ".")
 	if sep >= 0 {
@@ -149,11 +149,7 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 			return
 		}
 
-		err = update(&cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("error from broadcast update callback: %w", err)
-			return
-		}
+		update(&cfg)
 
 		d, err := json.Marshal(cfg)
 		if err != nil {
