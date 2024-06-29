@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	projectID = "test"
-	kind      = "test"
-	message   = "This is a test."
+	projectID      = "test"
+	kind      Kind = "test"
+	message        = "This is a test."
 )
 
 // testStore implements a dummy time store for testing purposes.

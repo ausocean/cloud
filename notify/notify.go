@@ -41,6 +41,9 @@ type Notifier struct {
 	privateKey string     // Public key for accessing MailJet API.
 }
 
+// Kind represents a kind of notification.
+type Kind string
+
 // Init initializes a notifier with the supplied options. See
 // WithSender, WithRecipient, WithFilter, WithStore and WithSecrets
 // for a description of the various options. Secrets are required to
@@ -74,16 +77,16 @@ func (n *Notifier) Init(options ...Option) error {
 // Send sends an email message, depending on what options are present.
 // With filters, then all filters must match in order to send.
 // With persistence, then the message is sent only if it was not sent to the same recipient recently.
-func (n *Notifier) Send(ctx context.Context, skey int64, kind, msg string) error {
+func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
 	for _, f := range n.filters {
 		if !strings.Contains(msg, f) {
-			log.Printf("filter '%s' applied: not sending %s message to %s", f, kind, n.Recipients())
+			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), n.Recipients())
 			return nil
 		}
 	}
 
 	if n.store != nil {
-		sendable, err := n.store.Sendable(ctx, skey, kind+"."+n.Recipients())
+		sendable, err := n.store.Sendable(ctx, skey, string(kind)+"."+n.Recipients())
 		if err != nil {
 			log.Printf("store.IsSendable returned error: %v", err)
 		}
@@ -104,7 +107,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind, msg string) error
 		info := []mailjet.InfoMessagesV31{{
 			From:     &mailjet.RecipientV31{Email: n.sender},
 			To:       &recipients,
-			Subject:  strings.Title(kind) + " notification",
+			Subject:  strings.Title(string(kind)) + " notification",
 			TextPart: msg,
 		}}
 
@@ -116,7 +119,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind, msg string) error
 	}
 
 	if n.store != nil {
-		err := n.store.Sent(ctx, skey, kind+"."+n.Recipients())
+		err := n.store.Sent(ctx, skey, string(kind)+"."+n.Recipients())
 		if err != nil {
 			log.Printf("store.Sent returned error: %v", err)
 		}
