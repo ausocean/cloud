@@ -48,7 +48,7 @@ type BroadcastManager interface {
 		onSuccess func(),
 		onFailure func(error))
 	StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error
-	SaveBroadcast(ctx Ctx, cfg *Cfg, store Store) error
+	Save(ctx Ctx, update func(*BroadcastConfig)) error
 
 	// HandleStatus checks the status of a broadcast and would perform any
 	// necessary actions based on this status. For example, if the broadcast
@@ -71,14 +71,16 @@ type BroadcastManager interface {
 // OceanBroadcastManager is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcastManager struct {
-	svc BroadcastService
-	log func(string, ...interface{})
+	svc   BroadcastService
+	log   func(string, ...interface{})
+	cfg   *Cfg
+	store Store
 }
 
 // newOceanBroadcastManager creates a new OceanBroadcastManager.
 // svc may be nil, but any methods that require it will panic.
-func newOceanBroadcastManager(svc BroadcastService, log func(string, ...interface{})) *OceanBroadcastManager {
-	return &OceanBroadcastManager{svc: svc, log: log}
+func newOceanBroadcastManager(svc BroadcastService, cfg *Cfg, store Store, log func(string, ...interface{})) *OceanBroadcastManager {
+	return &OceanBroadcastManager{svc: svc, cfg: cfg, store: store, log: log}
 }
 
 func (m *OceanBroadcastManager) CreateBroadcast(
@@ -121,14 +123,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	if err != nil {
 		return fmt.Errorf("could not create broadcast: %v, resp: %v", err, resp)
 	}
-	err = updateConfigWithTransaction(context.Background(), store, cfg.SKey, cfg.Name, func(_cfg *Cfg) error {
-		_cfg.ID = ids.BID
-		_cfg.SID = ids.SID
-		_cfg.CID = ids.CID
-		_cfg.RTMPKey = rtmpKey
-		*cfg = *_cfg
-		return nil
-	})
+	err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
 	}
@@ -177,11 +172,25 @@ func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, sv
 	return stopBroadcast(ctx, cfg, store, svc, m.log)
 }
 
-// SaveBroadcast saves a broadcast to the datastore.
-// It uses AusOcean methods for saving, and updating the vidforward service if
-// configuration if in use.
-func (m *OceanBroadcastManager) SaveBroadcast(ctx Ctx, cfg *Cfg, store Store) error {
-	return saveBroadcast(ctx, cfg, store, m.log)
+// Save performs broadcast configuration update operations.
+// If ctx is nil, the background context will be used.
+//
+// update allows for the update of specific fields. After this update takes
+// place, the config we currently point at will be updated with any changes
+// that we have applied, and with anything from the store before the update.
+// If this is nil, the config currently in store will be replaced.
+func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_update := func(_cfg *BroadcastConfig) { *_cfg = *m.cfg }
+	if update != nil {
+		_update = func(_cfg *Cfg) {
+			update(_cfg)
+			*m.cfg = *_cfg
+		}
+	}
+	return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
 }
 
 // HandleStatus checks the status of a broadcast and stops it if it has
@@ -297,18 +306,7 @@ func (m *OceanBroadcastManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goo
 		cfg.Issues = 0
 	}
 
-	updateConfigWithTransaction(
-		ctx,
-		store,
-		cfg.SKey,
-		cfg.Name,
-		func(_cfg *Cfg) error {
-			_cfg.Issues = cfg.Issues
-			return nil
-		},
-	)
-
-	return nil
+	return m.Save(nil, func(_cfg *Cfg) { _cfg.Issues = cfg.Issues; *cfg = *_cfg })
 }
 
 func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error {
@@ -335,7 +333,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	// Check if secondary broadcast already exists.
 	secondaryName := cfg.Name + secondaryBroadcastPostfix
 
-	populateFields := func(_cfg *BroadcastConfig) error {
+	populateFields := func(_cfg *BroadcastConfig) {
 		// The secondary broadcast will for the most part copy the long term broadcast
 		// configuration, except for a few of the fields.
 		_cfg.Name = secondaryName
@@ -348,7 +346,6 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		_cfg.End = cfg.End
 		_cfg.Resolution = cfg.Resolution
 		_cfg.Enabled = true
-		return nil
 	}
 
 	_, err = broadcastByName(cfg.SKey, secondaryName)
@@ -356,10 +353,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	// Broadcast not found, so we need to create it.
 	case errors.Is(err, ErrBroadcastNotFound{}):
 		secondaryCfg := *cfg
-		err = populateFields(&secondaryCfg)
-		if err != nil {
-			return fmt.Errorf("could not populate secondary broadcast fields: %w", err)
-		}
+		populateFields(&secondaryCfg)
 		err = saveBroadcast(ctx, &secondaryCfg, store, m.log)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
@@ -369,13 +363,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 	// Broadcast found so we need to update it with a transaction.
 	default:
-		err = updateConfigWithTransaction(
-			context.Background(),
-			store,
-			cfg.SKey,
-			secondaryName,
-			populateFields,
-		)
+		err = m.Save(nil, populateFields)
 		if err != nil {
 			return fmt.Errorf("could not update secondary broadcast: %w", err)
 		}

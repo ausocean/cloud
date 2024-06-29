@@ -594,7 +594,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 			bus.subscribe(handler)
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -699,7 +699,7 @@ func TestHandleStartFailedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -820,7 +820,7 @@ func TestHandleBadHealthEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -941,7 +941,7 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1044,7 +1044,7 @@ func TestHandleFinishEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1153,7 +1153,7 @@ func TestHandleStartEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1226,7 +1226,7 @@ func TestHandleStartedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1325,7 +1325,7 @@ func TestBroadcastStart(t *testing.T) {
 				},
 			)
 
-			bCtx.man = NewDummyManager(t)
+			bCtx.man = NewDummyManager(t, tt.cfg)
 			bCtx.camera = newDummyHardwareManager(tt.hardwareHealthy)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg

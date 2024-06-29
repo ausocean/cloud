@@ -309,20 +309,10 @@ func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac i
 }
 
 func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {
-	return updateConfigWithTransaction(
-		context.Background(),
-		sm.ctx.store,
-		sm.ctx.cfg.SKey,
-		sm.ctx.cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			_cfg.HardwareState = hardwareStateToString(sm.currentState)
-			hardwareStateData, err := json.Marshal(sm.currentState)
-			if err != nil {
-				return fmt.Errorf("could not marshal hardware state data: %v", err)
-			}
-			_cfg.HardwareStateData = hardwareStateData
-			*sm.ctx.cfg = *_cfg
-			return nil
-		},
-	)
+	hardwareState := hardwareStateToString(sm.currentState)
+	hardwareStateData, err := json.Marshal(sm.currentState)
+	if err != nil {
+		return fmt.Errorf("could not marshal hardware state data: %v", err)
+	}
+	return sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.HardwareState = hardwareState; _cfg.HardwareStateData = hardwareStateData })
 }

@@ -616,17 +616,7 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConf
 func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 	onSuccess := func() {
 		ctx.bus.publish(startedEvent{})
-		err := updateConfigWithTransaction(
-			context.Background(),
-			ctx.store,
-			cfg.SKey,
-			cfg.Name,
-			func(_cfg *BroadcastConfig) error {
-				_cfg.StartFailures = 0
-				*cfg = *_cfg
-				return nil
-			},
-		)
+		err := ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.StartFailures = 0; *cfg = *_cfg })
 		if err != nil {
 			ctx.log("could not update config after successful start: %v", err)
 		}
@@ -647,27 +637,17 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig) func(err erro
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
 		ctx.bus.publish(startFailedEvent{})
-		err = updateConfigWithTransaction(
-			context.Background(),
-			ctx.store,
-			cfg.SKey,
-			cfg.Name,
-			func(_cfg *BroadcastConfig) error {
-				_cfg.StartFailures++
-				// TODO: make this configurable in config.
-				const maxStartFailures = 3
-				if _cfg.StartFailures >= maxStartFailures {
-					_cfg.StartFailures = 0
-					_cfg.Enabled = false
-					ctx.logAndNotify("Broadcast %s has failed to start %d times so it has been disabled.", _cfg.Name, maxStartFailures)
-				}
-				*cfg = *_cfg
-				return nil
-			},
+		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
+			const maxStartFailures = 3
+			if _cfg.StartFailures >= maxStartFailures {
+				_cfg.StartFailures = 0
+				_cfg.Enabled = false
+				ctx.logAndNotify("failed to start %d times, disabling", maxStartFailures)
+			}
+		}),
+			"could not update config after failed start",
+			ctx.log,
 		)
-		if err != nil {
-			ctx.log("could not update config after failed start: %v", err)
-		}
 	}
 }
 

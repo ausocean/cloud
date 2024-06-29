@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"context"
 )
 
 type broadcastStateMachine struct {
@@ -34,18 +32,7 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 	ctx.cfg.Start = ctx.cfg.Start.In(time.UTC)
 	ctx.cfg.End = ctx.cfg.End.In(time.UTC)
 
-	err = updateConfigWithTransaction(
-		context.Background(),
-		ctx.store,
-		ctx.cfg.SKey,
-		ctx.cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			_cfg.Start = ctx.cfg.Start
-			_cfg.End = ctx.cfg.End
-			*ctx.cfg = *_cfg
-			return nil
-		},
-	)
+	err = ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Start = ctx.cfg.Start; _cfg.End = ctx.cfg.End })
 	if err != nil {
 		return nil, fmt.Errorf("could not update config start and end times in transaction: %w", err)
 	}
@@ -83,17 +70,7 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
-	return updateConfigWithTransaction(
-		context.Background(),
-		sm.ctx.store,
-		sm.ctx.cfg.SKey,
-		sm.ctx.cfg.Name,
-		func(_cfg *BroadcastConfig) error {
-			updateBroadcastBasedOnState(sm.currentState, _cfg)
-			*sm.ctx.cfg = *_cfg
-			return nil
-		},
-	)
+	return sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
 }
 
 func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) error {
@@ -367,17 +344,7 @@ func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 
 func (sm *broadcastStateMachine) transition(newState state) {
 	if !try(
-		updateConfigWithTransaction(
-			context.Background(),
-			sm.ctx.store,
-			sm.ctx.cfg.SKey,
-			sm.ctx.cfg.Name,
-			func(_cfg *BroadcastConfig) error {
-				updateBroadcastBasedOnState(newState, _cfg)
-				*sm.ctx.cfg = *_cfg
-				return nil
-			},
-		),
+		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(newState, _cfg) }),
 		"could not update config for transition",
 		sm.logAndNotify,
 	) {
