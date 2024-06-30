@@ -1,6 +1,6 @@
 {
   "device": "camera",
-  "description": "Install rv in /opt/ausocean/bin.",   
+  "description": "Install camera release.",   
   "version": "v1.0.0",
   "components": [
     {
@@ -16,6 +16,12 @@
     "executable": true,
     "dir": "/opt/ausocean/bin",
     "checksum": "cee84660abf324d13e1b027257bdf9e2"
+    },
+    {
+    "name": "license.txt",
+    "version": "v1.0.0",
+    "dir": "/opt/ausocean/doc",
+    "checksum": "33510d84aed050b008d72cba9e6e5ea5"
     }
   ]
 }
