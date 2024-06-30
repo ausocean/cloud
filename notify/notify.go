@@ -35,6 +35,7 @@ type Notifier struct {
 	mutex      sync.Mutex // Lock access.
 	sender     string     // Sender email address.
 	recipients []string   // Recipient email addresses.
+	lookup     Lookup     // Recipient lookup function (optional).
 	store      TimeStore  // Notification store (optional).
 	filters    []string   // Message filters (optional).
 	publicKey  string     // Public key for accessing MailJet API.
@@ -58,6 +59,7 @@ func (n *Notifier) Init(options ...Option) error {
 	// Set default values.
 	n.sender = defaultSender
 	n.recipients = nil
+	n.lookup = nil
 	n.store = nil
 	n.filters = nil
 	n.publicKey = ""
@@ -80,23 +82,23 @@ func (n *Notifier) Init(options ...Option) error {
 func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
 	for _, f := range n.filters {
 		if !strings.Contains(msg, f) {
-			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), n.Recipients())
+			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), n.Recipients(skey, kind))
 			return nil
 		}
 	}
 
 	if n.store != nil {
-		sendable, err := n.store.Sendable(ctx, skey, string(kind)+"."+n.Recipients())
+		sendable, err := n.store.Sendable(ctx, skey, string(kind)+"."+n.Recipients(skey, kind))
 		if err != nil {
 			log.Printf("store.IsSendable returned error: %v", err)
 		}
 		if !sendable {
-			log.Printf("too soon to send %s message to %s", kind, n.Recipients())
+			log.Printf("too soon to send %s message to %s", kind, n.Recipients(skey, kind))
 			return nil
 		}
 	}
 
-	log.Printf("sending %s message to %s", kind, n.Recipients())
+	log.Printf("sending %s message to %s", kind, n.Recipients(skey, kind))
 
 	if n.publicKey != "" && n.privateKey != "" {
 		clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
@@ -119,7 +121,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	}
 
 	if n.store != nil {
-		err := n.store.Sent(ctx, skey, string(kind)+"."+n.Recipients())
+		err := n.store.Sent(ctx, skey, string(kind)+"."+n.Recipients(skey, kind))
 		if err != nil {
 			log.Printf("store.Sent returned error: %v", err)
 		}
@@ -128,7 +130,14 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	return nil
 }
 
-// Recipients returns a comma-separated list of recipients.
-func (n *Notifier) Recipients() string {
-	return strings.Join(n.recipients, ",")
+// Recipients returns a comma-separated list of recipients for the
+// given site key and notification kind. It uses the
+// WithRecipientLookup function if supplied, else defaults to the
+// recipients supplied by either WithRecipient or WithRecipients.
+func (n *Notifier) Recipients(skey int64, kind Kind) string {
+	recipients := n.recipients
+	if n.lookup != nil {
+		recipients = n.lookup(skey, kind)
+	}
+	return strings.Join(recipients, ",")
 }

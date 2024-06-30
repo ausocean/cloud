@@ -26,7 +26,12 @@ import (
 	"time"
 )
 
+// Option is a functional option supplied to Init.
 type Option func(*Notifier) error
+
+// Lookup is a function that returns the recipients for a given site
+// key and notification kind. It is used with WithRecipientLookup.
+type Lookup func(int64, Kind) []string
 
 // WithSender sets the sender email address.
 func WithSender(sender string) Option {
@@ -48,6 +53,15 @@ func WithRecipient(recipient string) Option {
 func WithRecipients(recipients []string) Option {
 	return func(n *Notifier) error {
 		n.recipients = recipients
+		return nil
+	}
+}
+
+// WithRecipientLookup sets a function to look up multiple recipients
+// given a site key and a notification kind.
+func WithRecipientLookup(lookup Lookup) Option {
+	return func(n *Notifier) error {
+		n.lookup = lookup
 		return nil
 	}
 }

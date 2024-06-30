@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	projectID      = "test"
-	kind      Kind = "test"
-	message        = "This is a test."
+	projectID          = "test"
+	kind          Kind = "test"
+	message            = "This is a test."
+	testRecipient      = "somebody"
 )
 
 // testStore implements a dummy time store for testing purposes.
@@ -166,4 +167,26 @@ func (ts *testStore) Sendable(ctx context.Context, skey int64, key string) (bool
 func (ts *testStore) Sent(ctx context.Context, skey int64, key string) error {
 	ts.Delivered++
 	return nil
+}
+
+// TestRecipients tests recipient lookup.
+func TestRecipients(t *testing.T) {
+	n := Notifier{}
+	err := n.Init(WithRecipientLookup(testLookup))
+	if err != nil {
+		t.Errorf("Init with error: %v", err)
+	}
+
+	want := n.Recipients(0, kind)
+	if want != testRecipient {
+		t.Errorf("Recipients returned %s, expected %s", want, testRecipient)
+	}
+}
+
+// testLookup is our recipient lookup function.
+func testLookup(skey int64, kind Kind) []string {
+	if kind == "test" {
+		return []string{testRecipient}
+	}
+	return []string{""}
 }
