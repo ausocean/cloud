@@ -40,3 +40,10 @@ cmd/oceancenter/oceancenter
 cmd/oceancenter/*~
 cmd/oceancenter/#*
 cmd/oceancenter/store/*
+# vidforward
+cmd/vidforward/.git
+cmd/vidforward/.gitignore
+cmd/vidforward/.circleci
+cmd/vidforward/vidforward
+cmd/vidforward/*~
+cmd/vidforward/#*
