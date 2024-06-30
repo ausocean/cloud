@@ -68,6 +68,8 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleGoodHealthEvent(event.(goodHealthEvent))
 	case fixFailureEvent:
 		sm.handleFixFailureEvent(event.(fixFailureEvent))
+	case controllerFailureEvent:
+		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.
@@ -94,7 +96,7 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 	sm.log("handling hardware start failed event")
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("hardware start failed"))
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("hardware start failed"))
 	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
 		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
@@ -153,6 +155,26 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 	return nil
 }
 
+var errControllerFailure = errors.New("controller not reporting")
+
+func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFailureEvent) error {
+	sm.log("handling controller failure event")
+	switch sm.currentState.(type) {
+	case *directStarting:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		sm.transition(newDirectIdle(sm.ctx))
+	case *vidforwardPermanentStarting:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case *vidforwardSecondaryStarting:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+	default:
+		// Do nothing.
+	}
+	return nil
+}
+
 func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	sm.log("handling time event: %v", event.Time)
 	switch sm.currentState.(type) {
@@ -194,12 +216,12 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	case *directStarting:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("direct starting timed out"))
+			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("direct starting timed out"))
 		}
 	case *vidforwardPermanentStarting:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
-			onFailureClosure(sm.ctx, sm.ctx.cfg)(errors.New("permanent starting timed out"))
+			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("permanent starting timed out"))
 		}
 	case *vidforwardPermanentTransitionSlateToLive:
 		withTimeout := sm.currentState.(stateWithTimeout)

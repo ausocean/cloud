@@ -77,6 +77,10 @@ type hardwareStoppedEvent struct{}
 
 func (e hardwareStoppedEvent) String() string { return "hardwareStoppedEvent" }
 
+type controllerFailureEvent struct{}
+
+func (e controllerFailureEvent) String() string { return "controllerFailureEvent" }
+
 type slateResetRequested struct{}
 
 func (e slateResetRequested) String() string { return "slateResetRequested" }
@@ -153,6 +157,7 @@ func stringToEvent(name string) (event, error) {
 		"hardwareStopFailedEvent":   hardwareStopFailedEvent{},
 		"hardwareStartedEvent":      hardwareStartedEvent{},
 		"hardwareStoppedEvent":      hardwareStoppedEvent{},
+		"controllerFailureEvent":    controllerFailureEvent{},
 		"slateResetRequested":       slateResetRequested{},
 		"fixFailureEvent":           fixFailureEvent{},
 	}
