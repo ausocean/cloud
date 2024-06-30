@@ -9,7 +9,13 @@
     "executable": true,
     "dir": "/opt/ausocean/bin",
     "checksum": "8a02536e2cb7874f92ac7181e375c954"
+    },
+    {
+    "name": "run.sh",
+    "version": "v1.0.0",
+    "executable": true,
+    "dir": "/opt/ausocean/bin",
+    "checksum": "cee84660abf324d13e1b027257bdf9e2"
     }
   ]
 }
-  
