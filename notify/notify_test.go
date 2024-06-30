@@ -187,7 +187,6 @@ func TestRecipients(t *testing.T) {
 func testLookup(skey int64, kind Kind) []string {
 	if kind == "test" {
 		return []string{testRecipient}
-	} else {
-		return []string{""}
 	}
+	return []string{""}
 }
