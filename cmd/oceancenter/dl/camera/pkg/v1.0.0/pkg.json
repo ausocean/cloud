@@ -11,7 +11,7 @@
     "checksum": "8a02536e2cb7874f92ac7181e375c954"
     },
     {
-    "name": "run.sh",
+    "name": "run_rv.sh",
     "version": "v1.0.0",
     "executable": true,
     "dir": "/opt/ausocean/bin",
