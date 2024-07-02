@@ -93,6 +93,146 @@ const (
 	DevTypeTest       = "Test"
 )
 
+// Consts containing defaults for all device configs.
+const (
+	defaultActPeriod int64 = 60
+	defaultMonPeriod int64 = 60
+)
+
+// Consts containing defaults for a controller config.
+const (
+	DefaultControllerInputs  string = "A0,X50,X51,X60,X10"
+	DefaultControllerOutputs string = "D14,D15,D16" // Peripheral Power.
+)
+
+// ControllerDefaultVars is a map which relates controller variable names to their default values
+var DefaultControllerVars = map[string]string{
+	"AlarmNetwork":         "10",
+	"AlarmPeriod":          "5",     // 5 seconds.
+	"AlarmRecoveryVoltage": "840",   // 25.4545 V.
+	"AlarmVoltage":         "825",   // 25 V.
+	"AutoRestart":          "600",   // 10 minutes.
+	"Power1":               "false", // initialise to OFF.
+	"Power2":               "false", // initialise to OFF.
+	"Power3":               "false", // initialise to OFF.
+	"Pulses":               "3",     // 3 pulses per cycle.
+	"PulseWidth":           "2",     // 1s ON, 1s OFF.
+	"PulseCycle":           "30",    // 30s between flashes.
+	"PulseSuppress":        "false",
+}
+
+// ControllerDefaultSensors contains a slice of the default sensors for a controller device.
+var DefaultControllerSensors = []SensorV2{
+	{Name: "Battery Voltage", Pin: "A0", Quantity: "DCV", Func: "scale", Args: "0.0289", Units: "V", Format: "round1"},
+	{Name: "Analog Value", Pin: "X10", Quantity: "OTH", Func: "none", Format: "round1"},
+	{Name: "Air Temperature", Pin: "X50", Quantity: "MWH", Func: "linear", Args: "0.1,-273.15", Units: "C", Format: "round1"},
+	{Name: "Humidity", Pin: "X51", Quantity: "MMB", Func: "scale", Args: "0.1", Units: "%", Format: "round2"},
+	{Name: "Water Temperature", Pin: "X60", Quantity: "MTW", Func: "linear", Args: "0.1,-273.15", Units: "C", Format: "round1"},
+}
+
+// ControllerDefaultActs contains a slice of the default actuators for a controller device.
+var DefaultControllerActs = []ActuatorV2{
+	{Name: "Device 1", Var: "Power1", Pin: "D16"},
+	{Name: "Device 2", Var: "Power2", Pin: "D14"},
+	{Name: "Device 3", Var: "Power3", Pin: "D15"},
+}
+
+// DeviceOption is a functional option to be supplied to NewDevice.
+type DeviceOption func(context.Context, datastore.Store, *Device) error
+
+// WithInputs creates a device with the given inputs.
+func WithInputs(inputs string) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		dev.Inputs = inputs
+		return nil
+	}
+}
+
+// WithOutputs creates a device with the given outputs.
+func WithOutputs(outputs string) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		dev.Outputs = outputs
+		return nil
+	}
+}
+
+// WithVariables creates the given variables for the device.
+func WithVariables(variables map[string]string) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		// Put all variables into the datastore.
+		for varName, varVal := range variables {
+			err := PutVariable(ctx, store, dev.Skey, dev.MAC()+"."+varName, varVal)
+			if err != nil {
+				return fmt.Errorf("unable to put variable: %w", err)
+			}
+		}
+		return nil
+	}
+}
+
+// WithSensors creates the given sensors for the device.
+func WithSensors(sensors []SensorV2) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		// Put all sensors into the datastore.
+		for _, sensor := range sensors {
+			sensor.Mac = dev.Mac
+			err := PutSensorV2(ctx, store, &sensor)
+			if err != nil {
+				return fmt.Errorf("unable to put sensor %s: %w", sensor.Name, err)
+			}
+		}
+		return nil
+	}
+}
+
+// WithActuators creates the given actuators for the device.
+func WithActuators(acts []ActuatorV2) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		// Put all actuators into the datastore.
+		for _, act := range acts {
+			act.Mac = dev.Mac
+			err := PutActuatorV2(ctx, store, &act)
+			if err != nil {
+				return fmt.Errorf("unable to put actuator %s: %w", act.Name, err)
+			}
+		}
+		return nil
+	}
+}
+
+// NewDevice creates a new device with the given parameters, and options.
+//
+// NOTE: Options are applied in order and any order dependent options should be
+// passed in order of execution.
+func NewDevice(ctx context.Context, store datastore.Store, skey int64, name, MAC string, options ...DeviceOption) (*Device, error) {
+	// Create a device with common config parameters.
+	dev := &Device{
+		Skey:          skey,
+		Name:          name,
+		Mac:           MacEncode(MAC),
+		ActPeriod:     defaultActPeriod,
+		MonitorPeriod: defaultMonPeriod,
+		Enabled:       true,
+	}
+
+	// Apply the functional options.
+	var err error
+	for i, opt := range options {
+		err = opt(ctx, store, dev)
+		if err != nil {
+			return nil, fmt.Errorf("unable to apply option[%d]: %w", i, err)
+		}
+	}
+
+	// Put the device into the datastore.
+	err = PutDevice(ctx, store, dev)
+	if err != nil {
+		return nil, fmt.Errorf("unable to put device into settings store: %w", err)
+	}
+
+	return dev, nil
+}
+
 // Encode serializes a Device into tab-separated values.
 func (dev *Device) Encode() []byte {
 	return []byte(fmt.Sprintf("%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%f\t%f\t%t\t%d",
