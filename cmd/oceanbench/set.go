@@ -58,7 +58,14 @@ func setDevicesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // devTypes are valid device types.
-var devTypes = []string{"Controller", "Camera", "Hydrophone", "Speaker", "Aligner", "Test"}
+var devTypes = []string{
+	model.DevTypeController,
+	model.DevTypeCamera,
+	model.DevTypeHydrophone,
+	model.DevTypeSpeaker,
+	model.DevTypeAligner,
+	model.DevTypeTest,
+}
 
 // devicesData contains data required by the device.html template, and is populated
 // by the writeDevices function.
