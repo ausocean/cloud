@@ -28,6 +28,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -196,6 +197,45 @@ func WithActuators(acts []ActuatorV2) DeviceOption {
 				return fmt.Errorf("unable to put actuator %s: %w", act.Name, err)
 			}
 		}
+		return nil
+	}
+}
+
+// WithType sets the given type of the new device. If no type is passed, or the type is not a known type
+// this will create a device without any default settings (only MAC and name), and an empty device type.
+func WithType(deviceType string) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		devTypes := []string{
+			DevTypeController,
+			DevTypeCamera,
+			DevTypeHydrophone,
+			DevTypeSpeaker,
+			DevTypeAligner,
+			DevTypeTest,
+		}
+
+		// Check for a valid type.
+		if !slices.Contains[[]string, string](devTypes, deviceType) {
+			deviceType = ""
+		}
+		dev.Type = deviceType
+		return nil
+	}
+}
+
+// WithWifi sets the WiFi SSID and password in a CSV format.
+func WithWifi(SSID, password string) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		dev.Wifi = fmt.Sprintf("%s,%s", SSID, password)
+		return nil
+	}
+}
+
+// WithLocation sets the latitude and longitude of the device.
+func WithLocation(lat, long float64) DeviceOption {
+	return func(ctx context.Context, store datastore.Store, dev *Device) error {
+		dev.Longitude = long
+		dev.Latitude = lat
 		return nil
 	}
 }
