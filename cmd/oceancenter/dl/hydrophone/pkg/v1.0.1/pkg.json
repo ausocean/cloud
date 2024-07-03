@@ -1,6 +1,6 @@
 {
   "device": "hydrophone",
-  "description": "Install hydrophone release.",
+  "description": "Install hydrophone release. Must use raspios bullseye or later.",
   "version": "v1.0.1",
   "components": [
     {
