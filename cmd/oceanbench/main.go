@@ -212,6 +212,7 @@ func main() {
 	http.HandleFunc("/set/devices/", setDevicesHandler)
 	http.HandleFunc("/set/crons/edit", editCronsHandler)
 	http.HandleFunc("/set/crons/", setCronsHandler)
+	http.HandleFunc("/new/", newHandler)
 	http.HandleFunc("/get", getHandler)
 	http.HandleFunc("/api/", apiHandler)
 	http.HandleFunc("/test/", testHandler)
