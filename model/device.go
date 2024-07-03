@@ -83,6 +83,16 @@ type Device struct {
 	other         map[string]string // Other, non-persistent data.
 }
 
+// Device types.
+const (
+	DevTypeController = "Controller"
+	DevTypeCamera     = "Camera"
+	DevTypeHydrophone = "Hydrophone"
+	DevTypeSpeaker    = "Speaker"
+	DevTypeAligner    = "Aligner"
+	DevTypeTest       = "Test"
+)
+
 // Encode serializes a Device into tab-separated values.
 func (dev *Device) Encode() []byte {
 	return []byte(fmt.Sprintf("%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%f\t%f\t%t\t%d",

@@ -9,7 +9,7 @@
       "executable": true,
       "dir": "/tmp",
       "checksum": "f38d0ea180bc249a165834fab020e3bd",
-      "install": "mv -f /tmp/pkg-upgrade.sh /tmp/pkg-upgrade-v0.1.0.sh"
+      "cmd": "mv -f /tmp/pkg-upgrade.sh /tmp/pkg-upgrade-v0.1.0.sh"
     }
   ]
 }
