@@ -29,73 +29,71 @@ import (
 	"github.com/ausocean/utils/nmea"
 )
 
-// Sensor factories //
+// Consts/Pseudo used by sensor factories.
+const humidityScaleFactor Arg = 0.1
 
-// Consts used by sensor factories.
-const (
-	tempLinearArgs      string = "0.1,-273.15"
-	humidityScaleFactor string = "0.1"
-)
+var tempLinearArgs []Arg = []Arg{0.1, -273.15}
 
 // BatteryVoltageSensor returns a default calibrated battery sensor.
-func BatteryVoltageSensor(scaleFactor string) *SensorV2 {
-	return &SensorV2{
-		Name:     "Battery Voltage",
-		Pin:      pinBatteryVoltage,
-		Quantity: nmea.DCVoltage,
-		Func:     keyScale,
-		Args:     scaleFactor,
-		Units:    unitVoltage,
-		Format:   keyRound1,
-	}
+func BatteryVoltageSensor(scaleFactor float64) SensorV2 {
+	return sensorShim(
+		"Battery Voltage",
+		pinBatteryVoltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
 }
 
 // AnalogValueSensor returns an analog value sensor.
-func AnalogValueSensor() *SensorV2 {
-	return &SensorV2{
-		Name:     "Analog Value",
-		Pin:      pinAnalogValue,
-		Quantity: nmea.Other,
-		Func:     keyNone,
-		Format:   keyRound1,
-	}
+func AnalogValueSensor() SensorV2 {
+	return sensorShim(
+		"Analog Value",
+		pinAnalogValue,
+		nmea.Other,
+		funcNone,
+		"",
+		formRound1,
+	)
 }
 
 // AirTemperatureSensor returns an air temperature sensor.
-func AirTemperatureSensor() *SensorV2 {
-	return &SensorV2{
-		Name:     "Air Temperature",
-		Pin:      pinAirTemperature,
-		Quantity: nmea.AirTemperature,
-		Func:     keyLinear,
-		Args:     tempLinearArgs,
-		Units:    unitCelsius,
-		Format:   keyRound1,
-	}
+func AirTemperatureSensor() SensorV2 {
+	return sensorShim(
+		"Air Temperature",
+		pinAirTemperature,
+		nmea.AirTemperature,
+		funcLinear,
+		unitCelsius,
+		formRound1,
+		tempLinearArgs...,
+	)
 }
 
 // HumiditySensor returns a humidity sensor.
-func HumiditySensor() *SensorV2 {
-	return &SensorV2{
-		Name:     "Humidity",
-		Pin:      pinHumidity,
-		Quantity: nmea.Humidity,
-		Func:     keyScale,
-		Args:     humidityScaleFactor,
-		Units:    unitPercent,
-		Format:   keyRound1,
-	}
+func HumiditySensor() SensorV2 {
+	return sensorShim(
+		"Humidity",
+		pinHumidity,
+		nmea.Humidity,
+		funcScale,
+		unitPercent,
+		formRound1,
+		humidityScaleFactor,
+	)
 }
 
 // WaterTemperatureSensor returns an water temperature sensor.
-func WaterTemperatureSensor() *SensorV2 {
-	return &SensorV2{
-		Name:     "Water Temperature",
-		Pin:      pinWaterTemperature,
-		Quantity: nmea.WaterTemperature,
-		Func:     keyLinear,
-		Args:     tempLinearArgs,
-		Units:    unitCelsius,
-		Format:   keyRound1,
-	}
+func WaterTemperatureSensor() SensorV2 {
+	return sensorShim(
+		"Water Temperature",
+		pinWaterTemperature,
+		nmea.WaterTemperature,
+		funcLinear,
+		unitCelsius,
+		formRound1,
+		tempLinearArgs...,
+	)
 }

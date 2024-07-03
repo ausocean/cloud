@@ -33,6 +33,7 @@ import (
 
 	"github.com/Knetic/govaluate"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/utils/nmea"
 )
 
 // The entitiy type as named in the datastore.
@@ -48,42 +49,58 @@ const (
 	nArgsQuadratic = 3
 )
 
+// Func defines the function used to calculate the value of the sensor.
+type Func string
+
 // The keys for the function types.
 // See also SensorFuncs below.
 const (
-	keyNone      = "none"
-	keyScale     = "scale"
-	keyLinear    = "linear"
-	keyQuadratic = "quadratic"
-	keyCustom    = "custom"
+	funcNone      Func = "none"
+	funcScale     Func = "scale"
+	funcLinear    Func = "linear"
+	funcQuadratic Func = "quadratic"
+	funcCustom    Func = "custom"
 )
+
+// Format defines the formatting on a sensor.
+type Format string
 
 // The keys for sensor formats.
 // See also SensorFormats below.
 const (
-	keyBool    string = "bool"
-	keyRound   string = "round"
-	keyRound1  string = "round1"
-	keyRound2  string = "round2"
-	keyCompass string = "compass"
-	keyHex     string = "hex"
+	formBool    Format = "bool"
+	formRound   Format = "round"
+	formRound1  Format = "round1"
+	formRound2  Format = "round2"
+	formCompass Format = "compass"
+	formHex     Format = "hex"
 )
+
+// Pin describes a physical or virtual pin on a device to
+// attach a sensor.
+type Pin string
 
 // The pins used by sensors.
 const (
-	pinBatteryVoltage   string = "A0"
-	pinAnalogValue      string = "X10"
-	pinAirTemperature   string = "X50"
-	pinHumidity         string = "X51"
-	pinWaterTemperature string = "X60"
+	pinBatteryVoltage   Pin = "A0"
+	pinAnalogValue      Pin = "X10"
+	pinAirTemperature   Pin = "X50"
+	pinHumidity         Pin = "X51"
+	pinWaterTemperature Pin = "X60"
 )
+
+// Unit defines a unit of measurement used by a sensor.
+type Unit string
 
 // The units used by sensors.
 const (
-	unitCelsius string = "C"
-	unitPercent string = "%"
-	unitVoltage string = "V"
+	unitCelsius Unit = "C"
+	unitPercent Unit = "%"
+	unitVoltage Unit = "V"
 )
+
+// Arg defines a float64 value which comprises the arguments to a sensor.
+type Arg float64
 
 // Exported errors.
 var (
@@ -129,7 +146,7 @@ func (e *errEvaluate) Is(err error) bool {
 
 // funcs holds a map of func names to the operations to be performed.
 var funcs = map[string]func(x float64, args string) (float64, error){
-	keyScale: func(x float64, args string) (float64, error) {
+	string(funcScale): func(x float64, args string) (float64, error) {
 		argFlts, err := parseArgs(args, nArgsScale)
 		if err != nil {
 			return 0.0, err
@@ -137,7 +154,7 @@ var funcs = map[string]func(x float64, args string) (float64, error){
 		return x * argFlts[0], nil
 	},
 
-	keyLinear: func(x float64, args string) (float64, error) {
+	string(funcLinear): func(x float64, args string) (float64, error) {
 		argFlts, err := parseArgs(args, nArgsLinear)
 		if err != nil {
 			return 0.0, err
@@ -145,7 +162,7 @@ var funcs = map[string]func(x float64, args string) (float64, error){
 		return x*argFlts[0] + argFlts[1], nil
 	},
 
-	keyQuadratic: func(x float64, args string) (float64, error) {
+	string(funcQuadratic): func(x float64, args string) (float64, error) {
 		argFlts, err := parseArgs(args, nArgsQuadratic)
 		if err != nil {
 			return 0.0, err
@@ -156,7 +173,7 @@ var funcs = map[string]func(x float64, args string) (float64, error){
 	// It is expected that the args string contains the custom function, and only
 	// the custom function, otherwise errors will likely follow from govaluate.
 	// The value to be transformed is represented by x e.g. (x + 3)/2.
-	keyCustom: func(x float64, args string) (float64, error) {
+	string(funcCustom): func(x float64, args string) (float64, error) {
 		exp, err := govaluate.NewEvaluableExpression(args)
 		if err != nil {
 			return 0.0, &errEvaluableExpression{err}
@@ -272,12 +289,12 @@ func (s *Sensor) GetCache() datastore.Cache {
 // SensorFuncs returns a list of the funcs that can be selected for value
 // transformation through Sensor entities.
 func SensorFuncs() []string {
-	return []string{keyNone, keyScale, keyLinear, keyQuadratic, keyCustom}
+	return []string{string(funcNone), string(funcScale), string(funcLinear), string(funcQuadratic), string(funcCustom)}
 }
 
 // SensorFormats returns a list of available formats for formatting sensor values.
 func SensorFormats() []string {
-	return []string{keyBool, keyRound, keyRound1, keyRound2, keyCompass, keyHex}
+	return []string{string(formBool), string(formRound), string(formRound1), string(formRound2), string(formCompass), string(formHex)}
 }
 
 // GetSensor gets a Sensor from the datastore given the site key and sensor id.
@@ -450,4 +467,27 @@ func GetSensorsV2(ctx context.Context, store datastore.Store, mac int64) ([]Sens
 func DeleteSensorV2(ctx context.Context, store datastore.Store, mac int64, pin string) error {
 	k := store.NameKey(typeSensorV2, strconv.FormatInt(mac, 10)+"."+pin)
 	return store.Delete(ctx, k)
+}
+
+// shim is a thin shim between typed values and a sensor.
+func sensorShim(name string, pin Pin, qty nmea.Code, function Func, units Unit, format Format, args ...Arg) SensorV2 {
+	return SensorV2{
+		Name:     name,
+		Pin:      string(pin),
+		Quantity: string(qty),
+		Func:     string(function),
+		Args:     catArgs(args...),
+		Units:    string(units),
+		Format:   string(format),
+	}
+}
+
+// catArgs concatenates the passed args in a comma separated string
+// (using the least possible decimal places)
+func catArgs(args ...Arg) string {
+	str := ""
+	for _, arg := range args {
+		str += strconv.FormatFloat(float64(arg), 'f', -1, 64)
+	}
+	return str
 }
