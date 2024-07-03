@@ -58,6 +58,33 @@ const (
 	keyCustom    = "custom"
 )
 
+// The keys for sensor formats.
+// See also SensorFormats below.
+const (
+	keyBool    string = "bool"
+	keyRound   string = "round"
+	keyRound1  string = "round1"
+	keyRound2  string = "round2"
+	keyCompass string = "compass"
+	keyHex     string = "hex"
+)
+
+// The pins used by sensors.
+const (
+	pinBatteryVoltage   string = "A0"
+	pinAnalogValue      string = "X10"
+	pinAirTemperature   string = "X50"
+	pinHumidity         string = "X51"
+	pinWaterTemperature string = "X60"
+)
+
+// The units used by sensors.
+const (
+	unitCelsius string = "C"
+	unitPercent string = "%"
+	unitVoltage string = "V"
+)
+
 // Exported errors.
 var (
 	ErrUnexpectedArgs      = errors.New("unexpected number of args")
@@ -250,7 +277,7 @@ func SensorFuncs() []string {
 
 // SensorFormats returns a list of available formats for formatting sensor values.
 func SensorFormats() []string {
-	return []string{"bool", "round", "round1", "round2", "compass", "hex"}
+	return []string{keyBool, keyRound, keyRound1, keyRound2, keyCompass, keyHex}
 }
 
 // GetSensor gets a Sensor from the datastore given the site key and sensor id.
