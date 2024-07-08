@@ -252,6 +252,8 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	if name == "" {
 		return errors.New("empty site name")
 	}
+	desc := r.FormValue("sd")
+	org := r.FormValue("org")
 	tz, err := strconv.ParseFloat(r.FormValue("tz"), 64)
 	if err != nil {
 		return fmt.Errorf("invalid timezone: %w", err)
@@ -260,6 +262,8 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 	if err != nil {
 		return fmt.Errorf("invalid location: %w", err)
 	}
+	ops := r.FormValue("ops")
+	yt := r.FormValue("yt")
 	np, err := strconv.ParseInt(r.FormValue("np"), 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid notify period: %w", err)
@@ -276,9 +280,13 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 	site.Skey = skey // Immutable!
 	site.Name = name
+	site.Description = desc
+	site.OrgID = org
 	site.Timezone = tz
 	site.Latitude = ll.Lat
 	site.Longitude = ll.Lng
+	site.OpsEmail = ops
+	site.YouTubeEmail = yt
 	site.NotifyPeriod = np
 	site.Public = pb
 	site.Confirmed = cf

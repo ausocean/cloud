@@ -6,7 +6,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -40,7 +40,11 @@ const typeSite = "Site"
 type Site struct {
 	Skey         int64
 	Name         string
+	Description  string
+	OrgID        string
 	OwnerEmail   string
+	OpsEmail     string
+	YouTubeEmail string
 	Latitude     float64
 	Longitude    float64
 	Timezone     float64
@@ -49,6 +53,7 @@ type Site struct {
 	Confirmed    bool
 	Premium      bool
 	Public       bool
+	Subscribed   time.Time
 	Created      time.Time
 }
 
