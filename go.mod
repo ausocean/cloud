@@ -7,7 +7,7 @@ require (
 	github.com/Comcast/gots/v2 v2.2.1
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/ausocean/av v1.0.1
-	github.com/ausocean/openfish v0.1.2
+	github.com/ausocean/openfish v0.1.3
 	github.com/ausocean/utils v0.0.0-20240516071050-fe6d74a8ac16
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.3.0
