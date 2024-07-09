@@ -162,7 +162,17 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 	}
 
 	err := store.Update(ctx, key, updateConfig, &model.Variable{})
-	if err != nil {
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		err = store.Create(ctx, key, &model.Variable{})
+		if err != nil {
+			return fmt.Errorf("could not create broadcast variable: %w", err)
+		}
+
+		err = store.Update(ctx, key, updateConfig, &model.Variable{})
+		if err != nil {
+			return fmt.Errorf("could not update broadcast variable after creation: %w", err)
+		}
+	} else if err != nil {
 		return fmt.Errorf("could not update variable: %w", err)
 	}
 
