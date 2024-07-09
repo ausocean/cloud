@@ -85,12 +85,13 @@ type Device struct {
 
 // Device types.
 const (
-	DevTypeController = "Controller"
-	DevTypeCamera     = "Camera"
-	DevTypeHydrophone = "Hydrophone"
-	DevTypeSpeaker    = "Speaker"
-	DevTypeAligner    = "Aligner"
-	DevTypeTest       = "Test"
+	DevTypeController = "controller"
+	DevTypeCamera     = "camera"
+	DevTypeHydrophone = "hydrophone"
+	DevTypeSpeaker    = "speaker"
+	DevTypeAligner    = "aligner"
+	DevTypeTest       = "test"
+	DevTypeUnknown    = ""
 )
 
 // Encode serializes a Device into tab-separated values.
