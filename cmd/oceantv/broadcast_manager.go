@@ -256,7 +256,7 @@ func (m *OceanBroadcastManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
 		}
 
 		for _, q := range nmea.DefaultQuantities() {
-			if q.Code == sensor.Sensor.Quantity {
+			if q.Code == nmea.Code(sensor.Sensor.Quantity) {
 				qty = q.Name
 			}
 		}
