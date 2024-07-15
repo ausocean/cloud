@@ -1,15 +1,30 @@
 {
   "device": "camera",
-  "description": "Install rv in /opt/ausocean/bin.",   
+  "description": "Install camera release.",   
   "version": "v1.0.0",
   "components": [
     {
     "name": "rv",
+    "shared": true,
     "version": "v1.6.0",
     "executable": true,
     "dir": "/opt/ausocean/bin",
     "checksum": "8a02536e2cb7874f92ac7181e375c954"
+    },
+    {
+    "name": "run_pi_client.sh",
+    "shared": true,
+    "version": "v1.0.0",
+    "executable": true,
+    "dir": "/opt/ausocean/bin",
+    "checksum": "8af75edc94881ddef99c8dd782a3b9f4"
+    },
+    {
+    "name": "license.txt",
+    "shared": true,
+    "version": "v1.0.0",
+    "dir": "/opt/ausocean/doc",
+    "checksum": "33510d84aed050b008d72cba9e6e5ea5"
     }
   ]
 }
-  

@@ -47,10 +47,18 @@
         <input type="text" name="sn" value="{{ .Site.Name }}" class="dbl bold w-25"><br>
         <label>Site Key:</label>
         <input type="text" name="sk" value="{{ .Site.Skey }}" class="w-25" readonly><br>
+        <label>Description:</label>
+        <input type="text" name="sd" value="{{ .Site.Description }}"><br>
+        <label>Org:</label>
+        <input type="text" name="org" value="{{ .Site.OrgID }}"><br>
         <label>Timezone:</label>
         <input type="text" name="tz" value="{{ .Site.Timezone }}" class="half"> hours &plusmn; UTC<br>
         <label>Location:</label>
         <input type="text" name="ll" value="{{ .Site.Latitude}},{{ .Site.Longitude }}" class="w-25"> (lat,lng)<br>
+        <label>Ops email:</label>
+        <input type="text" name="ops" value="{{ .Site.OpsEmail }}"><br>
+        <label>YouTube email:</label>
+        <input type="text" name="yt" value="{{ .Site.YouTubeEmail }}"><br>
         <label>Notify period:</label>
         <input type="text" name="np" value="{{ .Site.NotifyPeriod }}" class="half"> hour{{if gt .Site.NotifyPeriod 1 }}s{{end}}<br>
         <label>Public:</label>
