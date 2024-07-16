@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	googledatastore "cloud.google.com/go/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
 )
@@ -162,10 +163,37 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 	}
 
 	err := store.Update(ctx, key, updateConfig, &model.Variable{})
-	if errors.Is(err, datastore.ErrNoSuchEntity) {
+	// We need to check for both filestore and cloudstore error types here.
+	if errors.Is(err, datastore.ErrNoSuchEntity) || errors.Is(err, googledatastore.ErrNoSuchEntity) {
 		err = store.Create(ctx, key, &model.Variable{})
 		if err != nil {
 			return fmt.Errorf("could not create broadcast variable: %w", err)
+		}
+
+		// Since the entity doesn't already exist, we need to change the updateConfig function to update
+		// a blank config.
+		updateConfig = func(ety datastore.Entity) {
+			v, ok := ety.(*model.Variable)
+			if !ok {
+				callBackErr = errors.New("could not cast entity to type Variable")
+				return
+			}
+
+			cfg := &BroadcastConfig{}
+			update(cfg)
+
+			v.Skey = skey
+			v.Name = name
+			v.Scope = broadcastScope
+
+			d, err := json.Marshal(cfg)
+			if err != nil {
+				callBackErr = fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
+				return
+			}
+
+			v.Value = string(d)
+			v.Updated = time.Now()
 		}
 
 		err = store.Update(ctx, key, updateConfig, &model.Variable{})
