@@ -1,15 +1,14 @@
 {
   "device": "test",
-  "description": "Install pkg-upgrade.sh in /tmp then rename it.",   
+  "description": "Install shell-netsender.sh.",
   "version": "v0.1.0",
   "components": [
     {
-      "name": "pkg-upgrade.sh",
+      "name": "shell-netsender.sh",
       "version": "v0.1.0",
       "executable": true,
-      "dir": "/tmp",
-      "checksum": "f38d0ea180bc249a165834fab020e3bd",
-      "cmd": "mv -f /tmp/pkg-upgrade.sh /tmp/pkg-upgrade-v0.1.0.sh"
+      "dir": "/opt/ausocean/bin",
+      "checksum": "b823af5b0fee30b7f700c505a7435875"
     }
   ]
 }
