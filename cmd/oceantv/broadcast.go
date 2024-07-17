@@ -455,13 +455,6 @@ func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 		return fmt.Errorf("could not put broadcast data in store: %w", err)
 	}
 
-	// Ensure that the CheckBroadcast cron exists.
-	c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: projectURL + "/checkbroadcasts", Enabled: true}
-	err = model.PutCron(ctx, store, c)
-	if err != nil {
-		return fmt.Errorf("failure verifying check broadcast cron: %w", err)
-	}
-
 	return nil
 }
 
