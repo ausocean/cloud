@@ -168,6 +168,32 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 			return fmt.Errorf("could not create broadcast variable: %w", err)
 		}
 
+		// Since the entity doesn't already exist, we need to change the updateConfig function to update
+		// a blank config.
+		updateConfig = func(ety datastore.Entity) {
+			v, ok := ety.(*model.Variable)
+			if !ok {
+				callBackErr = errors.New("could not cast entity to type Variable")
+				return
+			}
+
+			cfg := &BroadcastConfig{}
+			update(cfg)
+
+			v.Skey = skey
+			v.Name = name
+			v.Scope = broadcastScope
+
+			d, err := json.Marshal(cfg)
+			if err != nil {
+				callBackErr = fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
+				return
+			}
+
+			v.Value = string(d)
+			v.Updated = time.Now()
+		}
+
 		err = store.Update(ctx, key, updateConfig, &model.Variable{})
 		if err != nil {
 			return fmt.Errorf("could not update broadcast variable after creation: %w", err)
