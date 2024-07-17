@@ -39,6 +39,7 @@ import (
 
 const (
 	projectID          = "oceancron"
+	version            = "v0.1.0"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
@@ -93,7 +94,7 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 // test that the service is running. Devices do not use this endpoint.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
-	w.Write([]byte("OK"))
+	w.Write([]byte(projectID + " " + version))
 }
 
 // setup executes per-instance one-time warmup and is used to

@@ -294,9 +294,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, dev := range devices {
-		if dev.Type == "Camera" {
+		if dev.Type == model.DevTypeCamera {
 			req.Cameras = append(req.Cameras, dev)
-		} else if dev.Type == "Controller" {
+		} else if dev.Type == model.DevTypeController {
 			req.Controllers = append(req.Controllers, dev)
 		}
 	}
