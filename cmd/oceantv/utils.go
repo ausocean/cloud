@@ -37,7 +37,6 @@ import (
 	"strings"
 	"time"
 
-	googledatastore "cloud.google.com/go/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
 )
@@ -163,8 +162,7 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 	}
 
 	err := store.Update(ctx, key, updateConfig, &model.Variable{})
-	// We need to check for both filestore and cloudstore error types here.
-	if errors.Is(err, datastore.ErrNoSuchEntity) || errors.Is(err, googledatastore.ErrNoSuchEntity) {
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
 		err = store.Create(ctx, key, &model.Variable{})
 		if err != nil {
 			return fmt.Errorf("could not create broadcast variable: %w", err)
