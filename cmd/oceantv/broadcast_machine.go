@@ -282,22 +282,22 @@ func (sm *broadcastStateMachine) publishHealthStatusOrChatEvents(event timeEvent
 	)
 	sm.publishHealthEvent(event)
 	now := event.Time
-	if now.Sub(sm.ctx.cfg.LastStatusCheck) > statusInterval {
+	if now.Sub(sm.currentState.(liveState).lastStatusCheck()) > statusInterval {
 		sm.ctx.bus.publish(statusCheckDueEvent{})
-		sm.ctx.cfg.LastStatusCheck = now
+		sm.currentState.(liveState).setLastStatusCheck(now)
 	}
-	if now.Sub(sm.ctx.cfg.LastChatMsg) > chatInterval {
+	if now.Sub(sm.currentState.(liveState).lastChatMsg()) > chatInterval {
 		sm.ctx.bus.publish(chatMessageDueEvent{})
-		sm.ctx.cfg.LastChatMsg = now
+		sm.currentState.(liveState).setLastChatMsg(now)
 	}
 }
 
 func (sm *broadcastStateMachine) publishHealthEvent(event timeEvent) {
 	const healthInterval = 1 * time.Minute
 	now := event.Time
-	if now.Sub(sm.ctx.cfg.LastHealthCheck) > healthInterval && sm.ctx.cfg.CheckingHealth {
+	if now.Sub(sm.currentState.(stateWithHealth).lastHealthCheck()) > healthInterval && sm.ctx.cfg.CheckingHealth {
 		sm.ctx.bus.publish(healthCheckDueEvent{})
-		sm.ctx.cfg.LastHealthCheck = event.Time
+		sm.currentState.(stateWithHealth).setLastHealthCheck(event.Time)
 	}
 }
 

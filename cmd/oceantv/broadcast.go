@@ -109,16 +109,11 @@ type BroadcastConfig struct {
 	RTMPVar           string        // The variable name that holds the RTMP URL and key.
 	Active            bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
 	Slate             bool          // This is true if the broadcast is currently in slate mode i.e. no camera.
-	LastStatusCheck   time.Time     // Time of last status check i.e. if complete or not.
-	LastChatMsg       time.Time     // Time of last chat message posted.
-	LastHealthCheck   time.Time     // Time of last stream health check.
 	Issues            int           // The number of successive stream issues currently experienced. Reset when good health seen.
 	SendMsg           bool          // True if sensor data will be sent to the YouTube live chat.
 	SensorList        []SensorEntry // List of sensors which can be reported to the YouTube live chat.
 	RTMPKey           string        // The RTMP key corresponding to the newly created broadcast.
 	UsingVidforward   bool          // Indicates if we're using vidforward i.e. doing long term broadcast.
-	CamOn             string        // The time that the slate will be removed and the camera will turn on.
-	CamOff            string        // The time that the camera will be turned off and the slate will be encoded.
 	CheckingHealth    bool          // Are we performing health checks for the broadcast? Having this false is useful for dodgy testing streams.
 	AttemptingToStart bool          // Indicates if we're currently attempting to start the broadcast.
 	Enabled           bool          // Is the broadcast enabled? If not, it will not be started.

@@ -380,7 +380,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "vidforwardSecondaryLive",
-			s:    &vidforwardSecondaryLive{ctx},
+			s:    &vidforwardSecondaryLive{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
 			},
@@ -408,7 +408,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "directLive",
-			s:    &directLive{ctx},
+			s:    &directLive{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
 			},

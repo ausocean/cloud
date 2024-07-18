@@ -56,6 +56,37 @@ type stateWithTimeout interface {
 	timedOut(time.Time) bool
 }
 
+type stateWithHealth interface {
+	lastHealthCheck() time.Time
+	setLastHealthCheck(time.Time)
+}
+
+type liveState interface {
+	stateWithHealth
+	lastStatusCheck() time.Time
+	lastChatMsg() time.Time
+	setLastStatusCheck(time.Time)
+	setLastChatMsg(time.Time)
+}
+
+type stateWithHealthFields struct {
+	LastHealthCheck time.Time
+}
+
+func (s *stateWithHealthFields) lastHealthCheck() time.Time     { return s.LastHealthCheck }
+func (s *stateWithHealthFields) setLastHealthCheck(t time.Time) { s.LastHealthCheck = t }
+
+type liveStateFields struct {
+	stateWithHealthFields
+	LastStatusCheck time.Time
+	LastChatMsg     time.Time
+}
+
+func (s *liveStateFields) lastStatusCheck() time.Time     { return s.LastStatusCheck }
+func (s *liveStateFields) lastChatMsg() time.Time         { return s.LastChatMsg }
+func (s *liveStateFields) setLastStatusCheck(t time.Time) { s.LastStatusCheck = t }
+func (s *liveStateFields) setLastChatMsg(t time.Time)     { s.LastChatMsg = t }
+
 type vidforwardPermanentStarting struct {
 	*broadcastContext `json: "-"`
 	LastEntered       time.Time
@@ -104,7 +135,9 @@ func (s *vidforwardPermanentStarting) timedOut(t time.Time) bool {
 	return false
 }
 
-type vidforwardPermanentLive struct{}
+type vidforwardPermanentLive struct {
+	liveStateFields
+}
 
 func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
 func (s *vidforwardPermanentLive) enter()                  {}
@@ -114,6 +147,7 @@ type vidforwardPermanentTransitionLiveToSlate struct {
 	*broadcastContext `json: "-"`
 	HardwareStopped   bool
 	LastEntered       time.Time
+	stateWithHealthFields
 }
 
 func newVidforwardPermanentTransitionLiveToSlate(ctx *broadcastContext) *vidforwardPermanentTransitionLiveToSlate {
@@ -169,6 +203,7 @@ type vidforwardPermanentLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
+	liveStateFields
 }
 
 func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPermanentLiveUnhealthy {
@@ -255,11 +290,12 @@ func (s *vidforwardPermanentIdle) enter() {
 func (s *vidforwardPermanentIdle) exit() {}
 
 type vidforwardSecondaryLive struct {
-	*broadcastContext `json:"-"`
+	*broadcastContext `json: "-"`
+	liveStateFields
 }
 
 func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive {
-	return &vidforwardSecondaryLive{ctx}
+	return &vidforwardSecondaryLive{broadcastContext: ctx}
 }
 
 func (s *vidforwardSecondaryLive) enter() {}
@@ -267,7 +303,9 @@ func (s *vidforwardSecondaryLive) exit() {
 	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
 }
 
-type vidforwardSecondaryLiveUnhealthy struct{}
+type vidforwardSecondaryLiveUnhealthy struct {
+	liveStateFields
+}
 
 func newVidforwardSecondaryLiveUnhealthy() *vidforwardSecondaryLiveUnhealthy {
 	return &vidforwardSecondaryLiveUnhealthy{}
@@ -325,10 +363,11 @@ func (s *vidforwardSecondaryIdle) exit() {}
 
 type directLive struct {
 	*broadcastContext `json: "-"`
+	liveStateFields
 }
 
 func newDirectLive(ctx *broadcastContext) *directLive {
-	return &directLive{ctx}
+	return &directLive{broadcastContext: ctx}
 }
 func (s *directLive) enter() {}
 func (s *directLive) exit()  {}
@@ -337,6 +376,7 @@ type directLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
+	liveStateFields
 }
 
 func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
