@@ -30,6 +30,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -155,17 +156,15 @@ func (svc *service) setup(ctx context.Context) {
 	}
 	model.RegisterEntities()
 
-	// GetCreate sandbox site its admin user if it doesn't exist.
+	// Get or create sandbox site and its admin user if it doesn't exist.
 	site, err := model.GetSite(ctx, svc.settingsStore, sandboxSite)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// Nothing to do.
-	case datastore.ErrNoSuchEntity:
-		var owner string
+	case errors.Is(err, datastore.ErrNoSuchEntity):
+		owner := sandboxOwner
 		if svc.standalone {
 			owner = localEmail
-		} else {
-			owner = sandboxOwner
 		}
 		site = &model.Site{
 			Skey:         sandboxSite,
@@ -193,9 +192,7 @@ func (svc *service) setup(ctx context.Context) {
 		}
 
 	default:
-		if err != nil {
-			log.Fatalf("could not get sandbox site: %v", err)
-		}
+		log.Fatalf("could not get sandbox site: %v", err)
 	}
 	log.Printf("set up datatore")
 
@@ -254,11 +251,9 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 	svc.logRequest(r)
 	ctx := r.Context()
 
-	var (
-		wi = r.FormValue("wi")
-		ma = r.FormValue("ma")
-		dk = r.FormValue("dk")
-	)
+	wi := r.FormValue("wi")
+	ma := r.FormValue("ma")
+	dk := r.FormValue("dk")
 
 	// Validate request params.
 	if wi == "" {
@@ -296,14 +291,14 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != datastore.ErrNoSuchEntity {
+	if !errors.Is(err, datastore.ErrNoSuchEntity) {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("could not get device: %v", err))
 		return
 	}
 
 	// We've detected a new device.
 	// Check if device key is a recently-generated TOTP.
-	ok, err := checkTOTP(dk, totpDigits, svc.totpSecret, totpGracePeriod)
+	ok, err := totp.CheckTOTP(dk, time.Now(), totpGracePeriod, totpDigits, svc.totpSecret)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("could not check TOTP: %v", err))
 		return
@@ -351,25 +346,6 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("could not send notification: %v", err))
 		return
 	}
-}
-
-// checkTOTP returns true if the supplied string is a TOTP that has
-// been generated within the given grace period, or false otherwise.
-// It is recommended to use a grace period of at least one minute.
-// TODO: Move this to utils/totp.
-func checkTOTP(s string, digits int, secret []byte, period time.Duration) (bool, error) {
-	now := time.Now()
-	from := now.Add(-period)
-	for t := now; t.After(from) || t.Equal(from); t = t.Add(-time.Minute) {
-		p, err := totp.GenerateTOTP(t, digits, secret)
-		if err != nil {
-			return false, fmt.Errorf("could not get generate TOTP: %v", err)
-		}
-		if p == s {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // writeDeviceConfig writes a minimal device configuration in CSV
