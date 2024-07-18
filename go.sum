@@ -22,8 +22,8 @@ github.com/Knetic/govaluate v3.0.0+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8L
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/ausocean/av v1.0.1 h1:tAySpPDJtQKKqdgtUy9S/drJ1/m2U7ejGWs7d+SUjsU=
 github.com/ausocean/av v1.0.1/go.mod h1:qY9Hcob+nqP4K1iAXXRWJflKISyPz53CN0c+jgnZFcQ=
-github.com/ausocean/openfish v0.1.4 h1:OcRLBVJseXBMBjZvwCZ4+b4TasTs0ynZE3oRNHtyl0s=
-github.com/ausocean/openfish v0.1.4/go.mod h1:0tA6pM/N4auUcKtZAoQFsJyTIM8WM1fxWGhCrQP07ak=
+github.com/ausocean/openfish v0.1.5 h1:h3Ujs5xlguYYKS9vcy2sWt1gDumTRUByd7elmZYy+4U=
+github.com/ausocean/openfish v0.1.5/go.mod h1:0tA6pM/N4auUcKtZAoQFsJyTIM8WM1fxWGhCrQP07ak=
 github.com/ausocean/utils v0.2.0 h1:O4Qe3KzzlskC/HIvu/NdLkAC0+kmmlu/FmOFvEfa1Tw=
 github.com/ausocean/utils v0.2.0/go.mod h1:rhfT+xT9CBFN6DWwJxzn+mr1yOXd7ZbaLmzRwJcmm7Y=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
