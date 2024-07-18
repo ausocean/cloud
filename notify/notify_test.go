@@ -20,8 +20,10 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 )
@@ -31,9 +33,11 @@ const (
 	kind          Kind = "test"
 	message            = "This is a test."
 	testRecipient      = "somebody"
+	testPeriod         = time.Duration(60 * time.Minute)
 )
 
 // testStore implements a dummy time store for testing purposes.
+// NB: This implementation does not implement storage.
 type testStore struct {
 	Attempted int
 	Delivered int
@@ -154,7 +158,7 @@ func TestSend(t *testing.T) {
 }
 
 // Sendable alternates between returning true and false.
-func (ts *testStore) Sendable(ctx context.Context, skey int64, key string) (bool, error) {
+func (ts *testStore) Sendable(ctx context.Context, skey int64, period time.Duration, key string) (bool, error) {
 	ts.Attempted++
 	if ts.Attempted%2 == 0 {
 		return false, nil
@@ -177,16 +181,23 @@ func TestRecipients(t *testing.T) {
 		t.Errorf("Init with error: %v", err)
 	}
 
-	want := n.Recipients(0, kind)
-	if want != testRecipient {
-		t.Errorf("Recipients returned %s, expected %s", want, testRecipient)
+	r, p, err := n.Recipients(0, kind)
+	if err != nil {
+		t.Errorf("Recipients returned unexpected error %v", err)
+	}
+	if r != testRecipient || p != testPeriod {
+		t.Errorf("Recipients returned %s,%v, expected %s,%v", r, p, testRecipient, testPeriod)
+	}
+	r, p, err = n.Recipients(0, "")
+	if !errors.Is(err, ErrNoRecipient) {
+		t.Errorf("Recipients did not return ErrNoRecipient")
 	}
 }
 
 // testLookup is our recipient lookup function.
-func testLookup(skey int64, kind Kind) []string {
+func testLookup(skey int64, kind Kind) ([]string, time.Duration, error) {
 	if kind == "test" {
-		return []string{testRecipient}
+		return []string{testRecipient}, testPeriod, nil
 	}
-	return []string{""}
+	return nil, 0, ErrNoRecipient
 }

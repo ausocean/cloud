@@ -204,7 +204,8 @@ func (svc *service) setup(ctx context.Context) {
 	err = svc.notifier.Init(
 		notify.WithSecrets(secrets),
 		notify.WithRecipient(site.OpsEmail),
-		notify.WithStore(notify.NewTimeStore(svc.settingsStore, time.Duration(site.NotifyPeriod)*time.Hour)),
+		notify.WithStore(notify.NewStore(svc.settingsStore)),
+		notify.WithPeriod(time.Duration(site.NotifyPeriod)*time.Hour),
 	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)

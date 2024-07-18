@@ -9,8 +9,6 @@ require (
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/openfish v0.1.5
 	github.com/ausocean/utils v0.2.0
-	github.com/ausocean/openfish v0.1.5
-	github.com/ausocean/utils v0.1.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/sessions v1.2.2
