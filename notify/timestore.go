@@ -27,7 +27,7 @@ import (
 	"github.com/ausocean/openfish/datastore"
 )
 
-// TimeStore is an interface for notification persistence
+// TimeStore is an interface for notification persistence.
 type TimeStore interface {
 	Sendable(context.Context, int64, time.Duration, string) (bool, error) // Returns true if a message is sendable.
 	Sent(context.Context, int64, string) error                            // Records the time a message was sent.
@@ -41,12 +41,6 @@ type timeStore struct {
 // NewStore returns a TimeStore that uses a datastore for
 // notification persistence.
 func NewStore(store datastore.Store) TimeStore {
-	return &timeStore{store: store}
-}
-
-// NewTimeStore is retained for backwards compatibility.
-// The notification period is now set by the WithPeriod option.
-func NewTimeStore(store datastore.Store, period time.Duration) TimeStore {
 	return &timeStore{store: store}
 }
 
