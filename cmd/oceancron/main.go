@@ -40,7 +40,7 @@ import (
 
 const (
 	projectID          = "oceancron"
-	version            = "v0.1.0"
+	version            = "v0.1.1"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
