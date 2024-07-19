@@ -148,7 +148,7 @@ func setup(ctx context.Context) {
 }
 
 // cronRecipients looks up the email address and notification period
-// to use the given site. Currently, this is just the ops email
+// for the given site. Currently, this is just the ops email
 // address. The notification kind is not currently used.
 func cronRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
 	ctx := context.Background()
