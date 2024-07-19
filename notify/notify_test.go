@@ -185,8 +185,8 @@ func TestRecipients(t *testing.T) {
 	if err != nil {
 		t.Errorf("Recipients returned unexpected error %v", err)
 	}
-	if r != testRecipient || p != testPeriod {
-		t.Errorf("Recipients returned %s,%v, expected %s,%v", r, p, testRecipient, testPeriod)
+	if len(r) != 1 || r[0] != testRecipient || p != testPeriod {
+		t.Errorf("Recipients returned %v,%v, expected [%s],%v", r, p, testRecipient, testPeriod)
 	}
 	r, p, err = n.Recipients(0, "")
 	if !errors.Is(err, ErrNoRecipient) {

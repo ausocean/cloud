@@ -91,36 +91,37 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	if err != nil {
 		return err
 	}
+	csvRecipients := strings.Join(recipients, ",")
 
 	for _, f := range n.filters {
 		if !strings.Contains(msg, f) {
-			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), recipients)
+			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), csvRecipients)
 			return nil
 		}
 	}
 
 	if n.store != nil {
-		sendable, err := n.store.Sendable(ctx, skey, period, string(kind)+"."+recipients)
+		sendable, err := n.store.Sendable(ctx, skey, period, string(kind)+"."+csvRecipients)
 		if err != nil {
 			log.Printf("store.IsSendable returned error: %v", err)
 		}
 		if !sendable {
-			log.Printf("too soon to send %s message to %s", kind, recipients)
+			log.Printf("too soon to send %s message to %s", kind, csvRecipients)
 			return nil
 		}
 	}
 
-	log.Printf("sending %s message to %s", kind, recipients)
+	log.Printf("sending %s message to %s", kind, csvRecipients)
 
 	if n.publicKey != "" && n.privateKey != "" {
 		clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
-		var recipients mailjet.RecipientsV31
-		for _, recipient := range n.recipients {
-			recipients = append(recipients, mailjet.RecipientV31{Email: recipient})
+		var mjRecipients mailjet.RecipientsV31
+		for _, recipient := range recipients {
+			mjRecipients = append(mjRecipients, mailjet.RecipientV31{Email: recipient})
 		}
 		info := []mailjet.InfoMessagesV31{{
 			From:     &mailjet.RecipientV31{Email: n.sender},
-			To:       &recipients,
+			To:       &mjRecipients,
 			Subject:  strings.Title(string(kind)) + " notification",
 			TextPart: msg,
 		}}
@@ -133,7 +134,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	}
 
 	if n.store != nil {
-		err := n.store.Sent(ctx, skey, string(kind)+"."+recipients)
+		err := n.store.Sent(ctx, skey, string(kind)+"."+csvRecipients)
 		if err != nil {
 			log.Printf("store.Sent returned error: %v", err)
 		}
@@ -142,21 +143,27 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	return nil
 }
 
-// Recipients returns a comma-separated list of recipients and their
-// corresponding minimum notification period for the given site and
-// notification kind. It uses the WithRecipientLookup function if
-// supplied, else defaults to the recipients supplied by either
-// WithRecipient or WithRecipients and the period supplied by
-// WithPeriod. ErrNoRecipient is returned if there are no recipients.
-func (n *Notifier) Recipients(skey int64, kind Kind) (string, time.Duration, error) {
+// Recipients returns a list of recipients and their corresponding
+// minimum notification period for the given site and notification
+// kind. It uses the WithRecipientLookup function if supplied, else
+// defaults to the recipients supplied by either WithRecipient or
+// WithRecipients and the period supplied by WithPeriod.
+// ErrNoRecipient is returned if there are no recipients.
+func (n *Notifier) Recipients(skey int64, kind Kind) ([]string, time.Duration, error) {
 	recipients := n.recipients
 	period := n.period
 	var err error
 	if n.lookup != nil {
 		recipients, period, err = n.lookup(skey, kind)
 	}
-	if err == nil && len(recipients) == 0 {
-		return "", 0, ErrNoRecipient
+	var recipients_ []string
+	for _, r := range recipients {
+		if r != "" {
+			recipients_ = append(recipients_, r)
+		}
 	}
-	return strings.Join(recipients, ","), period, err
+	if len(recipients_) == 0 {
+		return nil, 0, ErrNoRecipient
+	}
+	return recipients_, period, err
 }
