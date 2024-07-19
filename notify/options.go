@@ -20,9 +20,6 @@ package notify
 
 import (
 	"errors"
-	"log"
-	"os"
-	"strconv"
 	"time"
 )
 
@@ -117,32 +114,4 @@ func WithSecrets(secrets map[string]string) Option {
 		}
 		return nil
 	}
-}
-
-// GetOpsEnvVars is a helper function that returns the values for
-// the OPS_EMAIL and OPS_PERIOD env vars or supplies their defaults instead.
-// TODO: Deprecate this.
-func GetOpsEnvVars() (string, time.Duration) {
-	const (
-		defaultEmail  = "ops@ausocean.org"
-		defaultPeriod = 60
-	)
-
-	email := os.Getenv("OPS_EMAIL")
-	if email == "" {
-		email = defaultEmail
-	}
-
-	period := defaultPeriod
-	v := os.Getenv("OPS_PERIOD")
-	if v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			log.Printf("could not convert OPS_PERIOD '%s' to an integer: %v", v, err)
-		} else {
-			period = n
-		}
-	}
-
-	return email, time.Duration(period) * time.Minute
 }
