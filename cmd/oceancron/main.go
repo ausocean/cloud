@@ -40,7 +40,7 @@ import (
 
 const (
 	projectID          = "oceancron"
-	version            = "v0.1.1"
+	version            = "v0.1.2"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
@@ -54,6 +54,7 @@ var (
 	cronScheduler *scheduler
 	cronSecret    []byte
 	notifier      notify.Notifier
+	storePath     string
 )
 
 func main() {
@@ -72,6 +73,7 @@ func main() {
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -112,7 +114,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 	} else {
 		log.Printf("Running in App Engine mode")
 		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")

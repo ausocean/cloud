@@ -43,7 +43,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.1"
+	version            = "v0.1.2"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -57,6 +57,7 @@ var (
 	standalone    bool
 	notifier      notify.Notifier
 	cronSecret    []byte
+	storePath     string
 )
 
 func main() {
@@ -75,6 +76,7 @@ func main() {
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -114,7 +116,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", projectID, "store")
+		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 		if err != nil {
 			mediaStore = settingsStore
 		}

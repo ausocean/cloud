@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	version   = "v0.2.0"
+	version   = "v0.2.1"
 	projectID = "datablue"
 )
 
@@ -46,10 +46,11 @@ var (
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
+	storePath     string
 )
 
 func main() {
-	defaultPort := 8080
+	defaultPort := 8083
 	v := os.Getenv("PORT")
 	if v != "" {
 		i, err := strconv.Atoi(v)
@@ -64,6 +65,7 @@ func main() {
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup.
@@ -117,7 +119,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "datablue", "store")
+		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 		if err == nil {
 			settingsStore = mediaStore
 			err = setupLocal(ctx, settingsStore)

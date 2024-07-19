@@ -72,7 +72,7 @@ import (
 )
 
 const (
-	version     = "v0.21.2"
+	version     = "v0.21.3"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -123,6 +123,7 @@ var (
 	standalone    bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
+	storePath     string
 )
 
 var (
@@ -180,6 +181,7 @@ func main() {
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&cronURL, "cronurl", cronServiceURL, "Cron service URL")
 	flag.StringVar(&tvURL, "tvurl", tvServiceURL, "TV service URL")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -286,7 +288,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 		if err == nil {
 			settingsStore = mediaStore
 			err = setupLocal(ctx, settingsStore)
