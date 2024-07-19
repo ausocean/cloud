@@ -159,7 +159,11 @@ func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error getting site: %w", err)
 	}
-	return []string{site.OpsEmail, site.YouTubeEmail}, time.Duration(site.NotifyPeriod) * time.Hour, nil
+	recipients := []string{site.OpsEmail}
+	if site.YouTubeEmail != "" {
+		recipients = append(recipients, site.YouTubeEmail)
+	}
+	return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // broadcastHandler handles broadcast save requests from broadcast clients.
