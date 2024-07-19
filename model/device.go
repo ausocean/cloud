@@ -40,6 +40,7 @@ import (
 const typeDevice = "Device"
 
 // Device state statuses.
+// Keep StatusText and IsValidStatus is sync with this list.
 const (
 	DeviceStatusOK = iota
 	DeviceStatusUpdate
@@ -430,4 +431,14 @@ func DeviceIsUp(ctx context.Context, store datastore.Store, mac string) (bool, e
 		return true, nil
 	}
 	return false, nil
+}
+
+// IsValidStatus returns true if the supplied number is a valid status, or false otherwise.
+func IsValidStatus(n int64) bool {
+	switch n {
+	case DeviceStatusOK, DeviceStatusUpdate, DeviceStatusReboot, DeviceStatusDebug, DeviceStatusUpgrade, DeviceStatusAlarm, DeviceStatusTest, DeviceStatusShutdown:
+		return true
+	default:
+		return false
+	}
 }
