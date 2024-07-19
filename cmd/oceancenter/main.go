@@ -51,7 +51,7 @@ import (
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.0"
+	version   = "v0.2.1"
 )
 
 // Site/device defaults.
@@ -88,13 +88,14 @@ type service struct {
 	standalone    bool
 	notifier      notify.Notifier
 	totpSecret    []byte
+	storePath     string
 }
 
 // app is an instance of our service.
 var app *service = &service{}
 
 func main() {
-	defaultPort := 8083
+	defaultPort := 8084
 	v := os.Getenv("PORT")
 	if v != "" {
 		i, err := strconv.Atoi(v)
@@ -109,6 +110,7 @@ func main() {
 	flag.BoolVar(&app.standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&app.storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -146,7 +148,7 @@ func (svc *service) setup(ctx context.Context) {
 	var err error
 	if svc.standalone {
 		log.Printf("Running in standalone mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
 	} else {
 		log.Printf("Running in App Engine mode")
 		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
