@@ -30,6 +30,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -135,11 +136,27 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-	recipient, period := notify.GetOpsEnvVars()
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
+
+	err = notifier.Init(
+		notify.WithSecrets(secrets),
+		notify.WithRecipientLookup(cronRecipients),
+		notify.WithStore(notify.NewStore(settingsStore)),
+	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+}
+
+// cronRecipients looks up the email address and notification period
+// for the given site. Currently, this is just the ops email
+// address. The notification kind is not currently used.
+func cronRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
+	ctx := context.Background()
+	site, err := model.GetSite(ctx, settingsStore, skey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error getting site: %w", err)
+	}
+	return []string{site.OpsEmail}, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // setupCronScheduler starts a cron scheduler and loads all stored jobs.

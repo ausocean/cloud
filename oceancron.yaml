@@ -4,8 +4,6 @@ runtime: go121
 env_variables:
   NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
-  OPS_EMAIL: ops@ausocean.org
-  OPS_PERIOD: 60
 
 main: cmd/oceancron
 

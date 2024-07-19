@@ -67,13 +67,12 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
 const (
-	version     = "v0.21.1"
+	version     = "v0.21.2"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -124,7 +123,6 @@ var (
 	standalone    bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
-	notifier      notify.Notifier
 )
 
 var (
@@ -305,16 +303,6 @@ func setup(ctx context.Context) {
 	}
 
 	model.RegisterEntities()
-
-	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
-	if err != nil {
-		log.Fatalf("could not get secrets: %v", err)
-	}
-	recipient, period := notify.GetOpsEnvVars()
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
-	if err != nil {
-		log.Fatalf("could not set up email notifier: %v", err)
-	}
 
 	templateDir := "cmd/oceanbench/t"
 	if standalone || os.Getenv("GAE_ENV") == "" {

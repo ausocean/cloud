@@ -20,18 +20,16 @@ package notify
 
 import (
 	"errors"
-	"log"
-	"os"
-	"strconv"
 	"time"
 )
 
 // Option is a functional option supplied to Init.
 type Option func(*Notifier) error
 
-// Lookup is a function that returns the recipients for a given site
-// key and notification kind. It is used with WithRecipientLookup.
-type Lookup func(int64, Kind) []string
+// Lookup is a function that returns the recipients and their
+// corresponding notification period for a given site and notification
+// kind. It is used with WithRecipientLookup.
+type Lookup func(int64, Kind) ([]string, time.Duration, error)
 
 // WithSender sets the sender email address.
 func WithSender(sender string) Option {
@@ -58,7 +56,8 @@ func WithRecipients(recipients []string) Option {
 }
 
 // WithRecipientLookup sets a function to look up multiple recipients
-// given a site key and a notification kind.
+// and their corresponding notification period given a site key and a
+// notification kind.
 func WithRecipientLookup(lookup Lookup) Option {
 	return func(n *Notifier) error {
 		n.lookup = lookup
@@ -81,10 +80,20 @@ func WithFilter(filter string) Option {
 }
 
 // WithStore applies a TimeStore for notification persistence.
-// See TimeStore.
+// Combine with WithPeriod to enforce a minimum notification period.
+// See also TimeStore.
 func WithStore(store TimeStore) Option {
 	return func(n *Notifier) error {
 		n.store = store
+		return nil
+	}
+}
+
+// WithPeriod sets the minimum notification period, which is used in
+// conjunction with a TimeStore.
+func WithPeriod(period time.Duration) Option {
+	return func(n *Notifier) error {
+		n.period = period
 		return nil
 	}
 }
@@ -105,31 +114,4 @@ func WithSecrets(secrets map[string]string) Option {
 		}
 		return nil
 	}
-}
-
-// GetOpsEnvVars is a helper function that returns the values for
-// the OPS_EMAIL and OPS_PERIOD env vars or supplies their defaults instead.
-func GetOpsEnvVars() (string, time.Duration) {
-	const (
-		defaultEmail  = "ops@ausocean.org"
-		defaultPeriod = 60
-	)
-
-	email := os.Getenv("OPS_EMAIL")
-	if email == "" {
-		email = defaultEmail
-	}
-
-	period := defaultPeriod
-	v := os.Getenv("OPS_PERIOD")
-	if v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			log.Printf("could not convert OPS_PERIOD '%s' to an integer: %v", v, err)
-		} else {
-			period = n
-		}
-	}
-
-	return email, time.Duration(period) * time.Minute
 }

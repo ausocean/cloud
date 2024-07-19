@@ -8,8 +8,6 @@ env_variables:
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
   YOUTUBE_SECRETS: gs://ausocean/YouTube-secrets.json
   OAUTH2_CALLBACK: https://bench.cloudblue.org/oauth2callback
-  OPS_EMAIL: ops@ausocean.org
-  OPS_PERIOD: 60
 
 main: cmd/oceanbench
 

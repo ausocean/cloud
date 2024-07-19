@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -42,7 +43,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.0"
+	version            = "v0.1.1"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -94,7 +95,7 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // indexHandler handles requests for the home page and is here just to
-// test that the service is running. Devices do not use this endpoint.
+// test that the service is running. Clients do not use this endpoint.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	w.Write([]byte(projectID + " " + version))
@@ -138,12 +139,31 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-	recipient, period := notify.GetOpsEnvVars()
 
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
+	err = notifier.Init(
+		notify.WithSecrets(secrets),
+		notify.WithRecipientLookup(tvRecipients),
+		notify.WithStore(notify.NewStore(settingsStore)),
+	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+}
+
+// tvRecipients looks up the email addresses and notification period
+// for the given site,
+// TODO: Use the notification kind for improved granularity.
+func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
+	ctx := context.Background()
+	site, err := model.GetSite(ctx, settingsStore, skey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error getting site: %w", err)
+	}
+	recipients := []string{site.OpsEmail}
+	if site.YouTubeEmail != "" {
+		recipients = append(recipients, site.YouTubeEmail)
+	}
+	return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // broadcastHandler handles broadcast save requests from broadcast clients.
