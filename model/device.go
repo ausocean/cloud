@@ -50,6 +50,7 @@ const (
 	DeviceStatusAlarm
 	DeviceStatusTest
 	DeviceStatusShutdown
+	DeviceStatusEnd
 )
 
 var (
@@ -435,10 +436,8 @@ func DeviceIsUp(ctx context.Context, store datastore.Store, mac string) (bool, e
 
 // IsValidStatus returns true if the supplied number is a valid status, or false otherwise.
 func IsValidStatus(n int64) bool {
-	switch n {
-	case DeviceStatusOK, DeviceStatusUpdate, DeviceStatusReboot, DeviceStatusDebug, DeviceStatusUpgrade, DeviceStatusAlarm, DeviceStatusTest, DeviceStatusShutdown:
-		return true
-	default:
-		return false
-	}
+	if 0 <= n && n < DeviceStatusEnd {
+        return true
+    }
+    return false
 }
