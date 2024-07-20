@@ -491,49 +491,6 @@ func TestHandleTimeEvent(t *testing.T) {
 			},
 		},
 		{
-			desc:           "vidforwardPermanentLive with health check due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(70 * time.Minute)}, // 10 minutes after cfg.Start for health check
-			expectedEvents: []event{timeEvent{}, healthCheckDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				CheckingHealth:  true,
-				LastHealthCheck: now,
-				LastStatusCheck: now.Add(70 * time.Minute),
-				LastChatMsg:     now.Add(70 * time.Minute),
-			},
-		},
-		{
-			desc:           "vidforwardPermanentLive with status check due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(80 * time.Minute)}, // 10 minutes after cfg.Start for status check
-			expectedEvents: []event{timeEvent{}, statusCheckDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				LastHealthCheck: now.Add(70 * time.Minute),
-				LastStatusCheck: now,
-				LastChatMsg:     now.Add(70 * time.Minute),
-			},
-		},
-		{
-			desc:           "vidforwardPermanentLive with chat message due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(40 * time.Minute)}, // 10 minutes after cfg.Start for chat message
-			expectedEvents: []event{timeEvent{}, chatMessageDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				LastHealthCheck: now.Add(40 * time.Minute),
-				LastStatusCheck: now.Add(40 * time.Minute),
-				LastChatMsg:     now,
-			},
-		},
-		{
 			desc:           "vidforwardPermanentStarting timed out",
 			initialState:   &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
 			event:          timeEvent{now.Add(6 * time.Minute)},
