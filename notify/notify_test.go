@@ -48,7 +48,6 @@ type testStore struct {
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
-	n := Notifier{}
 	ts := testStore{}
 
 	// Even numbered attempts should not be delivered.
@@ -94,7 +93,7 @@ func TestStore(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		err := n.Init(WithRecipient(test.recipient), WithFilter(test.filter), WithStore(&ts))
+		n, err := NewMailjetNotifier(WithRecipient(test.recipient), WithFilter(test.filter), WithStore(&ts))
 		if err != nil {
 			t.Errorf("%d: Init failed with error: %v", i, err)
 		}
@@ -120,7 +119,6 @@ func TestSend(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	n := Notifier{}
 
 	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
 	if err != nil {
@@ -146,7 +144,7 @@ func TestSend(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		err := n.Init(WithSecrets(secrets), WithRecipients(test.recipients))
+		n, err := NewMailjetNotifier(WithSecrets(secrets), WithRecipients(test.recipients))
 		if err != nil {
 			t.Errorf("%d: Init failed with error: %v", i, err)
 		}
@@ -175,8 +173,7 @@ func (ts *testStore) Sent(ctx context.Context, skey int64, key string) error {
 
 // TestRecipients tests recipient lookup.
 func TestRecipients(t *testing.T) {
-	n := Notifier{}
-	err := n.Init(WithRecipientLookup(testLookup))
+	n, err := NewMailjetNotifier(WithRecipientLookup(testLookup))
 	if err != nil {
 		t.Errorf("Init with error: %v", err)
 	}

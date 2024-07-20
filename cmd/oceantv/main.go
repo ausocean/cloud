@@ -43,7 +43,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.4"
+	version            = "v0.1.5"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -142,7 +142,7 @@ func setup(ctx context.Context) {
 		log.Fatalf("could not get secrets: %v", err)
 	}
 
-	err = notifier.Init(
+	notifier, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(tvRecipients),
 		notify.WithStore(notify.NewStore(settingsStore)),

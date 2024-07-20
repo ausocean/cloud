@@ -40,7 +40,7 @@ import (
 
 const (
 	projectID          = "oceancron"
-	version            = "v0.1.2"
+	version            = "v0.1.3"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
@@ -138,8 +138,7 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-
-	err = notifier.Init(
+	notifier, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(cronRecipients),
 		notify.WithStore(notify.NewStore(settingsStore)),

@@ -203,7 +203,7 @@ func (svc *service) setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-	err = svc.notifier.Init(
+	svc.notifier, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipient(site.OpsEmail),
 		notify.WithStore(notify.NewStore(svc.settingsStore)),
