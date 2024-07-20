@@ -33,7 +33,7 @@ import (
 // opsHealthNotify sends a health email notification for site with skey and message
 // msg.
 func opsHealthNotify(ctx context.Context, sKey int64, msg string) error {
-	return notifier.Send(ctx, sKey, "health", msg)
+	return notifier.Send(ctx, sKey, broadcastGeneric, msg)
 }
 
 // opsHealthNotifyFunc returns a closure using opsHealthNotify to be given to the
