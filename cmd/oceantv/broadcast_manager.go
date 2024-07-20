@@ -371,3 +371,11 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 	return nil
 }
+
+// opsHealthNotifyFunc returns a closure of notifier.Send given to the
+// broadcast.BroadcastStream function for notifications.
+func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string) error {
+	return func(msg string) error {
+		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
+	}
+}
