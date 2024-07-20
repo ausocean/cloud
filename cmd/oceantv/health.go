@@ -30,16 +30,10 @@ import (
 	"context"
 )
 
-// opsHealthNotify sends a health email notification for site with skey and message
-// msg.
-func opsHealthNotify(ctx context.Context, sKey int64, msg string) error {
-	return notifier.Send(ctx, sKey, broadcastGeneric, msg)
-}
-
-// opsHealthNotifyFunc returns a closure using opsHealthNotify to be given to the
+// opsHealthNotifyFunc returns a closure of notifier.Send given to the
 // broadcast.BroadcastStream function for notifications.
 func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string) error {
 	return func(msg string) error {
-		return opsHealthNotify(ctx, cfg.SKey, msg)
+		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
 	}
 }
