@@ -332,6 +332,12 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
 		}
+		// Ensure that the CheckBroadcast cron exists.
+		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
+		err = model.PutCron(context.Background(), settingsStore, c)
+		if err != nil {
+			return reportError(w, r, req, "Warning: failed to verify checkbroadcasts cron: %v", err)
+		}
 
 	case broadcastDelete:
 		err = deleteBroadcast(ctx, &req, settingsStore)
