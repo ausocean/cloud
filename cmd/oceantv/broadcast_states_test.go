@@ -204,7 +204,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 }
 
 func TestBroadcastCfgToState(t *testing.T) {
-	ctx := &broadcastContext{}
+	ctx := minimalMockBroadcastContext(t)
 	tests := []struct {
 		name string
 		cfg  BroadcastConfig
@@ -311,7 +311,7 @@ func TestBroadcastCfgToState(t *testing.T) {
 }
 
 func TestStateMarshalUnmarshal(t *testing.T) {
-	ctx := &broadcastContext{}
+	ctx := minimalMockBroadcastContext(t)
 	tests := []struct {
 		desc  string
 		s     state
@@ -440,7 +440,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			var cfg BroadcastConfig
 			updateBroadcastBasedOnState(tt.s, &cfg)
-			state := broadcastCfgToState(&broadcastContext{cfg: &cfg})
+			state := broadcastCfgToState(&broadcastContext{cfg: &cfg, logOutput: t.Log, notifier: newMockNotifier()})
 			if !tt.equal(tt.s, state) {
 				t.Errorf("expected state %v, got %v", tt.s, state)
 			}

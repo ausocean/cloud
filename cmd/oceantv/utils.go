@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,8 +42,8 @@ import (
 
 // logForBroadcast logs a message with the broadcast name and ID.
 // This is useful to keep track of logs for different broadcasts.
-func logForBroadcast(cfg *BroadcastConfig, msg string, args ...interface{}) {
-	log.Println(fmtForBroadcastLog(cfg, msg, args...))
+func logForBroadcast(cfg *BroadcastConfig, output func(v ...any), msg string, args ...interface{}) {
+	output(fmtForBroadcastLog(cfg, msg, args...))
 }
 
 func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) string {

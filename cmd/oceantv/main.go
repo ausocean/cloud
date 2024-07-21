@@ -43,7 +43,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.5"
+	version            = "v0.1.6"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -210,7 +210,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(&cfg, msg, args...)
+		logForBroadcast(&cfg, log.Println, msg, args...)
 	}
 
 	// Use the broadcast manager to save the broadcast.

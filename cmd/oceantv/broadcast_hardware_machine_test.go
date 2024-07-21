@@ -13,15 +13,15 @@ func TestGetHardwareStateStorage(t *testing.T) {
 	}{
 		{"test hardware off", newHardwareOff()},
 		{"test hardware on", newHardwareOn()},
-		{"test hardware starting", newHardwareStarting(&broadcastContext{camera: &dummyHardwareManager{}})},
-		{"test hardware stopping", newHardwareStopping(&broadcastContext{})},
-		{"test hardware restarting", newHardwareRestarting(&broadcastContext{})},
+		{"test hardware starting", newHardwareStarting(&broadcastContext{camera: &dummyHardwareManager{}, logOutput: t.Log, notifier: newMockNotifier()})},
+		{"test hardware stopping", newHardwareStopping(minimalMockBroadcastContext(t))},
+		{"test hardware restarting", newHardwareRestarting(minimalMockBroadcastContext(t))},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stateStr := hardwareStateToString(tt.initialState)
-			gotState := getHardwareState(&broadcastContext{cfg: &BroadcastConfig{HardwareState: stateStr}})
+			gotState := getHardwareState(&broadcastContext{cfg: &BroadcastConfig{HardwareState: stateStr}, logOutput: t.Log, notifier: newMockNotifier()})
 			if reflect.TypeOf(gotState) != reflect.TypeOf(tt.initialState) {
 				t.Errorf("expected state %v, got %v", tt.initialState, gotState)
 			}
@@ -30,11 +30,7 @@ func TestGetHardwareStateStorage(t *testing.T) {
 }
 
 func TestHandleHardwareStoppedEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	tests := []struct {
 		desc          string
@@ -71,7 +67,7 @@ func TestHandleHardwareStoppedEvent(t *testing.T) {
 
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
-			bCtx.man = NewDummyManager(t, bCtx.cfg)
+			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -90,11 +86,7 @@ func TestHandleHardwareStoppedEvent(t *testing.T) {
 }
 
 func TestHandleHardwareStopFailedEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	tests := []struct {
 		desc          string
@@ -126,7 +118,7 @@ func TestHandleHardwareStopFailedEvent(t *testing.T) {
 
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
-			bCtx.man = NewDummyManager(t, bCtx.cfg)
+			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -145,11 +137,7 @@ func TestHandleHardwareStopFailedEvent(t *testing.T) {
 }
 
 func TestHandleHardwareStartFailedEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	tests := []struct {
 		desc          string
@@ -183,7 +171,7 @@ func TestHandleHardwareStartFailedEvent(t *testing.T) {
 
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
-			bCtx.man = NewDummyManager(t, bCtx.cfg)
+			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -202,11 +190,7 @@ func TestHandleHardwareStartFailedEvent(t *testing.T) {
 }
 
 func TestHandleHardwareStartedEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	tests := []struct {
 		desc          string
@@ -240,7 +224,7 @@ func TestHandleHardwareStartedEvent(t *testing.T) {
 
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
-			bCtx.man = NewDummyManager(t, bCtx.cfg)
+			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
@@ -259,11 +243,7 @@ func TestHandleHardwareStartedEvent(t *testing.T) {
 }
 
 func TestHandleHardwareResetRequestEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{hardwareHealthy: true},
-	}
+	bCtx := standardMockBroadcastContext(t, true)
 
 	tests := []struct {
 		desc          string
@@ -305,7 +285,7 @@ func TestHandleHardwareResetRequestEvent(t *testing.T) {
 
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = &BroadcastConfig{}
-			bCtx.man = NewDummyManager(t, bCtx.cfg)
+			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
 			sm := newHardwareStateMachine(bCtx)
