@@ -150,20 +150,22 @@ func (m *OceanBroadcastManager) StartBroadcast(
 		}
 	}
 
-	err := svc.StartBroadcast(
-		cfg.Name,
-		cfg.ID,
-		cfg.SID,
-		saveLinkFunc(),
-		func() error { return nil }, // This is now handled by the hardware state machine.
-		func() error { return nil }, // This is now handled by the hardware state machine.
-		opsHealthNotifyFunc(ctx, cfg),
-		func() error { return nil }) // This is now handled by the hardware state machine.
-	if err != nil {
-		onFailure(fmt.Errorf("could not start broadcast: %w", err))
-		return
-	}
-	onSuccess()
+	go func() {
+		err := svc.StartBroadcast(
+			cfg.Name,
+			cfg.ID,
+			cfg.SID,
+			saveLinkFunc(),
+			func() error { return nil }, // This is now handled by the hardware state machine.
+			func() error { return nil }, // This is now handled by the hardware state machine.
+			opsHealthNotifyFunc(ctx, cfg),
+			func() error { return nil }) // This is now handled by the hardware state machine.
+		if err != nil {
+			onFailure(fmt.Errorf("could not start broadcast: %w", err))
+			return
+		}
+		onSuccess()
+	}()
 }
 
 // StopBroadcast stops a broadcast using the youtube live streaming API.

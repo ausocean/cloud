@@ -320,6 +320,11 @@ func (c *revidCameraClient) stop(ctx *broadcastContext) {
 }
 
 func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(event event)) {
+	if mac == 0 {
+		log("camera is not set in configuration")
+		publish(invalidConfigurationEvent{"camera mac is empty"})
+		return
+	}
 	log("checking status of device with mac: %d", mac)
 	alive, err := model.DeviceIsUp(context.Background(), store, model.MacDecode(mac))
 	if err != nil {
