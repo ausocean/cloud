@@ -40,7 +40,6 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -237,143 +236,21 @@ func performChecksInternalThroughStateMachine(
 	timeNow func() time.Time,
 	store datastore.Store,
 ) error {
-	// Handy log wrapper that shims with interfaces that like the
-	// classic func(string, ...interface{}) signature.
-	// This can be used by a lot of the components here.
-	log := func(msg string, args ...interface{}) {
-		logForBroadcast(cfg, log.Println, msg, args...)
-	}
-
-	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
-	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := newYouTubeBroadcastService(tokenURI, log)
-
-	// Create the broadcast manager. This will manage things between the broadcast, the
-	// hardware and the YouTube broadcast service.
-	man := newOceanBroadcastManager(svc, cfg, store, log)
-
-	// Don't do anything if not enabled.
-	if !cfg.Enabled {
-		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
-		try(
-			man.Save(nil, func(_cfg *BroadcastConfig) {
-				_cfg.AttemptingToStart = false
-				_cfg.Transitioning = false
-				_cfg.Active = false
-			}),
-			"could not update config with callback",
-			log,
-		)
-		log("not enabled, not doing anything")
-		return nil
-	}
-
-	log("performing checks")
-
 	// We'll use this context to determine if anything happens after the handler
 	// has returned (we might need to store states for next time).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// This will get called in the case that events are published to
-	// the event bus but our context is cancelled. This might happen if a routine
-	// is used to do a broadcast start and this function returns. We'll save them
-	// to the config and then load them next time we perform checks.
-	storeEventsAfterCtx := func(event event) {
-		log("storing event after cancel: %s", event.String())
-		try(
-			man.Save(nil, func(_cfg *BroadcastConfig) {
-				_cfg.Events = append(_cfg.Events, event.String())
-			}),
-			"could not update config with callback",
-			log,
-		)
-	}
-
-	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
-
-	// This handler will subscribe to the event bus and perform checks corresponding
-	// to health, status and chat message events. It will also publish events to the
-	// event bus in the case that the broadcast needs to be stopped or the status
-	// is complete or revoked.
-	healthStatusChatHandler := func(event event) error {
-		switch event.(type) {
-		case healthCheckDueEvent:
-			err := man.HandleHealth(
-				context.Background(),
-				cfg,
-				store,
-				func() { bus.publish(goodHealthEvent{}) },
-				func(issue string) {
-					bus.publish(badHealthEvent{})
-					err := notifier.Send(ctx, cfg.SKey, broadcastGeneric, fmt.Sprintf("broadcast: %s\n ID: %s\n, poor stream health, status: %s", cfg.Name, cfg.ID, issue))
-					if err != nil {
-						log("could not send notification for poor stream health: %v", err)
-					}
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("could not handle health: %w", err)
-			}
-		case statusCheckDueEvent:
-			err := man.HandleStatus(
-				context.Background(),
-				cfg,
-				store,
-				svc,
-				func(Ctx, *Cfg, Store, Svc) error {
-					bus.publish(finishEvent{})
-					return nil
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("could not handle status: %w", err)
-			}
-		case chatMessageDueEvent:
-			man.HandleChatMessage(context.Background(), cfg)
-		}
-		return nil
-	}
-
-	bus.subscribe(healthStatusChatHandler)
-
-	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, nil, nil}
-
-	// The hardware state machine will be responsible for the external camera hardware
-	// state.
-	hsm := newHardwareStateMachine(broadcastContext)
-	bus.subscribe(hsm.handleEvent)
-
-	// The broadcast state machine will be responsible for higher level broadcast control.
-	sm, err := getBroadcastStateMachine(broadcastContext)
+	sys, err := newBroadcastSystem(ctx, store, cfg, log.Println)
 	if err != nil {
-		return fmt.Errorf("could not get broadcast state machine: %w", err)
-	}
-	bus.subscribe(sm.handleEvent)
-
-	// Get any events stored in the cfg that haven't been published yet
-	// publish them, and then remove them from the config.
-	for _, event := range cfg.Events {
-		e, err := stringToEvent(event)
-		if err != nil {
-			log("could not convert event string to event: %v", err)
-			continue
-		}
-		log("publishing stored event: %s", e.String())
-		bus.publish(e)
+		return fmt.Errorf("could not create broadcast system: %w", err)
 	}
 
-	err = man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Events = nil })
+	err = sys.tick()
 	if err != nil {
-		return fmt.Errorf("could not clear config events: %w", err)
+		return fmt.Errorf("could not tick broadcast system: %w", err)
 	}
 
-	// Now send a time event to invoke the standard periodic time based actions e.g.
-	// start, stop etc.
-	bus.publish(timeEvent{time.Now()})
-
-	log("finishing check")
 	return nil
 }
 
