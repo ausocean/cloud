@@ -208,3 +208,33 @@ func NewPulseSuppressVar(suppress bool) *Variable {
 		Value: strconv.FormatBool(suppress),
 	}
 }
+
+// NewDevice1Actuator returns a new actuator to control device 1.
+// The actuator is linked to the Power 1 variable (and Pin).
+func NewDevice1Actuator() ActuatorV2 {
+	return actuatorShim(
+		"Device 1",
+		"Power1",
+		PinPower1,
+	)
+}
+
+// NewDevice2Actuator returns a new actuator to control device 2.
+// The actuator is linked to the Power 2 variable (and Pin).
+func NewDevice2Actuator() ActuatorV2 {
+	return actuatorShim(
+		"Device 2",
+		"Power2",
+		PinPower2,
+	)
+}
+
+// NewDevice3Actuator returns a new actuator to control device 3.
+// The actuator is linked to the Power 3 variable (and Pin).
+func NewDevice3Actuator() ActuatorV2 {
+	return actuatorShim(
+		"Device 3",
+		"Power3",
+		PinPower3,
+	)
+}

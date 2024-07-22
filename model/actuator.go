@@ -45,6 +45,13 @@ const (
 	numParts       = 4 // Number of parts for actuator in TSV.
 )
 
+// Pins used by actuators.
+const (
+	PinPower1 Pin = "D16"
+	PinPower2 Pin = "D14"
+	PinPower3 Pin = "D15"
+)
+
 // Actuator represents an actuator datastore type to link a device output with
 // a variable such that that variable value changes the physical device output value.
 // NB: This type is deprecated. See ActuatorV2.
@@ -225,4 +232,9 @@ func GetActuatorsV2(ctx context.Context, store datastore.Store, mac int64) ([]Ac
 func DeleteActuatorV2(ctx context.Context, store datastore.Store, mac int64, pin string) error {
 	k := store.NameKey(typeActuatorV2, strconv.FormatInt(mac, 10)+"."+pin)
 	return store.DeleteMulti(ctx, []*datastore.Key{k})
+}
+
+// actuatorShim is a thin shim between typed values and an actuator.
+func actuatorShim(name, variable string, pin Pin) ActuatorV2 {
+	return ActuatorV2{Name: name, Var: variable, Pin: string(pin)}
 }
