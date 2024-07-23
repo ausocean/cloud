@@ -326,6 +326,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
 		if err != nil {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
+			return
 		}
 		err := saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
@@ -336,7 +337,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
 		err = model.PutCron(context.Background(), settingsStore, c)
 		if err != nil {
-			return reportError(w, r, req, "Warning: failed to verify checkbroadcasts cron: %v", err)
+			reportError(w, r, req, "Warning: failed to verify checkbroadcasts cron: %v", err)
+			return
 		}
 
 	case broadcastDelete:
