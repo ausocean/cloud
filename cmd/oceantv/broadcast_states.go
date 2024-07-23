@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -19,10 +20,20 @@ type broadcastContext struct {
 	fwd    ForwardingService
 	bus    eventBus
 	camera hardwareManager
+
+	// When nil, defaults to log.Println. Useful to plug in test implementation.
+	logOutput func(v ...any)
+
+	// When nil, global notifier will be used. Useful to plug in test implementation.
+	notifier notify.Notifier
 }
 
 func (ctx *broadcastContext) log(msg string, args ...interface{}) {
-	logForBroadcast(ctx.cfg, msg, args...)
+	// If context has nil log output, use standard logger log.Println.
+	if ctx.logOutput == nil {
+		ctx.logOutput = log.Println
+	}
+	logForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
 }
 
 const (
@@ -34,10 +45,18 @@ const (
 )
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
-	logForBroadcast(ctx.cfg, msg, args...)
-	err := notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
+	ctx.log(msg, args...)
+	// If context has nil notifier, use global notifier
+	if ctx.notifier == nil {
+		ctx.log("broadcast context notifier is nil, setting to global notifier")
+		if notifier == nil {
+			panic("global notifier is nil")
+		}
+		ctx.notifier = notifier
+	}
+	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
-		logForBroadcast(ctx.cfg, "could not send health notification: %v", err)
+		ctx.log("could not send health notification: %v", err)
 	}
 }
 

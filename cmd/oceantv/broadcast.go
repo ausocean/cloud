@@ -241,7 +241,7 @@ func performChecksInternalThroughStateMachine(
 	// classic func(string, ...interface{}) signature.
 	// This can be used by a lot of the components here.
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(cfg, msg, args...)
+		logForBroadcast(cfg, log.Println, msg, args...)
 	}
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
@@ -338,7 +338,7 @@ func performChecksInternalThroughStateMachine(
 	bus.subscribe(healthStatusChatHandler)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}}
+	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, nil, nil}
 
 	// The hardware state machine will be responsible for the external camera hardware
 	// state.
