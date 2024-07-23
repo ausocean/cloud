@@ -37,11 +37,12 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 }
 
 const (
-	broadcastGeneric   notify.Kind = "broadcast-generic"   // Problems where cause is unknown.
-	broadcastForwarder notify.Kind = "broadcast-forwarder" // Problems related to out forwarding service i.e. can't stream slate.
-	broadcastHardware  notify.Kind = "broadcast-hardware"  // Problems related to streaming hardware i.e. controllers and cameras.
-	broadcastNetwork   notify.Kind = "broadcast-network"   // Problems related to bad bandwidth, generally indicated by bad health events.
-	broadcastSoftware  notify.Kind = "broadcast-software"  // Problems related to the functioning of our broadcast software.
+	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown.
+	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
+	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
+	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
+	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
+	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
 )
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
@@ -692,7 +693,7 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 		}
 	}
 
-	go ctx.man.StartBroadcast(
+	ctx.man.StartBroadcast(
 		context.Background(),
 		cfg,
 		ctx.store,

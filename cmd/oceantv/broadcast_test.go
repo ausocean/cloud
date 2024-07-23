@@ -223,6 +223,11 @@ func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
 	h.stopCalled = true
 }
 func (h *dummyHardwareManager) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
+	if h.checkMAC && mac == 0 {
+		log("camera is not set in configuration")
+		publish(invalidConfigurationEvent{"camera mac is empty"})
+		return
+	}
 	log("status is %v, hardware is healthy %v", status, h.hardwareHealthy)
 	if status == true && h.hardwareHealthy {
 		publish(event)

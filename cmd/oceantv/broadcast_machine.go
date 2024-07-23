@@ -71,6 +71,8 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleFixFailureEvent(event.(fixFailureEvent))
 	case controllerFailureEvent:
 		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
+	case invalidConfigurationEvent:
+		sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
 	case healthCheckDueEvent:
 		sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
 	case statusCheckDueEvent:
@@ -118,6 +120,46 @@ func (sm *broadcastStateMachine) handleHealthCheckDueEvent(event healthCheckDueE
 
 func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueEvent) {
 	sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
+}
+
+func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidConfigurationEvent) {
+	sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+	try(
+		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+		"could not disable broadcast after invalid configuration",
+		sm.logAndNotifySoftware,
+	)
+
+	switch sm.currentState.(type) {
+	case
+		*vidforwardPermanentStarting,
+		*vidforwardPermanentLive,
+		*vidforwardPermanentLiveUnhealthy,
+		*vidforwardPermanentSlate,
+		*vidforwardPermanentSlateUnhealthy,
+		*vidforwardPermanentTransitionLiveToSlate,
+		*vidforwardPermanentTransitionSlateToLive,
+		*vidforwardPermanentFailure:
+
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+
+	case
+		*vidforwardSecondaryStarting,
+		*vidforwardSecondaryLive,
+		*vidforwardSecondaryLiveUnhealthy:
+
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+
+	case
+		*directStarting,
+		*directLive,
+		*directLiveUnhealthy:
+
+		sm.transition(newDirectIdle(sm.ctx))
+
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
 }
 
 func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) error {
@@ -437,4 +479,8 @@ func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ..
 
 func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
 	sm.ctx.logAndNotify(broadcastSoftware, msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotifyConfiguration(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(broadcastConfiguration, msg, args...)
 }
