@@ -24,7 +24,7 @@ import (
 )
 
 // Option is a functional option supplied to Init.
-type Option func(*Notifier) error
+type Option func(*MailjetNotifier) error
 
 // Lookup is a function that returns the recipients and their
 // corresponding notification period for a given site and notification
@@ -33,7 +33,7 @@ type Lookup func(int64, Kind) ([]string, time.Duration, error)
 
 // WithSender sets the sender email address.
 func WithSender(sender string) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.sender = sender
 		return nil
 	}
@@ -41,7 +41,7 @@ func WithSender(sender string) Option {
 
 // WithRecipient sets a single recipient email address.
 func WithRecipient(recipient string) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.recipients = []string{recipient}
 		return nil
 	}
@@ -49,7 +49,7 @@ func WithRecipient(recipient string) Option {
 
 // WithRecipients sets multiple recipient email addresses.
 func WithRecipients(recipients []string) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.recipients = recipients
 		return nil
 	}
@@ -59,7 +59,7 @@ func WithRecipients(recipients []string) Option {
 // and their corresponding notification period given a site key and a
 // notification kind.
 func WithRecipientLookup(lookup Lookup) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.lookup = lookup
 		return nil
 	}
@@ -69,7 +69,7 @@ func WithRecipientLookup(lookup Lookup) Option {
 // are applied, they form a compound conjunctive filter.
 // Specifiying an empty filter string clears the filter.
 func WithFilter(filter string) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		if filter == "" {
 			n.filters = nil
 			return nil
@@ -83,7 +83,7 @@ func WithFilter(filter string) Option {
 // Combine with WithPeriod to enforce a minimum notification period.
 // See also TimeStore.
 func WithStore(store TimeStore) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.store = store
 		return nil
 	}
@@ -92,7 +92,7 @@ func WithStore(store TimeStore) Option {
 // WithPeriod sets the minimum notification period, which is used in
 // conjunction with a TimeStore.
 func WithPeriod(period time.Duration) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		n.period = period
 		return nil
 	}
@@ -102,7 +102,7 @@ func WithPeriod(period time.Duration) Option {
 // notably the public and private mail API keys. This is always
 // required, unless testing.
 func WithSecrets(secrets map[string]string) Option {
-	return func(n *Notifier) error {
+	return func(n *MailjetNotifier) error {
 		var ok bool
 		n.publicKey, ok = secrets["mailjetPublicKey"]
 		if !ok {

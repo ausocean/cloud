@@ -32,8 +32,13 @@ import (
 
 const defaultSender = "vidgrindservice@gmail.com"
 
-// Notifier represents a notifier that uses the MailJet API to send email.
-type Notifier struct {
+type Notifier interface {
+	Send(context.Context, int64, Kind, string) error
+	Recipients(int64, Kind) ([]string, time.Duration, error)
+}
+
+// Notifier represents a notifier that uses the Mailjet API to send email.
+type MailjetNotifier struct {
 	mutex      sync.Mutex    // Lock access.
 	sender     string        // Sender email address.
 	recipients []string      // Recipient email addresses.
@@ -41,8 +46,8 @@ type Notifier struct {
 	store      TimeStore     // Notification store (optional).
 	period     time.Duration // Minimum notification period (optional)
 	filters    []string      // Message filters (optional).
-	publicKey  string        // Public key for accessing MailJet API.
-	privateKey string        // Public key for accessing MailJet API.
+	publicKey  string        // Public key for accessing Mailjet API.
+	privateKey string        // Public key for accessing Mailjet API.
 }
 
 // Kind represents a kind of notification.
@@ -51,14 +56,13 @@ type Kind string
 // Errors.
 var ErrNoRecipient = errors.New("no recipient")
 
-// Init initializes a notifier with the supplied options. See
-// WithSender, WithRecipient, WithFilter, WithStore and WithSecrets
-// for a description of the various options. Secrets are required to
-// send actual emails using the MailJet API, but can be omitted during
-// testing. It is permissable to re-initalize a Notifier with
-// different options, however missing options will revert to their
-// defaults.
-func (n *Notifier) Init(options ...Option) error {
+// NewMailjetNotifier initializes a MailjetNotifier with the supplied
+// options. See WithSender, WithRecipient, WithFilter, WithStore and
+// WithSecrets for a description of the various options. Secrets are
+// required to send actual emails using the Mailjet API, but can be
+// omitted during testing.
+func NewMailjetNotifier(options ...Option) (*MailjetNotifier, error) {
+	n := &MailjetNotifier{}
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -76,17 +80,17 @@ func (n *Notifier) Init(options ...Option) error {
 	for i, opt := range options {
 		err := opt(n)
 		if err != nil {
-			return fmt.Errorf("could not apply option # %d, %v", i, err)
+			return nil, fmt.Errorf("could not apply option # %d, %v", i, err)
 		}
 	}
 
-	return nil
+	return n, nil
 }
 
 // Send sends an email message, depending on what options are present.
 // With filters, then all filters must match in order to send.
 // With persistence, then the message is sent only if it was not sent to the same recipient recently.
-func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
+func (n *MailjetNotifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
 	recipients, period, err := n.Recipients(skey, kind)
 	if err != nil {
 		return err
@@ -149,7 +153,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 // defaults to the recipients supplied by either WithRecipient or
 // WithRecipients and the period supplied by WithPeriod.
 // ErrNoRecipient is returned if there are no recipients.
-func (n *Notifier) Recipients(skey int64, kind Kind) ([]string, time.Duration, error) {
+func (n *MailjetNotifier) Recipients(skey int64, kind Kind) ([]string, time.Duration, error) {
 	recipients := n.recipients
 	period := n.period
 	var err error

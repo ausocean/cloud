@@ -142,7 +142,7 @@ func setup(ctx context.Context) {
 		log.Fatalf("could not get secrets: %v", err)
 	}
 
-	err = notifier.Init(
+	notifier, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(tvRecipients),
 		notify.WithStore(notify.NewStore(settingsStore)),
