@@ -333,6 +333,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
 		}
+		req.commonData.Msg = "broadcast saved successfully"
+
 		// Ensure that the CheckBroadcast cron exists.
 		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
 		err = model.PutCron(context.Background(), settingsStore, c)
@@ -347,6 +349,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not delete broadcast: %v", err)
 			return
 		}
+		req.commonData.Msg = "broadcast deleted successfully"
 
 	case vidforwardSlateUpdate:
 		const fieldName = "slate-file"
