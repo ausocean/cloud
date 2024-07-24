@@ -35,15 +35,18 @@ import (
 	"sync"
 	"time"
 
+	runtime "runtime/debug"
+
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
+	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
 )
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.8"
+	version            = "v0.2.0"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -82,13 +85,40 @@ func main() {
 	// Perform one-time setup or bail.
 	setup(context.Background())
 
-	http.HandleFunc("/_ah/warmup", warmupHandler)
-	http.HandleFunc("/broadcast/", broadcastHandler)
-	http.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
-	http.HandleFunc("/", indexHandler)
+	mux := utils.NewRecoveryCallbackServeMux(func(w http.ResponseWriter, panicErr any) {
+		panicMsg := fmt.Sprintf("panic: %v, stack: %v", panicErr, string(runtime.Stack()))
+		log.Println(panicMsg)
+		http.Error(w, fmt.Sprintf("panic: %v", panicErr), http.StatusInternalServerError)
+
+		secrets, err := gauth.GetSecrets(context.Background(), projectID, nil)
+		if err != nil {
+			log.Println("could not get secrets, can't send panic recovery notification:", err)
+			return
+		}
+		const (
+			sender   = "vidgrindservice@gmail.com"
+			opsEmail = "ops@ausocean.org"
+		)
+		err = notify.Send(
+			secrets["mailjetPublicKey"],
+			secrets["mailjetPrivateKey"],
+			sender,
+			[]string{opsEmail},
+			"URGENT: Ocean TV Panic Recovery",
+			panicMsg,
+		)
+		if err != nil {
+			log.Printf("could not send panic recovery email: %v", err)
+		}
+	})
+
+	mux.HandleFunc("/_ah/warmup", warmupHandler)
+	mux.HandleFunc("/broadcast/", broadcastHandler)
+	mux.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
+	mux.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
 }
 
 // warmupHandler handles App Engine warmup requests. It simply ensures that the instance is loaded.
