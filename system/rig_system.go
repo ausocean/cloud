@@ -22,6 +22,38 @@ type RigSystem struct {
 // Option represents functional options that can be passed to NewRigSystem.
 type Option func(*RigSystem) error
 
+// WithVariables is a functional option that adds the passed variables to the RigSystem.
+func WithVariables(variables ...*model.Variable) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		sys.Variables = append(sys.Variables, variables...)
+		return nil
+	}
+}
+
+// WithSensors is a functional option that adds the passed sensors to the RigSystem.
+func WithSensors(sensors ...*model.SensorV2) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		sys.Sensors = append(sys.Sensors, sensors...)
+		return nil
+	}
+}
+
+// WithActuators is a functional option that adds the passed actuators to the RigSystem.
+func WithActuators(actuators ...*model.ActuatorV2) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		sys.Actuators = append(sys.Actuators, actuators...)
+		return nil
+	}
+}
+
+// WithPeripherals is a functional option that adds the passed peripherals to the RigSystem.
+func WithPeripherals(peripherals ...*model.Device) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		sys.Peripherals = append(sys.Peripherals, peripherals...)
+		return nil
+	}
+}
+
 // NewRigSystem returns a new RigSystem with the given options. It is the callers
 // responsibility to put the components into the datastore.
 //

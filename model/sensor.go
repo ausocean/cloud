@@ -470,8 +470,8 @@ func DeleteSensorV2(ctx context.Context, store datastore.Store, mac int64, pin s
 }
 
 // shim is a thin shim between typed values and a sensor.
-func sensorShim(name string, pin Pin, qty nmea.Code, function Func, units Unit, format Format, args ...Arg) SensorV2 {
-	return SensorV2{
+func sensorShim(name string, pin Pin, qty nmea.Code, function Func, units Unit, format Format, args ...Arg) *SensorV2 {
+	return &SensorV2{
 		Name:     name,
 		Pin:      string(pin),
 		Quantity: string(qty),
