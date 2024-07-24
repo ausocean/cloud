@@ -118,20 +118,7 @@ func (n *MailjetNotifier) Send(ctx context.Context, skey int64, kind Kind, msg s
 	log.Printf("sending %s message to %s", kind, csvRecipients)
 
 	if n.publicKey != "" && n.privateKey != "" {
-		clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
-		var mjRecipients mailjet.RecipientsV31
-		for _, recipient := range recipients {
-			mjRecipients = append(mjRecipients, mailjet.RecipientV31{Email: recipient})
-		}
-		info := []mailjet.InfoMessagesV31{{
-			From:     &mailjet.RecipientV31{Email: n.sender},
-			To:       &mjRecipients,
-			Subject:  strings.Title(string(kind)) + " notification",
-			TextPart: msg,
-		}}
-
-		msgs := mailjet.MessagesV31{Info: info}
-		_, err := clt.SendMailV31(&msgs)
+		err = send(n.publicKey, n.privateKey, n.sender, n.recipients, strings.Title(string(kind))+" notification", msg)
 		if err != nil {
 			return fmt.Errorf("could not send mail: %w", err)
 		}
@@ -145,6 +132,32 @@ func (n *MailjetNotifier) Send(ctx context.Context, skey int64, kind Kind, msg s
 	}
 
 	return nil
+}
+
+func send(publicKey, privateKey, sender string, recipients []string, subject, msg string) error {
+	clt := mailjet.NewMailjetClient(publicKey, privateKey)
+	var mjRecipients mailjet.RecipientsV31
+	for _, recipient := range recipients {
+		mjRecipients = append(mjRecipients, mailjet.RecipientV31{Email: recipient})
+	}
+	info := []mailjet.InfoMessagesV31{{
+		From:     &mailjet.RecipientV31{Email: sender},
+		To:       &mjRecipients,
+		Subject:  subject,
+		TextPart: msg,
+	}}
+
+	msgs := mailjet.MessagesV31{Info: info}
+	_, err := clt.SendMailV31(&msgs)
+	if err != nil {
+		return fmt.Errorf("could not send mail: %w", err)
+	}
+	return nil
+}
+
+// Send sends an email message using the Mailjet API.
+func Send(publicKey, privateKey, sender string, recipients []string, subject, msg string) error {
+	return send(publicKey, privateKey, sender, recipients, subject, msg)
 }
 
 // Recipients returns a list of recipients and their corresponding
