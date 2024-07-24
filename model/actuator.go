@@ -235,6 +235,6 @@ func DeleteActuatorV2(ctx context.Context, store datastore.Store, mac int64, pin
 }
 
 // actuatorShim is a thin shim between typed values and an actuator.
-func actuatorShim(name, variable string, pin Pin) ActuatorV2 {
-	return ActuatorV2{Name: name, Var: variable, Pin: string(pin)}
+func actuatorShim(name, variable string, pin Pin) *ActuatorV2 {
+	return &ActuatorV2{Name: name, Var: variable, Pin: string(pin)}
 }

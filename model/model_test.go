@@ -43,47 +43,50 @@ import (
 )
 
 const (
-	testSiteKey    = 1
-	testSiteKey2   = 2
-	testSiteName   = "OfficialTestSite"
-	testSiteLat    = -34.91805
-	testSiteLng    = 138.60475
-	testSiteTZ     = 9.5
-	testSiteEnc    = `{"Skey":1,"Name":"OfficialTestSite","OwnerEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Created":"0001-01-01T00:00:00Z"}`
-	testDevMac     = "00:00:00:00:00:01"
-	testDevMa      = 1
-	testMID        = testDevMa << 4
-	testDevDkey    = 10000001
-	testDevID      = "TestDevice"
-	testDevInputs  = "A0,V0"
-	testDevEnc     = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
-	testDevEnc2    = "1\t10000001\t1\tTestDevice\t\t\t"
-	testDevEnc3    = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
-	testUserEmail  = "test@ausocean.org"
-	testUserEmail2 = "test@testdomain.org"
-	testUserPerm   = ReadPermission
-	testUserPerm2  = ReadPermission | WritePermission
-	testUserTime   = 1572157457
-	testUserTime2  = 1572157475
-	testUserEnc    = "1\ttest@ausocean.org\t\t1\t1572157457"
-	testUserEnc2   = "2\ttest@ausocean.org\t\t3\t1572157475"
-	testDevMac2    = "00:00:00:00:00:0F"
-	testDevMac3    = "1A:2B:3C:4F:50:61"
-	testDevMa2     = 15
-	testMID2       = testDevMa2 << 4
-	testMIDAll     = 0
-	testDevPin     = "V0"
-	testDevPin2    = "S1"
-	testMetadata   = "loc:-34.91805,138.60475"
-	testTimestamp  = datastore.EpochStart
-	testGeohash    = "r1f9652gs"
-	testTextMID    = (testDevMa << 4) | 0x08
-	testDomain     = "@ausocean.org"
-	testDomain2    = "@testdomain.org"
-	testOtherUser  = "other@ausocean.org"
-	testJunkUser   = "someone@junk.com"
-	anyDomain      = "@"
-	testCronEnc    = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
+	testSiteKey      = 1
+	testSiteKey2     = 2
+	testSiteName     = "OfficialTestSite"
+	testSiteLat      = -34.91805
+	testSiteLng      = 138.60475
+	testSiteTZ       = 9.5
+	testSiteEnc      = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"social@ausocean.org","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"0001-01-01T00:00:00Z","Created":"0001-01-01T00:00:00Z"}`
+	testDevMac       = "00:00:00:00:00:01"
+	testDevMa        = 1
+	testMID          = testDevMa << 4
+	testDevDkey      = 10000001
+	testDevID        = "TestDevice"
+	testDevInputs    = "A0,V0"
+	testDevEnc       = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
+	testDevEnc2      = "1\t10000001\t1\tTestDevice\t\t\t"
+	testDevEnc3      = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
+	testUserEmail    = "test@ausocean.org"
+	testUserEmail2   = "test@testdomain.org"
+	testOpsEmail     = "ops@ausocean.org"
+	testYouTubeEmail = "social@ausocean.org"
+	testUserPerm     = ReadPermission
+	testUserPerm2    = ReadPermission | WritePermission
+	testUserTime     = 1572157457
+	testUserTime2    = 1572157475
+	testUserEnc      = "1\ttest@ausocean.org\t\t1\t1572157457"
+	testUserEnc2     = "2\ttest@ausocean.org\t\t3\t1572157475"
+	testDevMac2      = "00:00:00:00:00:0F"
+	testDevMac3      = "1A:2B:3C:4F:50:61"
+	testDevMa2       = 15
+	testMID2         = testDevMa2 << 4
+	testMIDAll       = 0
+	testDevPin       = "V0"
+	testDevPin2      = "S1"
+	testMetadata     = "loc:-34.91805,138.60475"
+	testTimestamp    = datastore.EpochStart
+	testGeohash      = "r1f9652gs"
+	testTextMID      = (testDevMa << 4) | 0x08
+	testDomain       = "@ausocean.org"
+	testDomain2      = "@testdomain.org"
+	testOtherUser    = "other@ausocean.org"
+	testJunkUser     = "someone@junk.com"
+	testOrg          = "Ausocean"
+	anyDomain        = "@"
+	testCronEnc      = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
 )
 
 // TestEncoding tests various encoding and decoding functions.
@@ -167,7 +170,7 @@ func TestEncoding(t *testing.T) {
 	}
 
 	// Site encoding/decoding.
-	site := Site{Skey: testSiteKey, Name: testSiteName, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true}
+	site := Site{testSiteKey, testSiteName, "", testOrg, "", testUserEmail, testUserEmail, testSiteLat, testSiteLng, testSiteTZ, 0, true, false, false, false, time.Unix(datastore.EpochStart, 0), time.Unix(datastore.EpochStart, 0)}
 	enc = site.Encode()
 	if string(enc) != testSiteEnc {
 		t.Errorf("Site.Encode failed: expected %s, got %s", testSiteEnc, enc)
@@ -435,7 +438,7 @@ func testEntities(t *testing.T, kind string) {
 	var site Site
 	if kind == "file" {
 		// Create a site.
-		site = Site{Skey: testSiteKey, Name: testSiteName, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true}
+		site = Site{testSiteKey, testSiteName, "", testOrg, testUserEmail, testUserEmail, testUserEmail, testSiteLat, testSiteLng, testSiteTZ, 0, true, false, false, false, time.Unix(datastore.EpochStart, 0), time.Unix(datastore.EpochStart, 0)}
 		err = PutSite(ctx, store, &site)
 		if err != nil {
 			t.Errorf("store.Put(Site) failed with error: %v", err)
