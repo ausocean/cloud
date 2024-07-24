@@ -38,7 +38,7 @@ const humidityScaleFactor Arg = 0.1
 var tempLinearArgs []Arg = []Arg{0.1, -273.15}
 
 // BatteryVoltageSensor returns a default calibrated battery sensor.
-func BatteryVoltageSensor(scaleFactor float64) SensorV2 {
+func BatteryVoltageSensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
 		"Battery Voltage",
 		pinBatteryVoltage,
@@ -51,7 +51,7 @@ func BatteryVoltageSensor(scaleFactor float64) SensorV2 {
 }
 
 // AnalogValueSensor returns an analog value sensor.
-func AnalogValueSensor() SensorV2 {
+func AnalogValueSensor() *SensorV2 {
 	return sensorShim(
 		"Analog Value",
 		pinAnalogValue,
@@ -63,7 +63,7 @@ func AnalogValueSensor() SensorV2 {
 }
 
 // AirTemperatureSensor returns an air temperature sensor.
-func AirTemperatureSensor() SensorV2 {
+func AirTemperatureSensor() *SensorV2 {
 	return sensorShim(
 		"Air Temperature",
 		pinAirTemperature,
@@ -76,7 +76,7 @@ func AirTemperatureSensor() SensorV2 {
 }
 
 // HumiditySensor returns a humidity sensor.
-func HumiditySensor() SensorV2 {
+func HumiditySensor() *SensorV2 {
 	return sensorShim(
 		"Humidity",
 		pinHumidity,
@@ -89,7 +89,7 @@ func HumiditySensor() SensorV2 {
 }
 
 // WaterTemperatureSensor returns an water temperature sensor.
-func WaterTemperatureSensor() SensorV2 {
+func WaterTemperatureSensor() *SensorV2 {
 	return sensorShim(
 		"Water Temperature",
 		pinWaterTemperature,
@@ -211,7 +211,7 @@ func NewPulseSuppressVar(suppress bool) *Variable {
 
 // NewDevice1Actuator returns a new actuator to control device 1.
 // The actuator is linked to the Power 1 variable (and Pin).
-func NewDevice1Actuator() ActuatorV2 {
+func NewDevice1Actuator() *ActuatorV2 {
 	return actuatorShim(
 		"Device 1",
 		"Power1",
@@ -221,7 +221,7 @@ func NewDevice1Actuator() ActuatorV2 {
 
 // NewDevice2Actuator returns a new actuator to control device 2.
 // The actuator is linked to the Power 2 variable (and Pin).
-func NewDevice2Actuator() ActuatorV2 {
+func NewDevice2Actuator() *ActuatorV2 {
 	return actuatorShim(
 		"Device 2",
 		"Power2",
@@ -231,7 +231,7 @@ func NewDevice2Actuator() ActuatorV2 {
 
 // NewDevice3Actuator returns a new actuator to control device 3.
 // The actuator is linked to the Power 3 variable (and Pin).
-func NewDevice3Actuator() ActuatorV2 {
+func NewDevice3Actuator() *ActuatorV2 {
 	return actuatorShim(
 		"Device 3",
 		"Power3",
