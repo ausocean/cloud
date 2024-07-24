@@ -258,6 +258,13 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		req.BroadcastVars = filteredVars
 	}
 
+	// Get site to use the site's timezone.
+	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
+	if err != nil {
+		reportError(w, r, req, "could not get site to establish timezone: %v", err)
+		return
+	}
+
 	// Try to load existing broadcast settings for newly selected broadcast.
 	var loaded bool
 	action := stringToAction(req.Action, req)
@@ -267,12 +274,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not load existing settings for broadcast: %v", err)
 			return
 		}
-	}
-
-	// Get site to use the site's timezone.
-	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
-	if err != nil {
-		log.Printf("GetSite error: %v", err)
 	}
 
 	// Get all Cameras and Controllers that could be used by the broadcast.
