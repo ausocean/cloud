@@ -67,13 +67,12 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
 const (
-	version     = "v0.21.1"
+	version     = "v0.21.6"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -124,7 +123,7 @@ var (
 	standalone    bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
-	notifier      notify.Notifier
+	storePath     string
 )
 
 var (
@@ -182,6 +181,7 @@ func main() {
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&cronURL, "cronurl", cronServiceURL, "Cron service URL")
 	flag.StringVar(&tvURL, "tvurl", tvServiceURL, "TV service URL")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -288,7 +288,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 		if err == nil {
 			settingsStore = mediaStore
 			err = setupLocal(ctx, settingsStore)
@@ -305,16 +305,6 @@ func setup(ctx context.Context) {
 	}
 
 	model.RegisterEntities()
-
-	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
-	if err != nil {
-		log.Fatalf("could not get secrets: %v", err)
-	}
-	recipient, period := notify.GetOpsEnvVars()
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
-	if err != nil {
-		log.Fatalf("could not set up email notifier: %v", err)
-	}
 
 	templateDir := "cmd/oceanbench/t"
 	if standalone || os.Getenv("GAE_ENV") == "" {

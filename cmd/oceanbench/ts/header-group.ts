@@ -22,17 +22,24 @@ class HeaderGroup extends LitElement {
         }
 
         #top-bar {
-            padding-inline: 100px;
             background-color: var(--primary-blue);
             position: fixed;
             top: 0px;
             left: 0px;
             box-sizing: border-box;
-            width: 100%;
             display: flex;
-            gap: 50px;
+            @media (max-width: 900px) {
+                flex-direction: column;
+                padding-top: 5px;
+                padding-bottom: 10px;
+            }
+            @media (min-width: 900px) {
+                gap: 50px;
+                height: 60px;
+                padding-inline: 100px;
+            }
+            width: 100%;
             align-items: center;
-            height: 60px;
             z-index: 1001;
         }
 
@@ -52,6 +59,7 @@ class HeaderGroup extends LitElement {
 
         #title {
             color: white;
+            margin: 0px;
         }
     `;
 
@@ -75,10 +83,8 @@ class HeaderGroup extends LitElement {
                 
             `
             : html`
-                <slot name="nav-menu"></slot>
                 <div id="top-bar">
                     <h1 id="title">CloudBlue</h1>
-                    <slot id="site-menu" name="site-menu"></slot>
                 </div>
             `
     }

@@ -26,12 +26,14 @@ LICENSE
 package main
 
 import (
+	"fmt"
 	"io"
-	"log"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -60,12 +62,11 @@ type dummyManager struct {
 	cfg                                                                *Cfg
 	startDone                                                          chan struct{}
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
-	savedCfgs                                                          map[string]*Cfg
 	t                                                                  *testing.T
 }
 
-func NewDummyManager(t *testing.T, cfg *Cfg) *dummyManager {
-	log.Println("creating dummy manager")
+func newDummyManager(t *testing.T, cfg *Cfg) *dummyManager {
+	t.Log("creating dummy manager")
 	return &dummyManager{
 		t:         t,
 		startDone: make(chan struct{}),
@@ -110,11 +111,9 @@ func (d *dummyManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) er
 }
 func (d *dummyManager) Save(ctx Ctx, update func(*BroadcastConfig)) error {
 	d.saved = true
-	d.logf("saving broadcast: %s", d.cfg.Name)
-	if d.savedCfgs == nil {
-		d.savedCfgs = make(map[string]*Cfg)
+	if update != nil {
+		update(d.cfg)
 	}
-	d.savedCfgs[d.cfg.Name] = d.cfg
 	return nil
 }
 func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call BroadcastCallback) error {
@@ -142,6 +141,8 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 // It basically does nothing and is used to test the broadcast functions.
 type dummyStore struct{}
 
+func newDummyStore() *dummyStore { return &dummyStore{} }
+
 func (d *dummyStore) IDKey(kind string, id int64) *Key       { return nil }
 func (d *dummyStore) NameKey(kind, name string) *Key         { return nil }
 func (d *dummyStore) IncompleteKey(kind string) *Key         { return nil }
@@ -161,6 +162,8 @@ func (d *dummyStore) Delete(ctx Ctx, key *Key) error                        { re
 // dummyService is a dummy implementation of the BroadcastService interface.
 // It does nothing and is used to test the broadcast functions.
 type dummyService struct{}
+
+func newDummyService() *dummyService { return &dummyService{} }
 
 func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
@@ -197,10 +200,21 @@ type dummyHardwareManager struct {
 	hardwareHealthy bool
 	startCalled     bool
 	stopCalled      bool
+	checkMAC        bool
 }
 
-func newDummyHardwareManager(healthy bool) *dummyHardwareManager {
-	return &dummyHardwareManager{hardwareHealthy: healthy}
+func withMACSanitisation() func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.checkMAC = true
+	}
+}
+
+func newDummyHardwareManager(healthy bool, options ...func(*dummyHardwareManager)) *dummyHardwareManager {
+	m := &dummyHardwareManager{hardwareHealthy: healthy}
+	for _, option := range options {
+		option(m)
+	}
+	return m
 }
 func (h *dummyHardwareManager) start(ctx *broadcastContext) {
 	h.startCalled = true
@@ -209,10 +223,168 @@ func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
 	h.stopCalled = true
 }
 func (h *dummyHardwareManager) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
+	if h.checkMAC && mac == 0 {
+		log("camera is not set in configuration")
+		publish(invalidConfigurationEvent{"camera mac is empty"})
+		return
+	}
 	log("status is %v, hardware is healthy %v", status, h.hardwareHealthy)
 	if status == true && h.hardwareHealthy {
 		publish(event)
 	} else if status == false {
 		publish(event)
 	}
+}
+
+// mockNotifier to implement Notifier interface.
+type mockNotifier struct {
+	// Holds sent messages for a site and kind.
+	sent map[int64]map[notify.Kind][]string
+}
+
+func newMockNotifier() *mockNotifier {
+	return &mockNotifier{sent: make(map[int64]map[notify.Kind][]string)}
+}
+
+func (m *mockNotifier) Send(ctx Ctx, skey int64, kind notify.Kind, msg string) error {
+	if m.sent[skey] == nil {
+		m.sent[skey] = make(map[notify.Kind][]string)
+	}
+	m.sent[skey][kind] = append(m.sent[skey][kind], msg)
+	return nil
+}
+
+// checkNotifications checks that the messages contained in want were sent (contained in m.sent).
+// The order of want messages in sent messages is not checked.
+func (m *mockNotifier) checkNotifications(want map[int64]map[notify.Kind][]string) error {
+	for skey, kinds := range want {
+		for kind, msgs := range kinds {
+			if len(m.sent[skey][kind]) != len(msgs) {
+				return fmt.Errorf(
+					"expected %d messages for site %d and kind %s, got %d. \nGot messages: %v, \nwant messages: %v",
+					len(msgs),
+					skey,
+					kind,
+					len(m.sent[skey][kind]),
+					m.sent[skey][kind],
+					msgs,
+				)
+			}
+			for i, msg := range msgs {
+				if !strings.Contains(msg, m.sent[skey][kind][i]) {
+					return fmt.Errorf("expected message %s for site %d and kind %s, got %s", msg, skey, kind, m.sent[skey][kind][i])
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (m *mockNotifier) Recipients(skey int64, k notify.Kind) ([]string, time.Duration, error) {
+	return []string{}, 0, nil
+}
+
+// factory to create a broadcastContext with mock facilities.
+func standardMockBroadcastContext(t *testing.T, hardwareHealthy bool) *broadcastContext {
+	return &broadcastContext{
+		store:     &dummyStore{},
+		svc:       &dummyService{},
+		camera:    &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
+		notifier:  newMockNotifier(),
+		logOutput: t.Log,
+	}
+}
+
+// factory to create a broadcastContext with minimal mock facilities.
+func minimalMockBroadcastContext(t *testing.T) *broadcastContext {
+	return &broadcastContext{
+		logOutput: t.Log,
+		notifier:  newMockNotifier(),
+	}
+}
+
+type logRecorder struct {
+	t    *testing.T
+	logs []string
+}
+
+func newLogRecorder(t *testing.T) *logRecorder {
+	return &logRecorder{t: t}
+}
+
+func (r *logRecorder) log(v ...any) {
+	r.t.Log(v...)
+	r.logs = append(r.logs, fmt.Sprintln(v...))
+}
+
+// Note this only checks that want are in the logs, not that they are the only logs.
+// We also don't care about the order of the logs.
+func (r *logRecorder) checkLogs(want []string) error {
+	for _, w := range want {
+		found := false
+		for _, l := range r.logs {
+			if strings.Contains(l, w) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("expected log not found: %s", w)
+		}
+	}
+	return nil
+}
+
+// mockEventBus is a simple event bus that stores events when the context is
+// cancelled.
+type mockEventBus struct {
+	disabled     bool
+	handlers     []handler
+	log          func(string, ...interface{})
+	eventHistory []event
+}
+
+// newmockEventBus creates a new mockEventBus.
+func newMockEventBus(log func(string, ...interface{})) *mockEventBus {
+	return &mockEventBus{log: log}
+}
+
+func (bus *mockEventBus) subscribe(handler handler) { bus.handlers = append(bus.handlers, handler) }
+
+func (bus *mockEventBus) publish(event event) {
+	bus.eventHistory = append(bus.eventHistory, event)
+	bus.log("publishing event: %s", event.String())
+
+	for _, handler := range bus.handlers {
+		err := handler(event)
+		if err != nil {
+			bus.log("error handling event: %s: %v", event.String(), err)
+		}
+	}
+}
+
+func (bus *mockEventBus) checkEvents(want []event) error {
+	fmtError := func(want, got []event) error {
+		return fmt.Errorf(
+			"expected %d events, got %d, expected: %v, got: %v",
+			len(want),
+			len(got),
+			eventsToStringSlice(want),
+			eventsToStringSlice(got),
+		)
+	}
+
+	// Basic check on length of expected and actual events
+	if len(bus.eventHistory) != len(want) {
+		return fmtError(want, bus.eventHistory)
+	}
+
+	// Check each published event matches the events we expected to see.
+	for i, e := range bus.eventHistory {
+		// Assuming you have an eventToString function
+		if e.String() != want[i].String() {
+			return fmtError(want, bus.eventHistory)
+		}
+	}
+	return nil
 }

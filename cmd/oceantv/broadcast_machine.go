@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -70,11 +71,95 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleFixFailureEvent(event.(fixFailureEvent))
 	case controllerFailureEvent:
 		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
+	case invalidConfigurationEvent:
+		sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
+	case healthCheckDueEvent:
+		sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
+	case statusCheckDueEvent:
+		sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
+	case chatMessageDueEvent:
+		sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
 	return sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
+}
+
+func (sm *broadcastStateMachine) handleStatusCheckDueEvent(event statusCheckDueEvent) {
+	err := sm.ctx.man.HandleStatus(
+		context.Background(),
+		sm.ctx.cfg,
+		sm.ctx.store,
+		sm.ctx.svc,
+		func(Ctx, *Cfg, Store, Svc) error {
+			sm.ctx.bus.publish(finishEvent{})
+			return nil
+		},
+	)
+	if err != nil {
+		sm.logAndNotifySoftware("could not handle health check: %v", err)
+	}
+}
+
+func (sm *broadcastStateMachine) handleHealthCheckDueEvent(event healthCheckDueEvent) {
+	err := sm.ctx.man.HandleHealth(
+		context.Background(),
+		sm.ctx.cfg,
+		sm.ctx.store,
+		func() { sm.ctx.bus.publish(goodHealthEvent{}) },
+		func(issue string) {
+			sm.ctx.bus.publish(badHealthEvent{})
+			sm.ctx.logAndNotify(broadcastNetwork, "poor stream health, status: %s", issue)
+		},
+	)
+	if err != nil {
+		sm.logAndNotifySoftware("could not handle health check: %v", err)
+	}
+}
+
+func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueEvent) {
+	sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
+}
+
+func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidConfigurationEvent) {
+	sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+	try(
+		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+		"could not disable broadcast after invalid configuration",
+		sm.logAndNotifySoftware,
+	)
+
+	switch sm.currentState.(type) {
+	case
+		*vidforwardPermanentStarting,
+		*vidforwardPermanentLive,
+		*vidforwardPermanentLiveUnhealthy,
+		*vidforwardPermanentSlate,
+		*vidforwardPermanentSlateUnhealthy,
+		*vidforwardPermanentTransitionLiveToSlate,
+		*vidforwardPermanentTransitionSlateToLive,
+		*vidforwardPermanentFailure:
+
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+
+	case
+		*vidforwardSecondaryStarting,
+		*vidforwardSecondaryLive,
+		*vidforwardSecondaryLiveUnhealthy:
+
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+
+	case
+		*directStarting,
+		*directLive,
+		*directLiveUnhealthy:
+
+		sm.transition(newDirectIdle(sm.ctx))
+
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
 }
 
 func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) error {
@@ -282,22 +367,22 @@ func (sm *broadcastStateMachine) publishHealthStatusOrChatEvents(event timeEvent
 	)
 	sm.publishHealthEvent(event)
 	now := event.Time
-	if now.Sub(sm.ctx.cfg.LastStatusCheck) > statusInterval {
+	if now.Sub(sm.currentState.(liveState).lastStatusCheck()) > statusInterval {
 		sm.ctx.bus.publish(statusCheckDueEvent{})
-		sm.ctx.cfg.LastStatusCheck = now
+		sm.currentState.(liveState).setLastStatusCheck(now)
 	}
-	if now.Sub(sm.ctx.cfg.LastChatMsg) > chatInterval {
+	if now.Sub(sm.currentState.(liveState).lastChatMsg()) > chatInterval {
 		sm.ctx.bus.publish(chatMessageDueEvent{})
-		sm.ctx.cfg.LastChatMsg = now
+		sm.currentState.(liveState).setLastChatMsg(now)
 	}
 }
 
 func (sm *broadcastStateMachine) publishHealthEvent(event timeEvent) {
 	const healthInterval = 1 * time.Minute
 	now := event.Time
-	if now.Sub(sm.ctx.cfg.LastHealthCheck) > healthInterval && sm.ctx.cfg.CheckingHealth {
+	if now.Sub(sm.currentState.(stateWithHealth).lastHealthCheck()) > healthInterval && sm.ctx.cfg.CheckingHealth {
 		sm.ctx.bus.publish(healthCheckDueEvent{})
-		sm.ctx.cfg.LastHealthCheck = event.Time
+		sm.currentState.(stateWithHealth).setLastHealthCheck(event.Time)
 	}
 }
 
@@ -394,4 +479,8 @@ func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ..
 
 func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
 	sm.ctx.logAndNotify(broadcastSoftware, msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotifyConfiguration(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(broadcastConfiguration, msg, args...)
 }

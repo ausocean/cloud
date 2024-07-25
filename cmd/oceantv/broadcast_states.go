@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -19,25 +20,44 @@ type broadcastContext struct {
 	fwd    ForwardingService
 	bus    eventBus
 	camera hardwareManager
+
+	// When nil, defaults to log.Println. Useful to plug in test implementation.
+	logOutput func(v ...any)
+
+	// When nil, global notifier will be used. Useful to plug in test implementation.
+	notifier notify.Notifier
 }
 
 func (ctx *broadcastContext) log(msg string, args ...interface{}) {
-	logForBroadcast(ctx.cfg, msg, args...)
+	// If context has nil log output, use standard logger log.Println.
+	if ctx.logOutput == nil {
+		ctx.logOutput = log.Println
+	}
+	logForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
 }
 
 const (
-	broadcastGeneric   notify.Kind = "broadcast-generic"   // Problems where cause is unknown.
-	broadcastForwarder notify.Kind = "broadcast-forwarder" // Problems related to out forwarding service i.e. can't stream slate.
-	broadcastHardware  notify.Kind = "broadcast-hardware"  // Problems related to streaming hardware i.e. controllers and cameras.
-	broadcastNetwork   notify.Kind = "broadcast-network"   // Problems related to bad bandwidth, generally indicated by bad health events.
-	broadcastSoftware  notify.Kind = "broadcast-software"  // Problems related to the functioning of our broadcast software.
+	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown.
+	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
+	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
+	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
+	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
+	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
 )
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
-	logForBroadcast(ctx.cfg, msg, args...)
-	err := notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
+	ctx.log(msg, args...)
+	// If context has nil notifier, use global notifier
+	if ctx.notifier == nil {
+		ctx.log("broadcast context notifier is nil, setting to global notifier")
+		if notifier == nil {
+			panic("global notifier is nil")
+		}
+		ctx.notifier = notifier
+	}
+	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
-		logForBroadcast(ctx.cfg, "could not send health notification: %v", err)
+		ctx.log("could not send health notification: %v", err)
 	}
 }
 
@@ -55,6 +75,37 @@ type stateWithTimeout interface {
 	state
 	timedOut(time.Time) bool
 }
+
+type stateWithHealth interface {
+	lastHealthCheck() time.Time
+	setLastHealthCheck(time.Time)
+}
+
+type liveState interface {
+	stateWithHealth
+	lastStatusCheck() time.Time
+	lastChatMsg() time.Time
+	setLastStatusCheck(time.Time)
+	setLastChatMsg(time.Time)
+}
+
+type stateWithHealthFields struct {
+	LastHealthCheck time.Time
+}
+
+func (s *stateWithHealthFields) lastHealthCheck() time.Time     { return s.LastHealthCheck }
+func (s *stateWithHealthFields) setLastHealthCheck(t time.Time) { s.LastHealthCheck = t }
+
+type liveStateFields struct {
+	stateWithHealthFields
+	LastStatusCheck time.Time
+	LastChatMsg     time.Time
+}
+
+func (s *liveStateFields) lastStatusCheck() time.Time     { return s.LastStatusCheck }
+func (s *liveStateFields) lastChatMsg() time.Time         { return s.LastChatMsg }
+func (s *liveStateFields) setLastStatusCheck(t time.Time) { s.LastStatusCheck = t }
+func (s *liveStateFields) setLastChatMsg(t time.Time)     { s.LastChatMsg = t }
 
 type vidforwardPermanentStarting struct {
 	*broadcastContext `json: "-"`
@@ -104,7 +155,9 @@ func (s *vidforwardPermanentStarting) timedOut(t time.Time) bool {
 	return false
 }
 
-type vidforwardPermanentLive struct{}
+type vidforwardPermanentLive struct {
+	liveStateFields
+}
 
 func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
 func (s *vidforwardPermanentLive) enter()                  {}
@@ -114,6 +167,7 @@ type vidforwardPermanentTransitionLiveToSlate struct {
 	*broadcastContext `json: "-"`
 	HardwareStopped   bool
 	LastEntered       time.Time
+	stateWithHealthFields
 }
 
 func newVidforwardPermanentTransitionLiveToSlate(ctx *broadcastContext) *vidforwardPermanentTransitionLiveToSlate {
@@ -169,6 +223,7 @@ type vidforwardPermanentLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
+	liveStateFields
 }
 
 func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPermanentLiveUnhealthy {
@@ -255,11 +310,12 @@ func (s *vidforwardPermanentIdle) enter() {
 func (s *vidforwardPermanentIdle) exit() {}
 
 type vidforwardSecondaryLive struct {
-	*broadcastContext `json:"-"`
+	*broadcastContext `json: "-"`
+	liveStateFields
 }
 
 func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive {
-	return &vidforwardSecondaryLive{ctx}
+	return &vidforwardSecondaryLive{broadcastContext: ctx}
 }
 
 func (s *vidforwardSecondaryLive) enter() {}
@@ -267,7 +323,9 @@ func (s *vidforwardSecondaryLive) exit() {
 	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
 }
 
-type vidforwardSecondaryLiveUnhealthy struct{}
+type vidforwardSecondaryLiveUnhealthy struct {
+	liveStateFields
+}
 
 func newVidforwardSecondaryLiveUnhealthy() *vidforwardSecondaryLiveUnhealthy {
 	return &vidforwardSecondaryLiveUnhealthy{}
@@ -325,10 +383,11 @@ func (s *vidforwardSecondaryIdle) exit() {}
 
 type directLive struct {
 	*broadcastContext `json: "-"`
+	liveStateFields
 }
 
 func newDirectLive(ctx *broadcastContext) *directLive {
-	return &directLive{ctx}
+	return &directLive{broadcastContext: ctx}
 }
 func (s *directLive) enter() {}
 func (s *directLive) exit()  {}
@@ -337,6 +396,7 @@ type directLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
+	liveStateFields
 }
 
 func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
@@ -633,7 +693,7 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 		}
 	}
 
-	go ctx.man.StartBroadcast(
+	ctx.man.StartBroadcast(
 		context.Background(),
 		cfg,
 		ctx.store,

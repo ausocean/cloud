@@ -30,6 +30,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -39,7 +40,7 @@ import (
 
 const (
 	projectID          = "oceancron"
-	version            = "v0.1.0"
+	version            = "v0.1.3"
 	cronServiceURL     = "https://oceancron.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
@@ -53,6 +54,7 @@ var (
 	cronScheduler *scheduler
 	cronSecret    []byte
 	notifier      notify.Notifier
+	storePath     string
 )
 
 func main() {
@@ -71,6 +73,7 @@ func main() {
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -111,7 +114,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", "store")
+		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 	} else {
 		log.Printf("Running in App Engine mode")
 		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
@@ -135,11 +138,26 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-	recipient, period := notify.GetOpsEnvVars()
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
+	notifier, err = notify.NewMailjetNotifier(
+		notify.WithSecrets(secrets),
+		notify.WithRecipientLookup(cronRecipients),
+		notify.WithStore(notify.NewStore(settingsStore)),
+	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+}
+
+// cronRecipients looks up the email address and notification period
+// for the given site. Currently, this is just the ops email
+// address. The notification kind is not currently used.
+func cronRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
+	ctx := context.Background()
+	site, err := model.GetSite(ctx, settingsStore, skey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error getting site: %w", err)
+	}
+	return []string{site.OpsEmail}, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // setupCronScheduler starts a cron scheduler and loads all stored jobs.

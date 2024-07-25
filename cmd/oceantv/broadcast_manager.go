@@ -158,20 +158,22 @@ func (m *OceanBroadcastManager) StartBroadcast(
 		}
 	}
 
-	err := svc.StartBroadcast(
-		cfg.Name,
-		cfg.ID,
-		cfg.SID,
-		saveLinkFunc(),
-		func() error { return nil }, // This is now handled by the hardware state machine.
-		func() error { return nil }, // This is now handled by the hardware state machine.
-		opsHealthNotifyFunc(ctx, cfg),
-		func() error { return nil }) // This is now handled by the hardware state machine.
-	if err != nil {
-		onFailure(fmt.Errorf("could not start broadcast: %w", err))
-		return
-	}
-	onSuccess()
+	go func() {
+		err := svc.StartBroadcast(
+			cfg.Name,
+			cfg.ID,
+			cfg.SID,
+			saveLinkFunc(),
+			func() error { return nil }, // This is now handled by the hardware state machine.
+			func() error { return nil }, // This is now handled by the hardware state machine.
+			opsHealthNotifyFunc(ctx, cfg),
+			func() error { return nil }) // This is now handled by the hardware state machine.
+		if err != nil {
+			onFailure(fmt.Errorf("could not start broadcast: %w", err))
+			return
+		}
+		onSuccess()
+	}()
 }
 
 // StopBroadcast stops a broadcast using the youtube live streaming API.
@@ -378,4 +380,12 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	}
 
 	return nil
+}
+
+// opsHealthNotifyFunc returns a closure of notifier.Send given to the
+// broadcast.BroadcastStream function for notifications.
+func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string) error {
+	return func(msg string) error {
+		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
+	}
 }

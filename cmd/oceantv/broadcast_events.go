@@ -89,6 +89,11 @@ type fixFailureEvent struct{}
 
 func (e fixFailureEvent) String() string { return "fixFailureEvent" }
 
+type invalidConfigurationEvent struct{ desc string }
+
+func (e invalidConfigurationEvent) String() string { return "invalidConfigurationEvent" }
+func (e invalidConfigurationEvent) Error() string  { return e.desc }
+
 type handler func(event) error
 
 type eventBus interface {

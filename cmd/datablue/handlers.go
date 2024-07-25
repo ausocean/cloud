@@ -119,6 +119,11 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	// NB: Only reveal the device key if it has changed.
 	dk = ""
 
+	err = updateDeviceStatus(ctx, dev)
+	if err != nil {
+		log.Printf("could not update device status: %v", err)
+	}
+
 	switch dev.Status {
 	case model.DeviceStatusOK:
 		// Device is configured, so check the device key matches.
@@ -183,6 +188,36 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 			model.PutVariable(ctx, settingsStore, dev.Skey, "_type."+k, v)
 		}
 	}
+}
+
+// updateDeviceStatus updates the device status with the value of the
+// status variable then deletes the variable, if any. Setting the
+// status variable is therefore equivalent to the status being changed
+// via the UI.
+func updateDeviceStatus(ctx context.Context, dev *model.Device) error {
+	n := dev.Hex() + ".status"
+	v, err := model.GetVariable(ctx, settingsStore, dev.Skey, n)
+	switch {
+	case errors.Is(err, datastore.ErrNoSuchEntity):
+		return nil
+	case err != nil:
+		return fmt.Errorf("could not get variable %s: %w", n, err)
+	}
+
+	status, err := strconv.ParseInt(v.Value, 10, 64)
+	if err != nil {
+		return fmt.Errorf("could not parse status %s", v.Value)
+	}
+	if !model.IsValidStatus(status) {
+		return fmt.Errorf("invalid status: %d", status)
+	}
+
+	dev.Status = status
+	err = model.DeleteVariable(ctx, settingsStore, dev.Skey, n)
+	if err != nil {
+		return fmt.Errorf("could not delete variable %s: %w", n, err)
+	}
+	return nil
 }
 
 // configJSON generates JSON for a config request response given a device, varsum, and device key.
@@ -282,6 +317,12 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respMap := map[string]interface{}{"ma": ma, "vs": int(vs)}
+
+	err = updateDeviceStatus(ctx, dev)
+	if err != nil {
+		log.Printf("could not update device status: %v", err)
+	}
+
 	if dev.Status != model.DeviceStatusOK {
 		respMap["rc"] = int(dev.Status)
 	}
@@ -405,6 +446,11 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respMap := map[string]interface{}{"ma": ma}
+
+	err = updateDeviceStatus(ctx, dev)
+	if err != nil {
+		log.Printf("could not update device status: %v", err)
+	}
 
 	// If status is not okay.
 	if dev.Status != model.DeviceStatusOK {

@@ -6,8 +6,6 @@ env_variables:
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
   YOUTUBE_SECRETS: gs://ausocean/YouTube-secrets.json
   OCEANTV_SECRETS: gs://ausocean/OceanTV-secrets.txt
-  OPS_EMAIL: ops@ausocean.org
-  OPS_PERIOD: 60
 
 main: cmd/oceantv
 

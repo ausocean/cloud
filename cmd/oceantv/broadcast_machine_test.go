@@ -5,16 +5,14 @@ import (
 	"time"
 
 	"context"
+
+	"github.com/ausocean/cloud/notify"
 )
 
 func TestHandleTimeEvent(t *testing.T) {
 	// Mock eventBus to capture published events
 
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 	tests := []struct {
@@ -491,49 +489,6 @@ func TestHandleTimeEvent(t *testing.T) {
 			},
 		},
 		{
-			desc:           "vidforwardPermanentLive with health check due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(70 * time.Minute)}, // 10 minutes after cfg.Start for health check
-			expectedEvents: []event{timeEvent{}, healthCheckDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				CheckingHealth:  true,
-				LastHealthCheck: now,
-				LastStatusCheck: now.Add(70 * time.Minute),
-				LastChatMsg:     now.Add(70 * time.Minute),
-			},
-		},
-		{
-			desc:           "vidforwardPermanentLive with status check due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(80 * time.Minute)}, // 10 minutes after cfg.Start for status check
-			expectedEvents: []event{timeEvent{}, statusCheckDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				LastHealthCheck: now.Add(70 * time.Minute),
-				LastStatusCheck: now,
-				LastChatMsg:     now.Add(70 * time.Minute),
-			},
-		},
-		{
-			desc:           "vidforwardPermanentLive with chat message due",
-			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(40 * time.Minute)}, // 10 minutes after cfg.Start for chat message
-			expectedEvents: []event{timeEvent{}, chatMessageDueEvent{}},
-			expectedState:  newVidforwardPermanentLive(), // state shouldn't change in this scenario
-			cfg: &BroadcastConfig{
-				Start:           now,
-				End:             now.Add(2 * time.Hour),
-				LastHealthCheck: now.Add(40 * time.Minute),
-				LastStatusCheck: now.Add(40 * time.Minute),
-				LastChatMsg:     now,
-			},
-		},
-		{
 			desc:           "vidforwardPermanentStarting timed out",
 			initialState:   &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
 			event:          timeEvent{now.Add(6 * time.Minute)},
@@ -594,7 +549,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 			bus.subscribe(handler)
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -651,11 +606,7 @@ func TestHandleTimeEvent(t *testing.T) {
 func TestHandleStartFailedEvent(t *testing.T) {
 	// Mock eventBus to capture published events
 
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 
@@ -699,7 +650,7 @@ func TestHandleStartFailedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -727,11 +678,7 @@ func TestHandleStartFailedEvent(t *testing.T) {
 func TestHandleBadHealthEvent(t *testing.T) {
 	// Mock eventBus to capture published events
 
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 
@@ -820,7 +767,7 @@ func TestHandleBadHealthEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -848,11 +795,7 @@ func TestHandleBadHealthEvent(t *testing.T) {
 func TestHandleGoodHealthEvent(t *testing.T) {
 	// Mock eventBus to capture published events
 
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 
@@ -941,7 +884,7 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -967,11 +910,7 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 }
 
 func TestHandleFinishEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 	tests := []struct {
@@ -1044,7 +983,7 @@ func TestHandleFinishEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1070,11 +1009,7 @@ func TestHandleFinishEvent(t *testing.T) {
 }
 
 func TestHandleStartEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 	tests := []struct {
@@ -1153,7 +1088,7 @@ func TestHandleStartEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1179,11 +1114,7 @@ func TestHandleStartEvent(t *testing.T) {
 }
 
 func TestHandleStartedEvent(t *testing.T) {
-	bCtx := &broadcastContext{
-		store:  &dummyStore{},
-		svc:    &dummyService{},
-		camera: &dummyHardwareManager{},
-	}
+	bCtx := standardMockBroadcastContext(t, false)
 
 	now := time.Now()
 	tests := []struct {
@@ -1226,7 +1157,7 @@ func TestHandleStartedEvent(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1253,8 +1184,10 @@ func TestHandleStartedEvent(t *testing.T) {
 
 func TestBroadcastStart(t *testing.T) {
 	bCtx := &broadcastContext{
-		store: &dummyStore{},
-		svc:   &dummyService{},
+		store:     &dummyStore{},
+		svc:       &dummyService{},
+		logOutput: t.Log,
+		notifier:  newMockNotifier(),
 	}
 
 	now := time.Now()
@@ -1288,6 +1221,8 @@ func TestBroadcastStart(t *testing.T) {
 				timeEvent{},
 				hardwareStartedEvent{},
 				startedEvent{},
+				statusCheckDueEvent{},
+				chatMessageDueEvent{},
 			},
 		},
 		{
@@ -1325,7 +1260,7 @@ func TestBroadcastStart(t *testing.T) {
 				},
 			)
 
-			bCtx.man = NewDummyManager(t, tt.cfg)
+			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.camera = newDummyHardwareManager(tt.hardwareHealthy)
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
@@ -1408,4 +1343,142 @@ func eventsToStringSlice(events []event) []string {
 		result = append(result, e.String())
 	}
 	return result
+}
+
+func TestHandleCameraConfiguration(t *testing.T) {
+	const testSiteKey = 7845764367
+
+	tests := []struct {
+		desc           string
+		cfg            func(*BroadcastConfig)
+		initialState   state
+		finalState     state
+		expectedEvents []event
+		expectedLogs   []string
+		expectedNotify map[int64]map[notify.Kind][]string
+	}{
+		{
+			desc: "unset camera config",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+			},
+			initialState: &directIdle{},
+			finalState:   &directIdle{},
+			expectedEvents: []event{
+				timeEvent{},
+				startEvent{},
+				hardwareStartRequestEvent{},
+				invalidConfigurationEvent{},
+				hardwareStopRequestEvent{},
+			},
+			expectedLogs: []string{
+				"(hardware) camera is not set in configuration",
+				"got invalid configuration event, disabling broadcast: camera mac is empty",
+			},
+			expectedNotify: map[int64]map[notify.Kind][]string{
+				testSiteKey: {
+					broadcastConfiguration: []string{
+						"(name: , id: ) got invalid configuration event, disabling broadcast: camera mac is empty",
+					},
+				},
+			},
+		},
+		{
+			desc: "set camera config",
+			cfg: func(c *BroadcastConfig) {
+				c.CameraMac = 1
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+			},
+			initialState: &directIdle{},
+			finalState:   &directLive{},
+			expectedEvents: []event{
+				timeEvent{},
+				startEvent{},
+				hardwareStartRequestEvent{},
+				hardwareStartedEvent{},
+				startedEvent{},
+			},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			logRecorder := newLogRecorder(t)
+
+			ctx, _ := context.WithCancel(context.Background())
+			const hardwareHealthy = true
+
+			// Apply broadcast config modifications
+			// and update the broadcast state based on the initial state.
+			cfg := &BroadcastConfig{}
+			tt.cfg(cfg)
+			updateBroadcastBasedOnState(tt.initialState, cfg)
+
+			sys, err := newBroadcastSystem(
+				ctx,
+				newDummyStore(),
+				cfg,
+				logRecorder.log,
+				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				withBroadcastManager(newDummyManager(t, cfg)),
+				withBroadcastService(newDummyService()),
+				withForwardingService(newDummyForwardingService()),
+				withHardwareManager(newDummyHardwareManager(hardwareHealthy, withMACSanitisation())),
+				withNotifier(newMockNotifier()),
+			)
+			if err != nil {
+				t.Fatalf("failed to create broadcast system: %v", err)
+			}
+
+			// Tick until we reach the final state. It's expected this occurs within
+			// reasonable time otherwise we have a problem.
+			const maxTicks = 10
+			for tick := 0; true; tick++ {
+				if tick > maxTicks {
+					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					return
+				}
+				err = sys.tick()
+				if err != nil {
+					t.Errorf("failed to tick broadcast system: %v", err)
+					return
+				}
+				if stateToString(sys.sm.currentState) == stateToString(tt.finalState) {
+					break
+				}
+			}
+
+			// Check the events that we got.
+			err = sys.ctx.bus.(*mockEventBus).checkEvents(tt.expectedEvents)
+			if err != nil {
+				t.Errorf("unexpected events: %v", err)
+			}
+
+			// Check the logs that we got.
+			err = logRecorder.checkLogs(tt.expectedLogs)
+			if err != nil {
+				t.Errorf("unexpected logs: %v", err)
+			}
+
+			// Check we got expected notifications.
+			err = sys.ctx.notifier.(*mockNotifier).checkNotifications(tt.expectedNotify)
+			if err != nil {
+				t.Errorf("unexpected notifications: %v", err)
+			}
+
+			// Let's make sure we ended up in the expected final state.
+			if stateToString(sys.sm.currentState) != stateToString(tt.finalState) {
+				t.Errorf("unexpected state after handling started event: got %v, want %v",
+					stateToString(sys.sm.currentState), stateToString(tt.finalState))
+			}
+		})
+	}
 }

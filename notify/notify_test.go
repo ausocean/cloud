@@ -20,8 +20,10 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 )
@@ -31,9 +33,11 @@ const (
 	kind          Kind = "test"
 	message            = "This is a test."
 	testRecipient      = "somebody"
+	testPeriod         = time.Duration(60 * time.Minute)
 )
 
 // testStore implements a dummy time store for testing purposes.
+// NB: This implementation does not implement storage.
 type testStore struct {
 	Attempted int
 	Delivered int
@@ -44,7 +48,6 @@ type testStore struct {
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
-	n := Notifier{}
 	ts := testStore{}
 
 	// Even numbered attempts should not be delivered.
@@ -90,7 +93,7 @@ func TestStore(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		err := n.Init(WithRecipient(test.recipient), WithFilter(test.filter), WithStore(&ts))
+		n, err := NewMailjetNotifier(WithRecipient(test.recipient), WithFilter(test.filter), WithStore(&ts))
 		if err != nil {
 			t.Errorf("%d: Init failed with error: %v", i, err)
 		}
@@ -116,7 +119,6 @@ func TestSend(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	n := Notifier{}
 
 	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
 	if err != nil {
@@ -142,7 +144,7 @@ func TestSend(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		err := n.Init(WithSecrets(secrets), WithRecipients(test.recipients))
+		n, err := NewMailjetNotifier(WithSecrets(secrets), WithRecipients(test.recipients))
 		if err != nil {
 			t.Errorf("%d: Init failed with error: %v", i, err)
 		}
@@ -154,7 +156,7 @@ func TestSend(t *testing.T) {
 }
 
 // Sendable alternates between returning true and false.
-func (ts *testStore) Sendable(ctx context.Context, skey int64, key string) (bool, error) {
+func (ts *testStore) Sendable(ctx context.Context, skey int64, period time.Duration, key string) (bool, error) {
 	ts.Attempted++
 	if ts.Attempted%2 == 0 {
 		return false, nil
@@ -171,22 +173,28 @@ func (ts *testStore) Sent(ctx context.Context, skey int64, key string) error {
 
 // TestRecipients tests recipient lookup.
 func TestRecipients(t *testing.T) {
-	n := Notifier{}
-	err := n.Init(WithRecipientLookup(testLookup))
+	n, err := NewMailjetNotifier(WithRecipientLookup(testLookup))
 	if err != nil {
 		t.Errorf("Init with error: %v", err)
 	}
 
-	want := n.Recipients(0, kind)
-	if want != testRecipient {
-		t.Errorf("Recipients returned %s, expected %s", want, testRecipient)
+	r, p, err := n.Recipients(0, kind)
+	if err != nil {
+		t.Errorf("Recipients returned unexpected error %v", err)
+	}
+	if len(r) != 1 || r[0] != testRecipient || p != testPeriod {
+		t.Errorf("Recipients returned %v,%v, expected [%s],%v", r, p, testRecipient, testPeriod)
+	}
+	r, p, err = n.Recipients(0, "")
+	if !errors.Is(err, ErrNoRecipient) {
+		t.Errorf("Recipients did not return ErrNoRecipient")
 	}
 }
 
 // testLookup is our recipient lookup function.
-func testLookup(skey int64, kind Kind) []string {
+func testLookup(skey int64, kind Kind) ([]string, time.Duration, error) {
 	if kind == "test" {
-		return []string{testRecipient}
+		return []string{testRecipient}, testPeriod, nil
 	}
-	return []string{""}
+	return nil, 0, ErrNoRecipient
 }

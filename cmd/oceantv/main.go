@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -42,7 +43,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.1.0"
+	version            = "v0.1.8"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -56,6 +57,7 @@ var (
 	standalone    bool
 	notifier      notify.Notifier
 	cronSecret    []byte
+	storePath     string
 )
 
 func main() {
@@ -74,6 +76,7 @@ func main() {
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -94,7 +97,7 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // indexHandler handles requests for the home page and is here just to
-// test that the service is running. Devices do not use this endpoint.
+// test that the service is running. Clients do not use this endpoint.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	w.Write([]byte(projectID + " " + version))
@@ -113,7 +116,7 @@ func setup(ctx context.Context) {
 	var err error
 	if standalone {
 		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", projectID, "store")
+		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
 		if err != nil {
 			mediaStore = settingsStore
 		}
@@ -138,12 +141,31 @@ func setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
-	recipient, period := notify.GetOpsEnvVars()
 
-	err = notifier.Init(notify.WithSecrets(secrets), notify.WithRecipient(recipient), notify.WithStore(notify.NewTimeStore(settingsStore, period)))
+	notifier, err = notify.NewMailjetNotifier(
+		notify.WithSecrets(secrets),
+		notify.WithRecipientLookup(tvRecipients),
+		notify.WithStore(notify.NewStore(settingsStore)),
+	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+}
+
+// tvRecipients looks up the email addresses and notification period
+// for the given site,
+// TODO: Use the notification kind for improved granularity.
+func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
+	ctx := context.Background()
+	site, err := model.GetSite(ctx, settingsStore, skey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error getting site: %w", err)
+	}
+	recipients := []string{site.OpsEmail}
+	if site.YouTubeEmail != "" {
+		recipients = append(recipients, site.YouTubeEmail)
+	}
+	return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // broadcastHandler handles broadcast save requests from broadcast clients.
@@ -188,7 +210,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(&cfg, msg, args...)
+		logForBroadcast(&cfg, log.Println, msg, args...)
 	}
 
 	// Use the broadcast manager to save the broadcast.

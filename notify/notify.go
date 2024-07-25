@@ -20,39 +20,49 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	mailjet "github.com/mailjet/mailjet-apiv3-go"
 )
 
 const defaultSender = "vidgrindservice@gmail.com"
 
-// Notifier represents a notifier that uses the MailJet API to send email.
-type Notifier struct {
-	mutex      sync.Mutex // Lock access.
-	sender     string     // Sender email address.
-	recipients []string   // Recipient email addresses.
-	lookup     Lookup     // Recipient lookup function (optional).
-	store      TimeStore  // Notification store (optional).
-	filters    []string   // Message filters (optional).
-	publicKey  string     // Public key for accessing MailJet API.
-	privateKey string     // Public key for accessing MailJet API.
+type Notifier interface {
+	Send(context.Context, int64, Kind, string) error
+	Recipients(int64, Kind) ([]string, time.Duration, error)
+}
+
+// Notifier represents a notifier that uses the Mailjet API to send email.
+type MailjetNotifier struct {
+	mutex      sync.Mutex    // Lock access.
+	sender     string        // Sender email address.
+	recipients []string      // Recipient email addresses.
+	lookup     Lookup        // Recipient lookup function (optional).
+	store      TimeStore     // Notification store (optional).
+	period     time.Duration // Minimum notification period (optional)
+	filters    []string      // Message filters (optional).
+	publicKey  string        // Public key for accessing Mailjet API.
+	privateKey string        // Public key for accessing Mailjet API.
 }
 
 // Kind represents a kind of notification.
 type Kind string
 
-// Init initializes a notifier with the supplied options. See
-// WithSender, WithRecipient, WithFilter, WithStore and WithSecrets
-// for a description of the various options. Secrets are required to
-// send actual emails using the MailJet API, but can be omitted during
-// testing. It is permissable to re-initalize a Notifier with
-// different options, however missing options will revert to their
-// defaults.
-func (n *Notifier) Init(options ...Option) error {
+// Errors.
+var ErrNoRecipient = errors.New("no recipient")
+
+// NewMailjetNotifier initializes a MailjetNotifier with the supplied
+// options. See WithSender, WithRecipient, WithFilter, WithStore and
+// WithSecrets for a description of the various options. Secrets are
+// required to send actual emails using the Mailjet API, but can be
+// omitted during testing.
+func NewMailjetNotifier(options ...Option) (*MailjetNotifier, error) {
+	n := &MailjetNotifier{}
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -61,6 +71,7 @@ func (n *Notifier) Init(options ...Option) error {
 	n.recipients = nil
 	n.lookup = nil
 	n.store = nil
+	n.period = 0
 	n.filters = nil
 	n.publicKey = ""
 	n.privateKey = ""
@@ -69,46 +80,52 @@ func (n *Notifier) Init(options ...Option) error {
 	for i, opt := range options {
 		err := opt(n)
 		if err != nil {
-			return fmt.Errorf("could not apply option # %d, %v", i, err)
+			return nil, fmt.Errorf("could not apply option # %d, %v", i, err)
 		}
 	}
 
-	return nil
+	return n, nil
 }
 
 // Send sends an email message, depending on what options are present.
 // With filters, then all filters must match in order to send.
 // With persistence, then the message is sent only if it was not sent to the same recipient recently.
-func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
+func (n *MailjetNotifier) Send(ctx context.Context, skey int64, kind Kind, msg string) error {
+	recipients, period, err := n.Recipients(skey, kind)
+	if err != nil {
+		return err
+	}
+	csvRecipients := strings.Join(recipients, ",")
+
 	for _, f := range n.filters {
 		if !strings.Contains(msg, f) {
-			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), n.Recipients(skey, kind))
+			log.Printf("filter '%s' applied: not sending %s message to %s", f, string(kind), csvRecipients)
 			return nil
 		}
 	}
 
 	if n.store != nil {
-		sendable, err := n.store.Sendable(ctx, skey, string(kind)+"."+n.Recipients(skey, kind))
+		sendable, err := n.store.Sendable(ctx, skey, period, string(kind)+"."+csvRecipients)
 		if err != nil {
 			log.Printf("store.IsSendable returned error: %v", err)
 		}
 		if !sendable {
-			log.Printf("too soon to send %s message to %s", kind, n.Recipients(skey, kind))
+			log.Printf("too soon to send %s message to %s", kind, csvRecipients)
 			return nil
 		}
 	}
 
-	log.Printf("sending %s message to %s", kind, n.Recipients(skey, kind))
+	log.Printf("sending %s message to %s", kind, csvRecipients)
 
 	if n.publicKey != "" && n.privateKey != "" {
 		clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
-		var recipients mailjet.RecipientsV31
-		for _, recipient := range n.recipients {
-			recipients = append(recipients, mailjet.RecipientV31{Email: recipient})
+		var mjRecipients mailjet.RecipientsV31
+		for _, recipient := range recipients {
+			mjRecipients = append(mjRecipients, mailjet.RecipientV31{Email: recipient})
 		}
 		info := []mailjet.InfoMessagesV31{{
 			From:     &mailjet.RecipientV31{Email: n.sender},
-			To:       &recipients,
+			To:       &mjRecipients,
 			Subject:  strings.Title(string(kind)) + " notification",
 			TextPart: msg,
 		}}
@@ -121,7 +138,7 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	}
 
 	if n.store != nil {
-		err := n.store.Sent(ctx, skey, string(kind)+"."+n.Recipients(skey, kind))
+		err := n.store.Sent(ctx, skey, string(kind)+"."+csvRecipients)
 		if err != nil {
 			log.Printf("store.Sent returned error: %v", err)
 		}
@@ -130,14 +147,27 @@ func (n *Notifier) Send(ctx context.Context, skey int64, kind Kind, msg string) 
 	return nil
 }
 
-// Recipients returns a comma-separated list of recipients for the
-// given site key and notification kind. It uses the
-// WithRecipientLookup function if supplied, else defaults to the
-// recipients supplied by either WithRecipient or WithRecipients.
-func (n *Notifier) Recipients(skey int64, kind Kind) string {
+// Recipients returns a list of recipients and their corresponding
+// minimum notification period for the given site and notification
+// kind. It uses the WithRecipientLookup function if supplied, else
+// defaults to the recipients supplied by either WithRecipient or
+// WithRecipients and the period supplied by WithPeriod.
+// ErrNoRecipient is returned if there are no recipients.
+func (n *MailjetNotifier) Recipients(skey int64, kind Kind) ([]string, time.Duration, error) {
 	recipients := n.recipients
+	period := n.period
+	var err error
 	if n.lookup != nil {
-		recipients = n.lookup(skey, kind)
+		recipients, period, err = n.lookup(skey, kind)
 	}
-	return strings.Join(recipients, ",")
+	var recipients_ []string
+	for _, r := range recipients {
+		if r != "" {
+			recipients_ = append(recipients_, r)
+		}
+	}
+	if len(recipients_) == 0 {
+		return nil, 0, ErrNoRecipient
+	}
+	return recipients_, period, err
 }

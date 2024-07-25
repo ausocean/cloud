@@ -119,10 +119,8 @@ type BroadcastConfig struct {
 	Description       string        // The broadcast description shown below viewing window.
 	Privacy           string        // Privacy of the broadcast i.e. public, private or unlisted.
 	Resolution        string        // Resolution of the stream e.g. 1080p.
-	StartTime         string        // Start time of the broadcast in yy/mm/dd, hh:mm format.
 	StartTimestamp    string        // Start time of the broadcast in unix format.
 	Start             time.Time     // Start time in native go format for easy operations.
-	EndTime           string        // End time of the broadcast in yy/mm/dd, hh:mm format.
 	EndTimestamp      string        // End time of the broadcast in unix format.
 	End               time.Time     // End time in native go format for easy operations.
 	VidforwardHost    string        // Host address of vidforward service.
@@ -133,16 +131,11 @@ type BroadcastConfig struct {
 	RTMPVar           string        // The variable name that holds the RTMP URL and key.
 	Active            bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
 	Slate             bool          // This is true if the broadcast is currently in slate mode i.e. no camera.
-	LastStatusCheck   time.Time     // Time of last status check i.e. if complete or not.
-	LastChatMsg       time.Time     // Time of last chat message posted.
-	LastHealthCheck   time.Time     // Time of last stream health check.
 	Issues            int           // The number of successive stream issues currently experienced. Reset when good health seen.
 	SendMsg           bool          // True if sensor data will be sent to the YouTube live chat.
 	SensorList        []SensorEntry // List of sensors which can be reported to the YouTube live chat.
 	RTMPKey           string        // The RTMP key corresponding to the newly created broadcast.
 	UsingVidforward   bool          // Indicates if we're using vidforward i.e. doing long term broadcast.
-	CamOn             string        // The time that the slate will be removed and the camera will turn on.
-	CamOff            string        // The time that the camera will be turned off and the slate will be encoded.
 	CheckingHealth    bool          // Are we performing health checks for the broadcast? Having this false is useful for dodgy testing streams.
 	AttemptingToStart bool          // Indicates if we're currently attempting to start the broadcast.
 	Enabled           bool          // Is the broadcast enabled? If not, it will not be started.
@@ -203,9 +196,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			Description:     r.FormValue("description"),
 			Privacy:         r.FormValue("privacy"),
 			Resolution:      r.FormValue("resolution"),
-			StartTime:       r.FormValue("start-time"),
 			StartTimestamp:  r.FormValue("start-timestamp"),
-			EndTime:         r.FormValue("end-time"),
 			EndTimestamp:    r.FormValue("end-timestamp"),
 			RTMPVar:         r.FormValue("rtmp-key-var"),
 			RTMPKey:         r.FormValue("rtmp-key"),
@@ -216,8 +207,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			OffActions:      r.FormValue("off-actions"),
 			SendMsg:         r.FormValue("report-sensor") == "Chat",
 			UsingVidforward: r.FormValue("use-vidforward") == "using-vidforward",
-			CamOn:           r.FormValue("cam-on"),
-			CamOff:          r.FormValue("cam-off"),
 			CheckingHealth:  r.FormValue("check-health") == "checking-health",
 			Enabled:         r.FormValue("enabled") == "enabled",
 			InFailure:       r.FormValue("in-failure") == "in-failure",
@@ -269,6 +258,13 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		req.BroadcastVars = filteredVars
 	}
 
+	// Get site to use the site's timezone.
+	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
+	if err != nil {
+		reportError(w, r, req, "could not get site to establish timezone: %v", err)
+		return
+	}
+
 	// Try to load existing broadcast settings for newly selected broadcast.
 	var loaded bool
 	action := stringToAction(req.Action, req)
@@ -278,12 +274,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not load existing settings for broadcast: %v", err)
 			return
 		}
-	}
-
-	// Get site to use the site's timezone.
-	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
-	if err != nil {
-		log.Printf("GetSite error: %v", err)
 	}
 
 	// Get all Cameras and Controllers that could be used by the broadcast.
@@ -337,10 +327,18 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
 		if err != nil {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
+			return
 		}
 		err := saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
 			reportError(w, r, req, "could not save broadcast: %v", err)
+			return
+		}
+		// Ensure that the CheckBroadcast cron exists.
+		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
+		err = model.PutCron(context.Background(), settingsStore, c)
+		if err != nil {
+			reportError(w, r, req, "Warning: failed to verify checkbroadcasts cron: %v", err)
 			return
 		}
 
