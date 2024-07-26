@@ -107,7 +107,7 @@ function updateMID(mac, pin, id) {
   }
 }
 
-// copy field values from the selected form within srcContainerID to the form dstID.
+// copyFormValues copies field values from the selected form within srcContainerID to the form dstID.
 function copyFormValues(dstID, srcContainerID, fields) {
   var dst = document.getElementById(dstID);
   var forms = document
@@ -130,6 +130,7 @@ function copyFormValues(dstID, srcContainerID, fields) {
   alert("Nothing selected");
   return false;
 }
+
 // getTimezone returns the current timezone as string formatted +hh:mm.
 function getTimezone() {
   var dt = new Date();
@@ -155,8 +156,9 @@ function getTimezone() {
   }
   return ss;
 }
-// tzFormat formats a timezone offset number as a +/-hh:mm string.
-function tzFormat(tz) {
+
+// tzFormatUTCOffset formats a timezone offset number as a +/-hh:mm string.
+function tzFormatUTCOffset(tz) {
   if (tz == "0") {
     return "Z";
   }
@@ -171,6 +173,25 @@ function tzFormat(tz) {
     return "+" + hh + mm;
   }
 }
+
+// tzParseUTCOffset parses a +/-hh:mm string into a timezone offset number.
+function tzParseUTCOffset(offset) {
+  if (!offset) {
+    return "";
+  }
+
+  if (offset === "Z" || offset === "+00:00" || offset === "-00:00") {
+    return 0;
+  }
+
+  const sign = offset[0] === '-' ? -1 : 1;
+  const parts = offset.slice(1).split(':');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+
+  return sign * (hours + minutes / 60);
+}
+
 // sync syncs date and timestamp input values. If either of these three inputs are changed, the other inputs are updated to match.
 // dateChanged signifies if the datepicker input has been used to change the date.
 function sync(dateID, tsID, tzID, dateChanged) {
@@ -191,7 +212,7 @@ function sync(dateID, tsID, tzID, dateChanged) {
     }
     // If the timezone is not in UTC offset format, try to convert it from an offset number.
     if(!checkUTCOffset(tz)){
-      s += tzFormat(tz);
+      s += tzFormatUTCOffset(tz);
     } else {
       s += tz;
     }
@@ -204,12 +225,16 @@ function sync(dateID, tsID, tzID, dateChanged) {
       document.getElementById(dateID).value = "";
       return;
     }
+    if(checkUTCOffset(tz)){
+      tz = tzParseUTCOffset(tz);
+    }
     const ts = parseInt(s) + Math.round(parseFloat(tz) * 3600);
     const dt = new Date(ts * 1000).toISOString().slice(0, -1);
     document.getElementById(dateID).value = dt;
   }
 }
 
+// checkUTCOffset checks if the timezone is in the format of a UTC offset.
 function checkUTCOffset(tz) {
   const utcOffsetRegex = /^[+-](?:2[0-3]|[01][0-9]):[0-5][0-9]$/;
   return utcOffsetRegex.test(tz);
