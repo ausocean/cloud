@@ -3,7 +3,9 @@ package system
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
@@ -54,6 +56,74 @@ func WithPeripherals(peripherals ...*model.Device) func(*RigSystem) error {
 	}
 }
 
+// WithDefaults is a functional option that uses all of the current defaults for a rig system.
+func WithDefaults() func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		sys.Variables = append(sys.Variables,
+			model.NewAlarmNetworkVar(10),
+			model.NewAlarmPeriodVar(5*time.Second),
+			model.NewAlarmRecoveryVoltageVar(840),
+			model.NewAlarmVoltageVar(825),
+			model.NewAutoRestartVar(10*time.Minute),
+			model.NewPower1Var(false),
+			model.NewPower2Var(false),
+			model.NewPower3Var(false),
+			model.NewPulsesVar(3),
+			model.NewPulseWidthVar(2),
+			model.NewPulseCycleVar(30),
+			model.NewPulseSuppressVar(false),
+		)
+
+		sys.Sensors = append(sys.Sensors,
+			model.AnalogValueSensor(),
+			model.AirTemperatureSensor(),
+			model.HumiditySensor(),
+			model.WaterTemperatureSensor(),
+		)
+
+		sys.Actuators = append(sys.Actuators,
+			model.NewDevice1Actuator(),
+			model.NewDevice2Actuator(),
+			model.NewDevice3Actuator(),
+		)
+
+		return nil
+	}
+}
+
+// WithWifi is a functional option that sets the wifi name and password
+// for the system controller.
+func WithWifi(ssid, pass string) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		if ssid == "" {
+			return nil
+		}
+		sys.Controller.Wifi = fmt.Sprintf("%s,%s", ssid, pass)
+		return nil
+	}
+}
+
+// WithLocation is a functional option which sets the latitude and longitude
+// of the system controller, and any peripherals.
+//
+// NOTE: This option should be applied AFTER adding any devices.
+func WithLocation(lat, long float64) func(*RigSystem) error {
+	return func(sys *RigSystem) error {
+		log.Println(lat, long)
+		if lat <= -90 || lat >= 90 || long <= -180 || long >= 180 {
+			return model.ErrInvalidLocation
+		}
+		sys.Controller.Latitude = lat
+		sys.Controller.Longitude = long
+
+		for _, p := range sys.Peripherals {
+			p.Latitude = lat
+			p.Longitude = long
+		}
+		return nil
+	}
+}
+
 // NewRigSystem returns a new RigSystem with the given options. It is the callers
 // responsibility to put the components into the datastore.
 //
@@ -66,11 +136,13 @@ func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, 
 
 	sys := &RigSystem{
 		Controller: model.Device{
-			Skey:    skey,
-			Mac:     model.MacEncode(MAC),
-			Name:    name,
-			Type:    model.DevTypeController,
-			Enabled: true,
+			Skey:          skey,
+			Mac:           model.MacEncode(MAC),
+			Name:          name,
+			Type:          model.DevTypeController,
+			Enabled:       true,
+			MonitorPeriod: 60,
+			ActPeriod:     60,
 		},
 	}
 
@@ -89,10 +161,16 @@ func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, 
 	}
 	for _, sensor := range sys.Sensors {
 		sensor.Mac = sys.Controller.Mac
+		sys.Controller.Inputs += sensor.Pin + ","
 	}
 	for _, actuator := range sys.Actuators {
 		actuator.Mac = sys.Controller.Mac
+		sys.Controller.Outputs += actuator.Pin + ","
 	}
+	sys.Controller.Inputs, _ = strings.CutSuffix(sys.Controller.Inputs, ",")
+	sys.Controller.Outputs, _ = strings.CutSuffix(sys.Controller.Outputs, ",")
+
+	log.Printf("Inputs: %s, Outputs: %s", sys.Controller.Inputs, sys.Controller.Outputs)
 
 	return sys, nil
 }
@@ -107,7 +185,7 @@ func PutRigSystem(ctx context.Context, store datastore.Store, system *RigSystem)
 
 	// Put all variables.
 	for _, v := range system.Variables {
-		err = model.PutVariable(ctx, store, v.Skey, v.Name, v.Value)
+		err = model.PutVariable(ctx, store, v.Skey, system.Controller.Hex()+"."+v.Name, v.Value)
 		if err != nil {
 			return fmt.Errorf("unable to put variable with name: %s, err: %w", v.Name, err)
 		}
