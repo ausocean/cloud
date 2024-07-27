@@ -393,3 +393,57 @@ func (c *CronV2) Copy(datastore.Entity) (datastore.Entity, error) {
 func (c *CronV2) GetCache() datastore.Cache {
 	return nil
 }
+
+const typeSignal = "Signal"
+
+// Signal is the original data type that NetReceiver used for implementing scalar values.
+type Signal struct {
+	Mac   int64     // Was mac
+	Pin   string    // Was pin
+	Value int64     // Was value
+	Date  time.Time // Was date
+}
+
+// Load implements datastore.LoadSaver.Load for Signal and maps the
+// old lowcase name property names to the new titlecase names.
+func (s *Signal) Load(ps []datastore.Property) error {
+	for _, p := range ps {
+		var ok bool
+		switch p.Name {
+		case "mac":
+			s.Mac, ok = p.Value.(int64)
+		case "pin":
+			s.Pin, ok = p.Value.(string)
+		case "value":
+			s.Value, ok = p.Value.(int64)
+		case "date":
+			s.Date, ok = p.Value.(time.Time)
+		default:
+			continue
+		}
+		if !ok {
+			return errors.New("Unexpected type for S." + p.Name)
+		}
+	}
+	return nil
+}
+
+func (s *Signal) Save() ([]datastore.Property, error) {
+	return nil, datastore.ErrUnimplemented
+}
+
+func (s *Signal) Encode() []byte {
+	return []byte{}
+}
+
+func (s *Signal) Decode(b []byte) error {
+	return datastore.ErrUnimplemented
+}
+
+func (s *Signal) Copy(datastore.Entity) (datastore.Entity, error) {
+	return nil, datastore.ErrUnimplemented
+}
+
+func (s *Signal) GetCache() datastore.Cache {
+	return nil
+}
