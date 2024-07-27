@@ -106,7 +106,7 @@ func WaterTemperatureSensor() SensorV2 {
 func NewAlarmNetworkVar(numberOfFailures int) *Variable {
 	return &Variable{
 		Name:  "AlarmNetwork",
-		Value: string(numberOfFailures),
+		Value: strconv.Itoa(numberOfFailures),
 	}
 }
 
@@ -124,7 +124,7 @@ func NewAlarmPeriodVar(duration time.Duration) *Variable {
 func NewAlarmRecoveryVoltageVar(threshold int) *Variable {
 	return &Variable{
 		Name:  "AlarmRecoveryVoltage",
-		Value: string(threshold),
+		Value: strconv.Itoa(threshold),
 	}
 }
 
@@ -133,7 +133,7 @@ func NewAlarmRecoveryVoltageVar(threshold int) *Variable {
 func NewAlarmVoltageVar(threshold int) *Variable {
 	return &Variable{
 		Name:  "AlarmVoltage",
-		Value: string(threshold),
+		Value: strconv.Itoa(threshold),
 	}
 }
 
@@ -178,7 +178,7 @@ func NewPower3Var(power bool) *Variable {
 func NewPulsesVar(pulses int) *Variable {
 	return &Variable{
 		Name:  "Pulses",
-		Value: string(pulses),
+		Value: strconv.Itoa(pulses),
 	}
 }
 

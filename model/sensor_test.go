@@ -47,6 +47,14 @@ func equal(a, b []float64) bool {
 
 // TestTransform tests the Sensor.Transform method.
 func TestTransform(t *testing.T) {
+	const (
+		keyNone      = "none"
+		keyScale     = "scale"
+		keyLinear    = "linear"
+		keyQuadratic = "quadratic"
+		keyCustom    = "custom"
+	)
+
 	tests := []struct {
 		sensor Sensor
 		val    float64

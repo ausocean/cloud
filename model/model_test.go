@@ -7,7 +7,7 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2023 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -46,10 +46,12 @@ const (
 	testSiteKey    = 1
 	testSiteKey2   = 2
 	testSiteName   = "OfficialTestSite"
+	testSiteOrg    = "AusOcean"
+	testSiteOps    = "ops@ausocean.org"
 	testSiteLat    = -34.91805
 	testSiteLng    = 138.60475
 	testSiteTZ     = 9.5
-	testSiteEnc    = `{"Skey":1,"Name":"OfficialTestSite","OwnerEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Created":"0001-01-01T00:00:00Z"}`
+	testSiteEnc    = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"1970-01-01T00:00:00Z","Created":"1970-01-01T00:00:00Z"}`
 	testDevMac     = "00:00:00:00:00:01"
 	testDevMa      = 1
 	testMID        = testDevMa << 4
@@ -85,6 +87,8 @@ const (
 	anyDomain      = "@"
 	testCronEnc    = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
 )
+
+var testTime = time.Unix(0, 0).UTC()
 
 // TestEncoding tests various encoding and decoding functions.
 func TestEncoding(t *testing.T) {
@@ -167,7 +171,7 @@ func TestEncoding(t *testing.T) {
 	}
 
 	// Site encoding/decoding.
-	site := Site{Skey: testSiteKey, Name: testSiteName, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true}
+	site := Site{Skey: testSiteKey, Name: testSiteName, OrgID: testSiteOrg, OpsEmail: testSiteOps, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true, Subscribed: testTime, Created: testTime}
 	enc = site.Encode()
 	if string(enc) != testSiteEnc {
 		t.Errorf("Site.Encode failed: expected %s, got %s", testSiteEnc, enc)
@@ -435,7 +439,7 @@ func testEntities(t *testing.T, kind string) {
 	var site Site
 	if kind == "file" {
 		// Create a site.
-		site = Site{Skey: testSiteKey, Name: testSiteName, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true}
+		site = Site{Skey: testSiteKey, Name: testSiteName, OrgID: testSiteOrg, OpsEmail: testSiteOps, Latitude: testSiteLat, Longitude: testSiteLng, Timezone: testSiteTZ, Enabled: true, Subscribed: testTime, Created: testTime}
 		err = PutSite(ctx, store, &site)
 		if err != nil {
 			t.Errorf("store.Put(Site) failed with error: %v", err)
