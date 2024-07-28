@@ -26,6 +26,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/system"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
 )
@@ -348,6 +350,103 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+}
+
+// newDevicesHandler handles provisioning of new devices.
+//
+// Form Fields:
+//
+//	NAME = Name of the new device
+//	MA = MAC address
+//	DT = device type
+//	SSID = WiFi name
+//	PASS = WiFi password
+func newDevicesHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := context.Background()
+	profile, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+	skey, _ := profileData(profile)
+
+	log.Println(skey)
+
+	// Parse the form values.
+	name := r.FormValue("name")
+	ma := r.FormValue("ma")
+	dt := r.FormValue("dt")
+	ssid := r.FormValue("ssid")
+	pass := r.FormValue("pass")
+	sLat := r.FormValue("lat")
+	sLong := r.FormValue("long")
+	r.ParseForm()
+
+	var lat, long float64
+	if sLat != "" && sLong != "" {
+		lat, err = strconv.ParseFloat(sLat, 64)
+		if err != nil {
+			writeError(w, fmt.Errorf("unable to parse float64 from: %s, err:", err))
+			return
+		}
+		long, err = strconv.ParseFloat(sLong, 64)
+		if err != nil {
+			writeError(w, fmt.Errorf("unable to parse float64 from: %s, err:", err))
+			return
+		}
+	}
+
+	if !model.IsMacAddress(ma) {
+		writeError(w, model.ErrInvalidMACAddress)
+		return
+	}
+
+	var isValidType bool
+	for _, t := range devTypes {
+		if dt == t {
+			isValidType = true
+			break
+		}
+	}
+	if !isValidType {
+		writeError(w, model.ErrInvalidDevType)
+		return
+	}
+
+	// Create the device.
+	var sys *system.RigSystem
+	switch dt {
+	case model.DevTypeController:
+		// Create a controller with all default values defined in rig_system.go.
+		sys, err = system.NewRigSystem(skey, ma, name,
+			system.WithDefaults(),
+			system.WithWifi(ssid, pass),
+			system.WithLocation(lat, long),
+		)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+	default:
+		writeError(w, errNotImplemented)
+		return
+	}
+
+	for _, v := range sys.Variables {
+		log.Printf("%+v", v)
+	}
+
+	err = system.PutRigSystem(ctx, settingsStore, sys)
+	if err != nil {
+		writeError(w, fmt.Errorf("unable to put rig system: %w", err))
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/set/devices?ma=%s", ma), http.StatusSeeOther)
 }
 
 // editVarHandler handles per-device variable update/deletion requests.

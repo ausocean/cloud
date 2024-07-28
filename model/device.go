@@ -60,6 +60,8 @@ var (
 	ErrMalformedDeviceKey = errors.New("malformed device key")
 	ErrInvalidDeviceKey   = errors.New("invalid device key")
 	ErrInvalidMACAddress  = errors.New("invalid MAC address")
+	ErrInvalidDevType     = errors.New("invalid device type")
+	ErrInvalidLocation    = errors.New("invalid location, out of range [-90, 90]")
 )
 
 // Device represents a cloud device. The encoded MAC address

@@ -72,7 +72,7 @@ import (
 )
 
 const (
-	version     = "v0.21.8"
+	version     = "v0.21.9"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -209,6 +209,7 @@ func main() {
 	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
 	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
 	http.HandleFunc("/set/devices/edit", editDevicesHandler)
+	http.HandleFunc("/set/devices/new/", newDevicesHandler)
 	http.HandleFunc("/set/devices/", setDevicesHandler)
 	http.HandleFunc("/set/crons/edit", editCronsHandler)
 	http.HandleFunc("/set/crons/", setCronsHandler)
