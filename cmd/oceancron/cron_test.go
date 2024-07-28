@@ -103,11 +103,18 @@ func TestCronSpec(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	// We can't use the normal setup function, which would load production cron jobs.
+	// We need to initialize settingsStore for cron call check to work.
+	const localSite = "localhost"
+
 	ctx := context.Background()
 	var err error
-	settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
+	settingsStore, err = datastore.NewStore(ctx, "file", "netreceiver", "store")
 	if err != nil {
 		t.Errorf("could not set up datastore: %v", err)
+	}
+	err = model.PutSite(ctx, settingsStore, &model.Site{Skey: 1, Name: localSite, Enabled: true})
+	if err != nil {
+		t.Errorf("could not put site: %v", err)
 	}
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil {
