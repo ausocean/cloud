@@ -69,8 +69,8 @@ func WithDefaults() func(*RigSystem) error {
 			model.NewPower2Var(false),
 			model.NewPower3Var(false),
 			model.NewPulsesVar(3),
-			model.NewPulseWidthVar(2),
-			model.NewPulseCycleVar(30),
+			model.NewPulseWidthVar(2*time.Second),
+			model.NewPulseCycleVar(30*time.Second),
 			model.NewPulseSuppressVar(false),
 		)
 
