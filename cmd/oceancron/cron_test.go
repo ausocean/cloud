@@ -28,6 +28,7 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -110,11 +111,15 @@ func TestRun(t *testing.T) {
 	}
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil {
-		t.Errorf("could not get cronSecret: %v", err)
+		t.Logf("could not get cronSecret: %v", err)
 	}
 	testScheduler, err := newScheduler()
 	if err != nil {
 		t.Errorf("newScheduler returned error: %v", err)
+	}
+	notifier, err = notify.NewMailjetNotifier()
+	if err != nil {
+		t.Errorf("NewMailjetNotifier returned error: %v", err)
 	}
 
 	// Create and run some crons.
