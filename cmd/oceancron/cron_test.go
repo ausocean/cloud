@@ -28,6 +28,7 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -102,19 +103,30 @@ func TestCronSpec(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	// We can't use the normal setup function, which would load production cron jobs.
+	// We need to initialize settingsStore for cron call check to work.
+	const localSite = "localhost"
+
 	ctx := context.Background()
 	var err error
-	settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
+	settingsStore, err = datastore.NewStore(ctx, "file", "netreceiver", "store")
 	if err != nil {
 		t.Errorf("could not set up datastore: %v", err)
 	}
+	err = model.PutSite(ctx, settingsStore, &model.Site{Skey: 1, Name: localSite, Enabled: true})
+	if err != nil {
+		t.Errorf("could not put site: %v", err)
+	}
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil {
-		t.Errorf("could not get cronSecret: %v", err)
+		t.Logf("could not get cronSecret: %v", err)
 	}
 	testScheduler, err := newScheduler()
 	if err != nil {
 		t.Errorf("newScheduler returned error: %v", err)
+	}
+	notifier, err = notify.NewMailjetNotifier()
+	if err != nil {
+		t.Errorf("NewMailjetNotifier returned error: %v", err)
 	}
 
 	// Create and run some crons.

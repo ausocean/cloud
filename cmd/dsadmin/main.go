@@ -61,7 +61,7 @@ import (
 )
 
 func main() {
-	var task, kind, kind2, ds, input, output string
+	var task, kind, kind2, ds, ds2, input, output string
 	var key int64
 	var idKey bool
 
@@ -70,6 +70,7 @@ func main() {
 	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as --kind)")
 	flag.StringVar(&kind2, "kind2", "", "Datastore kind 2")
 	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver or vidgrind)")
+	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver or vidgrind)")
 	flag.StringVar(&input, "input", "", "Input file or file store.")
 	flag.StringVar(&output, "output", "output", "Output file or file store")
 	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey, MID, etc.")
@@ -85,6 +86,12 @@ func main() {
 	default:
 		log.Fatal("datastore (-ds) missing or invalid")
 	}
+	switch ds2 {
+	case "netreceiver", "vidgrind", "":
+		// Do nothing
+	default:
+		log.Fatal("datastore (-ds2) invalid")
+	}
 
 	if kind == "" {
 		log.Fatal("kind missing")
@@ -98,8 +105,9 @@ func main() {
 	datastore.RegisterEntity(typeCronV2, func() datastore.Entity { return new(CronV2) })
 	datastore.RegisterEntity(typeSiteV2, func() datastore.Entity { return new(SiteV2) })
 	datastore.RegisterEntity(typeSiteV3, func() datastore.Entity { return new(SiteV3) })
+	datastore.RegisterEntity(typeSignal, func() datastore.Entity { return new(Signal) })
 
-	var store datastore.Store
+	var store, store2 datastore.Store
 	var err error
 	ctx := context.Background()
 	if input == "" {
@@ -109,6 +117,11 @@ func main() {
 		}
 		fmt.Printf("Reading from cloudstore %s\n", ds)
 		store, err = datastore.NewStore(ctx, "cloud", ds, "")
+
+		if err == nil && ds2 != "" {
+			fmt.Printf("Writing to cloudstore %s\n", ds2)
+			store2, err = datastore.NewStore(ctx, "cloud", ds2, "")
+		}
 	} else {
 		fmt.Printf("Reading from filestore %s\n", input)
 		store, err = datastore.NewStore(ctx, "file", ds, input)
@@ -182,6 +195,11 @@ func main() {
 			err = migrateDevices(store)
 			if err != nil {
 				log.Fatalf("migrateDevices failed with error: %v", err)
+			}
+		case "Signal":
+			err = migrateSignals(store, store2)
+			if err != nil {
+				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
 		default:
 			log.Fatalf("invalid kind %s", kind)
@@ -789,5 +807,48 @@ func migrateDevices(store datastore.Store) error {
 
 	}
 	fmt.Printf("Migrated %d devices\n", n)
+	return nil
+}
+
+// migrateSignals migrates a range of signals, specified below.
+func migrateSignals(store, store2 datastore.Store) error {
+	ctx := context.Background()
+
+	ma := "BC:DD:C2:2B:AD:6D"
+	mac := model.MacEncode(ma)
+	pin := "A0"
+	from := time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC))
+	to := time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC))
+
+	fmt.Printf("ma=%s, pin=%s, from=%v, to=%v\n", ma, pin, from, to)
+
+	q := store.NewQuery(typeSignal, false)
+	q.Filter("mac =", mac)
+	q.Filter("pin =", pin)
+	q.Filter("date >", from)
+	q.Filter("date <=", to)
+
+	var signals []Signal
+	_, err := store.GetAll(ctx, q, &signals)
+	if err != nil {
+		return err
+	}
+
+	id := model.ToSID(ma, pin)
+	n := 0
+	for _, s := range signals {
+		n += 1
+		s2 := new(model.Scalar)
+		s2.ID = id
+		s2.Timestamp = s.Date.Unix()
+		s2.Value = float64(s.Value)
+
+		err = model.PutScalar(ctx, store2, s2)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Migrated %d signals\n", n)
 	return nil
 }

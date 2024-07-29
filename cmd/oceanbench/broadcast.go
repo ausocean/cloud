@@ -305,6 +305,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var msg string
 	switch action {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
@@ -321,6 +322,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
 		}
+		msg = "channel authenticated successfully"
 	case broadcastSave:
 		// If we haven't just generated a token we should keep the same account
 		// that the config previously had.
@@ -334,6 +336,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
 		}
+		msg = "broadcast saved successfully"
+
 		// Ensure that the CheckBroadcast cron exists.
 		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
 		err = model.PutCron(context.Background(), settingsStore, c)
@@ -348,6 +352,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not delete broadcast: %v", err)
 			return
 		}
+		msg = "broadcast deleted successfully"
 
 	case vidforwardSlateUpdate:
 		const fieldName = "slate-file"
@@ -363,9 +368,10 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
+		msg = "slate uploaded successfully"
 	}
 
-	writeTemplate(w, r, "broadcast.html", &req, "")
+	writeTemplate(w, r, "broadcast.html", &req, msg)
 }
 
 func stringToAction(s string, req broadcastRequest) Action {
