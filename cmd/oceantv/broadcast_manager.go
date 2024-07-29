@@ -121,7 +121,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		WithRateLimiter(limiter),
 	)
 	if err != nil {
-		return fmt.Errorf("could not create broadcast: %v, resp: %v", err, resp)
+		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
 	}
 	err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
 	if err != nil {
