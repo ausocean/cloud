@@ -41,8 +41,11 @@
     <div class="border rounded p-4 container-md bg-white">
       <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
           <div class="d-flex align-items-center gap-1 mb-1">
+            <button class="advanced btn btn-primary btn-sm" onclick="submitSelect()">Refresh</button>
+          </div>
+          <div class="d-flex align-items-center gap-1 mb-1">
             <label for="broadcast-select" class="w-25 text-end">Select Broadcast:</label>
-            <select name="broadcast-select" class="form-select w-50 h-auto align-items-center" onchange="submitSelect(this)" id="broadcast-name-select">
+            <select id="broadcast-select" name="broadcast-select" class="form-select w-50 h-auto align-items-center" onchange="submitSelect(this)" id="broadcast-name-select">
               <option value="">-- New Broadcast --</option>
               {{range .BroadcastVars}}
                 <option value="{{ .Name }}" {{if eq (part (split .Name ".") 1) $.CurrentBroadcast.Name}}selected{{end -}}>{{ .Name }}</option>

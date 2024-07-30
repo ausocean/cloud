@@ -76,6 +76,9 @@ function buttonClick(button) {
 }
 
 function submitSelect(select) {
+  if (!select){
+    select = document.getElementById("broadcast-select");
+  }
   select.form.querySelector("input[name='action']").value = "broadcast-select";
   select.form.submit();
 }
