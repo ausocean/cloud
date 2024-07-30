@@ -290,7 +290,7 @@ func (sm *hardwareStateMachine) unexpectedEvent(event event, state state) {
 }
 
 func (sm *hardwareStateMachine) log(format string, args ...interface{}) {
-	sm.ctx.log("(hardware) "+format, args...)
+	sm.ctx.log("(hardware sm) "+format, args...)
 }
 
 type hardwareManager interface {
