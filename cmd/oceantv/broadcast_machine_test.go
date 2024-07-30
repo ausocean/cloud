@@ -1375,7 +1375,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs: []string{
-				"(hardware) camera is not set in configuration",
+				"(hardware sm) camera is not set in configuration",
 				"got invalid configuration event, disabling broadcast: camera mac is empty",
 			},
 			expectedNotify: map[int64]map[notify.Kind][]string{

@@ -658,7 +658,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 
 	err := json.Unmarshal(ctx.cfg.StateData, &newState)
 	if err != nil {
-		ctx.log("unexpected error when unmarshaling state data; this could mean we have an unexpected state: %v, %v", string(ctx.cfg.StateData), err)
+		ctx.log("unexpected error when unmarshaling state data; this could mean we have an unexpected state: %v", err)
 		return newState
 	}
 	return newState
