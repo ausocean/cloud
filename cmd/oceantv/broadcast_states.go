@@ -46,13 +46,15 @@ const (
 	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
 )
 
+var errNoGlobalNotifier = errors.New("global notifier is nil")
+
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
 	ctx.log(msg, args...)
 	// If context has nil notifier, use global notifier
 	if ctx.notifier == nil {
 		ctx.log("broadcast context notifier is nil, setting to global notifier")
 		if notifier == nil {
-			panic("global notifier is nil")
+			panic(errNoGlobalNotifier)
 		}
 		ctx.notifier = notifier
 	}
