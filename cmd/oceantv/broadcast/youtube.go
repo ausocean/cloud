@@ -68,7 +68,7 @@ var (
 	ErrNoBroadcastItems = errors.New("no broadcast items")
 )
 
-// Broadcast ID, Stream ID and Chat ID.
+// IDs contains Broadcast ID, Stream ID and Chat ID.
 type IDs struct {
 	BID, SID, CID string
 }
@@ -370,7 +370,7 @@ func getStreamStatuses(svc *youtube.LiveStreamsService, id string) (*youtube.Liv
 func getStreamStatus(svc *youtube.LiveStreamsService, id string) (string, error) {
 	statuses, err := getStreamStatuses(svc, id)
 	if err != nil {
-		return "", fmt.Errorf("could not get statuses")
+		return "", fmt.Errorf("could not get statuses: %w", err)
 	}
 	return statuses.StreamStatus, nil
 }
