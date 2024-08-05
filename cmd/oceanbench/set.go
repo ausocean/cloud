@@ -415,15 +415,32 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(skey)
 
+	log.Println(r.Method)
+	if r.Method == http.MethodGet {
+		writeConfigure(w, r, profile)
+		return
+	}
+
 	// Parse the form values.
 	name := r.FormValue("name")
+	devSkey, err := strconv.ParseInt(r.FormValue("skey"), 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("failed to parse skey: %s", r.FormValue("skey")))
+		return
+	}
 	ma := r.FormValue("ma")
 	dt := r.FormValue("dt")
 	ssid := r.FormValue("ssid")
 	pass := r.FormValue("pass")
 	sLat := r.FormValue("lat")
 	sLong := r.FormValue("long")
-	r.ParseForm()
+
+	// Check the user has admin permissions to the selected site.
+	user, err := model.GetUser(ctx, settingsStore, devSkey, profile.Email)
+	if err != nil || user.Perm&model.AdminPermission == 0 {
+		writeError(w, errPermissionDenied)
+		return
+	}
 
 	var lat, long float64
 	if sLat != "" && sLong != "" {
@@ -461,7 +478,7 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	switch dt {
 	case model.DevTypeController:
 		// Create a controller with all default values defined in rig_system.go.
-		sys, err = system.NewRigSystem(skey, ma, name,
+		sys, err = system.NewRigSystem(devSkey, ma, name,
 			system.WithDefaults(),
 			system.WithWifi(ssid, pass),
 			system.WithLocation(lat, long),
@@ -484,8 +501,39 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("unable to put rig system: %w", err))
 		return
 	}
+	site, err := model.GetSite(ctx, settingsStore, int64(devSkey))
+	profile.Data = fmt.Sprintf("%d:%s", devSkey, site.Name)
+	err = putProfileData(w, r, profile.Data)
+	if err != nil {
+		writeError(w, fmt.Errorf("failed to put profile data: %w", err))
+		return
+	}
 
 	http.Redirect(w, r, fmt.Sprintf("/set/devices?ma=%s", ma), http.StatusSeeOther)
+}
+
+type configureData struct {
+	MAC      string
+	DevTypes []string
+	commonData
+}
+
+func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
+	data := configureData{}
+	ctx := r.Context()
+	var err error
+	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
+	if err != nil {
+		writeTemplate(w, r, "configure.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
+		return
+	}
+
+	// Parse form values.
+	data.MAC = r.FormValue("ma")
+	data.DevTypes = devTypes
+	r.ParseForm()
+
+	writeTemplate(w, r, "configure.html", &data, "")
 }
 
 // editVarHandler handles per-device variable update/deletion requests.
