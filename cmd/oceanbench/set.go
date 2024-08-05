@@ -629,12 +629,6 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 		Actions:  []string{"set", "del", "call", "rpc", "email"},
 	}
 
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
-
 	writeTemplate(w, r, "set/cron.html", &data, msg)
 }
 

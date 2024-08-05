@@ -365,14 +365,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-	setup(ctx)
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "index.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
-
 	writeTemplate(w, r, "index.html", &data, "")
 }
 

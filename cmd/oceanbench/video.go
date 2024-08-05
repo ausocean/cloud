@@ -203,14 +203,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-	setup(ctx)
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "upload.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
-
 	n, err := upload(w, r)
 	switch err {
 	case nil:
@@ -345,14 +337,6 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 			Pages: pages("play"),
 		},
 		MID: mid,
-	}
-
-	ctx := r.Context()
-	setup(ctx)
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "play.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
 	}
 
 	writeTemplate(w, r, "play.html", &data, msg)

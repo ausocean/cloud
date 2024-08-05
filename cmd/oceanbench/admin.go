@@ -100,12 +100,6 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
-		data.Users, err = getUsersForSiteMenu(w, r, ctx, p, data)
-		if err != nil {
-			writeTemplate(w, r, "register.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-			return
-		}
-
 		switch r.Method {
 		case "GET":
 			writeTemplate(w, r, "register.html", &data, "")
@@ -392,11 +386,7 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 	}
 
 	ctx := r.Context()
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, p, data)
-	if err != nil {
-		writeTemplate(w, r, "admin.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
+
 	data.Site, err = model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		log.Printf("GetSite error: %v", err)
@@ -441,12 +431,6 @@ func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 			"Go version":  runtime.Version(),
 			"Experiments": os.Getenv("VIDGRIND_EXPERIMENTS"),
 		},
-	}
-
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, p, data)
-	if err != nil {
-		writeTemplate(w, r, "utils.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
 	}
 
 	if r.Method == "GET" {

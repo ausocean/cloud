@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 
 @customElement('site-menu')
@@ -11,7 +11,7 @@ class SiteMenu extends LitElement {
     @property({ type: String, attribute: 'selected-perm' })
     selectedPerm;
 
-    // If custom-handling is set to be true, the page must handle 
+    // If custom-handling is set to be true, the page must handle
     // site-change events, otherwise the site menu will force a page refresh.
     @property({ type: Boolean, attribute: 'custom-handling' })
     customHandling = false;
@@ -35,74 +35,70 @@ class SiteMenu extends LitElement {
 
     override render() {
         return html`
-            <div style="display: none">
-                <slot @slotchange="${this.addOptions}" name="Read Only"></slot>
-                <slot @slotchange="${this.addOptions}" name="Read Write"></slot>
-                <slot @slotchange="${this.addOptions}" name="Admin"></slot>
-            </div>
             <select id="select" @change=${this.handleSiteChange}>
-                <option>select a site</option>
-                <optgroup style="display: none" title="Read Only" label="Read Only - loading..."></optgroup>
-                <optgroup style="display: none" title="Read Write" label="Read Write - loading..."></optgroup>
-                <optgroup style="display: none" title="Admin" label="Admin - loading..."></optgroup>
+                <option id="loading">Select Site</option>
+                <optgroup style="display: none" id="read" label="Read"></optgroup>
+                <optgroup style="display: none" id="write" label="Write"></optgroup>
+                <optgroup style="display: none" id="admin" label="Admin"></optgroup>
             </select>
         `;
     }
 
-    // addOptions copies the option elements from their slots to the optgroups.
-    // This is done because slot can't be used directly inside of an optgroup.
-    async addOptions(e: Event) {
-
-        // Get option elements from HTML document.
-        const slot = e.target as HTMLSlotElement;
-        const options = slot.assignedNodes() as HTMLOptionElement[];
-
-        // Get the select element that site-menu renders.
-        const select = this.shadowRoot?.querySelector('#select') as HTMLSelectElement;
-
-        // Find the optgroup that matches the slot we're adding from.
-        const optgroup = select?.querySelector(`[title="${slot.name}"]`) as HTMLOptGroupElement;
-
-        // Load site options into their optgroup.
-        this.loadSites(options, optgroup);
+    firstUpdated() {
+        this.loadSites()
     }
 
-    async loadSites(options: HTMLOptionElement[], optgroup: HTMLOptGroupElement) {
+    async loadSites() {
+        var optGroups: HTMLOptGroupElement[] = [];
+        optGroups.push(this.renderRoot.querySelector("#read")! as HTMLOptGroupElement)
+        optGroups.push(this.renderRoot.querySelector("#write")! as HTMLOptGroupElement)
+        optGroups.push(this.renderRoot.querySelector("#admin")! as HTMLOptGroupElement)
+        var loading = this.renderRoot.querySelector("#loading")! as HTMLOptionElement
 
-        // Show optgroup since it's not going to be empty.
-        optgroup.style.display = "block";
-
-        // For each option, check if it is selected and load its site name.
-        var loaded = 0;
-        for (const option of options) {
-            this.checkSelected(option, optgroup, this.selectedData);
-            const r = new XMLHttpRequest();
-            r.open("GET", "/api/get/site/" + option.value.toString(), true);
-            r.onreadystatechange = function () {
-                if (this.readyState == 4 && this.status == 200) {
-                    const site = JSON.parse(this.responseText);
-                    option.innerText = site.Name;
+        // Make a request to /api/get/sites/user
+        let r = new XMLHttpRequest();
+        r.onreadystatechange = () => {
+            if (r.readyState == XMLHttpRequest.DONE) {
+                let sites = JSON.parse(r.response)
+                var opts:HTMLOptionElement[][] = [[],[],[]]
+                for (let site of sites) {
+                    var opt = document.createElement("option");
+                    opt.value = site.Skey
+                    opt.label = site.Name
+                    opt.setAttribute("perm", site.Perm)
                     if (site.Public) {
-                        option.innerText += ' (public)';
+                        opt.label += " (Public)"
                     }
-                    loaded++;
-
-                    // When we've loaded all the options for this group, sort and show the options.
-                    if (loaded == options.length) {
-                        options.sort((a, b) => a.innerHTML.toLowerCase().localeCompare(b.innerHTML.toLowerCase()));
-
-                        // Clear existing selected option from menu to be replaced with updated selected option.
-                        optgroup.innerHTML = '';
-                        options.forEach(opt => {
-                            opt.style.display = "block";
-                            optgroup.appendChild(opt);
-                        });
-                        optgroup.label = optgroup.title;
+                    switch (site.Perm){
+                        case 1:
+                            opts[0].push(opt);
+                            break;
+                        case 3:
+                            opts[1].push(opt);
+                            break;
+                        case 7:
+                            opts[2].push(opt);
+                            break;
                     }
                 }
-            };
-            r.send();
+                for (let i = 0; i < 3; i++) {
+                    if (opts[i].length <= 0) {
+                        continue;
+                    }
+                    opts[i].sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()))
+                    optGroups[i].style.display = 'block'
+                    opts[i].forEach(option => {
+                        this.checkSelected(option, optGroups[i], this.selectedData)
+                        optGroups[i].appendChild(option);
+                    });
+                }
+                if (this.selectedData != '') {
+                    loading.remove()
+                }
+            }
         }
+        r.open("GET", "/api/get/sites/user")
+        r.send();
     }
 
     handleSiteChange(event: Event) {
@@ -130,8 +126,9 @@ class SiteMenu extends LitElement {
         }
 
         if (selectedOpt.slot != this.selectedPerm) {
-            this.selectedPerm = selectedOpt.slot;
-            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: permNumber.get(this.selectedPerm) } }));
+            this.selectedPerm = selectedOpt.hasAttribute("perm")?selectedOpt.getAttribute("perm")!:"0";
+            console.log(this.selectedPerm)
+            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } }));
         }
     }
 
@@ -142,15 +139,10 @@ class SiteMenu extends LitElement {
         let s = data.split(":");
         option.selected = Number(s[0]) == key;
         if (option.selected) {
-            this.selectedPerm = option.slot;
-            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: permNumber.get(this.selectedPerm) } })); //TODO: only trigger if changed.
+            this.selectedPerm = option.hasAttribute("perm")?option.getAttribute("perm")!:"0";
+            console.log(this.selectedPerm)
+            this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } })); //TODO: only trigger if changed.
             option.innerText = s[1];
-            option.style.display = "block";
-
-            // Clone and append the option so we don't trigger a slotchange event.
-            const clonedOption = option.cloneNode(true) as HTMLOptionElement;
-            optGroup.appendChild(clonedOption);
-            clonedOption.selected = true;
         }
     }
 
@@ -216,12 +208,6 @@ class SiteMenu extends LitElement {
         }
     }
 }
-
-const permNumber = new Map<string, number>([
-    ["Read Only", 1],
-    ["Read Write", 3],
-    ["Admin", 7],
-]);
 
 // containsInt uses a regular expression to match unsigned integers, returning a boolean.
 // This is used to check if a valid site key is being set.

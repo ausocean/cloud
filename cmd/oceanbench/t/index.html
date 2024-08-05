@@ -20,9 +20,7 @@
       {{- end}}
     </nav-menu>
     <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
-      {{range .Users -}}
-        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
-      {{- end}}
+      <option value="{{index (split .Profile.Data ":") 0}}" selected slot="selected">test</option>
     </site-menu>
   </header-group>
   <section id="main" class="main">
