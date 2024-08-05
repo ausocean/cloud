@@ -130,9 +130,13 @@ func objTok(ctx context.Context, url string) (*oauth2.Token, error) {
 // fileTok extracts an oauth2.Token from a file with name specified by the given
 // URL.
 func fileTok(uri string) (*oauth2.Token, error) {
-	_, name, err := googleStorageAddr(uri)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse uri: %w", err)
+	name := os.Getenv("YOUTUBE_API_CREDENTIALS")
+	var err error
+	if name == "" {
+		_, name, err = googleStorageAddr(uri)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse uri: %w", err)
+		}
 	}
 
 	f, err := os.Open(name)

@@ -447,3 +447,49 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		})
 	}
 }
+
+// TestRateLimited tests the behaviour of a broadcast when it is being rate limited by a RateLimiter.
+func TestRateLimited(t *testing.T) {
+
+	tests := []struct {
+		desc      string
+		limited   bool
+		expEvents []event
+	}{
+		{
+			desc:      "Not rate Limited",
+			limited:   false,
+			expEvents: []event{hardwareStartRequestEvent{}},
+		},
+		{
+			desc:      "Rate Limited",
+			limited:   true,
+			expEvents: []event{startFailedEvent{}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			limiter := newMockLimiter(tt.limited)
+			cfg := &BroadcastConfig{}
+			bus := newMockEventBus(t.Logf)
+			ctx := broadcastContext{
+				cfg, newDummyManager(t, cfg, withRateLimiter(limiter)),
+				newDummyStore(),
+				newDummyService(),
+				newDummyForwardingService(),
+				bus,
+				newDummyHardwareManager(true),
+				t.Log,
+				newMockNotifier(),
+			}
+			createBroadcastAndRequestHardware(&ctx, cfg, nil)
+			err := bus.checkEvents(tt.expEvents)
+			if err != nil {
+				t.Error(err)
+			}
+		})
+
+	}
+
+}

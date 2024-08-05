@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -670,8 +671,12 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConf
 		ctx.store,
 		ctx.svc,
 	)
+	if errors.Is(err, ErrRequestLimitExceeded) {
+		onFailureClosure(ctx, cfg, true)(fmt.Errorf("could not create broadcast: %w", err))
+		return
+	}
 	if err != nil {
-		onFailureClosure(ctx, cfg, false)(fmt.Errorf("could not create broadcast: %v", err))
+		onFailureClosure(ctx, cfg, false)(fmt.Errorf("could not create broadcast: %w", err))
 		return
 	}
 	if onCreation != nil {
