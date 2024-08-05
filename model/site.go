@@ -36,6 +36,9 @@ import (
 // typeSite is the name of the datastore site type.
 const typeSite = "Site"
 
+// SandboxSkey is the site key of the sandbox site.
+const SandboxSkey = 3
+
 // Site represents a cloud site.
 type Site struct {
 	Skey         int64

@@ -32,6 +32,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -106,6 +107,12 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 	skey, _ := profileData(profile)
+	sandbox := false
+	file := "set/device.html"
+	if skey == model.SandboxSkey {
+		sandbox = true
+		file = "sandbox.html"
+	}
 
 	data := devicesData{
 		commonData: commonData{
@@ -178,38 +185,19 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	if !model.IsMacAddress(data.Mac) {
-		writeTemplate(w, r, "set/device.html", &data, "")
+	if !model.IsMacAddress(data.Mac) && !sandbox {
+		writeTemplate(w, r, file, &data, "")
 		return
+	} else if sandbox {
+		if len(data.Devices) == 0 {
+			writeTemplate(w, r, file, &data, "")
+			return
+		}
 	}
 
 	data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
 	if err != nil {
 		reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
-		return
-	}
-
-	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variables error: %v", err)
-		return
-	}
-
-	data.VarTypes, err = model.GetVariablesBySite(ctx, settingsStore, skey, "_type")
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variable types error: %v", err)
-		return
-	}
-
-	data.Sensors, err = model.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get sensors error: %v", err)
-		return
-	}
-
-	data.Actuators, err = model.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get actuators error: %v", err)
 		return
 	}
 
@@ -237,7 +225,57 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		data.Device.SetOther("localaddr", v.Value)
 	}
 
-	writeTemplate(w, r, "set/device.html", &data, msg)
+	if sandbox {
+		writeSandbox(w, r, &data)
+		return
+	}
+
+	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
+	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
+		reportDevicesError(w, r, data, "get device variables error: %v", err)
+		return
+	}
+
+	data.VarTypes, err = model.GetVariablesBySite(ctx, settingsStore, skey, "_type")
+	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
+		reportDevicesError(w, r, data, "get device variable types error: %v", err)
+		return
+	}
+
+	data.Sensors, err = model.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
+	if err != nil {
+		reportDevicesError(w, r, data, "get sensors error: %v", err)
+		return
+	}
+
+	data.Actuators, err = model.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
+	if err != nil {
+		reportDevicesError(w, r, data, "get actuators error: %v", err)
+		return
+	}
+
+	writeTemplate(w, r, file, &data, msg)
+}
+
+func writeSandbox(w http.ResponseWriter, r *http.Request, data *devicesData) {
+	var _devices []model.Device
+	for _, d := range data.Devices {
+		re := regexp.MustCompile("(?i)New device detected at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?")
+		if !re.MatchString(d.Name) {
+			continue
+		}
+		d.Name = strings.Join(strings.Split(d.Name, " ")[4:6], " ")
+		if strings.HasPrefix(d.MAC(), "A0:A0:A0") {
+			d.Name = "Pi: " + d.Name
+		}
+		if d.Mac == model.MacEncode(data.Mac) {
+			data.Device.Name = d.Name
+		}
+		_devices = append(_devices, d)
+	}
+	data.Devices = _devices
+	writeTemplate(w, r, "sandbox.html", data, "")
+	return
 }
 
 // reportDevicesError handles error encountered during writing of the devices page.
