@@ -62,16 +62,32 @@ type dummyManager struct {
 	cfg                                                                *Cfg
 	startDone                                                          chan struct{}
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
+	Limiter                                                            RateLimiter
 	t                                                                  *testing.T
 }
 
-func newDummyManager(t *testing.T, cfg *Cfg) *dummyManager {
+type dummyManagerOption func(interface{}) error
+
+func withRateLimiter(l RateLimiter) dummyManagerOption {
+	return func(i interface{}) error {
+		if s, ok := i.(*dummyManager); ok {
+			s.Limiter = l
+		}
+		return nil
+	}
+}
+
+func newDummyManager(t *testing.T, cfg *Cfg, options ...dummyManagerOption) *dummyManager {
 	t.Log("creating dummy manager")
-	return &dummyManager{
+	man := &dummyManager{
 		t:         t,
 		startDone: make(chan struct{}),
 		cfg:       cfg,
 	}
+	for _, option := range options {
+		option(man)
+	}
+	return man
 }
 
 func (d *dummyManager) CreateBroadcast(
@@ -79,6 +95,9 @@ func (d *dummyManager) CreateBroadcast(
 	store Store,
 	svc BroadcastService,
 ) error {
+	if d.Limiter != nil && !d.Limiter.RequestOK() {
+		return ErrRequestLimitExceeded
+	}
 	return nil
 }
 
@@ -387,4 +406,16 @@ func (bus *mockEventBus) checkEvents(want []event) error {
 		}
 	}
 	return nil
+}
+
+type mockLimiter struct {
+	Limited bool
+}
+
+func newMockLimiter(Limited bool) *mockLimiter {
+	return &mockLimiter{Limited: Limited}
+}
+
+func (l *mockLimiter) RequestOK() bool {
+	return !l.Limited
 }
