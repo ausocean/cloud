@@ -99,12 +99,6 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}}
 
 	ctx := r.Context()
-	setup(ctx)
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "monitor.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
 
 	skey, _ := profileData(profile)
 

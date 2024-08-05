@@ -155,12 +155,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	setup(ctx)
-	sd.Users, err = getUsersForSiteMenu(w, r, ctx, profile, sd)
-	if err != nil {
-		writeTemplate(w, r, "search.html", &sd, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {

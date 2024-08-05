@@ -40,6 +40,12 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
+type minimalSite struct {
+	Skey, Perm int64
+	Name       string
+	Public     bool
+}
+
 // apiHandler handles API requests which take the form:
 //
 //	/api/operation/property/value
@@ -86,16 +92,48 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case "sites":
+			if val == "user" {
+			}
 			sites, err := model.GetAllSites(ctx, settingsStore)
 			if err != nil {
 				writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
 				return
 			}
 			var s []string
-			for _, site := range sites {
-				if val == "all" || (val == "public" && site.Public) {
+			switch val {
+			case "all":
+				for _, site := range sites {
 					s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
 				}
+			case "public":
+				for _, site := range sites {
+					if site.Public {
+						s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
+					}
+				}
+			case "user":
+				users, err := getUsersForSiteMenu(w, r, ctx, p, nil)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to get users: %v", err)
+					return
+				}
+				userMap := make(map[int64]int64)
+				for _, user := range users {
+					userMap[user.Skey] = user.Perm
+				}
+				var userSites []minimalSite
+				for _, site := range sites {
+					if _, ok := userMap[site.Skey]; ok {
+						userSites = append(userSites, minimalSite{site.Skey, userMap[site.Skey], site.Name, site.Public})
+					}
+				}
+				b, err := json.Marshal(userSites)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to marshal user sites")
+					return
+				}
+				w.Write(b)
+				return
 			}
 			output := "{" + strings.Join(s, ",") + "}"
 			fmt.Fprint(w, output)

@@ -221,11 +221,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	req.Users, err = getUsersForSiteMenu(w, r, ctx, profile, req)
-	if err != nil {
-		writeTemplate(w, r, "broadcast.html", &req, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
 
 	cfg := &req.CurrentBroadcast
 
