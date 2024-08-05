@@ -428,7 +428,11 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+
+	if r.Method == http.MethodGet {
+		writeConfigure(w, r, profile)
+		return
+	}
 
 	// Parse the form values.
 	dn := r.FormValue("dn")
@@ -493,8 +497,46 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("unable to put rig system: %w", err))
 		return
 	}
+	site, err := model.GetSite(ctx, settingsStore, int64(devSkey))
+	profile.Data = fmt.Sprintf("%d:%s", devSkey, site.Name)
+	err = putProfileData(w, r, profile.Data)
+	if err != nil {
+		writeError(w, fmt.Errorf("failed to put profile data: %w", err))
+		return
+	}
 
 	http.Redirect(w, r, fmt.Sprintf("/set/devices?ma=%s", ma), http.StatusSeeOther)
+}
+
+type configureData struct {
+	MAC      string
+	DevTypes []string
+	Sites    []model.Site
+	commonData
+}
+
+func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
+	data := configureData{}
+	ctx := r.Context()
+	var err error
+	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
+	if err != nil {
+		writeTemplate(w, r, "configure.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
+		return
+	}
+
+	data.Sites, err = model.GetAllSites(ctx, settingsStore)
+	if err != nil {
+		writeTemplate(w, r, "configure.html", &data, fmt.Sprintf("could not get all sites: %v", err.Error()))
+		return
+	}
+
+	// Parse form values.
+	data.MAC = r.FormValue("ma")
+	data.DevTypes = devTypes
+	r.ParseForm()
+
+	writeTemplate(w, r, "configure.html", &data, "")
 }
 
 // editVarHandler handles per-device variable update/deletion requests.
