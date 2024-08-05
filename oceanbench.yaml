@@ -15,6 +15,10 @@ handlers:
   - url: /s/*
     static_dir: cmd/oceanbench/s
 
+  - url: /favicon\.ico
+    static_files: cmd/oceanbench/favicon.ico
+    upload: cmd/oceanbench/favicon\.ico
+
   - url: /(api|test).*
     script: auto
 
