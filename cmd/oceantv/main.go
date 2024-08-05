@@ -24,6 +24,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -34,8 +35,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	runtime "runtime/debug"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -85,32 +84,31 @@ func main() {
 	// Perform one-time setup or bail.
 	setup(context.Background())
 
-	mux := utils.NewRecoveryCallbackServeMux(func(w http.ResponseWriter, panicErr any) {
-		panicMsg := fmt.Sprintf("panic: %v, stack: %v", panicErr, string(runtime.Stack()))
-		log.Println(panicMsg)
-		http.Error(w, fmt.Sprintf("panic: %v", panicErr), http.StatusInternalServerError)
+	secrets, err := gauth.GetSecrets(context.Background(), projectID, nil)
+	if err != nil {
+		log.Fatalf("could not get secrets: %v", err)
+	}
 
-		secrets, err := gauth.GetSecrets(context.Background(), projectID, nil)
-		if err != nil {
-			log.Println("could not get secrets, can't send panic recovery notification:", err)
-			return
-		}
-		const (
-			sender   = "vidgrindservice@gmail.com"
-			opsEmail = "ops@ausocean.org"
-		)
-		err = notify.Send(
-			secrets["mailjetPublicKey"],
-			secrets["mailjetPrivateKey"],
-			sender,
-			[]string{opsEmail},
-			"URGENT: Ocean TV Panic Recovery",
-			panicMsg,
-		)
-		if err != nil {
-			log.Printf("could not send panic recovery email: %v", err)
-		}
-	})
+	publicKey, ok := secrets["mailjetPublicKey"]
+	if !ok {
+		log.Fatalf("could not get mailjetPublicKey, can't send panic recovery notification")
+	}
+
+	privateKey, ok := secrets["mailjetPrivateKey"]
+	if !ok {
+		log.Fatalf("could not get mailjetPrivateKey, can't send panic recovery notification")
+	}
+
+	mux := utils.NewRecoverableServeMux(
+		utils.NewConfigurableRecoveryHandler(
+			// Only consider handled if we can get a notification off.
+			utils.WithHandledConditions(utils.HandledConditions{HandledOnNotification: true}),
+			utils.WithLogOutput(log.Println),
+			utils.WithNotification(func(msg string) error { return sendPanicNotification(publicKey, privateKey, msg) }),
+			utils.WithHttpError(http.StatusInternalServerError),
+			utils.WithHandlers(errNoGlobalNotifierHandler(secrets)),
+		),
+	)
 
 	mux.HandleFunc("/_ah/warmup", warmupHandler)
 	mux.HandleFunc("/broadcast/", broadcastHandler)
@@ -119,6 +117,47 @@ func main() {
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
+}
+
+func sendPanicNotification(publicKey, privateKey, msg string) error {
+	const (
+		sender   = "vidgrindservice@gmail.com"
+		opsEmail = "ops@ausocean.org"
+	)
+	err := notify.Send(
+		publicKey,
+		privateKey,
+		sender,
+		[]string{opsEmail},
+		"URGENT: Ocean TV Panic Recovery",
+		msg,
+	)
+	if err != nil {
+		return fmt.Errorf("could not send panic recovery email: %v", err)
+	}
+	return nil
+}
+
+func errNoGlobalNotifierHandler(secrets map[string]string) utils.RecoveryHandler {
+	return func(w http.ResponseWriter, panicErr any) bool {
+		err, ok := panicErr.(error)
+		if !ok {
+			return false
+		}
+		if errors.Is(err, errNoGlobalNotifier) {
+			notifier, err = notify.NewMailjetNotifier(
+				notify.WithSecrets(secrets),
+				notify.WithRecipientLookup(tvRecipients),
+				notify.WithStore(notify.NewStore(settingsStore)),
+			)
+			if err != nil {
+				log.Printf("could not remediate missing global notifier: %v", err)
+				return false
+			}
+			return true
+		}
+		return false
+	}
 }
 
 // warmupHandler handles App Engine warmup requests. It simply ensures that the instance is loaded.
