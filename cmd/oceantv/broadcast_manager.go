@@ -94,7 +94,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	if err != nil {
 		return fmt.Errorf("could not get broadcast status: %v", err)
 	}
-	if cfg.ID == "" || status == "" || status == broadcast.StatusRevoked || status == broadcast.StatusComplete {
+	if cfg.ID == "" || cfg.SID == "" || status == "" || status == broadcast.StatusRevoked || status == broadcast.StatusComplete {
 		// We're going to add the date to the broadcast's name, so get this and format.
 		loc, err := time.LoadLocation(locationID)
 		if err != nil {
@@ -135,7 +135,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 			return fmt.Errorf("could not update config with transaction: %w", err)
 		}
 	} else {
-		m.log("broadcast already exists with ID %s, status: %s", cfg.ID, status)
+		m.log("broadcast already exists with ID %s, status: %s, streamID: %s", cfg.ID, status, cfg.SID)
 		err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)

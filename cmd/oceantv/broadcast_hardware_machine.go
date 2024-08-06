@@ -331,6 +331,7 @@ func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac i
 		log("could not get device status: %v", err)
 		return
 	}
+	log("status from DeviceIsUp check: %v", alive)
 	if alive == status {
 		publish(event)
 		return
