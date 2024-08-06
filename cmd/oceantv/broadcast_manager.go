@@ -91,54 +91,55 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	// If the broadcast doesn't have an ID or is revoked or completed, create a new broadcast.
 	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
 	if err != nil {
-		return fmt.Errorf("could not get broadcast status: %v", err)
+		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
-	if cfg.ID == "" || cfg.SID == "" || status == "" || status == broadcast.StatusRevoked || status == broadcast.StatusComplete {
-		// We're going to add the date to the broadcast's name, so get this and format.
-		loc, err := time.LoadLocation(locationID)
-		if err != nil {
-			return fmt.Errorf("could not load location: %w", err)
-		}
-
-		const layout = "02/01/2006"
-		dateStr := time.Now().In(loc).Format(layout)
-
-		const (
-			// This allows for 10 broadcasts to be created with 3 retries each
-			// all being started within the same hour.
-			limiterMaxTokens  = 30.0
-			limiterRefillRate = 2.0 // per hour
-			limiterID         = "ocean_token_bucket"
-		)
-		limiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
-		if err != nil {
-			return fmt.Errorf("could not get token bucket limiter: %w", err)
-		}
-
-		resp, ids, rtmpKey, err := svc.CreateBroadcast(
-			context.Background(),
-			cfg.Name+" "+dateStr,
-			cfg.Description,
-			cfg.StreamName,
-			cfg.Privacy,
-			cfg.Resolution,
-			time.Now().Add(1*time.Minute),
-			cfg.End,
-			WithRateLimiter(limiter),
-		)
-		if err != nil {
-			return fmt.Errorf("could not create broadcast: %v, resp: %v", err, resp)
-		}
-		err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
-		if err != nil {
-			return fmt.Errorf("could not update config with transaction: %w", err)
-		}
-	} else {
+	if cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete {
 		m.log("broadcast already exists with ID %s, status: %s, streamID: %s", cfg.ID, status, cfg.SID)
 		err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
 		}
+		return nil
+	}
+
+	// We're going to add the date to the broadcast's name, so get this and format.
+	loc, err := time.LoadLocation(locationID)
+	if err != nil {
+		return fmt.Errorf("could not load location: %w", err)
+	}
+
+	const layout = "02/01/2006"
+	dateStr := time.Now().In(loc).Format(layout)
+
+	const (
+		// This allows for 10 broadcasts to be created with 3 retries each
+		// all being started within the same hour.
+		limiterMaxTokens  = 30.0
+		limiterRefillRate = 2.0 // per hour
+		limiterID         = "ocean_token_bucket"
+	)
+	limiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	if err != nil {
+		return fmt.Errorf("could not get token bucket limiter: %w", err)
+	}
+
+	resp, ids, rtmpKey, err := svc.CreateBroadcast(
+		context.Background(),
+		cfg.Name+" "+dateStr,
+		cfg.Description,
+		cfg.StreamName,
+		cfg.Privacy,
+		cfg.Resolution,
+		time.Now().Add(1*time.Minute),
+		cfg.End,
+		WithRateLimiter(limiter),
+	)
+	if err != nil {
+		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
+	}
+	err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
+	if err != nil {
+		return fmt.Errorf("could not update config with transaction: %w", err)
 	}
 	return nil
 }
