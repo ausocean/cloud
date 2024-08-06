@@ -89,8 +89,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	svc BroadcastService,
 ) error {
 	// If the broadcast doesn't have an ID or is revoked or completed, create a new broadcast.
-	ctx := context.Background()
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
 	if err != nil {
 		return fmt.Errorf("could not get broadcast status: %v", err)
 	}
