@@ -88,14 +88,10 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	store Store,
 	svc BroadcastService,
 ) error {
-	// If the broadcast doesn't have an ID or is revoked or completed, create a new broadcast.
-	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
-	if err != nil {
-		return fmt.Errorf("could not get broadcast status: %w", err)
-	}
-	if cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete {
-		m.log("broadcast already exists with ID %s, status: %s, streamID: %s", cfg.ID, status, cfg.SID)
-		err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
+	// Only create a new broadcast if a valid one doesn't already exist.
+	if m.broadcastCanBeReused(cfg, svc) {
+		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.ID, cfg.SID)
+		err := m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
 		}
@@ -394,4 +390,14 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 	return func(msg string) error {
 		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
 	}
+}
+
+func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
+	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
+	if err != nil {
+		m.log("could not get broadcast status: %v", err)
+		return false
+	}
+	m.log("broadcast has status: %s", status)
+	return cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
 }
