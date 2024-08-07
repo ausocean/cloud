@@ -119,6 +119,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		return fmt.Errorf("could not get token bucket limiter: %w", err)
 	}
 
+	timeCreated := time.Now().Add(1 * time.Minute)
 	resp, ids, rtmpKey, err := svc.CreateBroadcast(
 		context.Background(),
 		cfg.Name+" "+dateStr,
@@ -126,14 +127,20 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		cfg.StreamName,
 		cfg.Privacy,
 		cfg.Resolution,
-		time.Now().Add(1*time.Minute),
+		timeCreated,
 		cfg.End,
 		WithRateLimiter(limiter),
 	)
 	if err != nil {
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
 	}
-	err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
+	err = m.Save(nil, func(_cfg *Cfg) {
+		_cfg.ID = ids.BID
+		_cfg.SID = ids.SID
+		_cfg.CID = ids.CID
+		_cfg.RTMPKey = rtmpKey
+		_cfg.TimeCreated = timeCreated
+	})
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
 	}
@@ -392,12 +399,21 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 	}
 }
 
+// broadcastCanBeReused checks if a broadcast can be reused based on how old it
+// is, if it has been revoked or completed, and if its IDs have been set.
 func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
-	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
-	if err != nil {
-		m.log("could not get broadcast status: %v", err)
+	// Check if the broadcast was created today. Don't reuse an old broadcast.
+	now := time.Now()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	if cfg.TimeCreated.Before(startOfToday) || cfg.TimeCreated.IsZero() {
+		m.log("broadcast does not exist for today")
 		return false
 	}
-	m.log("broadcast has status: %s", status)
+	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
+	if err != nil {
+		m.log("could not get today's broadcast status: %v", err)
+		return false
+	}
+	m.log("today's broadcast has status: %s", status)
 	return cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
 }

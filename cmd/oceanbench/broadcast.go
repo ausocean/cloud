@@ -145,8 +145,10 @@ type BroadcastConfig struct {
 	StartFailures     int           // The number of times the broadcast has failed to start.
 	Transitioning     bool          // If the broadcast is transition from live to slate, or vice versa.
 	StateData         []byte        // States will be marshalled and their data stored here.
+	HardwareStateData []byte        // Hardware states will be marshalled and their data stored here.
 	Account           string        // The YouTube account email that this broadcast is associated with.
 	InFailure         bool          // True if the broadcast is in a failure state.
+	TimeCreated       time.Time     // The date and time the broadcast was created.
 }
 
 // SensorEntry contains the information for each sensor.

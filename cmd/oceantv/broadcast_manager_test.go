@@ -16,10 +16,11 @@ func TestBroadcastCanBeReused(t *testing.T) {
 	}{
 		{
 			name: "empty status",
-			svc:  newDummyService(),
+			svc:  newDummyService(), // DummyService always returns an empty status.
 			cfg: &BroadcastConfig{
-				ID:  "1",
-				SID: "2",
+				ID:          "1",
+				SID:         "2",
+				TimeCreated: time.Now(),
 			},
 			expectedReuse: false,
 		},
@@ -27,19 +28,41 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "good status",
 			svc:  newDummyGoodService(),
 			cfg: &BroadcastConfig{
-				ID:  "1",
-				SID: "2",
+				ID:          "1",
+				SID:         "2",
+				TimeCreated: time.Now(),
 			},
 			expectedReuse: true,
 		},
 		{
-			name: "empty ID good status",
+			name: "empty ID, good status",
 			svc:  newDummyGoodService(),
 			cfg: &BroadcastConfig{
-				ID:  "",
-				SID: "2",
+				ID:          "",
+				SID:         "2",
+				TimeCreated: time.Now(),
 			},
 			expectedReuse: false,
+		},
+		{
+			name: "good status, old broadcast",
+			svc:  newDummyGoodService(),
+			cfg: &BroadcastConfig{
+				ID:          "1",
+				SID:         "2",
+				TimeCreated: time.Now().Add(-24 * time.Hour),
+			},
+			expectedReuse: false,
+		},
+		{
+			name: "good status, today's broadcast",
+			svc:  newDummyGoodService(),
+			cfg: &BroadcastConfig{
+				ID:          "1",
+				SID:         "2",
+				TimeCreated: time.Now(),
+			},
+			expectedReuse: true,
 		},
 	}
 
@@ -59,7 +82,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 }
 
 // dummyGoodService is a dummy implementation of the BroadcastService interface.
-// It mostly does nothing execpt return true for and is used to test the broadcast functions.
+// It mostly does nothing like dummyService except its BroadcastStatus method returns "upcoming" for test purposes.
 type dummyGoodService struct{}
 
 func newDummyGoodService() *dummyGoodService { return &dummyGoodService{} }
