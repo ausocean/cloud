@@ -51,7 +51,7 @@ import (
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.1"
+	version   = "v0.2.2"
 )
 
 // Site/device defaults.
@@ -357,9 +357,9 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 func writeDeviceConfig(w http.ResponseWriter, dev *model.Device) {
 	var resp string
 	if dev.Type == "" {
-		resp = fmt.Sprintf("ma:%s\ndk:%d", dev.MAC(), dev.Dkey)
+		resp = fmt.Sprintf("ma %s\ndk %d", dev.MAC(), dev.Dkey)
 	} else {
-		resp = fmt.Sprintf("ma:%s\ndk:%d\nct:%s", dev.MAC(), dev.Dkey, dev.Type)
+		resp = fmt.Sprintf("ma %s\ndk %d\nct %s", dev.MAC(), dev.Dkey, dev.Type)
 	}
 	log.Printf("Replying with %s", strings.ReplaceAll(resp, "\n", " "))
 	w.Write([]byte(resp))
