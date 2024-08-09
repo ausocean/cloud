@@ -239,12 +239,12 @@ func (svc *service) setup(ctx context.Context) {
 // this method until the the device configuration has been completed
 // by the operator.
 
-// The response is in netsender.conf (CSV) format, i.e., with one
+// The response is in netsender.conf format, i.e., with one
 // parameter per line.
 //
-//	ma:<MAC-address>
-//	dk:<device-key>
-//	ct:<client-type> (omitted when empty)
+//	ma <MAC-address>
+//	dk <device-key>
+//	ct <client-type> (omitted when empty)
 //
 // In the case of an error, the following is returned without any
 // device configuration information. The error message is also logged.
