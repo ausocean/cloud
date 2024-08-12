@@ -71,7 +71,7 @@ const (
 // TOTP constants.
 const (
 	totpSecretKey   = "totpSecret"
-	totpDigits      = 16
+	totpDigits      = 8
 	totpGracePeriod = 2 * time.Minute
 )
 
