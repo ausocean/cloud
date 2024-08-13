@@ -16,7 +16,7 @@
   }
   </script>
 </head>
-<body>
+<body onload="history.pushState({}, '', '/admin/utils')">
   <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
     <nav-menu id="nav-menu" slot="nav-menu">
       {{range .Pages -}}
