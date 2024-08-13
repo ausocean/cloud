@@ -363,7 +363,7 @@ func processActuators(ctx context.Context, dev *model.Device, respMap map[string
 		// Actuator var names are relative to their device.
 		val, err := model.GetVariable(ctx, settingsStore, dev.Skey, dev.Hex()+"."+act.Var)
 		if err != nil {
-			return fmt.Errorf("failed to get actuator by %s.%s: %w", dev.Hex(), act.Pin, err)
+			return fmt.Errorf("failed to get actuator by %s.%s: %w", dev.Hex(), act.Var, err)
 		}
 
 		n, err := toInt(val.Value)
