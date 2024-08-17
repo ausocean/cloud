@@ -1,0 +1,14 @@
+{
+  "device": "test",
+  "description": "Install shell-netsender.sh.",
+  "version": "v0.2.0",
+  "components": [
+    {
+      "name": "shell-netsender.sh",
+      "version": "v0.2.0",
+      "executable": true,
+      "dir": "/opt/ausocean/bin",
+      "checksum": "6b5a415b8e1dcf59205562634ba64f9a"
+    }
+  ]
+}
