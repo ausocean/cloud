@@ -1,0 +1,22 @@
+{
+  "device": "hydrophone",
+  "description": "Install hydrophone release.",
+  "version": "v1.0.2",
+  "components": [
+    {
+      "name": "rv",
+      "shared": true,
+      "version": "v1.6.2",
+      "executable": true,
+      "dir": "/opt/ausocean/bin",
+      "checksum": "9e8753cd5f0710959499f1f218a27c1e"
+    },
+    {
+      "name": "license.txt",
+      "shared": true,
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/doc",
+      "checksum": "33510d84aed050b008d72cba9e6e5ea5"
+    }
+  ]
+}
