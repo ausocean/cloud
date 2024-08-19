@@ -1,21 +1,14 @@
 {
   "device": "speaker",
-  "description": "Install speaker in /opt/ausocean/bin.",
+  "description": "Install speaker release.",
   "version": "v1.0.0",
   "components": [
     {
       "name": "speaker",
-      "version": "v1.2.0",
+      "version": "v1.2.1",
       "executable": true,
       "dir": "/opt/ausocean/bin",
-      "checksum": "9af854988ecd482ea28b7439a71d45d1"
-    },
-    {
-      "name": "run_speaker.sh",
-      "version": "v1.0.0",
-      "executable": true,
-      "dir": "/opt/ausocean/bin",
-      "checksum": "WIP"
+      "checksum": "bab17a32c60f15fbefd4d86184475b39"
     },
     {
       "name": "audio.wav",
