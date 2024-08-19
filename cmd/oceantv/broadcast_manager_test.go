@@ -3,8 +3,6 @@ package main
 import (
 	"testing"
 	"time"
-
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 )
 
 func TestBroadcastCanBeReused(t *testing.T) {
@@ -16,51 +14,46 @@ func TestBroadcastCanBeReused(t *testing.T) {
 	}{
 		{
 			name: "empty status",
-			svc:  newDummyService(), // DummyService always returns an empty status.
+			svc:  newDummyService(WithStart(time.Now())), // DummyService always returns an empty status.
 			cfg: &BroadcastConfig{
-				ID:          "1",
-				SID:         "2",
-				TimeCreated: time.Now(),
+				ID:  "1",
+				SID: "2",
 			},
 			expectedReuse: false,
 		},
 		{
 			name: "good status",
-			svc:  newDummyGoodService(),
+			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:          "1",
-				SID:         "2",
-				TimeCreated: time.Now(),
+				ID:  "1",
+				SID: "2",
 			},
 			expectedReuse: true,
 		},
 		{
 			name: "empty ID, good status",
-			svc:  newDummyGoodService(),
+			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:          "",
-				SID:         "2",
-				TimeCreated: time.Now(),
+				ID:  "",
+				SID: "2",
 			},
 			expectedReuse: false,
 		},
 		{
 			name: "good status, old broadcast",
-			svc:  newDummyGoodService(),
+			svc:  newDummyService(WithStart(time.Now().Add(-24*time.Hour)), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:          "1",
-				SID:         "2",
-				TimeCreated: time.Now().Add(-24 * time.Hour),
+				ID:  "1",
+				SID: "2",
 			},
 			expectedReuse: false,
 		},
 		{
 			name: "good status, today's broadcast",
-			svc:  newDummyGoodService(),
+			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:          "1",
-				SID:         "2",
-				TimeCreated: time.Now(),
+				ID:  "1",
+				SID: "2",
 			},
 			expectedReuse: true,
 		},
@@ -80,35 +73,3 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		})
 	}
 }
-
-// dummyGoodService is a dummy implementation of the BroadcastService interface.
-// It mostly does nothing like dummyService except its BroadcastStatus method returns "upcoming" for test purposes.
-type dummyGoodService struct{}
-
-func newDummyGoodService() *dummyGoodService { return &dummyGoodService{} }
-
-func (d *dummyGoodService) CreateBroadcast(
-	ctx Ctx,
-	broadcastName, description, streamName, privacy, resolution string,
-	start, end time.Time,
-	opts ...BroadcastOption,
-) (ServerResponse, broadcast.IDs, string, error) {
-	return nil, broadcast.IDs{}, "", nil
-}
-
-func (d *dummyGoodService) StartBroadcast(
-	name, bID, sID string,
-	saveLink func(key, link string) error,
-	extStart, extStop func() error,
-	notify func(msg string) error,
-	onLiveActions func() error,
-) error {
-	return nil
-}
-func (d *dummyGoodService) BroadcastStatus(ctx Ctx, id string) (string, error) {
-	return "upcoming", nil
-}
-func (d *dummyGoodService) BroadcastHealth(ctx Ctx, id string) (string, error) { return "", nil }
-func (d *dummyGoodService) RTMPKey(ctx Ctx, streamName string) (string, error) { return "", nil }
-func (d *dummyGoodService) CompleteBroadcast(ctx Ctx, id string) error         { return nil }
-func (d *dummyGoodService) PostChatMessage(id, msg string) error               { return nil }

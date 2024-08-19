@@ -407,7 +407,7 @@ func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc B
 	now := time.Now()
 	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if startTime.Before(startOfToday) || startTime.IsZero() {
-		m.log("broadcast does not exist for today")
+		m.log("broadcast does not exist for today, last start time: %v", startTime)
 		return false
 	}
 	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)

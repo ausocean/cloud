@@ -180,9 +180,34 @@ func (d *dummyStore) Delete(ctx Ctx, key *Key) error                        { re
 
 // dummyService is a dummy implementation of the BroadcastService interface.
 // It does nothing and is used to test the broadcast functions.
-type dummyService struct{}
+type dummyService struct {
+	status string
+	start  time.Time
+}
 
-func newDummyService() *dummyService { return &dummyService{} }
+type dummyServiceOption func(*dummyService)
+
+func newDummyService(options ...dummyServiceOption) *dummyService {
+	ds := &dummyService{}
+	for _, opt := range options {
+		opt(ds)
+	}
+	return ds
+}
+
+// WithStatus is an option function for fixing the returned status of the dummyService.
+func WithStatus(status string) dummyServiceOption {
+	return func(ds *dummyService) {
+		ds.status = status
+	}
+}
+
+// WithStart is an option function for fixing the returned scheduled start time of the dummyService's broadcast.
+func WithStart(start time.Time) dummyServiceOption {
+	return func(ds *dummyService) {
+		ds.start = start
+	}
+}
 
 func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
@@ -202,7 +227,10 @@ func (d *dummyService) StartBroadcast(
 ) error {
 	return nil
 }
-func (d *dummyService) BroadcastStatus(ctx Ctx, id string) (string, error) { return "", nil }
+func (d *dummyService) BroadcastStatus(ctx Ctx, id string) (string, error) { return d.status, nil }
+func (d *dummyService) BroadcastScheduledStartTime(ctx Ctx, id string) (time.Time, error) {
+	return d.start, nil
+}
 func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error) { return "", nil }
 func (d *dummyService) RTMPKey(ctx Ctx, streamName string) (string, error) { return "", nil }
 func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error         { return nil }
