@@ -354,9 +354,9 @@ func getBroadcastStatus(svc *youtube.LiveBroadcastsService, id string) (string, 
 	return resp.Items[0].Status.LifeCycleStatus, nil
 }
 
-// GetBroadcastScheduledStart gets the status of the broadcast with the provided ID.
+// GetBroadcastScheduledStart gets the scheduled start time of the broadcast with the provided ID.
 func GetBroadcastScheduledStart(svc *youtube.Service, id string) (string, error) {
-	return getBroadcastStatus(youtube.NewLiveBroadcastsService(svc), id)
+	return getBroadcastScheduledStart(youtube.NewLiveBroadcastsService(svc), id)
 }
 
 func getBroadcastScheduledStart(svc *youtube.LiveBroadcastsService, id string) (string, error) {
