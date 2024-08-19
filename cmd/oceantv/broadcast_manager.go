@@ -139,7 +139,6 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		_cfg.SID = ids.SID
 		_cfg.CID = ids.CID
 		_cfg.RTMPKey = rtmpKey
-		_cfg.TimeCreated = timeCreated
 	})
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
@@ -402,10 +401,12 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 // broadcastCanBeReused checks if a broadcast can be reused based on how old it
 // is, if it has been revoked or completed, and if its IDs have been set.
 func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
+	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.ID)
+
 	// Check if the broadcast was created today. Don't reuse an old broadcast.
 	now := time.Now()
 	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	if cfg.TimeCreated.Before(startOfToday) || cfg.TimeCreated.IsZero() {
+	if startTime.Before(startOfToday) || startTime.IsZero() {
 		m.log("broadcast does not exist for today")
 		return false
 	}

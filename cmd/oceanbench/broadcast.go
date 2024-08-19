@@ -148,7 +148,6 @@ type BroadcastConfig struct {
 	HardwareStateData []byte        // Hardware states will be marshalled and their data stored here.
 	Account           string        // The YouTube account email that this broadcast is associated with.
 	InFailure         bool          // True if the broadcast is in a failure state.
-	TimeCreated       time.Time     // The date and time the broadcast was created.
 }
 
 // SensorEntry contains the information for each sensor.
