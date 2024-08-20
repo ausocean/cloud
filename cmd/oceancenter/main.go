@@ -51,7 +51,7 @@ import (
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.1"
+	version   = "v0.2.2"
 )
 
 // Site/device defaults.
@@ -239,12 +239,12 @@ func (svc *service) setup(ctx context.Context) {
 // this method until the the device configuration has been completed
 // by the operator.
 
-// The response is in netsender.conf (CSV) format, i.e., with one
+// The response is in netsender.conf format, i.e., with one
 // parameter per line.
 //
-//	ma:<MAC-address>
-//	dk:<device-key>
-//	ct:<client-type> (omitted when empty)
+//	ma <MAC-address>
+//	dk <device-key>
+//	ct <client-type> (omitted when empty)
 //
 // In the case of an error, the following is returned without any
 // device configuration information. The error message is also logged.
@@ -357,9 +357,9 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 func writeDeviceConfig(w http.ResponseWriter, dev *model.Device) {
 	var resp string
 	if dev.Type == "" {
-		resp = fmt.Sprintf("ma:%s\ndk:%d", dev.MAC(), dev.Dkey)
+		resp = fmt.Sprintf("ma %s\ndk %d", dev.MAC(), dev.Dkey)
 	} else {
-		resp = fmt.Sprintf("ma:%s\ndk:%d\nct:%s", dev.MAC(), dev.Dkey, dev.Type)
+		resp = fmt.Sprintf("ma %s\ndk %d\nct %s", dev.MAC(), dev.Dkey, dev.Type)
 	}
 	log.Printf("Replying with %s", strings.ReplaceAll(resp, "\n", " "))
 	w.Write([]byte(resp))

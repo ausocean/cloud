@@ -717,6 +717,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 		ctx.bus.publish(startFailedEvent{})
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
+			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
 				_cfg.StartFailures = 0
 				_cfg.Enabled = false
