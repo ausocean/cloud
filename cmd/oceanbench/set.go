@@ -86,6 +86,8 @@ type devicesData struct {
 }
 
 // writeDevices writes the devices page.
+// If the query includes sk=auto and a MAC address (ma) param is specified,
+// the parent site is automatically selected.
 // If msg is not-empty it means the previous call generated an error message.
 // The following system variables are used:
 //
@@ -117,10 +119,19 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 
 	ctx := r.Context()
 	setup(ctx)
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "set/device.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
+
+	siteChanged := false
+	if model.IsMacAddress(data.Mac) {
+		data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
+		if err != nil {
+			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
+			return
+		}
+		if data.Device.Skey != skey && r.FormValue("sk") == "auto" {
+			skey = data.Device.Skey
+			siteChanged = true
+			log.Printf("site %d auto selected for device %s", skey, data.Mac)
+		}
 	}
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
@@ -139,7 +150,20 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		reportDevicesError(w, r, data, "get site error: %v", err)
 		return
 	}
+	if siteChanged {
+		err := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
+		if err != nil {
+			log.Printf("could not put profile data: %v", err)
+		}
+	}
+
 	data.Timezone = site.Timezone
+
+	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
+	if err != nil {
+		writeTemplate(w, r, "set/device.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
+		return
+	}
 
 	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {

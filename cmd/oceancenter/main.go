@@ -51,7 +51,7 @@ import (
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.2"
+	version   = "v0.2.3"
 )
 
 // Site/device defaults.
@@ -342,7 +342,7 @@ func (svc *service) installHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Notify ops of the new device.
 	// TODO: Use a template once the notifier supports templates.
-	msg := fmt.Sprintf("New device with MAC addresses %s, %s and device key %s detected at %s.\nConfigure at https://bench.cloudblue.org/set/devices/?ma=%s",
+	msg := fmt.Sprintf("New device with MAC addresses %s, %s and device key %s detected at %s.\nConfigure at https://bench.cloudblue.org/set/devices/?ma=%s&sk=auto",
 		wi, ma, dk, localTime.Format("2006-01-02 15:04:05"), ma)
 	err = svc.notifier.Send(ctx, sandboxSite, notifyNewDevice, msg)
 	if err != nil {
