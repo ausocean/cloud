@@ -45,7 +45,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.2.2"
+	version            = "v0.2.3"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -223,16 +223,25 @@ func setup(ctx context.Context) {
 
 // tvRecipients looks up the email addresses and notification period
 // for the given site,
-// TODO: Use the notification kind for improved granularity.
 func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
 	ctx := context.Background()
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error getting site: %w", err)
 	}
+	if site.OpsEmail == "" {
+		log.Printf("OpsEmail not defined for site %s", site.Name)
+	}
 	recipients := []string{site.OpsEmail}
-	if site.YouTubeEmail != "" {
+	switch kind {
+	case broadcastHardware, broadcastNetwork, broadcastConfiguration:
+		if site.YouTubeEmail == "" {
+			log.Printf("YouTubeEmail not defined for site %s", site.Name)
+			break
+		}
 		recipients = append(recipients, site.YouTubeEmail)
+	default:
+		// Skip YouTubeEmail notifications for other kinds.
 	}
 	return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
