@@ -26,6 +26,7 @@ LICENSE
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/openfish/datastore"
 )
@@ -158,14 +160,46 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 
 // dummyStore is a dummy implementation of the datastore.Store interface.
 // It basically does nothing and is used to test the broadcast functions.
-type dummyStore struct{}
+type dummyStore struct {
+	tokenBucketLimiter *OceanTokenBucketLimiter
+}
 
-func newDummyStore() *dummyStore { return &dummyStore{} }
+type dummyStoreOption func(*dummyStore)
 
-func (d *dummyStore) IDKey(kind string, id int64) *Key       { return nil }
-func (d *dummyStore) NameKey(kind, name string) *Key         { return nil }
-func (d *dummyStore) IncompleteKey(kind string) *Key         { return nil }
-func (d *dummyStore) Get(ctx Ctx, key *Key, dst Ety) error   { return nil }
+// newDummyStore creates a new dummyStore with the provided options.
+func newDummyStore(options ...dummyStoreOption) *dummyStore {
+	ds := &dummyStore{}
+	for _, opt := range options {
+		opt(ds)
+	}
+	return ds
+}
+
+// WithTokenBucketLimiter is an option function for setting the token bucket limiter in the dummyStore.
+func WithTokenBucketLimiter(limiter *OceanTokenBucketLimiter) dummyStoreOption {
+	return func(ds *dummyStore) {
+		ds.tokenBucketLimiter = limiter
+	}
+}
+
+func (d *dummyStore) IDKey(kind string, id int64) *Key { return nil }
+func (d *dummyStore) NameKey(kind, name string) *Key   { return nil }
+func (d *dummyStore) IncompleteKey(kind string) *Key   { return nil }
+func (d *dummyStore) Get(ctx Ctx, key *Key, dst Ety) error {
+	// Check if the key corresponds to the token bucket limiter and if it is set.
+	if d.tokenBucketLimiter != nil {
+		data, err := json.Marshal(d.tokenBucketLimiter)
+		if err != nil {
+			return fmt.Errorf("could not marshal token bucket limiter: %w", err)
+		}
+		if v, ok := dst.(*model.Variable); ok {
+			v.Value = string(data)
+			return nil
+		}
+	}
+	// Return nil by default.
+	return nil
+}
 func (d *dummyStore) DeleteMulti(ctx Ctx, keys []*Key) error { return nil }
 func (d *dummyStore) NewQuery(kind string, keysOnly bool, keyParts ...string) datastore.Query {
 	return nil
