@@ -367,6 +367,9 @@ func getBroadcastScheduledStart(svc *youtube.LiveBroadcastsService, id string) (
 	if len(resp.Items) == 0 {
 		return "", ErrNoBroadcastItems
 	}
+	if len(resp.Items) > 1 {
+		return "", fmt.Errorf("more than one broadcast item found with the same ID: %s", id)
+	}
 	return resp.Items[0].Snippet.ScheduledStartTime, nil
 }
 
