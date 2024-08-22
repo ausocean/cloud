@@ -516,6 +516,10 @@ func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, 
 		return nil
 	}
 
+	if targetSkey == skey {
+		return fmt.Errorf("target site cannot match source site")
+	}
+
 	// Move a device.
 	// Check the user is an admin for the target site.
 	if !isAdmin(ctx, targetSkey, p.Email) {
