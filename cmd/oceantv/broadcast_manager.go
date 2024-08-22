@@ -88,6 +88,16 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 	store Store,
 	svc BroadcastService,
 ) error {
+	// Only create a new broadcast if a valid one doesn't already exist.
+	if m.broadcastCanBeReused(cfg, svc) {
+		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.ID, cfg.SID)
+		err := m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
+		if err != nil {
+			return fmt.Errorf("could not save broadcast config: %w", err)
+		}
+		return nil
+	}
+
 	// We're going to add the date to the broadcast's name, so get this and format.
 	loc, err := time.LoadLocation(locationID)
 	if err != nil {
@@ -109,6 +119,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		return fmt.Errorf("could not get token bucket limiter: %w", err)
 	}
 
+	timeCreated := time.Now().Add(1 * time.Minute)
 	resp, ids, rtmpKey, err := svc.CreateBroadcast(
 		context.Background(),
 		cfg.Name+" "+dateStr,
@@ -116,14 +127,19 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		cfg.StreamName,
 		cfg.Privacy,
 		cfg.Resolution,
-		time.Now().Add(1*time.Minute),
+		timeCreated,
 		cfg.End,
 		WithRateLimiter(limiter),
 	)
 	if err != nil {
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
 	}
-	err = m.Save(nil, func(_cfg *Cfg) { _cfg.ID = ids.BID; _cfg.SID = ids.SID; _cfg.CID = ids.CID; _cfg.RTMPKey = rtmpKey })
+	err = m.Save(nil, func(_cfg *Cfg) {
+		_cfg.ID = ids.BID
+		_cfg.SID = ids.SID
+		_cfg.CID = ids.CID
+		_cfg.RTMPKey = rtmpKey
+	})
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
 	}
@@ -380,4 +396,29 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 	return func(msg string) error {
 		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
 	}
+}
+
+// broadcastCanBeReused checks if a broadcast can be reused based on how old it
+// is, if it has been revoked or completed, and if its IDs have been set.
+func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
+	// Check if the broadcast was created today. Don't reuse an old broadcast.
+	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.ID)
+	if err != nil {
+		m.log("could not get today's broadcast start time: %v", err)
+		return false
+	}
+	now := time.Now()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	if startTime.Before(startOfToday) || startTime.IsZero() {
+		m.log("broadcast does not exist for today, last start time: %v", startTime)
+		return false
+	}
+
+	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
+	if err != nil {
+		m.log("could not get today's broadcast status: %v", err)
+		return false
+	}
+	m.log("today's broadcast has status: %s", status)
+	return cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
 }

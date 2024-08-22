@@ -290,7 +290,7 @@ func (sm *hardwareStateMachine) unexpectedEvent(event event, state state) {
 }
 
 func (sm *hardwareStateMachine) log(format string, args ...interface{}) {
-	sm.ctx.log("(hardware) "+format, args...)
+	sm.ctx.log("(hardware sm) "+format, args...)
 }
 
 type hardwareManager interface {
@@ -331,6 +331,7 @@ func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac i
 		log("could not get device status: %v", err)
 		return
 	}
+	log("status from DeviceIsUp check: %v", alive)
 	if alive == status {
 		publish(event)
 		return

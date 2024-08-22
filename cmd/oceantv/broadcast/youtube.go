@@ -68,6 +68,7 @@ var (
 	ErrNoBroadcastItems = errors.New("no broadcast items")
 )
 
+// IDs contains Broadcast ID, Stream ID and Chat ID.
 type IDs struct {
 	BID, SID, CID string
 }
@@ -353,6 +354,25 @@ func getBroadcastStatus(svc *youtube.LiveBroadcastsService, id string) (string, 
 	return resp.Items[0].Status.LifeCycleStatus, nil
 }
 
+// GetBroadcastScheduledStart gets the scheduled start time of the broadcast with the provided ID.
+func GetBroadcastScheduledStart(svc *youtube.Service, id string) (string, error) {
+	return getBroadcastScheduledStart(youtube.NewLiveBroadcastsService(svc), id)
+}
+
+func getBroadcastScheduledStart(svc *youtube.LiveBroadcastsService, id string) (string, error) {
+	resp, err := svc.List([]string{"snippet"}).Id(id).Do()
+	if err != nil {
+		return "", fmt.Errorf("could not list broadcasts: %w", err)
+	}
+	if len(resp.Items) == 0 {
+		return "", ErrNoBroadcastItems
+	}
+	if len(resp.Items) > 1 {
+		return "", fmt.Errorf("more than one broadcast item found with the same ID: %s", id)
+	}
+	return resp.Items[0].Snippet.ScheduledStartTime, nil
+}
+
 // getStreamStatuses retrieves the LiveStreamStatus struct for the given ID.
 func getStreamStatuses(svc *youtube.LiveStreamsService, id string) (*youtube.LiveStreamStatus, error) {
 	resp, err := svc.List([]string{"status"}).Id(id).Do()
@@ -369,7 +389,7 @@ func getStreamStatuses(svc *youtube.LiveStreamsService, id string) (*youtube.Liv
 func getStreamStatus(svc *youtube.LiveStreamsService, id string) (string, error) {
 	statuses, err := getStreamStatuses(svc, id)
 	if err != nil {
-		return "", fmt.Errorf("could not get statuses")
+		return "", fmt.Errorf("could not get statuses: %w", err)
 	}
 	return statuses.StreamStatus, nil
 }

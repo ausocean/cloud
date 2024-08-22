@@ -470,11 +470,11 @@ func (sm *broadcastStateMachine) unexpectedEvent(event event, state state) {
 }
 
 func (sm *broadcastStateMachine) log(msg string, args ...interface{}) {
-	sm.ctx.log(msg, args...)
+	sm.ctx.log("(broadcast sm) "+msg, args...)
 }
 
 func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(k, msg, args...)
+	sm.ctx.logAndNotify(k, "(broadcast sm) "+msg, args...)
 }
 
 func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {

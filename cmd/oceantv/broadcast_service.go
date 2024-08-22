@@ -67,6 +67,7 @@ type BroadcastService interface {
 	) error
 
 	BroadcastStatus(ctx context.Context, id string) (string, error)
+	BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error)
 	BroadcastHealth(ctx context.Context, sid string) (string, error)
 	RTMPKey(ctx context.Context, streamName string) (string, error)
 	CompleteBroadcast(ctx context.Context, id string) error
@@ -245,6 +246,23 @@ func (s *YouTubeBroadcastService) BroadcastHealth(ctx context.Context, sid strin
 	}
 
 	return "", nil
+}
+
+// BroadcastScheduledStartTime returns the scheduled start time of a broadcast.
+func (s *YouTubeBroadcastService) BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error) {
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get service error: %w", err)
+	}
+	start, err := broadcast.GetBroadcastScheduledStart(svc, id)
+	if err != nil && !errors.Is(err, broadcast.ErrNoBroadcastItems) {
+		return time.Time{}, fmt.Errorf("get broadcast status error: %w", err)
+	}
+	startTime, err := time.Parse(time.RFC3339, start)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error parsing time: %w", err)
+	}
+	return startTime, nil
 }
 
 // CompleteBroadcast transitions a broadcast with identification id to complete
