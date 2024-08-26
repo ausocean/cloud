@@ -139,9 +139,6 @@
       field.form.submit()
     }
   </script>
-  <style>
-  label { float: left; text-align: right; width: 200px; margin-right: 5px; }
-  </style>
 </head>
 <body onload="init();">
   <div id="data">
@@ -174,97 +171,156 @@
     <h1 class="container-md">Devices</h1>
     <div class="border rounded p-4 container-md bg-white">
       <form action="/set/devices/" enctype="multipart/form-data" method="post">
-        <fieldset>
-          <label>Select device:</label>
-          <select name="ma" onchange="this.form.submit();" class="w-25">
-            <option value="">-- New device --</option>
-            {{range .Devices}}
-              <option value="{{ .MAC }}"{{if eq .MAC $.Mac}} selected{{end}}>{{ .Name }}</option>
-            {{end}}
-          </select>
+        <fieldset class="row d-flex gx-1 align-items-center pb-1">
+          <label class="col-sm-2 col-md-3 col-1 text-end pt-1">Select Device:</label>
+            <div class="col-sm-10 col-md-6 col-12">
+              <select name="ma" onchange="this.form.submit();" class="form-select h-auto">
+                <option value="">-- New device --</option>
+                {{range .Devices}}
+                  <option value="{{ .MAC }}"{{if eq .MAC $.Mac}} selected{{end}}>{{ .Name }}</option>
+                {{end}}
+              </select>
+            </div>
         </fieldset>
       </form>
-  
+      <hr>
       {{with .Device}}
-        <br>
         <form action="/set/devices/edit" enctype="multipart/form-data" method="post">
           <fieldset>
-            <label>Name:</label>
-            <input class="w-25" type="input" name="dn" value="{{.Name}}">
-            <br>
-            <label>MAC:</label>
-            <input class="w-25" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}}>
-            <br>
-            <label>Type:</label>
-            <select name="ct" class="w-25">
-              <option value="">-- Select type --</option>{{range $.DevTypes}}
-              <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
-            {{end}}
-            </select>
-            <br>
-            <label>Inputs:</label>
-            <input class="w-25" type="input" name="ip" value="{{.Inputs}}">
-            <br>
-            <label>Outputs:</label>
-            <input class="w-25" type="input" name="op" value="{{.Outputs}}">
-            <br>
-            <label>WiFi:</label>
-            <input class="w-25" type="input" name="wi" value="{{.Wifi}}">
-            <br>
-            <label>Mon period:</label>
-            <input class="w-25" type="input" name="mp" value="{{.MonitorPeriod}}">
-            <br>
-            <label>Act period:</label>
-            <input class="w-25" type="input" name="ap" value="{{.ActPeriod}}">
-            <br>
-            <label>Client version:</label>
-            <input class="w-25" type="input" name="cv" value="{{.Version}}">
-            <br>
-            <label>Client protocol:</label>
-            <input class="w-25" type="input" name="ns" value="{{.Protocol}}" readonly>
-            <br>
-            <label>Latitude:</label>
-            <input class="w-25" type="input" name="lt" value="{{.Latitude}}">
-            <br>
-            <label>Longitude:</label>
-            <input class="w-25" type="input" name="ln" value="{{.Longitude}}">
-            <br>
-            <label>Device key:</label>
-            <input class="w-25" type="input" name="dk" value="{{.Dkey}}" {{if not .Name}}readonly{{end}}>
-            <br>
-            <label>Local address:</label>
-            <input class="w-25" type="input" name="la" value="{{if (.Other "localaddr")}}{{.Other "localaddr"}}{{end}}" readonly>
-            <br>
-            <label>Last updated:</label>
-            <input class="w-25" type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" readonly>
-            <br>
-            <label>Uptime:</label>
-            <input class="w-25" type="input" name="ut" value="{{if (.Other "uptime")}}{{.Other "uptime"}}{{end}}" readonly>
-            <br>
-            <label>Enabled:</label>
-            <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}}>
             {{if .Name}}
-              <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}">
-              <img src="/s/{{ .Other "sending"}}.png" alt="{{ .Other "sending"}}">
+            <div class="d-flex justify-content-center">
+              <div class="d-flex gap-1">
+                <input class="btn btn-primary " type="submit" name="task" value="Update">
+                <input class="btn btn-primary" type="submit" name="task" value="Shutdown">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Debug">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Reboot">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Upgrade">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Alarm">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Test">
+                <input class="btn btn-outline-primary" type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')">
+              </div>
+            </div>
+            {{else}}
+            <div class="d-flex justify-content-center pb-1">
+              <input class="btn btn-primary w-50" type="submit" name="task" value="Add">
+            </div>
             {{end}}
+            <hr>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Name:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="dn" value="{{.Name}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">MAC:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}}>
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Type:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <select name="ct" class="form-select h-auto ">
+                  <option value="">-- Select type --</option>{{range $.DevTypes}}
+                  <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
+                {{end}}
+                </select>
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Inputs:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="ip" value="{{.Inputs}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Outputs:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="op" value="{{.Outputs}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">WiFi:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="wi" value="{{.Wifi}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Mon Period:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="number" name="mp" value="{{.MonitorPeriod}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Act Period:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="number" name="ap" value="{{.ActPeriod}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Version:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="cv" value="{{.Version}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Protocol:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="ns" value="{{.Protocol}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Latitude:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="number" name="lt" value="{{.Latitude}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Longitude:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="number" name="ln" value="{{.Longitude}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Device Key:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="number" name="dk" value="{{.Dkey}}">
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Local Addess:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="la" value="{{if (.Other "localaddr")}}{{.Other "localaddr"}}{{end}}" readonly>
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Last Updated:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" readonly>
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Uptime:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="ut" value="{{if (.Other "uptime")}}{{.Other "uptime"}}{{end}}" readonly>
+              </div>
+            </div>
+            <div class="row d-flex gx-1 pb-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end">Enabled:</label>
+              <div class="col-sm-10 col-md-6 col-12 d-flex align-items-center gap-2">
+                <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}}>
+                {{if .Name}}
+                  <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}">
+                  <img src="/s/{{ .Other "sending"}}.png" alt="{{ .Other "sending"}}">
+                {{end}}
+              </div>
+            </div>
           </fieldset>
-          <br>
-          {{if .Name}}
-            <input type="submit" name="task" value="Update">
-            <input type="submit" name="task" value="Debug">
-            <input type="submit" name="task" value="Reboot">
-            <input type="submit" name="task" value="Shutdown">
-            <input type="submit" name="task" value="Upgrade">
-            <input type="submit" name="task" value="Alarm">
-            <input type="submit" name="task" value="Test">
-            <input type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')">
-          {{else}}
-            <input type="submit" name="task" value="Add">
-          {{end}}
         </form>
         <br>
       {{end}}
-  
+
       {{if .Device }}
         <h3>Variables</h3>
         <div class="ao-table" id="vars">
@@ -295,7 +351,7 @@
           </form>
         </div>
         <br>
-  
+
         <h3>Sensors</h3>
         <div class="ao-table" id="sensors">
           <div class="tr">
@@ -384,7 +440,7 @@
           </form>
         </div>
         <br>
-  
+
         <h3>Actuators</h3>
         <div class="ao-table" id="actuators">
           <div class="tr">
