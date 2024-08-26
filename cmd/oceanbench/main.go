@@ -368,31 +368,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	writeTemplate(w, r, "index.html", &data, "")
 }
 
-func getUsersForSiteMenu(w http.ResponseWriter, r *http.Request, ctx context.Context, profile *gauth.Profile, data interface{}) ([]model.User, error) {
-	users, err := model.GetUsers(ctx, settingsStore, profile.Email)
-	if err != nil {
-		return nil, fmt.Errorf("could not get users: %w", err)
-	}
-
-	// Keep track of site keys added.
-	added := map[int64]bool{}
-	for _, u := range users {
-		added[u.Skey] = true
-	}
-
-	// Get all public sites, if a public site hasn't been added yet, add it.
-	publicSites, err := model.GetPublicSites(ctx, settingsStore)
-	if err != nil {
-		return nil, fmt.Errorf("could not get public sites: %w", err)
-	}
-	for _, s := range publicSites {
-		if !added[s.Skey] {
-			users = append(users, model.User{Skey: s.Skey, Perm: model.ReadPermission})
-		}
-	}
-	return users, nil
-}
-
 // warmupHandler handles warmup requests. It is a no-op that simply ensures that the intance is loaded.
 func warmupHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)

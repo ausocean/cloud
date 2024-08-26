@@ -133,6 +133,34 @@ func GetPublicSites(ctx context.Context, store datastore.Store) ([]Site, error) 
 	return sites, err
 }
 
+// GetUserSites returns all sites that the passed profile has access to. This includes public sites.
+func GetUserSites(ctx context.Context, store datastore.Store, email string) ([]User, []Site, error) {
+	sites, err := GetAllSites(ctx, store)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get all sites: %w", err)
+	}
+
+	users, err := GetUsers(ctx, store, email)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get users: %w", err)
+	}
+
+	// Put the users in a map to be checked against.
+	userMap := make(map[int64]bool)
+	for _, u := range users {
+		userMap[u.Skey] = true
+	}
+
+	var userSites []Site
+	for _, s := range sites {
+		if s.Public || userMap[s.Skey] {
+			userSites = append(userSites, s)
+		}
+	}
+
+	return users, userSites, nil
+}
+
 // DeleteSite deletes a site.
 func DeleteSite(ctx context.Context, store datastore.Store, skey int64) error {
 	key := store.IDKey(typeSite, skey)

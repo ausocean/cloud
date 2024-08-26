@@ -112,20 +112,18 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			case "user":
-				users, err := getUsersForSiteMenu(w, r, ctx, p, nil)
+				users, sites, err := model.GetUserSites(ctx, settingsStore, p.Email)
 				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get users: %v", err)
+					writeHttpError(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
 					return
 				}
 				userMap := make(map[int64]int64)
-				for _, user := range users {
-					userMap[user.Skey] = user.Perm
+				for _, u := range users {
+					userMap[u.Skey] = u.Perm
 				}
 				var userSites []minimalSite
 				for _, site := range sites {
-					if _, ok := userMap[site.Skey]; ok {
-						userSites = append(userSites, minimalSite{site.Skey, userMap[site.Skey], site.Name, site.Public})
-					}
+					userSites = append(userSites, minimalSite{site.Skey, userMap[site.Skey], site.Name, site.Public})
 				}
 				b, err := json.Marshal(userSites)
 				if err != nil {

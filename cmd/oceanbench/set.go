@@ -159,12 +159,6 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 
 	data.Timezone = site.Timezone
 
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "set/device.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
-
 	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		reportDevicesError(w, r, data, "get devices by site error: %v", err)
