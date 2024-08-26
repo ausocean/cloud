@@ -5,10 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   <link href="/s/main.css" rel="stylesheet" type="text/css"/>
+  <style rel="stylesheet" type="text/css">
+  .advanced {
+    transition: all 0.3s ease; /* Optional: for smooth transition */
+  }
+
+  .advanced.hidden {
+    display: none;
+    height: 0;
+    padding: 0;
+    margin: 0;
+  }
+  </style>
   <title>Devices</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js"></script>
   <script type="text/javascript">
+    var advancedOpts;
+    var adv = false;
+
     var varTypes = { {{range $.VarTypes}}
       {{.Basename}}:"{{.Value}}",{{end}}
     };
@@ -107,6 +122,22 @@
       for (let elem of elems){
         setValue(elem.value);
       }
+
+      // Read the cookie for the advanced settings.
+      let cookies = document.cookie.split(";", 5);
+      for (c of cookies) {
+        let cpair = c
+          .trim()
+          .split("=", 2);
+        if (cpair[0] == "advanced") {
+          adv = cpair[1] == "on" ? true : false;
+        }
+      }
+
+      advancedOpts = document.getElementsByClassName("advanced");
+      for (opt of advancedOpts) {
+        adv ? document.getElementById("adv-options-toggle").checked = true : opt.style.display = "none";
+      }
     }
 
     function submitVar(vv) {
@@ -138,6 +169,15 @@
     function submitActuator(field) {
       field.form.submit()
     }
+
+    function toggleAdvanced(checked) {
+      for (opt of advancedOpts) {
+        checked ? opt.style.display = "flex" : opt.style.display = "none";
+      }
+
+      document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
+    }
+
   </script>
 </head>
 <body onload="init();">
@@ -190,14 +230,14 @@
             {{if .Name}}
             <div class="d-flex justify-content-center">
               <div class="d-flex gap-1">
-                <input class="btn btn-primary " type="submit" name="task" value="Update">
+                <input class="btn btn-primary" type="submit" name="task" value="Update">
                 <input class="btn btn-primary" type="submit" name="task" value="Shutdown">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Debug">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Reboot">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Upgrade">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Alarm">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Test">
-                <input class="btn btn-outline-primary" type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')">
+                <input class="btn btn-primary" type="submit" name="task" value="Reboot">
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Debug">
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Upgrade">
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Alarm">
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Test">
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')">
               </div>
             </div>
             {{else}}
@@ -206,118 +246,128 @@
             </div>
             {{end}}
             <hr>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Name:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="dn" value="{{.Name}}">
+            <div class="d-flex flex-column gap-1">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Name:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="dn" value="{{.Name}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">MAC:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}}>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">MAC:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}disabled{{end}}>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Type:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <select name="ct" class="form-select h-auto ">
-                  <option value="">-- Select type --</option>{{range $.DevTypes}}
-                  <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
-                {{end}}
-                </select>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Type:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  {{if .Name}}
+                  <input class="form-control" value="{{.Type}}" disabled>
+                  {{else}}
+                  <select name="ct" class="form-select h-auto">
+                    <option value="">-- Select type --</option>{{range $.DevTypes}}
+                    <option value="{{.}}"{{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
+                  {{end}}
+                  {{end}}
+                  </select>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Inputs:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="ip" value="{{.Inputs}}">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Inputs:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ip" value="{{.Inputs}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Outputs:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="op" value="{{.Outputs}}">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Outputs:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="op" value="{{.Outputs}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">WiFi:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="wi" value="{{.Wifi}}">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">WiFi:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="wi" value="{{.Wifi}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Mon Period:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="number" name="mp" value="{{.MonitorPeriod}}">
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Mon Period:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="mp" value="{{.MonitorPeriod}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Act Period:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="number" name="ap" value="{{.ActPeriod}}">
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Act Period:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="ap" value="{{.ActPeriod}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Version:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="cv" value="{{.Version}}">
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Version:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="cv" value="{{.Version}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Protocol:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="ns" value="{{.Protocol}}">
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Protocol:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ns" value="{{.Protocol}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Latitude:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="number" name="lt" value="{{.Latitude}}">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Latitude:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="lt" value="{{.Latitude}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Longitude:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="number" name="ln" value="{{.Longitude}}">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Longitude:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="ln" value="{{.Longitude}}">
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Device Key:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="number" name="dk" value="{{.Dkey}}">
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Device Key:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="dk" value="{{.Dkey}}" disabled>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Local Addess:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="la" value="{{if (.Other "localaddr")}}{{.Other "localaddr"}}{{end}}" readonly>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Local Addess:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="la" value="{{if (.Other "localaddr")}}{{.Other "localaddr"}}{{end}}" disabled>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Last Updated:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" readonly>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Last Updated:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" disabled>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Uptime:</label>
-              <div class="col-sm-10 col-md-6 col-12">
-                <input class="form-control" type="input" name="ut" value="{{if (.Other "uptime")}}{{.Other "uptime"}}{{end}}" readonly>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Uptime:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ut" value="{{if (.Other "uptime")}}{{.Other "uptime"}}{{end}}" disabled>
+                </div>
               </div>
-            </div>
-            <div class="row d-flex gx-1 pb-1">
-              <label class="col-sm-2 col-md-3 col-1 text-end">Enabled:</label>
-              <div class="col-sm-10 col-md-6 col-12 d-flex align-items-center gap-2">
-                <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}}>
-                {{if .Name}}
-                  <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}">
-                  <img src="/s/{{ .Other "sending"}}.png" alt="{{ .Other "sending"}}">
-                {{end}}
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end">Enabled:</label>
+                <div class="col-sm-10 col-md-6 col-12 d-flex align-items-center gap-2">
+                  <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}}>
+                  {{if .Name}}
+                    <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}">
+                    <img src="/s/{{ .Other "sending"}}.png" alt="{{ .Other "sending"}}">
+                  {{end}}
+                </div>
               </div>
             </div>
           </fieldset>
         </form>
+        <div class="w-100 d-flex justify-content-end gap-1">
+          <label for="adv-toggle">Advanced Options:</label>
+          <input type="checkbox" id="adv-options-toggle" name="adv-toggle" onchange="toggleAdvanced(checked)">
+        </div>
         <br>
       {{end}}
 
