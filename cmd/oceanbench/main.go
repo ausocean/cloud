@@ -72,7 +72,7 @@ import (
 )
 
 const (
-	version     = "v0.22.9"
+	version     = "v0.22.10"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"

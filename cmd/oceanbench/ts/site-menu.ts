@@ -60,6 +60,7 @@ class SiteMenu extends LitElement {
         r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {
                 let sites = JSON.parse(r.response)
+                this.dispatchEvent(new CustomEvent('sites-loaded', {bubbles: true, composed: true, detail: {'len': sites.length}}))
                 var opts:HTMLOptionElement[][] = [[],[],[]]
                 for (let site of sites) {
                     var opt = document.createElement("option");

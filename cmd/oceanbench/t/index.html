@@ -9,6 +9,7 @@
   <title>CloudBlue</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js" ></script>
+  <script type="text/javascript" src="/s/index.js"></script>
 </head>
 <body>
   <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
@@ -20,7 +21,6 @@
       {{- end}}
     </nav-menu>
     <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
-      <option value="{{index (split .Profile.Data ":") 0}}" selected slot="selected">test</option>
     </site-menu>
   </header-group>
   <section id="main" class="main">
@@ -31,7 +31,7 @@
       </p>
       {{if .Profile}}
         <p>
-          You are logged in as {{ .Profile.Email}} and have {{len .Users}} sites.
+          You are logged in as {{ .Profile.Email}} and have <span id="num-sites" class="spinner-border spinner-border-sm" role="status"></span> sites.
         </p>
         <p>
           <a href="/admin/site/add">Register a new site</a>
