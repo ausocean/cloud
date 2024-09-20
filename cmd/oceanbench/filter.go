@@ -56,7 +56,7 @@ type Parameters struct {
 	AmpFactor  float64
 }
 
-// filterHandler handles HTTP POST requests sent to play/filter input. The function receives the
+// filterHandler handles HTTP POST requests sent to play/audiorequest input. The function receives the
 // filter parameters and creates an appropriate filter and applies it to the current audio file.
 func filterHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
