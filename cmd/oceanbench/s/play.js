@@ -29,6 +29,9 @@ let isPlaying = false;
 // Track input source for audio.
 let fromUrl = true;
 let audioFile;
+let mimeType = "audio/wav";
+
+let bd, chan, rate;
 
 // init initialises the event listeners when the appropriate DOM elements have loaded.
 function init() {
@@ -36,7 +39,6 @@ function init() {
     load(true);
   });
   document.addEventListener("DOMContentLoaded", function () {
-    document.getElementById("menubars").addEventListener("click", toggleMenu);
     document.getElementById("loadBtn").addEventListener("click", function () {
       load(false);
     });
@@ -44,7 +46,7 @@ function init() {
   });
 }
 
-init();
+document.addEventListener("onload", init());
 
 // load looks at the browser's URL bar and the URL input element to find a URL to load.
 async function load(firstLoad) {
@@ -73,16 +75,28 @@ async function load(firstLoad) {
     case "wav":
     case "pcm":
     case "adpcm":
+      fromUrl = true;
       document.querySelector("#audio-tab").classList.add("active");
       url = getURL(firstLoad, query, "media", params);
       if (firstLoad) {
         await initAudio();
       }
-      await loadAudio(url, type);
+      switch (type) {
+        case "wav":
+        case "pcm":
+        case "adpcm":
+          await getMedia(url, type);
+          break;
+        default:
+          console.log("cannot play given media type", type);
+          return;
+      }
 
       // Once the audio has loaded, start playing immediately.
       if (type != "wav") {
         playAudioFile(audioFile);
+      } else {
+        playAudioFile(audioFile, bd, chan, rate);
       }
       break;
     default:
@@ -283,24 +297,6 @@ function textPlaylist() {
   return url;
 }
 
-// loadAudio will load audio from a URL into the audio player.
-async function loadAudio(url, type) {
-  switch (type) {
-    case "wav":
-      await initAndLoadSpectrogram(url);
-      break;
-    case "pcm":
-      await getMedia(url, type);
-      break;
-    case "adpcm":
-      await getMedia(url, type);
-      break;
-    default:
-      console.log("cannot play given media type", type);
-      return;
-  }
-}
-
 // getMedia will request media from a URL and load the player once the response has been received.
 async function getMedia(url) {
   return new Promise((resolve, reject) => {
@@ -315,9 +311,9 @@ async function getMedia(url) {
           "response mime type",
           xhr.getResponseHeader("content-type"),
         );
-        let bd = document.getElementById("bdinput").value;
-        let chan = document.getElementById("chaninput").value;
-        let rate = document.getElementById("rateinput").value;
+        bd = document.getElementById("bdinput").value;
+        chan = document.getElementById("chaninput").value;
+        rate = document.getElementById("rateinput").value;
         console.log("bitdepth: ", bd, "channels: ", chan, "rate: ", rate);
         switch (type) {
           case "text":
@@ -337,10 +333,12 @@ async function getMedia(url) {
             resolve((audioFile = xhr.response));
             break;
           case "pcm":
+            mimeType = "audio/pcm";
             console.log("loading pcm");
             resolve((audioFile = new Uint8Array(xhr.response)), rate, chan, bd);
             break;
           case "adpcm":
+            mimeType = "audio/adpcm";
             console.log("loading adpcm");
             resolve(
               (audioFile = pcmToWav(
@@ -422,9 +420,9 @@ async function initAudio() {
 // playAudioFile will process and play the chosen target file.
 function playAudioFile(audio, bd, chan, rate) {
   if (!(bd && chan && rate)) {
-    const bd = document.getElementById("bdinput").value;
-    const chan = document.getElementById("chaninput").value;
-    const rate = document.getElementById("rateinput").value;
+    bd = document.getElementById("bdinput").value;
+    chan = document.getElementById("chaninput").value;
+    rate = document.getElementById("rateinput").value;
 
     loadWAV(pcmToWav(new Uint8Array(audio), rate, chan, bd));
     return;
@@ -672,7 +670,7 @@ function applyFilter() {
               .files[0].name.split(".")
               .slice(-1),
           ).toLowerCase();
-
+      mimeType = "audio/pcm";
       if (fileType == "wav") {
         const bd = request.getResponseHeader("bit-depth");
         const chan = request.getResponseHeader("channels");
@@ -697,8 +695,8 @@ function applyFilter() {
   if (fromUrl) {
     form.set(
       "audio-file",
-      new Blob([audioFile], { type: "audio/wav" }),
-      "audio.pcm",
+      new Blob([audioFile], { type: mimeType }),
+      mimeType.replace("/", "."),
     );
   }
   request.send(form);
