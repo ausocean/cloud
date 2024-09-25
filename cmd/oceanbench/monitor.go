@@ -234,7 +234,7 @@ func monitorLoadRoutine(
 
 	for _, sensor := range sensors {
 		id := model.ToSID(model.MacDecode(sensor.Mac), sensor.Pin)
-		scalar, err := getLatestScalar(ctx, mediaStore, id)
+		scalar, err := model.GetLatestScalar(ctx, mediaStore, id)
 		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
@@ -285,18 +285,4 @@ func reportMonitorError(w http.ResponseWriter, r *http.Request, d *monitorData, 
 	msg := fmt.Sprintf(f, args...)
 	log.Print(msg)
 	writeTemplate(w, r, "monitor.html", d, msg)
-}
-
-// getLatestScalar finds the most recent scalar within the countPeriod.
-func getLatestScalar(ctx context.Context, store datastore.Store, id int64) (*model.Scalar, error) {
-	start := time.Now().Add(-countPeriod).Unix()
-	keys, err := model.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
-	if err != nil {
-		return nil, err
-	}
-	if len(keys) == 0 {
-		return nil, datastore.ErrNoSuchEntity
-	}
-	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
-	return model.GetScalar(ctx, store, id, ts)
 }

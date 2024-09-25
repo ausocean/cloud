@@ -410,18 +410,3 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("redirecting to livestream link, link: %s", v.Value)
 	http.Redirect(w, r, v.Value, http.StatusFound)
 }
-
-// getLatestScalar finds the most recent scalar within the countPeriod.
-func getLatestScalar(ctx context.Context, store datastore.Store, id int64) (*model.Scalar, error) {
-	const countPeriod = 60 * time.Minute
-	start := time.Now().Add(-countPeriod).Unix()
-	keys, err := model.GetScalarKeys(ctx, mediaStore, id, []int64{start, -1})
-	if err != nil {
-		return nil, err
-	}
-	if len(keys) == 0 {
-		return nil, datastore.ErrNoSuchEntity
-	}
-	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
-	return model.GetScalar(ctx, store, id, ts)
-}
