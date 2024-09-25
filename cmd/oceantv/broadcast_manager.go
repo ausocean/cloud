@@ -261,7 +261,7 @@ func (m *OceanBroadcastManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
 		// Get the latest signal for the sensor.
 		var qty string
 
-		scalar, err := getLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
+		scalar, err := model.GetLatestScalar(ctx, mediaStore, model.ToSID(model.MacDecode(sensor.DeviceMac), sensor.Sensor.Pin))
 		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {

@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ausocean/openfish/datastore"
 )
@@ -226,4 +227,19 @@ func getScalarPin(b byte) string {
 	} else {
 		return "X" + strconv.Itoa(pn)
 	}
+}
+
+// GetLatestScalar finds the most recent scalar.
+func GetLatestScalar(ctx context.Context, store datastore.Store, id int64) (*Scalar, error) {
+	const countPeriod = 60 * time.Minute
+	start := time.Now().Add(-countPeriod).Unix()
+	keys, err := GetScalarKeys(ctx, store, id, []int64{start, -1})
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+	_, ts, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
+	return GetScalar(ctx, store, id, ts)
 }
