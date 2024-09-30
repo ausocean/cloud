@@ -762,6 +762,11 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
+	if r.URL.Path != "/set/crons/" {
+		// Redirect all requests to the cron base path to clear any actions.
+		http.Redirect(w, r, "/set/crons/", http.StatusFound)
+		return
+	}
 
 	ctx := r.Context()
 	setup(ctx)
