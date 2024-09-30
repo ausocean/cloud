@@ -91,6 +91,43 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, string(enc))
 			return
 
+		case "devices":
+			switch val {
+			case "site":
+				// Check that the user has at least read access.
+				if len(strings.Split(p.Data, ":")) != 2 {
+					writeHttpError(w, http.StatusBadRequest, "no site data in profile")
+					return
+				}
+				skey, err := strconv.ParseInt(strings.Split(p.Data, ":")[0], 10, 64)
+				if err != nil {
+					writeHttpError(w, http.StatusBadRequest, "invalid site data in profile data: %s", p.Data)
+					return
+				}
+				user, err := model.GetUser(ctx, settingsStore, skey, p.Email)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+					return
+				}
+				if user.Perm&model.ReadPermission == 0 {
+					writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
+					return
+				}
+
+				devs, err := model.GetDevicesBySite(ctx, settingsStore, skey)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
+					return
+				}
+				data, err := json.Marshal(devs)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to marshal devs into json: %v", err)
+					return
+				}
+				w.Write(data)
+				return
+			}
+
 		case "sites":
 			if val == "user" {
 			}
@@ -141,6 +178,60 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			switch val {
 			case "data":
 				fmt.Fprint(w, p.Data)
+				return
+			}
+
+		case "vars":
+			switch val {
+			case "site":
+				// Check that the user has at least read access.
+				if len(strings.Split(p.Data, ":")) != 2 {
+					writeHttpError(w, http.StatusUnauthorized, "no site data in profile")
+					return
+				}
+				skey, err := strconv.ParseInt(strings.Split(p.Data, ":")[0], 10, 64)
+				if err != nil {
+					writeHttpError(w, http.StatusBadRequest, "invalid site data in profile data: %s", p.Data)
+					return
+				}
+				user, err := model.GetUser(ctx, settingsStore, skey, p.Email)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+					return
+				}
+				if user.Perm&model.ReadPermission == 0 {
+					writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
+					return
+				}
+
+				siteVars, err := model.GetVariablesBySite(ctx, settingsStore, skey, "")
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
+					return
+				}
+
+				// Only get device variables (not global or hidden).
+				var vars []model.Variable
+				for _, v := range siteVars {
+					if strings.HasPrefix(v.Name, "_") {
+						continue
+					}
+					s := strings.Split(v.Name, ".")
+					if len(s) != 2 {
+						continue
+					}
+					if model.IsMacAddress(s[0]) {
+						vars = append(vars, v)
+					}
+
+				}
+
+				data, err := json.Marshal(vars)
+				if err != nil {
+					writeHttpError(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
+					return
+				}
+				w.Write(data)
 				return
 			}
 		}
