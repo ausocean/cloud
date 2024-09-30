@@ -35,7 +35,9 @@
               Protocol: {{ .Device.Protocol }}<br>
               Configured: <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}"><br>
               Status: <img src="/s/{{ .Sending }}.png" alt="{{ .Sending }}"><br>
-              Uptime: {{ .Uptime }}<br>
+              {{if eq .Sending "green"}}Uptime: {{ .Uptime }}<br>
+              {{else}} Last Reported: {{localdatetime .LastReportedTimestamp $.Timezone}}
+              {{end}}
               {{ if eq .Count 0 }}{{ else }}Throughput: {{ .Throughput }}% {{ .Count }}/{{ .MaxCount }}{{ end }}
             </span>
             {{ range .Sensors }}
