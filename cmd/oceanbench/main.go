@@ -72,7 +72,7 @@ import (
 )
 
 const (
-	version     = "v0.22.11"
+	version     = "v0.23.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -720,7 +720,11 @@ func logRequest(r *http.Request) {
 // writeError writes an error in JSON format.
 func writeError(w http.ResponseWriter, err error) {
 	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprint(w, `{"er":"`+err.Error()+`}`)
+	err2 := json.NewEncoder(w).Encode(map[string]string{"er": err.Error()})
+	if err2 != nil {
+		log.Printf("failed to write error (%v): %v", err, err2)
+		return
+	}
 	if debug {
 		log.Println("Wrote error: " + err.Error())
 	}
