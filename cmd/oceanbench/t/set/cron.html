@@ -8,17 +8,7 @@
   <title>Crons</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js"></script>
-  <script type="text/javascript">
-    function updateCron(elem) {
-      elem.form.submit();
-    }
-    function addCron() {
-      document.getElementById("_newcron").submit();
-    }
-    function deleteCron(id) {
-      window.location = '/set/crons/edit?ci=' + id + '&task=Delete';
-    }
-  </script>
+  <script type="text/javascript" src="/s/cron.js"></script>
 </head>
 <body>
   <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
@@ -57,7 +47,9 @@
         <span class="td half"><input type="text" name="ct" value="{{ .FormatTime $.Timezone }}" class="half" onchange="updateCron(this);"></span>
         <span class="td half"><select name="ca" class="half" onchange="updateCron(this);">{{range $.Actions }}
           <option value="{{.}}"{{if eq . $c.Action }} selected{{end}}>{{.}}</option>{{end}}</select></span>
-        <span class="td std"><input type="text" name="cv" value="{{ .Var }}" class="std" onchange="updateCron(this);"></span>
+        <span class="td std"><select type="text" name="cv" class="std" onchange="updateCron(this);">
+          <option selected value="{{.Var}}"></option>
+        </select></span>
         <span class="td std"><input type="text" name="cd" value="{{ .Data }}" class="std" onchange="updateCron(this);"></span>
         <span class="td half"><input type="checkbox" name="ce"{{if .Enabled}} checked{{end}} onchange="updateCron(this);"></span>
       </form>{{end}}
@@ -67,7 +59,9 @@
         <span class="td half"><input type="text" name="ct" class="half"></span>
         <span class="td half"><select name="ca" class="half">{{range $.Actions }}
           <option value="{{.}}">{{.}}</option>{{end}}</select></span>
-        <span class="td std"><input type="text" name="cv" class="std"></span>
+        <span class="td std"><select id="var-select" type="text" name="cv" class="std">
+          <option>-- Select Var --</option>
+        </select></span>
         <span class="td std"><input type="text" name="cd" class="std"></span>
         <span class="td half"><input type="checkbox" name="ce"></span>
         <input type="hidden" name="task" value="Add">
