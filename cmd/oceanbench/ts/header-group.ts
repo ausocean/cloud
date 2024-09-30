@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { NavMenu } from './nav-menu.js';
 import '../s/lit/nav-menu.js';
@@ -89,13 +89,23 @@ class HeaderGroup extends LitElement {
             `
     }
 
+    override firstUpdated() {
+        this._applyPermission(this.selectedPerm);
+    }
+
     private _onPermissionChange(event: Event){
         const customEvent = event as CustomEvent;
         this.selectedPerm = customEvent.detail.selectedPerm;
-        const slot = this.shadowRoot?.querySelector('slot') as HTMLSlotElement;
+        this._applyPermission(this.selectedPerm);
+    }
+
+    private _applyPermission(permission: number) {
+        const slot = this.shadowRoot?.querySelector('slot[name="nav-menu"]') as HTMLSlotElement;
         const elements = slot.assignedElements();
         const nav = elements.find(element => element.id === "nav-menu") as NavMenu;
-        nav.setPerm(this.selectedPerm);
+        if (nav) {
+            nav.setPerm(permission);  // Apply permission to nav menu
+        }
     }
 }
 

@@ -36,7 +36,12 @@ class SiteMenu extends LitElement {
     override render() {
         return html`
             <select id="select" @change=${this.handleSiteChange}>
-                <option id="loading">Select Site</option>
+                <option id="loading">
+                  ${this.selectedData
+                    ?this.selectedData.split(":")[1]
+                    :"Select Site"
+                  }
+                </option>
                 <optgroup style="display: none" id="read" label="Read"></optgroup>
                 <optgroup style="display: none" id="write" label="Write"></optgroup>
                 <optgroup style="display: none" id="admin" label="Admin"></optgroup>
@@ -68,16 +73,17 @@ class SiteMenu extends LitElement {
                     opt.label = site.Name
                     opt.setAttribute("perm", site.Perm)
                     if (site.Public) {
+                        opt.setAttribute("perm", "1")
                         opt.label += " (Public)"
                     }
-                    switch (site.Perm){
-                        case 1:
+                    switch (opt.getAttribute("perm")){
+                        case "1":
                             opts[0].push(opt);
                             break;
-                        case 3:
+                        case "3":
                             opts[1].push(opt);
                             break;
-                        case 7:
+                        case "7":
                             opts[2].push(opt);
                             break;
                     }
