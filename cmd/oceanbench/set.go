@@ -183,10 +183,8 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		writeTemplate(w, r, file, &data, "")
 		return
 	} else if sandbox {
-		if len(data.Devices) == 0 {
-			writeTemplate(w, r, file, &data, "")
-			return
-		}
+		writeTemplate(w, r, file, &data, "")
+		return
 	}
 
 	data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
@@ -217,11 +215,6 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	v, err = model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
 	if err == nil {
 		data.Device.SetOther("localaddr", v.Value)
-	}
-
-	if sandbox {
-		writeSandbox(w, r, &data)
-		return
 	}
 
 	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
@@ -417,6 +410,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 //	dt = device type
 //	wi = comma seperated WiFi name and password (optional)
 //	ll = comma seperated latitude and longitude (optional)
+//	sk = target site key for the new device
 func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := context.Background()
@@ -440,20 +434,29 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	dt := r.FormValue("dt")
 	wifi := r.FormValue("wi")
 	ll := r.FormValue("ll")
+	sk := r.FormValue("sk")
 	r.ParseForm()
 
+	// Parse location.
 	var lat, long float64
-	if len(strings.Split(ll, ",")) != 0 {
+	if len(strings.Split(ll, ",")) == 2 {
 		lat, err = strconv.ParseFloat(strings.Split(ll, ",")[0], 64)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to parse float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
+			writeError(w, fmt.Errorf("unable to parse lat float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
 			return
 		}
 		long, err = strconv.ParseFloat(strings.Split(ll, ",")[1], 64)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to parse float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
+			writeError(w, fmt.Errorf("unable to parse long float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
 			return
 		}
+	}
+
+	// Parse Wifi.
+	var ssid, pass string
+	if wifiSplit := strings.Split(wifi, ","); len(wifiSplit) == 2 {
+		ssid = wifiSplit[0]
+		pass = wifiSplit[1]
 	}
 
 	if !model.IsMacAddress(ma) {
@@ -472,6 +475,11 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, model.ErrInvalidDevType)
 		return
 	}
+	skey, err := strconv.ParseInt(sk, 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("could not parse site key: %w", err))
+		return
+	}
 
 	// Create the device.
 	var sys *system.RigSystem
@@ -480,7 +488,7 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		// Create a controller with all default values defined in rig_system.go.
 		sys, err = system.NewRigSystem(skey, ma, dn,
 			system.WithDefaults(),
-			system.WithWifi(strings.Split(wifi, ",")[0], strings.Split(wifi, ",")[1]),
+			system.WithWifi(ssid, pass),
 			system.WithLocation(lat, long),
 		)
 		if err != nil {
@@ -497,8 +505,12 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("unable to put rig system: %w", err))
 		return
 	}
-	site, err := model.GetSite(ctx, settingsStore, int64(devSkey))
-	profile.Data = fmt.Sprintf("%d:%s", devSkey, site.Name)
+	site, err := model.GetSite(ctx, settingsStore, int64(skey))
+	if err != nil {
+		writeError(w, fmt.Errorf("failed to get site: %v", err))
+		return
+	}
+	profile.Data = fmt.Sprintf("%d:%s", skey, site.Name)
 	err = putProfileData(w, r, profile.Data)
 	if err != nil {
 		writeError(w, fmt.Errorf("failed to put profile data: %w", err))
@@ -519,11 +531,6 @@ func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profi
 	data := configureData{}
 	ctx := r.Context()
 	var err error
-	data.Users, err = getUsersForSiteMenu(w, r, ctx, profile, data)
-	if err != nil {
-		writeTemplate(w, r, "configure.html", &data, fmt.Sprintf("could not populate site menu: %v", err.Error()))
-		return
-	}
 
 	data.Sites, err = model.GetAllSites(ctx, settingsStore)
 	if err != nil {

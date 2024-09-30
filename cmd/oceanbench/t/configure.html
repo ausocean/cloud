@@ -8,24 +8,7 @@
   <title>Devices</title>
   <script type="module" src="/s/lit/header-group.js"></script>
   <script type="text/javascript" src="/s/main.js"></script>
-  <script type="text/javascript">
-  function init() {
-    // Fetch all the forms we want to apply custom Bootstrap validation styles to
-    const forms = document.querySelectorAll('.needs-validation')
-
-    // Loop over them and prevent submission
-    Array.from(forms).forEach(form => {
-      form.addEventListener('submit', event => {
-        if (!form.checkValidity()) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-
-        form.classList.add('was-validated')
-      }, false)
-    })
-  }
-  </script>
+  <script type="text/javascript" src="/s/configure.js"></script>
 </head>
 <body onload="init();">
   <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
@@ -43,27 +26,24 @@
     </site-menu>
   </header-group>
   <section id="main" class="main">
-    {{if .Msg}}
-      <div class="red">
-        {{.Msg}}
-      </div>
-      <br>
-    {{end}}
     <h1 class="container-md">Configure</h1>
+    <div class="red" style="display:none" id="msg">
+      {{if .Msg}}{{.Msg}}{{end}}
+    </div>
     <div class="border rounded p-4 container-md bg-white">
       <form action="/set/devices/configure" enctype="multipart/form-data" method="post" class="needs-validation" novalidate>
         <input name="ma" value="{{.MAC}}" hidden>
         <div class="row d-flex gx-1 pb-1">
           <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Name:</label>
           <div class="col-sm-10 col-md-6 col-12">
-            <input name="name" class="form-control" placeholder="Device Name" type="text" required>
+            <input name="dn" class="form-control" placeholder="Device Name" type="text" required>
             <p class="invalid-feedback">Device Name is required</p>
           </div>
         </div>
         <div class="row d-flex gx-1 pb-1">
           <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Site:</label>
           <div class="col-sm-10 col-md-6 col-12">
-            <select name="skey" class="form-select h-auto align-items-center" required>
+            <select name="sk" class="form-select h-auto align-items-center" required>
               <option value="">-- Site --</option>
               {{range .Sites}}
                   <option value="{{ .Skey }}">{{ .Name }}</option>
