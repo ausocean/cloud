@@ -34,7 +34,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,12 +46,13 @@ import (
 )
 
 const (
-	secondsToDay    = 86400
-	secondsToHour   = 3600
-	secondsToMinute = 60
-	hoursToDay      = 24
-	minutesToHour   = 60
-	countPeriod     = 60 * time.Minute
+	secondsToDay     = 86400
+	secondsToHour    = 3600
+	secondsToMinute  = 60
+	hoursToDay       = 24
+	minutesToHour    = 60
+	countPeriod      = 60 * time.Minute
+	lastReportFormat = "Mon January 2 2006 15:04:05"
 )
 
 // sensorData holds the relevant information for each sensor.
@@ -64,15 +65,16 @@ type sensorData struct {
 
 // monitorDevice holds the relevant information for each device.
 type monitorDevice struct {
-	Device     model.Device
-	Address    string
-	Sending    string
-	StatusText string
-	Uptime     string
-	Count      int // Number of scalars sent in the monitor period.
-	MaxCount   int // Max number of scalars that could be sent.
-	Throughput int // Percentage of successful scalars.
-	Sensors    []sensorData
+	Device                model.Device
+	Address               string
+	Sending               string
+	StatusText            string
+	Uptime                string
+	LastReportedTimestamp int64
+	Count                 int // Number of scalars sent in the monitor period.
+	MaxCount              int // Max number of scalars that could be sent.
+	Throughput            int // Percentage of successful scalars.
+	Sensors               []sensorData
 }
 
 // monitorData holds the relevant information for the monitor page
@@ -80,6 +82,7 @@ type monitorData struct {
 	Ma        string
 	Devices   []monitorDevice
 	WritePerm bool
+	Timezone  float64
 	commonData
 }
 
@@ -123,6 +126,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		reportMonitorError(w, r, &data, "could not get devices: %v", err)
 		return
 	}
+	data.Timezone = site.Timezone
 
 	monitorDevices := make([]monitorDevice, len(devices))
 	var wg sync.WaitGroup
@@ -137,8 +141,9 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		monitorDevices[i] = device
 		i++
 	}
-	sort.Slice(monitorDevices, func(i, j int) bool {
-		return monitorDevices[i].Device.Name < monitorDevices[j].Device.Name
+	log.Println(len(monitorDevices))
+	slices.SortFunc(monitorDevices, func(a, b monitorDevice) int {
+		return int(b.LastReportedTimestamp - a.LastReportedTimestamp)
 	})
 	data.Devices = monitorDevices
 	writeTemplate(w, r, "monitor.html", &data, "")
@@ -219,6 +224,7 @@ func monitorLoadRoutine(
 	default:
 		md.Sending = "red"
 	}
+	md.LastReportedTimestamp = v.Updated.Unix()
 
 	md.Uptime, err = secondsToUptime(v)
 	if err != nil {
