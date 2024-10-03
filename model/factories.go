@@ -209,6 +209,149 @@ func NewPulseSuppressVar(suppress bool) *Variable {
 	}
 }
 
+// WhiteBalance is a string type to be used to set the AutoWhiteBalance Variable.
+type WhiteBalance string
+
+var (
+	WhiteBalanceOff          WhiteBalance = "off"
+	WhiteBalanceAuto         WhiteBalance = "auto"
+	WhiteBalanceSun          WhiteBalance = "sun"
+	WhiteBalanceCloud        WhiteBalance = "cloud"
+	WhiteBalanceShade        WhiteBalance = "shade"
+	WhiteBalanceTungsten     WhiteBalance = "tungsten"
+	WhiteBalanceFluorescent  WhiteBalance = "fluorescent"
+	WhiteBalanceIncandescent WhiteBalance = "incandescent"
+	WhiteBalanceFlash        WhiteBalance = "flash"
+	WhiteBalanceHorizon      WhiteBalance = "horizon"
+)
+
+// NewAutoWhiteBalanceVar returns a AutoWhiteBalance Variable with the given setting.
+func NewAutoWhiteBalanceVar(setting WhiteBalance) *Variable {
+	return &Variable{
+		Name:  "AutoWhiteBalance",
+		Value: string(setting),
+	}
+}
+
+// NewBitrateVar returns a new Bitrate variable with the given bitrate.
+func NewBitrateVar(rate int) *Variable {
+	return &Variable{
+		Name:  "Bitrate",
+		Value: strconv.Itoa(rate),
+	}
+}
+
+// NewConstrastVar returns a new Constrast variable with the given contrast.
+func NewConstrastVar(contrast int) *Variable {
+	return &Variable{
+		Name:  "Contrast",
+		Value: strconv.Itoa(contrast),
+	}
+}
+
+// NewHeightVar returns a new Height variable with the given height.
+func NewHeightVar(height int) *Variable {
+	return &Variable{
+		Name:  "Height",
+		Value: strconv.Itoa(height),
+	}
+}
+
+// NewISOVar returns a new ISO variable with the given iso.
+func NewISOVar(iso int) *Variable {
+	return &Variable{
+		Name:  "ISO",
+		Value: strconv.Itoa(iso),
+	}
+}
+
+// OutputType is a string type to be used to set the Output Variable.
+type OutputType string
+
+var (
+	OutputFile OutputType = "File"
+	OutputHTTP OutputType = "HTTP"
+	OutputRTMP OutputType = "RTMP"
+	OutputRTP  OutputType = "RTP"
+)
+
+// NewOutputVar returns a new Output variable with the given output type.
+func NewOutputVar(output OutputType) *Variable {
+	return &Variable{
+		Name:  "Output",
+		Value: string(output),
+	}
+}
+
+// NewRTMPURLVar returns a new blank RTMPURL variable.
+func NewRTMPURLVar() *Variable {
+	return &Variable{
+		Name: "RTMPURL",
+	}
+}
+
+// NewRotationVar returns a new Rotation variable with the given rotation.
+func NewRotationVar(rotation int) *Variable {
+	return &Variable{
+		Name:  "Rotation",
+		Value: strconv.Itoa(rotation),
+	}
+}
+
+// NewSharpnessVar returns a new Sharpness variable with the given sharpness.
+func NewSharpnessVar(sharpness int) *Variable {
+	return &Variable{
+		Name:  "Sharpness",
+		Value: strconv.Itoa(sharpness),
+	}
+}
+
+// NewWidthVar returns a new Width variable with the given width.
+func NewWidthVar(width int) *Variable {
+	return &Variable{
+		Name:  "Width",
+		Value: strconv.Itoa(width),
+	}
+}
+
+// LogLevel is a string type to be used to set the logging Variable.
+type LogLevel string
+
+var (
+	LoggingDebug   LogLevel = "Debug"
+	LoggingInfo    LogLevel = "Info"
+	LoggingWarning LogLevel = "Warning"
+	LoggingError   LogLevel = "Error"
+	LoggingFatal   LogLevel = "Fatal"
+)
+
+// NewLoggingVar returns a new logging variable with the given LogLevel type.
+func NewLoggingVar(level LogLevel) *Variable {
+	return &Variable{
+		Name:  "logging",
+		Value: string(level),
+	}
+}
+
+// DeviceMode is a string type to be used to set the mode Variable.
+type DeviceMode string
+
+var (
+	ModeNormal    DeviceMode = "Normal"
+	ModePaused    DeviceMode = "Paused"
+	ModeBurst     DeviceMode = "Burst"
+	ModeShutdown  DeviceMode = "Shutdown"
+	ModeCompleted DeviceMode = "Completed"
+)
+
+// NewModeVar returns a new mode variable with the given device mode type.
+func NewModeVar(mode DeviceMode) *Variable {
+	return &Variable{
+		Name:  "mode",
+		Value: string(mode),
+	}
+}
+
 // NewDevice1Actuator returns a new actuator to control device 1.
 // The actuator is linked to the Power 1 variable (and Pin).
 func NewDevice1Actuator() *ActuatorV2 {
