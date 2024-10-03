@@ -1,9 +1,31 @@
+/*
+AUTHORS
+  David Sutton <david@ausocean.org>
+
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean).
+
+  This is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License in
+  gpl.txt. If not, see http://www.gnu.org/licenses/.
+*/
+
 package system
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 	"time"
 
@@ -21,44 +43,73 @@ type RigSystem struct {
 	Peripherals []*model.Device
 }
 
-// Option represents functional options that can be passed to NewRigSystem.
-type Option func(*RigSystem) error
+// addVariables adds variables to the rig system controller. This
+// implements the variableHolder interface.
+func (sys *RigSystem) AddVariables(variables ...*model.Variable) {
+	sys.Variables = append(sys.Variables, variables...)
+}
 
-// WithVariables is a functional option that adds the passed variables to the RigSystem.
-func WithVariables(variables ...*model.Variable) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
-		sys.Variables = append(sys.Variables, variables...)
-		return nil
+// SetWifi adds the wifi name and password to the rig system Controller.
+// This implements the wifiHolder interface.
+func (sys *RigSystem) SetWifi(ssid, pass string) {
+	sys.Controller.Wifi = fmt.Sprintf("%s,%s", ssid, pass)
+}
+
+// SetLocation adds the location of the system to the system controller,
+// as well as any defined peripherals.
+func (sys *RigSystem) SetLocation(lat, long float64) {
+	sys.Controller.Latitude = lat
+	sys.Controller.Longitude = long
+
+	for _, p := range sys.Peripherals {
+		p.Latitude = lat
+		p.Longitude = long
 	}
 }
 
 // WithSensors is a functional option that adds the passed sensors to the RigSystem.
-func WithSensors(sensors ...*model.SensorV2) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
+func WithSensors(sensors ...*model.SensorV2) func(any) error {
+	return func(v any) error {
+		sys, ok := v.(*RigSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a RigSystem", reflect.TypeOf(v).String())
+		}
 		sys.Sensors = append(sys.Sensors, sensors...)
 		return nil
 	}
 }
 
 // WithActuators is a functional option that adds the passed actuators to the RigSystem.
-func WithActuators(actuators ...*model.ActuatorV2) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
+func WithActuators(actuators ...*model.ActuatorV2) func(any) error {
+	return func(v any) error {
+		sys, ok := v.(*RigSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a RigSystem", reflect.TypeOf(v).String())
+		}
 		sys.Actuators = append(sys.Actuators, actuators...)
 		return nil
 	}
 }
 
 // WithPeripherals is a functional option that adds the passed peripherals to the RigSystem.
-func WithPeripherals(peripherals ...*model.Device) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
+func WithPeripherals(peripherals ...*model.Device) func(any) error {
+	return func(v any) error {
+		sys, ok := v.(*RigSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a RigSystem", reflect.TypeOf(v).String())
+		}
 		sys.Peripherals = append(sys.Peripherals, peripherals...)
 		return nil
 	}
 }
 
 // WithDefaults is a functional option that uses all of the current defaults for a rig system.
-func WithDefaults() func(*RigSystem) error {
-	return func(sys *RigSystem) error {
+func WithRigSystemDefaults() func(any) error {
+	return func(v any) error {
+		sys, ok := v.(*RigSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a RigSystem", reflect.TypeOf(v).String())
+		}
 		sys.Variables = append(sys.Variables,
 			model.NewAlarmNetworkVar(10),
 			model.NewAlarmPeriodVar(5*time.Second),
@@ -87,39 +138,6 @@ func WithDefaults() func(*RigSystem) error {
 			model.NewDevice3Actuator(),
 		)
 
-		return nil
-	}
-}
-
-// WithWifi is a functional option that sets the wifi name and password
-// for the system controller.
-func WithWifi(ssid, pass string) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
-		if ssid == "" {
-			return nil
-		}
-		sys.Controller.Wifi = fmt.Sprintf("%s,%s", ssid, pass)
-		return nil
-	}
-}
-
-// WithLocation is a functional option which sets the latitude and longitude
-// of the system controller, and any peripherals.
-//
-// NOTE: This option should be applied AFTER adding any devices.
-func WithLocation(lat, long float64) func(*RigSystem) error {
-	return func(sys *RigSystem) error {
-		log.Println(lat, long)
-		if lat <= -90 || lat >= 90 || long <= -180 || long >= 180 {
-			return model.ErrInvalidLocation
-		}
-		sys.Controller.Latitude = lat
-		sys.Controller.Longitude = long
-
-		for _, p := range sys.Peripherals {
-			p.Latitude = lat
-			p.Longitude = long
-		}
 		return nil
 	}
 }
