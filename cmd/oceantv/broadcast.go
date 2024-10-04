@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
@@ -128,6 +129,8 @@ type BroadcastConfig struct {
 	RecoveringVoltage        bool          // True if the broadcast is currently recovering voltage.
 	RequiredStreamingVoltage float64       // The required battery voltage for the camera to stream.
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
+	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
+	OpenFishCaptureSource    string        // The capture source to register the stream to.
 }
 
 // SensorEntry contains the information for each sensor.
@@ -383,6 +386,18 @@ func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 		err := svc.CompleteBroadcast(ctx, cfg.ID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
+		}
+
+		if cfg.RegisterOpenFish {
+			// Register stream with openfish so we can annotate the video.
+			cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
+			if err != nil {
+				return fmt.Errorf("bad capturesource ID: %w", err)
+			}
+			openfish.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
+			if err != nil {
+				return fmt.Errorf("register stream with openfish error: %w", err)
+			}
 		}
 	}
 
