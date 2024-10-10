@@ -282,6 +282,21 @@ type dummyHardwareManager struct {
 	startCalled     bool
 	stopCalled      bool
 	checkMAC        bool
+	volts           float64
+	alarmVolts      float64
+	chargeRate      float64
+}
+
+func withHardwareFault() func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.hardwareHealthy = false
+	}
+}
+
+func withLowVoltage() func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.volts = 24.0
+	}
 }
 
 func withMACSanitisation() func(*dummyHardwareManager) {
@@ -290,12 +305,42 @@ func withMACSanitisation() func(*dummyHardwareManager) {
 	}
 }
 
-func newDummyHardwareManager(healthy bool, options ...func(*dummyHardwareManager)) *dummyHardwareManager {
-	m := &dummyHardwareManager{hardwareHealthy: healthy}
+func withChargingFault() func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.chargeRate = 0.0
+	}
+}
+
+func newDummyHardwareManager(options ...func(*dummyHardwareManager)) *dummyHardwareManager {
+	const (
+		defaultVolts      = 24.8
+		defaultAlarmVolts = 24.2
+		defaultChargeRate = 0.01 // Volts per tick.
+	)
+	m := &dummyHardwareManager{
+		volts:           defaultVolts,
+		alarmVolts:      defaultAlarmVolts,
+		chargeRate:      defaultChargeRate,
+		hardwareHealthy: true,
+	}
 	for _, option := range options {
 		option(m)
 	}
 	return m
+}
+func (h *dummyHardwareManager) voltage(ctx *broadcastContext) (float64, error) {
+	// This is assuming we call this function every tick.
+	h.volts += h.chargeRate
+	return h.volts, nil
+}
+func (h *dummyHardwareManager) alarmVoltage(ctx *broadcastContext) (float64, error) {
+	return h.alarmVolts, nil
+}
+func (h *dummyHardwareManager) isUp(ctx *broadcastContext) (bool, error) {
+	if h.volts < h.alarmVolts {
+		return false, nil
+	}
+	return h.hardwareHealthy, nil
 }
 func (h *dummyHardwareManager) start(ctx *broadcastContext) {
 	h.startCalled = true

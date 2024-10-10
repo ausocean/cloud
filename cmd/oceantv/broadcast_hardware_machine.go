@@ -294,12 +294,68 @@ func (sm *hardwareStateMachine) log(format string, args ...interface{}) {
 }
 
 type hardwareManager interface {
+	voltage(ctx *broadcastContext) (float64, error)
+	alarmVoltage(ctx *broadcastContext) (float64, error)
+	isUp(ctx *broadcastContext) (bool, error)
 	start(ctx *broadcastContext)
 	stop(ctx *broadcastContext)
 	publishEventIfStatus(event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event))
 }
 
 type revidCameraClient struct{}
+
+func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
+	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
+	const batteryVoltagePin = "A0"
+	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
+	if err != nil {
+		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)
+	}
+
+	// Get current battery voltage.
+	voltage, err := model.GetSensorValue(context.Background(), ctx.store, sensor)
+	if err != nil {
+		return 0, fmt.Errorf("could not get current battery voltage: %v", err)
+	}
+	return voltage, nil
+}
+
+func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error) {
+	// Get AlarmVoltage variable; if the voltage is above this we expect the controller to be on.
+	// If the voltage is below this, we expect the controller to be off.
+	alarmVoltageVar, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, "AlarmVoltage")
+	if err != nil {
+		return 0, fmt.Errorf("could not get alarm voltage variable: %v", err)
+	}
+
+	uncalibratedAlarmVoltage, err := strconv.Atoi(alarmVoltageVar.Value)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert uncalibrated alarm voltage from string: %v", err)
+	}
+
+	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
+	const batteryVoltagePin = "A0"
+	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
+	if err != nil {
+		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)
+	}
+
+	// Transform the alarm voltage to the actual voltage.
+	alarmVoltage, err := sensor.Transform(float64(uncalibratedAlarmVoltage))
+	if err != nil {
+		return 0, fmt.Errorf("could not transform alarm voltage: %v", err)
+	}
+
+	return alarmVoltage, nil
+}
+
+func (c *revidCameraClient) isUp(ctx *broadcastContext) (bool, error) {
+	controllerIsOn, err := model.DeviceIsUp(context.Background(), ctx.store, model.MacDecode(ctx.cfg.ControllerMAC))
+	if err != nil {
+		return false, fmt.Errorf("could not get controller status: %v", err)
+	}
+	return controllerIsOn, nil
+}
 
 func (c *revidCameraClient) start(ctx *broadcastContext) {
 	err := extStart(context.Background(), ctx.cfg, ctx.log)
