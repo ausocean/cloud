@@ -1196,7 +1196,7 @@ func TestBroadcastStart(t *testing.T) {
 		cfg                      *BroadcastConfig
 		initialState             state
 		finalState               state
-		hardwareHealthy          bool
+		hardwareMan              hardwareManager
 		expectHardwareStartCall  bool
 		expectBroadcastStartCall bool
 		inputEvent               event
@@ -1210,7 +1210,7 @@ func TestBroadcastStart(t *testing.T) {
 			},
 			initialState:             &directIdle{},
 			finalState:               &directLive{},
-			hardwareHealthy:          true,
+			hardwareMan:              newDummyHardwareManager(),
 			expectHardwareStartCall:  true,
 			expectBroadcastStartCall: true,
 			inputEvent:               timeEvent{now.Add(1 * time.Minute)},
@@ -1233,7 +1233,7 @@ func TestBroadcastStart(t *testing.T) {
 			},
 			initialState:             &directIdle{},
 			finalState:               &directStarting{},
-			hardwareHealthy:          false,
+			hardwareMan:              newDummyHardwareManager(withHardwareFault()),
 			expectHardwareStartCall:  true,
 			expectBroadcastStartCall: false,
 			inputEvent:               timeEvent{now.Add(1 * time.Minute)},
@@ -1261,7 +1261,7 @@ func TestBroadcastStart(t *testing.T) {
 			)
 
 			bCtx.man = newDummyManager(t, tt.cfg)
-			bCtx.camera = newDummyHardwareManager(tt.hardwareHealthy)
+			bCtx.camera = tt.hardwareMan
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1431,7 +1431,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				withBroadcastManager(newDummyManager(t, cfg)),
 				withBroadcastService(newDummyService()),
 				withForwardingService(newDummyForwardingService()),
-				withHardwareManager(newDummyHardwareManager(hardwareHealthy, withMACSanitisation())),
+				withHardwareManager(newDummyHardwareManager(withMACSanitisation())),
 				withNotifier(newMockNotifier()),
 			)
 			if err != nil {
