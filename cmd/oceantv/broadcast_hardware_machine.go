@@ -230,7 +230,10 @@ func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(event hardwareSt
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
 		sm.ctx.camera.publishEventIfStatus(hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
-	case *hardwareOn, *hardwareStopping:
+	case *hardwareStopping:
+		// Ignore and log.
+		sm.log("ignoring hardware start request event since hardware is still stopping")
+	case *hardwareOn:
 		// Ignore.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
