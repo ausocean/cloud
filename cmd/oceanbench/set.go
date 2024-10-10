@@ -487,7 +487,7 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	case model.DevTypeController:
 		// Create a controller with all default values defined in rig_system.go.
 		sys, err = system.NewRigSystem(skey, ma, dn,
-			system.WithDefaults(),
+			system.WithRigSystemDefaults(),
 			system.WithWifi(ssid, pass),
 			system.WithLocation(lat, long),
 		)
