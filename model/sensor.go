@@ -491,3 +491,17 @@ func catArgs(args ...Arg) string {
 	}
 	return str
 }
+
+// GetSensorValue gets the latest transformed value for a sensor.
+func GetSensorValue(ctx context.Context, store datastore.Store, sensor *SensorV2) (float64, error) {
+	id := ToSID(MacDecode(sensor.Mac), sensor.Pin)
+	scalar, err := GetLatestScalar(ctx, store, id)
+	if err != nil {
+		return 0.0, fmt.Errorf("could not get latest scalar: %w", err)
+	}
+	value, err := sensor.Transform(scalar.Value)
+	if err != nil {
+		return 0.0, fmt.Errorf("could not transform scalar: %w", err)
+	}
+	return value, nil
+}
