@@ -274,7 +274,7 @@ type dummyForwardingService struct{}
 
 func newDummyForwardingService() *dummyForwardingService                                  { return &dummyForwardingService{} }
 func (v *dummyForwardingService) Stream(cfg *Cfg) error                                   { return nil }
-func (v *dummyForwardingService) Slate(cfg *Cfg) error                                    { return nil }
+func (v *dummyForwardingService) Slate(cfg *Cfg, opts ...SlateOption) error               { return nil }
 func (v *dummyForwardingService) UploadSlate(cfg *Cfg, name string, file io.Reader) error { return nil }
 
 type dummyHardwareManager struct {
