@@ -2,6 +2,7 @@
 runtime: go121
 
 env_variables:
+  OPENFISH_OAUTH2_CLIENT_ID: 174291483773-8s16fhobt5ifdp41j9ism7989c6u22fu.apps.googleusercontent.com
   NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
   YOUTUBE_SECRETS: gs://ausocean/YouTube-secrets.json
