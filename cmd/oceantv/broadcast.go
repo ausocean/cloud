@@ -38,7 +38,6 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
-	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
@@ -394,7 +393,7 @@ func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 			if err != nil {
 				return fmt.Errorf("bad capturesource ID: %w", err)
 			}
-			openfish.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
+			err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
 			if err != nil {
 				return fmt.Errorf("register stream with openfish error: %w", err)
 			}

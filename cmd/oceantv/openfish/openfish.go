@@ -28,15 +28,79 @@ package openfish
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
+	"io"
+	"os"
+	"strings"
 	"time"
+
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/idtoken"
 )
 
-func RegisterStream(SID string, captureSource int, start time.Time, end time.Time) error {
+type OpenfishService struct {
+	Credentials []byte
+	Audience    string
+}
 
-	client := &http.Client{}
+func New() (OpenfishService, error) {
+	audience := os.Getenv("OPENFISH_OAUTH2_CLIENT_ID")
+	if audience == "" {
+		return OpenfishService{}, errors.New("OPENFISH_OAUTH2_CLIENT_ID must be set")
+	}
+
+	url := os.Getenv("VIDGRIND_CREDENTIALS")
+	if url == "" {
+		return OpenfishService{}, errors.New("VIDGRIND_CREDENTIAL must be set")
+	}
+
+	ctx := context.Background()
+
+	var creds []byte
+	if strings.HasPrefix(url, "gs://") {
+		// Obtain credentials from a Google Storage bucket.
+		url = url[5:]
+		sep := strings.IndexByte(url, '/')
+		if sep == -1 {
+			return OpenfishService{}, fmt.Errorf("invalid gs bucket URL: %s", url)
+		}
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			return OpenfishService{}, fmt.Errorf("storage.NewCient failed: %v ", err)
+		}
+		bkt := client.Bucket(url[:sep])
+		obj := bkt.Object(url[sep+1:])
+		r, err := obj.NewReader(ctx)
+		if err != nil {
+			return OpenfishService{}, fmt.Errorf("NewReader failed for gs bucket %s: %v", url, err)
+		}
+		defer r.Close()
+		creds, err = io.ReadAll(r)
+		if err != nil {
+			return OpenfishService{}, fmt.Errorf("cannot read gs bucket %s: %v ", url, err)
+		}
+	} else {
+		// Interpret url as a file name.
+		var err error
+		creds, err = os.ReadFile(url)
+		if err != nil {
+			return OpenfishService{}, fmt.Errorf("cannot read file %s: %v", url, err)
+		}
+	}
+
+	return OpenfishService{Credentials: creds, Audience: audience}, nil
+}
+
+func (o *OpenfishService) RegisterStream(SID string, captureSource int, start time.Time, end time.Time) error {
+
+	// Create new client to connect to OpenFish.
+	client, err := idtoken.NewClient(context.Background(), o.Audience, idtoken.WithCredentialsJSON(o.Credentials))
+	if err != nil {
+		return err
+	}
 
 	jsonBytes, err := json.Marshal(struct {
 		StreamUrl     string `json:"stream_url"`
