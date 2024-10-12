@@ -165,6 +165,7 @@ func stringToEvent(name string) (event, error) {
 		"controllerFailureEvent":    controllerFailureEvent{},
 		"slateResetRequested":       slateResetRequested{},
 		"fixFailureEvent":           fixFailureEvent{},
+		"invalidConfigurationEvent": invalidConfigurationEvent{},
 	}
 
 	event, ok := eventMap[name]
