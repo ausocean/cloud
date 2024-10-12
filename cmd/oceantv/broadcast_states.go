@@ -69,6 +69,11 @@ type state interface {
 	exit()
 }
 
+type stateFields struct{}
+
+func (s *stateFields) enter() {}
+func (s *stateFields) exit()  {}
+
 type fixableState interface {
 	state
 	fix()
@@ -77,6 +82,42 @@ type fixableState interface {
 type stateWithTimeout interface {
 	state
 	timedOut(time.Time) bool
+	reset(time.Duration)
+}
+
+type stateWithTimeoutFields struct {
+	*broadcastContext `json: "-"`
+	LastEntered       time.Time
+	Timeout           time.Duration
+}
+
+func newStateWithTimeoutFields(ctx *broadcastContext) stateWithTimeoutFields {
+	const defaultTimeout = 5 * time.Minute
+	return stateWithTimeoutFields{broadcastContext: ctx, Timeout: defaultTimeout}
+}
+
+func newStateWithTimeoutFieldsWithLastEntered(ctx *broadcastContext, lastEntered time.Time) stateWithTimeoutFields {
+	const defaultTimeout = 5 * time.Minute
+	return stateWithTimeoutFields{broadcastContext: ctx, LastEntered: lastEntered, Timeout: defaultTimeout}
+}
+
+func newStateWithTimeoutFieldsWithTimeout(ctx *broadcastContext, timeout time.Duration) stateWithTimeoutFields {
+	return stateWithTimeoutFields{broadcastContext: ctx, Timeout: timeout}
+}
+
+func (s *stateWithTimeoutFields) timedOut(t time.Time) bool {
+	if s.LastEntered.IsZero() {
+		panic("last entered time is not being updated")
+	}
+	if t.Sub(s.LastEntered) > s.Timeout {
+		s.log("timed out, last entered: %v, time now: %v", s.LastEntered, t)
+		return true
+	}
+	return false
+}
+
+func (s *stateWithTimeoutFields) reset(d time.Duration) {
+	s.Timeout = d
 }
 
 type stateWithHealth interface {
@@ -111,12 +152,12 @@ func (s *liveStateFields) setLastStatusCheck(t time.Time) { s.LastStatusCheck = 
 func (s *liveStateFields) setLastChatMsg(t time.Time)     { s.LastChatMsg = t }
 
 type vidforwardPermanentStarting struct {
-	*broadcastContext `json: "-"`
-	LastEntered       time.Time
+	stateFields
+	stateWithTimeoutFields
 }
 
 func newVidforwardPermanentStarting(ctx *broadcastContext) *vidforwardPermanentStarting {
-	return &vidforwardPermanentStarting{broadcastContext: ctx}
+	return &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
 
 func (s *vidforwardPermanentStarting) enter() {
@@ -148,81 +189,56 @@ func (s *vidforwardPermanentStarting) enter() {
 		onBroadcastCreation,
 	)
 }
-func (s *vidforwardPermanentStarting) exit() {}
-func (s *vidforwardPermanentStarting) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
-	if t.Sub(s.LastEntered) > timeout {
-		s.log("timed out starting broadcast, last entered: %v, time now: %v", s.LastEntered, t)
-		return true
-	}
-	return false
-}
 
 type vidforwardPermanentLive struct {
+	stateFields
 	liveStateFields
 }
 
 func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
-func (s *vidforwardPermanentLive) enter()                  {}
-func (s *vidforwardPermanentLive) exit()                   {}
 
 type vidforwardPermanentTransitionLiveToSlate struct {
-	*broadcastContext `json: "-"`
-	HardwareStopped   bool
-	LastEntered       time.Time
+	stateFields
+	stateWithTimeoutFields
 	stateWithHealthFields
+	HardwareStopped bool
 }
 
 func newVidforwardPermanentTransitionLiveToSlate(ctx *broadcastContext) *vidforwardPermanentTransitionLiveToSlate {
-	return &vidforwardPermanentTransitionLiveToSlate{broadcastContext: ctx}
+	return &vidforwardPermanentTransitionLiveToSlate{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
+
 func (s *vidforwardPermanentTransitionLiveToSlate) enter() {
 	s.LastEntered = time.Now()
 
 	s.bus.publish(hardwareStopRequestEvent{})
 	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }
-func (s *vidforwardPermanentTransitionLiveToSlate) exit() {}
 func (s *vidforwardPermanentTransitionLiveToSlate) isHardwareStopped() bool {
 	return s.cfg.HardwareState == hardwareStateToString(&hardwareOff{})
 }
-func (s *vidforwardPermanentTransitionLiveToSlate) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
-	if t.Sub(s.LastEntered) > timeout {
-		s.log("timed out transitioning from live to slate, last entered: %v, time now: %v", s.LastEntered, t)
-		return true
-	}
-	return false
-}
 
 type vidforwardPermanentTransitionSlateToLive struct {
-	*broadcastContext `json: "-"`
-	HardwareStarted   bool
-	LastEntered       time.Time
+	stateFields
+	HardwareStarted bool
+	stateWithTimeoutFields
+	stateWithHealthFields
 }
 
 func newVidforwardPermanentTransitionSlateToLive(ctx *broadcastContext) *vidforwardPermanentTransitionSlateToLive {
-	return &vidforwardPermanentTransitionSlateToLive{broadcastContext: ctx}
+	return &vidforwardPermanentTransitionSlateToLive{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
 func (s *vidforwardPermanentTransitionSlateToLive) enter() {
 	s.LastEntered = time.Now()
 	s.bus.publish(hardwareStartRequestEvent{})
 	try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
 }
-func (s *vidforwardPermanentTransitionSlateToLive) exit() {}
 func (s *vidforwardPermanentTransitionSlateToLive) isHardwareStarted() bool {
 	return s.cfg.HardwareState == hardwareStateToString(&hardwareOn{})
 }
-func (s *vidforwardPermanentTransitionSlateToLive) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
-	if t.Sub(s.LastEntered) > timeout {
-		s.log("timed out transitioning from slate to live, last entered: %v, time now: %v", s.LastEntered, t)
-		return true
-	}
-	return false
-}
 
 type vidforwardPermanentLiveUnhealthy struct {
+	stateFields
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
@@ -232,8 +248,6 @@ type vidforwardPermanentLiveUnhealthy struct {
 func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPermanentLiveUnhealthy {
 	return &vidforwardPermanentLiveUnhealthy{broadcastContext: ctx}
 }
-func (s *vidforwardPermanentLiveUnhealthy) enter() {}
-func (s *vidforwardPermanentLiveUnhealthy) exit()  {}
 func (s *vidforwardPermanentLiveUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) <= resetInterval {
@@ -263,36 +277,35 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 }
 
 type vidforwardPermanentFailure struct {
+	stateFields
 	*broadcastContext `json: "-"`
 }
 
 func newVidforwardPermanentFailure(ctx *broadcastContext) *vidforwardPermanentFailure {
-	return &vidforwardPermanentFailure{ctx}
+	return &vidforwardPermanentFailure{stateFields{}, ctx}
 }
 func (s *vidforwardPermanentFailure) enter() { s.requestSlate() }
-func (s *vidforwardPermanentFailure) exit()  {}
 func (s *vidforwardPermanentFailure) fix()   { s.requestSlate() }
 func (s *vidforwardPermanentFailure) requestSlate() {
 	s.bus.publish(hardwareStopRequestEvent{})
 	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }
 
-type vidforwardPermanentSlate struct{}
+type vidforwardPermanentSlate struct{ stateFields }
 
 func newVidforwardPermanentSlate() *vidforwardPermanentSlate { return &vidforwardPermanentSlate{} }
 func (s *vidforwardPermanentSlate) enter()                   {}
 func (s *vidforwardPermanentSlate) exit()                    {}
 
 type vidforwardPermanentSlateUnhealthy struct {
+	stateFields
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 }
 
 func newVidforwardPermanentSlateUnhealthy(ctx *broadcastContext) *vidforwardPermanentSlateUnhealthy {
-	return &vidforwardPermanentSlateUnhealthy{ctx, time.Now()}
+	return &vidforwardPermanentSlateUnhealthy{stateFields{}, ctx, time.Now()}
 }
-func (s *vidforwardPermanentSlateUnhealthy) enter() {}
-func (s *vidforwardPermanentSlateUnhealthy) exit()  {}
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
@@ -302,17 +315,20 @@ func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	}
 }
 
-type vidforwardPermanentIdle struct{ *broadcastContext }
+type vidforwardPermanentIdle struct {
+	stateFields
+	*broadcastContext `json: "-"`
+}
 
 func newVidforwardPermanentIdle(ctx *broadcastContext) *vidforwardPermanentIdle {
-	return &vidforwardPermanentIdle{ctx}
+	return &vidforwardPermanentIdle{stateFields{}, ctx}
 }
 func (s *vidforwardPermanentIdle) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
 }
-func (s *vidforwardPermanentIdle) exit() {}
 
 type vidforwardSecondaryLive struct {
+	stateFields
 	*broadcastContext `json: "-"`
 	liveStateFields
 }
@@ -320,30 +336,28 @@ type vidforwardSecondaryLive struct {
 func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive {
 	return &vidforwardSecondaryLive{broadcastContext: ctx}
 }
-
-func (s *vidforwardSecondaryLive) enter() {}
 func (s *vidforwardSecondaryLive) exit() {
 	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
 }
 
 type vidforwardSecondaryLiveUnhealthy struct {
+	stateFields
 	liveStateFields
 }
 
 func newVidforwardSecondaryLiveUnhealthy() *vidforwardSecondaryLiveUnhealthy {
 	return &vidforwardSecondaryLiveUnhealthy{}
 }
-func (s *vidforwardSecondaryLiveUnhealthy) enter() {}
-func (s *vidforwardSecondaryLiveUnhealthy) exit()  {}
 
 type vidforwardSecondaryStarting struct {
-	*broadcastContext `json: "-"`
-	LastEntered       time.Time
+	stateFields
+	stateWithTimeoutFields
 }
 
 func newVidforwardSecondaryStarting(ctx *broadcastContext) *vidforwardSecondaryStarting {
-	return &vidforwardSecondaryStarting{broadcastContext: ctx}
+	return &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
+
 func (s *vidforwardSecondaryStarting) enter() {
 	s.LastEntered = time.Now()
 	// We pass this to createBroadcastAndRequestHardware so that it's run after
@@ -362,51 +376,40 @@ func (s *vidforwardSecondaryStarting) enter() {
 		onBroadcastCreation,
 	)
 }
-func (s *vidforwardSecondaryStarting) exit() {}
-func (s *vidforwardSecondaryStarting) timedOut(t time.Time) bool {
-	const timeout = 5 * time.Minute
-	if t.Sub(s.LastEntered) > timeout {
-		s.log("timed out starting broadcast, last entered: %v, time now: %v", s.LastEntered, t)
-		return true
-	}
-	return false
-}
 
 type vidforwardSecondaryIdle struct {
+	stateFields
 	*broadcastContext `json: "-"`
 }
 
 func newVidforwardSecondaryIdle(ctx *broadcastContext) *vidforwardSecondaryIdle {
-	return &vidforwardSecondaryIdle{ctx}
+	return &vidforwardSecondaryIdle{broadcastContext: ctx}
 }
 func (s *vidforwardSecondaryIdle) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
 }
-func (s *vidforwardSecondaryIdle) exit() {}
 
 type directLive struct {
 	*broadcastContext `json: "-"`
+	stateFields
 	liveStateFields
 }
 
 func newDirectLive(ctx *broadcastContext) *directLive {
 	return &directLive{broadcastContext: ctx}
 }
-func (s *directLive) enter() {}
-func (s *directLive) exit()  {}
 
 type directLiveUnhealthy struct {
 	*broadcastContext `json: "-"`
 	LastResetAttempt  time.Time
 	Attempts          int
+	stateFields
 	liveStateFields
 }
 
 func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
 	return &directLiveUnhealthy{broadcastContext: ctx}
 }
-func (s *directLiveUnhealthy) enter() {}
-func (s *directLiveUnhealthy) exit()  {}
 func (s *directLiveUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) <= resetInterval {
@@ -435,37 +438,28 @@ func (s *directLiveUnhealthy) fix() {
 }
 
 type directStarting struct {
-	*broadcastContext `json: "-"`
-	LastEntered       time.Time
+	stateFields
+	stateWithTimeoutFields
 }
 
 func newDirectStarting(ctx *broadcastContext) *directStarting {
-	return &directStarting{broadcastContext: ctx}
+	return &directStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
 func (s *directStarting) enter() {
 	s.LastEntered = time.Now()
 	createBroadcastAndRequestHardware(s.broadcastContext, s.cfg, nil)
 }
-func (s *directStarting) exit() {}
-func (s *directStarting) timedOut(t time.Time) bool {
-	const timeout = 10 * time.Minute
-	if t.Sub(s.LastEntered) > timeout {
-		s.log("timed out starting broadcast, last entered: %v, time now: %v", s.LastEntered, t)
-		return true
-	}
-	return false
-}
 
 type directIdle struct {
+	stateFields
 	*broadcastContext `json: "-"`
 }
 
-func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{ctx} }
+func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{broadcastContext: ctx} }
 func (s *directIdle) enter() {
 	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct idle entry", s.log)
 	s.bus.publish(hardwareStopRequestEvent{})
 }
-func (s *directIdle) exit() {}
 
 func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 	switch state.(type) {

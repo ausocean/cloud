@@ -156,12 +156,12 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:         "vidforwardPermanentStarting with time after end",
-			initialState: &vidforwardPermanentStarting{bCtx, now.Add(67 * time.Minute)},
+			initialState: &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			event:        timeEvent{now.Add(70 * time.Minute)},
 			expectedEvents: []event{
 				timeEvent{},
 			},
-			expectedState: &vidforwardPermanentStarting{bCtx, now.Add(67 * time.Minute)},
+			expectedState: &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now,
 				End:   now.Add(1 * time.Hour),
@@ -169,12 +169,12 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:         "vidforwardSecondaryStarting with time after end",
-			initialState: &vidforwardSecondaryStarting{bCtx, now.Add(67 * time.Minute)},
+			initialState: &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			event:        timeEvent{now.Add(70 * time.Minute)},
 			expectedEvents: []event{
 				timeEvent{},
 			},
-			expectedState: &vidforwardSecondaryStarting{bCtx, now.Add(67 * time.Minute)},
+			expectedState: &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now,
 				End:   now.Add(1 * time.Hour),
@@ -182,12 +182,12 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:         "directStarting with time after end",
-			initialState: &directStarting{bCtx, now.Add(67 * time.Minute)},
+			initialState: &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			event:        timeEvent{now.Add(70 * time.Minute)},
 			expectedEvents: []event{
 				timeEvent{},
 			},
-			expectedState: &directStarting{bCtx, now.Add(67 * time.Minute)},
+			expectedState: &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now,
 				End:   now.Add(1 * time.Hour),
@@ -347,10 +347,10 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "vidforwardPermanentStarting in broadcastPeriod",
-			initialState:   &vidforwardPermanentStarting{bCtx, now.Add(10 * time.Minute)},
+			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			event:          timeEvent{now.Add(14 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &vidforwardPermanentStarting{bCtx, now.Add(10 * time.Minute)},
+			expectedState:  &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
 				End:   now.Add(1 * time.Hour),
@@ -358,10 +358,10 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "vidforwardSecondaryStarting in broadcastPeriod",
-			initialState:   &vidforwardSecondaryStarting{bCtx, now.Add(10 * time.Minute)},
+			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			event:          timeEvent{now.Add(14 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &vidforwardSecondaryStarting{bCtx, now.Add(10 * time.Minute)},
+			expectedState:  &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
 				End:   now.Add(1 * time.Hour),
@@ -369,10 +369,10 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "directStarting in broadcastPeriod",
-			initialState:   &directStarting{bCtx, now.Add(10 * time.Minute)},
+			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			event:          timeEvent{now.Add(14 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &directStarting{bCtx, now.Add(10 * time.Minute)},
+			expectedState:  &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
 				End:   now.Add(1 * time.Hour),
@@ -490,7 +490,7 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "vidforwardPermanentStarting timed out",
-			initialState:   &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(6 * time.Minute)},
 			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardPermanentIdle(bCtx),
@@ -498,15 +498,15 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "vidforwardPermanentStarting not timed out",
-			initialState:   &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(4 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &vidforwardPermanentStarting{broadcastContext: bCtx, LastEntered: now},
+			expectedState:  &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &BroadcastConfig{},
 		},
 		{
 			desc:           "vidforwardSecondaryStarting timed out",
-			initialState:   &vidforwardSecondaryStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(6 * time.Minute)},
 			expectedEvents: []event{timeEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
@@ -514,15 +514,15 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "vidforwardSecondaryStarting not timed out",
-			initialState:   &vidforwardSecondaryStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(4 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &vidforwardSecondaryStarting{broadcastContext: bCtx, LastEntered: now},
+			expectedState:  &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &BroadcastConfig{},
 		},
 		{
 			desc:           "directStarting timed out",
-			initialState:   &directStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(11 * time.Minute)},
 			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
@@ -530,10 +530,10 @@ func TestHandleTimeEvent(t *testing.T) {
 		},
 		{
 			desc:           "directStarting not timed out",
-			initialState:   &directStarting{broadcastContext: bCtx, LastEntered: now},
+			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(4 * time.Minute)},
 			expectedEvents: []event{timeEvent{}},
-			expectedState:  &directStarting{broadcastContext: bCtx, LastEntered: now},
+			expectedState:  &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &BroadcastConfig{},
 		},
 	}

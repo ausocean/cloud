@@ -319,7 +319,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 	}{
 		{
 			desc: "vidforwardPermanentStarting",
-			s:    &vidforwardPermanentStarting{broadcastContext: ctx, LastEntered: time.Now()},
+			s:    &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(ctx, time.Now())},
 			equal: func(a, b state) bool {
 				return a.(*vidforwardPermanentStarting).LastEntered.Equal(b.(*vidforwardPermanentStarting).LastEntered)
 			},
@@ -333,14 +333,14 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "vidforwardPermanentTransitionLiveToSlate",
-			s:    &vidforwardPermanentTransitionLiveToSlate{broadcastContext: ctx, HardwareStopped: true},
+			s:    &vidforwardPermanentTransitionLiveToSlate{stateWithTimeoutFields: stateWithTimeoutFields{broadcastContext: ctx}, HardwareStopped: true},
 			equal: func(a, b state) bool {
 				return a.(*vidforwardPermanentTransitionLiveToSlate).HardwareStopped == b.(*vidforwardPermanentTransitionLiveToSlate).HardwareStopped
 			},
 		},
 		{
 			desc: "vidforwardPermanentTransitionSlateToLive",
-			s:    &vidforwardPermanentTransitionSlateToLive{broadcastContext: ctx, HardwareStarted: true},
+			s:    &vidforwardPermanentTransitionSlateToLive{stateWithTimeoutFields: stateWithTimeoutFields{broadcastContext: ctx}, HardwareStarted: true},
 			equal: func(a, b state) bool {
 				return a.(*vidforwardPermanentTransitionSlateToLive).HardwareStarted == b.(*vidforwardPermanentTransitionSlateToLive).HardwareStarted
 			},
@@ -373,7 +373,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "vidforwardPermanentIdle",
-			s:    &vidforwardPermanentIdle{ctx},
+			s:    &vidforwardPermanentIdle{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
 			},
@@ -394,14 +394,14 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "vidforwardSecondaryStarting",
-			s:    &vidforwardSecondaryStarting{ctx, time.Time{}},
+			s:    &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(ctx, time.Time{})},
 			equal: func(a, b state) bool {
 				return true
 			},
 		},
 		{
 			desc: "vidforwardSecondaryIdle",
-			s:    &vidforwardSecondaryIdle{ctx},
+			s:    &vidforwardSecondaryIdle{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
 			},
@@ -422,14 +422,14 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 		},
 		{
 			desc: "directStarting",
-			s:    &directStarting{ctx, time.Time{}},
+			s:    &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(ctx, time.Time{})},
 			equal: func(a, b state) bool {
 				return true
 			},
 		},
 		{
 			desc: "directIdle",
-			s:    &directIdle{ctx},
+			s:    &directIdle{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
 			},
