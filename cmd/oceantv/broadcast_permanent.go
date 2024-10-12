@@ -38,9 +38,11 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
+type SlateOption func(*BroadcastConfig) error
+
 type ForwardingService interface {
 	Stream(cfg *BroadcastConfig) error
-	Slate(cfg *BroadcastConfig) error
+	Slate(cfg *BroadcastConfig, opts ...SlateOption) error
 	UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error
 }
 
@@ -63,7 +65,23 @@ func (v *VidforwardService) Stream(cfg *BroadcastConfig) error {
 	return vidforwardRequest(cfg, vidforwardStatusPlay, v.log)
 }
 
-func (v *VidforwardService) Slate(cfg *BroadcastConfig) error {
+type SlateType string
+
+const (
+	Default    SlateType = "default"
+	LowVoltage SlateType = "low-voltage"
+)
+
+// WithType is an option for the Slate function that allows the caller to specify
+// the type of slate to display.
+// This is currently just a stub.
+func WithType(slate SlateType) SlateOption {
+	return func(cfg *BroadcastConfig) error {
+		return nil
+	}
+}
+
+func (v *VidforwardService) Slate(cfg *BroadcastConfig, opts ...SlateOption) error {
 	return vidforwardRequest(cfg, vidforwardStatusSlate, v.log)
 }
 
