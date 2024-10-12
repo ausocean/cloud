@@ -479,7 +479,7 @@ func TestRateLimited(t *testing.T) {
 				newDummyService(),
 				newDummyForwardingService(),
 				bus,
-				newDummyHardwareManager(true),
+				newDummyHardwareManager(),
 				t.Log,
 				newMockNotifier(),
 			}

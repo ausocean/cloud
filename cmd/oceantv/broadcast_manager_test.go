@@ -142,7 +142,7 @@ func TestCreateBroadcast(t *testing.T) {
 				withBroadcastManager(bm),
 				withBroadcastService(svc),
 				withForwardingService(newDummyForwardingService()),
-				withHardwareManager(newDummyHardwareManager(hardwareHealthy, withMACSanitisation())),
+				withHardwareManager(newDummyHardwareManager(withMACSanitisation())),
 				withNotifier(newMockNotifier()),
 			)
 			if err != nil {
