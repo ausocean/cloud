@@ -6,6 +6,7 @@ import (
 
 	"context"
 
+	"bou.ke/monkey"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -1478,6 +1479,366 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			if stateToString(sys.sm.currentState) != stateToString(tt.finalState) {
 				t.Errorf("unexpected state after handling started event: got %v, want %v",
 					stateToString(sys.sm.currentState), stateToString(tt.finalState))
+			}
+		})
+	}
+}
+
+func TestHardwareVoltageAndFaultHandling(t *testing.T) {
+	const testSiteKey = 7845764367
+
+	timeEvents := func(n int) []event {
+		var events []event
+		for i := 0; i < n; i++ {
+			events = append(events, timeEvent{})
+		}
+		return events
+	}
+
+	tests := []struct {
+		desc                  string
+		cfg                   func(*BroadcastConfig)
+		initialBroadcastState state
+		finalBroadcastState   state
+		finalHardwareState    state
+		hardwareMan           hardwareManager
+		newBroadcastMan       func(*testing.T, *BroadcastConfig) BroadcastManager
+
+		// Leave unset to use default max ticks.
+		// Some tests may require more ticks to reach the final state.
+		requiredTicks int
+
+		expectedEvents []event
+		expectedLogs   []string
+		expectedNotify map[int64]map[notify.Kind][]string
+	}{
+		// Tests that the logic around handling low voltage is correct and
+		// that we correctly enter the recovery state.
+		{
+			desc: "direct broadcast; start with low voltage, then enter recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareRecoveringVoltage{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			expectedEvents: []event{timeEvent{}, startEvent{}, hardwareStartRequestEvent{}, lowVoltageEvent{}},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we can recover from the voltage recovery state.
+		{
+			desc: "direct broadcast; successful voltage recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareStarting{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(48)...),
+				[]event{voltageRecoveredEvent{}}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we identify charging fault errors.
+		{
+			desc: "direct broadcast; charging fault",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directIdle{},
+			finalHardwareState:    &hardwareOff{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withChargingFault()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 260,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(241)...), // Time events to account for charging time.
+				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we can identify a controller fault i.e. voltage
+		// last reported is OK, but controller is not reporting.
+		{
+			desc: "direct broadcast; controller fault",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directIdle{},
+			finalHardwareState:    &hardwareOff{},
+			hardwareMan:           newDummyHardwareManager(withHardwareFault()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			expectedEvents: []event{
+				timeEvent{},
+				startEvent{},
+				hardwareStartRequestEvent{},
+				controllerFailureEvent{},
+				startFailedEvent{},
+				hardwareStopRequestEvent{},
+				hardwareStopRequestEvent{},
+			},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we can start a permanent broadcast and deal with a voltage
+		// recovery i.e. idle -> live
+		{
+			desc: "permanent broadcast; broadcast start, successful voltage recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &vidforwardPermanentIdle{},
+			finalBroadcastState:   &vidforwardPermanentStarting{},
+			finalHardwareState:    &hardwareStarting{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(48)...),
+				[]event{voltageRecoveredEvent{}}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we transition to the permanent voltage recovery slate
+		// state.
+		{
+			desc: "permanent broadcast; voltage recovery slate",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &vidforwardPermanentSlate{},
+			finalBroadcastState:   &vidforwardPermanentVoltageRecoverySlate{},
+			finalHardwareState:    &hardwareRecoveringVoltage{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: []event{
+				timeEvent{},
+				startEvent{},
+				hardwareStartRequestEvent{},
+				lowVoltageEvent{},
+			},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		// Tests that we can recover from the voltage recovery state for a
+		// permanent broadcast.
+		{
+			desc: "permanent broadcast; successful voltage recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+				c.CheckingHealth = true
+			},
+			initialBroadcastState: &vidforwardPermanentSlate{},
+			finalBroadcastState:   &vidforwardPermanentLive{},
+			finalHardwareState:    &hardwareOn{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(48)...),
+				[]event{
+					voltageRecoveredEvent{},
+					hardwareStartRequestEvent{},
+					timeEvent{},
+					healthCheckDueEvent{},
+					goodHealthEvent{},
+					hardwareStartedEvent{},
+					timeEvent{},
+					timeEvent{},
+					healthCheckDueEvent{},
+					goodHealthEvent{},
+					statusCheckDueEvent{},
+					chatMessageDueEvent{},
+				}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			logRecorder := newLogRecorder(t)
+
+			ctx, _ := context.WithCancel(context.Background())
+
+			// Apply broadcast config modifications
+			// and update the broadcast state based on the initial state.
+			cfg := &BroadcastConfig{}
+			tt.cfg(cfg)
+			updateBroadcastBasedOnState(tt.initialBroadcastState, cfg)
+
+			// Use a monkey patch to replace time.Now() with our own time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := time.Now()
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
+			sys, err := newBroadcastSystem(
+				ctx,
+				newDummyStore(),
+				cfg,
+				logRecorder.log,
+				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				withBroadcastManager(tt.newBroadcastMan(t, cfg)),
+				withBroadcastService(newDummyService()),
+				withForwardingService(newDummyForwardingService()),
+				withHardwareManager(tt.hardwareMan),
+				withNotifier(newMockNotifier()),
+			)
+			if err != nil {
+				t.Fatalf("failed to create broadcast system: %v", err)
+			}
+
+			// Tick until we reach the final state. It's expected this occurs within
+			// reasonable time otherwise we have a problem.
+			const defaultMaxTicks = 10
+			for tick := 0; true; tick++ {
+				// Test test case overwrite the default max ticks.
+				maxTicks := defaultMaxTicks
+				if tt.requiredTicks > 0 {
+					maxTicks = tt.requiredTicks
+				}
+
+				if tick > maxTicks {
+					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					return
+				}
+
+				// We've replaced time.Now() with the monkey patch, but it means we need to
+				// manually advance time before ticking the broadcast system.
+				testTime = testTime.Add(1 * time.Minute)
+
+				err = sys.tick()
+				if err != nil {
+					t.Errorf("failed to tick broadcast system: %v", err)
+					return
+				}
+				if stateToString(sys.sm.currentState) == stateToString(tt.finalBroadcastState) &&
+					stateToString(sys.hsm.currentState) == stateToString(tt.finalHardwareState) {
+					break
+				}
+			}
+
+			// Check the events that we got.
+			err = sys.ctx.bus.(*mockEventBus).checkEvents(tt.expectedEvents)
+			if err != nil {
+				t.Errorf("unexpected events: %v", err)
+			}
+
+			// Check the logs that we got.
+			err = logRecorder.checkLogs(tt.expectedLogs)
+			if err != nil {
+				t.Errorf("unexpected logs: %v", err)
+			}
+
+			// Check we got expected notifications.
+			err = sys.ctx.notifier.(*mockNotifier).checkNotifications(tt.expectedNotify)
+			if err != nil {
+				t.Errorf("unexpected notifications: %v", err)
+			}
+
+			// Let's make sure we ended up in the expected final broadcast machine state.
+			if stateToString(sys.sm.currentState) != stateToString(tt.finalBroadcastState) {
+				t.Errorf("unexpected state after handling started event: got %v, want %v",
+					stateToString(sys.sm.currentState), stateToString(tt.finalBroadcastState))
+			}
+
+			// Also check if we ended up with the correct broadcast hardware machine state.
+			if stateToString(sys.hsm.currentState) != stateToString(tt.finalHardwareState) {
+				t.Errorf("unexpected state after handling started event: got %v, want %v",
+					stateToString(sys.hsm.currentState), stateToString(tt.finalHardwareState))
 			}
 		})
 	}

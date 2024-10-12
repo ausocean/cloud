@@ -79,11 +79,46 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
 	case chatMessageDueEvent:
 		sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
+	case lowVoltageEvent:
+		sm.handleLowVoltageEvent(event.(lowVoltageEvent))
+	case voltageRecoveredEvent:
+		sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
 	return sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
+}
+
+func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) error {
+	sm.log("handling low voltage event")
+	switch sm.currentState.(type) {
+	case *directStarting, *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+		// If we're in the starting state we need to reset the timeout to allow for
+		// hardware voltage recovery (remembering that this is not our primary timeout
+		// mechanism, which is handled by the hardware SM but a rather a contingency that
+		// we shouldn't hit with normal behaviour).
+		const broadcastVoltageRecoveryOffset = 10 * time.Minute
+		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
+	case *vidforwardPermanentTransitionSlateToLive:
+		sm.transition(newVidforwardPermanentVoltageRecoverySlate(sm.ctx))
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+	return nil
+}
+
+func (sm *broadcastStateMachine) handleVoltageRecoveredEvent(event voltageRecoveredEvent) error {
+	sm.log("handling voltage recovered event")
+	switch sm.currentState.(type) {
+	case *directStarting, *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
+	case *vidforwardPermanentVoltageRecoverySlate:
+		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+	return nil
 }
 
 func (sm *broadcastStateMachine) handleStatusCheckDueEvent(event statusCheckDueEvent) {
@@ -312,6 +347,12 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
 			sm.ctx.logAndNotify(broadcastGeneric, "transition from slate to live timed out, transitioning to failure slate state")
+			sm.transition(newVidforwardPermanentFailure(sm.ctx))
+		}
+		sm.publishHealthStatusOrChatEvents(event)
+	case *vidforwardPermanentVoltageRecoverySlate:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(event.Time) {
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 	default:
