@@ -221,6 +221,14 @@
                 <button class="advanced w-50 btn btn-primary" onclick="buttonClick(this)" value="vidforward-slate-update">Upload Slate</button>
               </div>
             </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="required-streaming-voltage" class="advanced w-25 text-end">Required Streaming Voltage:</label>
+              <input class="advanced w-50 form-control" type="input" name="required-streaming-voltage" value="{{.CurrentBroadcast.RequiredStreamingVoltage}}">
+            </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="voltage-recovery-timeout" class="advanced w-25 text-end">Voltage Recovery Timeout (hr):</label>
+              <input class="advanced w-50 form-control" type="input" name="voltage-recovery-timeout" value="{{.CurrentBroadcast.VoltageRecoveryTimeout}}">
+            </div>
           </fieldset>
         <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}">
         <input type="hidden" name="active" value="{{.CurrentBroadcast.Active}}">

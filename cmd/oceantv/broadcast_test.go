@@ -66,6 +66,7 @@ type dummyManager struct {
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
 	Limiter                                                            RateLimiter
 	t                                                                  *testing.T
+	broadcastUnhealthy                                                 bool
 }
 
 type dummyManagerOption func(interface{}) error
@@ -74,6 +75,15 @@ func withRateLimiter(l RateLimiter) dummyManagerOption {
 	return func(i interface{}) error {
 		if s, ok := i.(*dummyManager); ok {
 			s.Limiter = l
+		}
+		return nil
+	}
+}
+
+func withBadHealth() dummyManagerOption {
+	return func(i interface{}) error {
+		if s, ok := i.(*dummyManager); ok {
+			s.broadcastUnhealthy = true
 		}
 		return nil
 	}
@@ -147,6 +157,11 @@ func (d *dummyManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
 }
 func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error {
 	d.healthHandled = true
+	if d.broadcastUnhealthy {
+		badHealthCallback("poor ingestion rate")
+	} else {
+		goodHealthCallback()
+	}
 	return nil
 }
 func (d *dummyManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error { return nil }

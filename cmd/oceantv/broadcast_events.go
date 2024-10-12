@@ -94,6 +94,14 @@ type invalidConfigurationEvent struct{ desc string }
 func (e invalidConfigurationEvent) String() string { return "invalidConfigurationEvent" }
 func (e invalidConfigurationEvent) Error() string  { return e.desc }
 
+type lowVoltageEvent struct{}
+
+func (e lowVoltageEvent) String() string { return "lowVoltageEvent" }
+
+type voltageRecoveredEvent struct{}
+
+func (e voltageRecoveredEvent) String() string { return "voltageRecoveredEvent" }
+
 type handler func(event) error
 
 type eventBus interface {
@@ -166,6 +174,8 @@ func stringToEvent(name string) (event, error) {
 		"slateResetRequested":       slateResetRequested{},
 		"fixFailureEvent":           fixFailureEvent{},
 		"invalidConfigurationEvent": invalidConfigurationEvent{},
+		"lowVoltageEvent":           lowVoltageEvent{},
+		"voltageRecoveredEvent":     voltageRecoveredEvent{},
 	}
 
 	event, ok := eventMap[name]
