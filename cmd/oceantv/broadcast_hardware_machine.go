@@ -143,9 +143,13 @@ func sanatisedVoltageRecoveryTimeout(ctx *broadcastContext) int {
 
 type hardwareStopping struct {
 	*broadcastContext `json:"-"`
+	stateWithTimeoutFields
+	PreviouslyTimedOut bool
 }
 
-func newHardwareStopping(ctx *broadcastContext) *hardwareStopping { return &hardwareStopping{ctx} }
+func newHardwareStopping(ctx *broadcastContext) *hardwareStopping {
+	return &hardwareStopping{broadcastContext: ctx}
+}
 func (s *hardwareStopping) enter() {
 	s.camera.stop(s.broadcastContext)
 }
@@ -238,22 +242,39 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	eventIfStatus := func(e event, status bool) {
 		sm.ctx.camera.publishEventIfStatus(e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	}
-	switch sm.currentState.(type) {
+	switch state := sm.currentState.(type) {
 	case *hardwareStarting:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(t.Time) {
+		if state.timedOut(t.Time) {
 			sm.ctx.bus.publish(hardwareStartFailedEvent{})
 			sm.transition(newHardwareOff())
 			return
 		}
 		eventIfStatus(hardwareStartedEvent{}, true)
 	case *hardwareStopping:
+		if state.timedOut(t.Time) {
+			if state.PreviouslyTimedOut {
+				sm.log("hardwareStopping state timed out for the second time")
+				sm.ctx.bus.publish(hardwareStopFailedEvent{})
+				sm.transition(newHardwareOn())
+				return
+			}
+			sm.log("hardwareStopping state timed out, performing controller off actions")
+			err := extStopController(context.Background(), sm.ctx.cfg, sm.ctx.log)
+			if err != nil {
+				sm.log("could not perform controller off actions: %v", err)
+				sm.ctx.bus.publish(hardwareStopFailedEvent{})
+				sm.transition(newHardwareOn())
+				return
+			}
+			state.PreviouslyTimedOut = true
+			state.reset(5 * time.Minute) // 5 minutes is the initial timeout default, so we just reset it here.
+			return
+		}
 		eventIfStatus(hardwareStoppedEvent{}, false)
 	case *hardwareRestarting:
 		eventIfStatus(hardwareStartRequestEvent{}, false)
 	case *hardwareRecoveringVoltage:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(t.Time) {
+		if state.timedOut(t.Time) {
 			sm.ctx.logAndNotify(broadcastHardware, "voltage recovery timed out")
 			sm.ctx.bus.publish(hardwareStartFailedEvent{})
 			sm.transition(newHardwareOff())
@@ -291,6 +312,10 @@ func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStopped
 	sm.log("handling hardware stopped event")
 	switch sm.currentState.(type) {
 	case *hardwareStopping:
+		err := extStopController(context.Background(), sm.ctx.cfg, sm.ctx.log)
+		if err != nil {
+			sm.log("could not perform controller off actions: %v", err)
+		}
 		sm.transition(newHardwareOff())
 	case *hardwareStarting:
 		sm.transition(newHardwareOff())

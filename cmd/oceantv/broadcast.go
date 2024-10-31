@@ -30,6 +30,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -307,14 +308,67 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...int
 
 // extStop uses the OffActions in the provided broadcast config to perform
 // external streaming hardware shutdown.
+// If an OffAction is a controller action, we don't perform it yet.
 func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
 	if cfg.OffActions == "" {
 		return nil
 	}
 
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables to end stream: %w", err)
+	vars := strings.Split(cfg.OffActions, ",")
+	if len(vars) == 0 {
+		return errors.New("no off actions to perform")
+	}
+
+	for _, v := range vars {
+		// Get the off action MAC to see if it's for a controller, if so don't perform it yet.
+		parts := strings.Split(v, "=")
+		if len(parts) != 2 {
+			return fmt.Errorf("bad off action format: %s", v)
+		}
+		parts = strings.Split(parts[0], ".")
+		if len(parts) != 2 {
+			return fmt.Errorf("bad off action variable name format: %s", v)
+		}
+		if model.MacEncode(parts[0]) != cfg.ControllerMAC {
+			err := setActionVars(ctx, cfg.SKey, v, settingsStore, log)
+			if err != nil {
+				return fmt.Errorf("could not perform off actions: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// extStopController uses the OffActions in the provided broadcast config to perform
+// controller off actions.
+// This is intended to be run after the camera has had a chance to shutdown properly.
+func extStopController(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+	if cfg.OffActions == "" {
+		return nil
+	}
+
+	vars := strings.Split(cfg.OffActions, ",")
+	if len(vars) == 0 {
+		return errors.New("no off actions to perform")
+	}
+
+	for _, v := range vars {
+		// Get the off action MAC to see if it's for a controller, if so perform the action.
+		parts := strings.Split(v, "=")
+		if len(parts) != 2 {
+			return fmt.Errorf("bad off action format: %s", v)
+		}
+		parts = strings.Split(parts[0], ".")
+		if len(parts) != 2 {
+			return fmt.Errorf("bad off action variable name format: %s", v)
+		}
+		if model.MacEncode(parts[0]) == cfg.ControllerMAC {
+			err := setActionVars(ctx, cfg.SKey, v, settingsStore, log)
+			if err != nil {
+				return fmt.Errorf("could not perform off actions for controller: %w", err)
+			}
+		}
 	}
 
 	return nil
