@@ -35,20 +35,68 @@ func newHardwareStarting(ctx *broadcastContext) *hardwareStarting {
 }
 func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
-	if s.cfg.ControllerMAC != 0 {
-		controllerIsOn, err := model.DeviceIsUp(context.Background(), settingsStore, model.MacDecode(s.cfg.ControllerMAC))
-		if err != nil {
-			s.log("error getting controller status: %v", err)
-			s.bus.publish(controllerFailureEvent{})
-			return
-		} else if !controllerIsOn {
-			s.log("controller not responding")
-			s.bus.publish(controllerFailureEvent{})
+	// A MAC of 0 indicates it is invalid or unset, proceed with starting the camera.
+	if s.cfg.ControllerMAC == 0 {
+		s.camera.start(s.broadcastContext)
+		return
+	}
+
+	voltage, err := s.camera.voltage(s.broadcastContext)
+	if err != nil {
+		msg := fmt.Sprintf("could not get hardware voltage: %v", err)
+		s.log(msg)
+		s.bus.publish(invalidConfigurationEvent{msg})
+		return
+	}
+
+	alarmVoltage, err := s.camera.alarmVoltage(s.broadcastContext)
+	if err != nil {
+		msg := fmt.Sprintf("could not get alarm voltage: %v", err)
+		s.log(msg)
+		s.bus.publish(invalidConfigurationEvent{msg})
+		return
+	}
+
+	controllerIsOn, err := s.camera.isUp(s.broadcastContext)
+	if err != nil {
+		msg := fmt.Sprintf("could not get controller status: %v", err)
+		s.log(msg)
+		s.bus.publish(invalidConfigurationEvent{msg})
+		return
+	}
+
+	if voltage <= alarmVoltage {
+		if controllerIsOn {
+			s.log("voltage less than alarm voltage but controller is on, something is configured incorrectly")
+			s.bus.publish(invalidConfigurationEvent{"voltage less than alarm voltage but controller is on"})
 			return
 		}
+		s.log("controller voltage is low, waiting for recovery before starting")
+		s.bus.publish(lowVoltageEvent{})
+		return
 	}
+
+	// Not below alarm voltage, but controller is not responding.
+	// This is a critical failure.
+	if !controllerIsOn {
+		s.log("controller not responding above alarm voltage")
+		s.bus.publish(controllerFailureEvent{})
+		return
+	}
+
+	// Controller is reporting, but we're not above streaming voltage. Need
+	// to wait for recovery.
+	if voltage < s.cfg.RequiredStreamingVoltage {
+		s.log("controller voltage is below required streaming voltage, waiting for recovery before starting")
+		s.bus.publish(lowVoltageEvent{})
+		return
+	}
+
+	// Controller is reporting and we're above streaming voltage, let's power
+	// on the camera.
 	s.camera.start(s.broadcastContext)
 }
+
 func (s *hardwareStarting) exit() {}
 
 func (s *hardwareStarting) timedOut(t time.Time) bool {
@@ -62,6 +110,36 @@ func (s *hardwareStarting) timedOut(t time.Time) bool {
 
 func (s *hardwareStarting) reset(time.Duration) {}
 
+type hardwareRecoveringVoltage struct {
+	stateFields
+	stateWithTimeoutFields
+}
+
+func newHardwareRecoveringVoltage(ctx *broadcastContext) *hardwareRecoveringVoltage {
+	s := newStateWithTimeoutFields(ctx)
+	s.Timeout = time.Duration(sanatisedVoltageRecoveryTimeout(ctx)) * time.Hour
+	return &hardwareRecoveringVoltage{
+		stateWithTimeoutFields: s,
+	}
+}
+
+func (s *hardwareRecoveringVoltage) enter() {
+	s.LastEntered = time.Now()
+}
+
+func sanatisedVoltageRecoveryTimeout(ctx *broadcastContext) int {
+	// If VoltageRecoveryTimeout is not set, default to 4 hours.
+	if ctx.cfg.VoltageRecoveryTimeout == 0 {
+		const defaultRechargeTimeoutHours = 4
+		ctx.log("recharge timeout hours is not set, defaulting to %d", defaultRechargeTimeoutHours)
+		try(
+			ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.VoltageRecoveryTimeout = defaultRechargeTimeoutHours }),
+			"could not save default recharge timeout hours to config",
+			func(msg string, args ...interface{}) { ctx.logAndNotify(broadcastSoftware, msg, args...) },
+		)
+	}
+	return ctx.cfg.VoltageRecoveryTimeout
+}
 
 type hardwareStopping struct {
 	*broadcastContext `json:"-"`
@@ -103,6 +181,8 @@ func getHardwareState(ctx *broadcastContext) state {
 		_state = newHardwareStopping(ctx)
 	case "hardwareRestarting":
 		_state = newHardwareRestarting(ctx)
+	case "hardwareRecoveringVoltage":
+		_state = newHardwareRecoveringVoltage(ctx)
 	default:
 		panic(fmt.Sprintf("invalid hardware state: %s", ctx.cfg.HardwareState))
 	}
@@ -143,6 +223,10 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareStopRequestEvent(event.(hardwareStopRequestEvent))
 	case controllerFailureEvent:
 		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
+	case lowVoltageEvent:
+		sm.handleLowVoltageEvent(event.(lowVoltageEvent))
+	case voltageRecoveredEvent:
+		sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
 	default:
 		// Do nothing.
 	}
@@ -167,7 +251,37 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 		eventIfStatus(hardwareStoppedEvent{}, false)
 	case *hardwareRestarting:
 		eventIfStatus(hardwareStartRequestEvent{}, false)
+	case *hardwareRecoveringVoltage:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(t.Time) {
+			sm.ctx.logAndNotify(broadcastHardware, "voltage recovery timed out")
+			sm.ctx.bus.publish(hardwareStartFailedEvent{})
+			sm.transition(newHardwareOff())
+			return
+		}
 
+		voltage, err := sm.ctx.camera.voltage(sm.ctx)
+		if err != nil {
+			msg := fmt.Sprintf("could not get hardware voltage: %v", err)
+			sm.log(msg)
+			sm.ctx.bus.publish(invalidConfigurationEvent{msg})
+			return
+		}
+
+		// If RequiredStreamingVoltage is not set, default to 24.5.
+		if sm.ctx.cfg.RequiredStreamingVoltage == 0 {
+			const defaultRequiredStreamingVoltage = 24.5
+			sm.log("required streaming voltage is not set, defaulting to %f", defaultRequiredStreamingVoltage)
+			try(
+				sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.RequiredStreamingVoltage = defaultRequiredStreamingVoltage }),
+				"could not save default required streaming voltage to config",
+				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(broadcastSoftware, msg, args...) },
+			)
+		}
+
+		if voltage >= sm.ctx.cfg.RequiredStreamingVoltage {
+			sm.ctx.bus.publish(voltageRecoveredEvent{})
+		}
 	default:
 		// Do nothing.
 	}
@@ -275,6 +389,30 @@ func (sm *hardwareStateMachine) handleControllerFailureEvent(event controllerFai
 	switch sm.currentState.(type) {
 	case *hardwareOn, *hardwareRestarting, *hardwareStopping, *hardwareStarting:
 		sm.transition(newHardwareOff())
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+}
+
+func (sm *hardwareStateMachine) handleLowVoltageEvent(event lowVoltageEvent) {
+	sm.log("handling low voltage event")
+	switch sm.currentState.(type) {
+	case *hardwareStarting:
+		sm.transition(newHardwareRecoveringVoltage(sm.ctx))
+	case *hardwareOn, *hardwareRestarting:
+		sm.transition(newHardwareStopping(sm.ctx))
+	case *hardwareOff, *hardwareStopping:
+		// Ignore.
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+}
+
+func (sm *hardwareStateMachine) handleVoltageRecoveredEvent(event voltageRecoveredEvent) {
+	sm.log("handling voltage recovered event")
+	switch sm.currentState.(type) {
+	case *hardwareRecoveringVoltage:
+		sm.transition(newHardwareStarting(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}

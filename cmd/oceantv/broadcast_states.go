@@ -294,8 +294,28 @@ func (s *vidforwardPermanentFailure) requestSlate() {
 type vidforwardPermanentSlate struct{ stateFields }
 
 func newVidforwardPermanentSlate() *vidforwardPermanentSlate { return &vidforwardPermanentSlate{} }
-func (s *vidforwardPermanentSlate) enter()                   {}
-func (s *vidforwardPermanentSlate) exit()                    {}
+
+type vidforwardPermanentVoltageRecoverySlate struct {
+	stateFields
+	stateWithTimeoutFields
+}
+
+func newVidforwardPermanentVoltageRecoverySlate(ctx *broadcastContext) *vidforwardPermanentVoltageRecoverySlate {
+	return &vidforwardPermanentVoltageRecoverySlate{
+		stateWithTimeoutFields: newStateWithTimeoutFieldsWithTimeout(
+			ctx,
+			time.Duration(sanatisedVoltageRecoveryTimeout(ctx))*time.Hour,
+		),
+	}
+}
+func (s *vidforwardPermanentVoltageRecoverySlate) enter() {
+	s.LastEntered = time.Now()
+	s.requestSlate()
+}
+func (s *vidforwardPermanentVoltageRecoverySlate) fix() { s.requestSlate() }
+func (s *vidforwardPermanentVoltageRecoverySlate) requestSlate() {
+	try(s.fwd.Slate(s.cfg, WithType(LowVoltage)), "could not set vidforward mode to low voltage slate", s.log)
+}
 
 type vidforwardPermanentSlateUnhealthy struct {
 	stateFields
@@ -498,6 +518,15 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = true
+		cfg.RecoveringVoltage = false
+	case *vidforwardPermanentVoltageRecoverySlate:
+		cfg.Active = true
+		cfg.Slate = true
+		cfg.UsingVidforward = true
+		cfg.AttemptingToStart = false
+		cfg.Unhealthy = false
+		cfg.Transitioning = true
+		cfg.RecoveringVoltage = true
 	case *vidforwardPermanentSlateUnhealthy:
 		cfg.Active = true
 		cfg.Slate = true
@@ -597,13 +626,14 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 func broadcastCfgToState(ctx *broadcastContext) state {
 	isSecondary := strings.Contains(ctx.cfg.Name, secondaryBroadcastPostfix)
 	var (
-		vid           = ctx.cfg.UsingVidforward
-		active        = ctx.cfg.Active
-		slate         = ctx.cfg.Slate
-		unhealthy     = ctx.cfg.Unhealthy
-		starting      = ctx.cfg.AttemptingToStart
-		transitioning = ctx.cfg.Transitioning
-		inFailure     = ctx.cfg.InFailure
+		vid               = ctx.cfg.UsingVidforward
+		active            = ctx.cfg.Active
+		slate             = ctx.cfg.Slate
+		unhealthy         = ctx.cfg.Unhealthy
+		starting          = ctx.cfg.AttemptingToStart
+		transitioning     = ctx.cfg.Transitioning
+		inFailure         = ctx.cfg.InFailure
+		recoveringVoltage = ctx.cfg.RecoveringVoltage
 	)
 	var newState state
 	switch {
@@ -617,8 +647,10 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 		newState = newVidforwardPermanentLiveUnhealthy(ctx)
 	case vid && active && slate && !unhealthy && !starting && !isSecondary && !transitioning && !inFailure:
 		newState = newVidforwardPermanentSlate()
-	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning:
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && !recoveringVoltage:
 		newState = newVidforwardPermanentTransitionSlateToLive(ctx)
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && recoveringVoltage:
+		newState = newVidforwardPermanentVoltageRecoverySlate(ctx)
 	case vid && active && slate && unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentSlateUnhealthy(ctx)
 	case vid && !active && !slate && !unhealthy && !starting && !isSecondary:

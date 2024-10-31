@@ -3,6 +3,7 @@ module github.com/ausocean/cloud
 go 1.22.2
 
 require (
+	bou.ke/monkey v1.0.2
 	cloud.google.com/go/storage v1.30.1
 	github.com/Comcast/gots/v2 v2.2.1
 	github.com/Knetic/govaluate v3.0.0+incompatible
