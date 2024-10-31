@@ -1,0 +1,16 @@
+# gcloud app deploy --version 1 --project ausoceantv ausoceantv.yaml
+runtime: go121
+
+env_variables:
+  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
+
+main: cmd/ausoceantv
+
+handlers:
+  - url: /s/*
+    static_dir: cmd/ausoceantv/s
+
+  - url: /.*
+    secure: always
+    script: auto
