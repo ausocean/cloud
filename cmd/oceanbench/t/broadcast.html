@@ -228,6 +228,13 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="voltage-recovery-timeout" class="advanced w-25 text-end">Voltage Recovery Timeout (hr):</label>
               <input class="advanced w-50 form-control" type="input" name="voltage-recovery-timeout" value="{{.CurrentBroadcast.VoltageRecoveryTimeout}}">
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="register-openfish" class="advanced w-25 text-end">Register stream with OpenFish:</label>
+              <input class="advanced" type="checkbox" name="register-openfish" value="register-openfish" {{if .CurrentBroadcast.RegisterOpenFish}}checked{{end}}>
+            </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="openfish-capturesource" class="advanced w-25 text-end">OpenFish Capture Source:</label>
+              <input class="advanced w-50 form-control" type="input" name="openfish-capturesource" value="{{.CurrentBroadcast.OpenFishCaptureSource}}">
             </div>
           </fieldset>
         <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}">

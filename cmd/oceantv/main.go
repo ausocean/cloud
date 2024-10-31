@@ -36,6 +36,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -58,6 +59,7 @@ var (
 	debug         bool
 	standalone    bool
 	notifier      notify.Notifier
+	ofsvc         openfish.OpenfishService
 	cronSecret    []byte
 	storePath     string
 )
@@ -218,6 +220,11 @@ func setup(ctx context.Context) {
 	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
+	}
+
+	ofsvc, err = openfish.New()
+	if err != nil {
+		log.Fatalf("could not setup openfish service: %v", err)
 	}
 }
 
