@@ -1,7 +1,7 @@
 /*
 DESCRIPTION
   openfish.go provides functions for registering a completed stream with
-  Openfish.
+  OpenFish.
 
 AUTHORS
   Scott Barnard <scott@ausocean.org>
