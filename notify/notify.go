@@ -118,7 +118,7 @@ func (n *MailjetNotifier) Send(ctx context.Context, skey int64, kind Kind, msg s
 	log.Printf("sending %s message to %s", kind, csvRecipients)
 
 	if n.publicKey != "" && n.privateKey != "" {
-		err = send(n.publicKey, n.privateKey, n.sender, n.recipients, strings.Title(string(kind))+" notification", msg)
+		err = send(n.publicKey, n.privateKey, n.sender, recipients, strings.Title(string(kind))+" notification", msg)
 		if err != nil {
 			return fmt.Errorf("could not send mail: %w", err)
 		}

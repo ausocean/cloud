@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -229,10 +230,13 @@ func (sm *hardwareStateMachine) handleHardwareStartedEvent(event hardwareStarted
 func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(event hardwareStartRequestEvent) {
 	sm.log("handling hardware start request event")
 	switch sm.currentState.(type) {
-	case *hardwareOff, *hardwareStopping, *hardwareRestarting:
+	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
 		sm.ctx.camera.publishEventIfStatus(hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+	case *hardwareStopping:
+		// Ignore and log.
+		sm.log("ignoring hardware start request event since hardware is still stopping")
 	case *hardwareOn:
 		// Ignore.
 	default:
