@@ -60,6 +60,9 @@ func (s *hardwareStarting) timedOut(t time.Time) bool {
 	return false
 }
 
+func (s *hardwareStarting) reset(time.Duration) {}
+
+
 type hardwareStopping struct {
 	*broadcastContext `json:"-"`
 }
