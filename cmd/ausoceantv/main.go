@@ -25,9 +25,12 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +39,8 @@ import (
 
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/paymentintent"
 )
 
 // Project constants.
@@ -66,6 +71,14 @@ func main() {
 		}
 	}
 
+	// Get stripe secret key.
+	v = os.Getenv("AUSOCEAN_STRIPE_SECRET_KEY")
+	if v == "" {
+		log.Println("AUSOCEAN_STRIPE_SECRET_KEY not found, cannot take payments")
+	} else {
+		stripe.Key = v
+	}
+
 	var host string
 	var port int
 	flag.BoolVar(&app.debug, "debug", false, "Run in debug mode.")
@@ -79,10 +92,13 @@ func main() {
 	ctx := context.Background()
 	app.setup(ctx)
 
-	// Serve static files when running locally
+	// Serve static files when running locally.
 	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
 
 	http.HandleFunc("/", app.indexHandler)
+
+	// Stripe integration endpoints.
+	http.HandleFunc("/stripe/create-payment-intent", handleCreatePaymentIntent)
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
@@ -118,6 +134,75 @@ func (svc *service) setup(ctx context.Context) {
 	}
 	model.RegisterEntities()
 	log.Printf("set up datastore")
+}
+
+// handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
+func handleCreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
+	app.logRequest(r)
+
+	// Enable Cross-Origin Scripting from Vite.
+	enableCors(&w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(200)
+		return
+	} else if r.Method != "POST" {
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
+	}
+
+	// TODO: Get product details.
+	//	description := product.description
+	//	price := calculatePrice(product)
+
+	// Enable auto payment method for better conversions.
+	autoPaymentMethodEnabled := true
+
+	// Create a PaymentIntent with amount and currency.
+	params := &stripe.PaymentIntentParams{
+		Amount:                  stripe.Int64(1099),
+		Currency:                stripe.String(string(stripe.CurrencyAUD)),
+		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{Enabled: &autoPaymentMethodEnabled},
+	}
+
+	// NOTE: DO NOT LOG PAYMENT INTENT.
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Error creating new Stripe payment intent: %v", err)
+		return
+	}
+
+	writeJSON(w, struct {
+		ClientSecret string `json:"clientSecret"`
+		// DpmCheckerLink string `json:"dpmCheckerLink"` <-- Can be used for debugging of the integration.
+	}{
+		ClientSecret: pi.ClientSecret,
+		// [DEV]: For demo purposes only, you should avoid exposing the PaymentIntent ID in the client-side code.
+		// DpmCheckerLink: fmt.Sprintf("https://dashboard.stripe.com/settings/payment_methods/review?transaction_id=%s", pi.ID),
+	})
+}
+
+// enableCors allows the vite server to read responses from this webserver.
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	(*w).Header().Set("Access-Control-Content-Type", "application/json")
+
+	(*w).Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+}
+
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(v); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("json.NewEncoder.Encode: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := io.Copy(w, &buf); err != nil {
+		log.Printf("io.Copy: %v", err)
+		return
+	}
 }
 
 // logRequest logs a request if in debug mode and standalone mode.
