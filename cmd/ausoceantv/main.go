@@ -25,7 +25,9 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -72,6 +74,14 @@ func main() {
 		if err == nil {
 			defaultPort = i
 		}
+	}
+
+	// Get stripe secret key.
+	v = os.Getenv("AUSOCEAN_STRIPE_SECRET_KEY")
+	if v == "" {
+		log.Println("AUSOCEAN_STRIPE_SECRET_KEY not found, cannot take payments")
+	} else {
+		stripe.Key = v
 	}
 
 	var host string
