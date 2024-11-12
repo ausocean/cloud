@@ -140,8 +140,6 @@ func (svc *service) setup(ctx context.Context) {
 func handleCreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
 	app.logRequest(r)
 
-	// Enable Cross-Origin Scripting from Vite.
-	enableCors(&w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(200)
 		return
@@ -180,15 +178,6 @@ func handleCreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
 		// [DEV]: For demo purposes only, you should avoid exposing the PaymentIntent ID in the client-side code.
 		// DpmCheckerLink: fmt.Sprintf("https://dashboard.stripe.com/settings/payment_methods/review?transaction_id=%s", pi.ID),
 	})
-}
-
-// enableCors allows the vite server to read responses from this webserver.
-func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-	(*w).Header().Set("Access-Control-Content-Type", "application/json")
-
-	(*w).Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
