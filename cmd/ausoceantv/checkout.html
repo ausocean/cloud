@@ -11,15 +11,17 @@
     <script src="https://js.stripe.com/v3/"></script>
     <script src="/src/checkout.js" defer></script>
   </head>
-  <body class="flex flex-row">
+  <body class="flex flex-col gap-10 md:flex-row">
     <plan-element plan-name="Premium" price="3.99" period="month"></plan-element>
-    <form id="payment-form">
-      <div id="payment-element">
-        <!--Stripe.js injects the Payment Element-->
+    <form id="payment-form" class="flex flex-col gap-5">
+      <div class="border-2 p-10 dark:border-none dark:bg-white dark:text-neutral-800">
+        <div id="payment-element">
+          <!--Stripe.js injects the Payment Element-->
+        </div>
       </div>
-      <button id="submit">
+      <button id="submit" class="w-full bg-blue-800 py-2 dark:bg-white">
         <div class="spinner hidden" id="spinner"></div>
-        <span id="button-text">Pay now</span>
+        <span id="button-text" class="text-white dark:text-neutral-800">Pay now</span>
       </button>
       <div id="payment-message" class="hidden"></div>
     </form>

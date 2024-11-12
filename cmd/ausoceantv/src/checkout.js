@@ -15,12 +15,15 @@ async function initialize() {
   const response = await fetch("/stripe/create-payment-intent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
   });
   const { clientSecret, dpmCheckerLink } = await response.json();
 
   const appearance = {
     theme: "stripe",
+    variables: {
+      borderStyle: "solid",
+      borderColor: "red",
+    },
   };
   elements = stripe.elements({ appearance, clientSecret });
 
