@@ -1,10 +1,6 @@
 // This is your test publishable API key.
-const stripe =
-  Stripe();
-  // TODO: Add Ausocean stripe public key.
-
-// The items the customer wants to buy
-const items = [{ id: "xl-tshirt", amount: 1000 }];
+const stripe = Stripe();
+// TODO: Add Ausocean stripe public key.
 
 let elements;
 
@@ -16,14 +12,11 @@ document
 
 // Fetches a payment intent and captures the client secret
 async function initialize() {
-  const response = await fetch(
-    "http://localhost:8084/stripe/create-payment-intent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    },
-  );
+  const response = await fetch("/stripe/create-payment-intent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
   const { clientSecret, dpmCheckerLink } = await response.json();
 
   const appearance = {
@@ -36,7 +29,6 @@ async function initialize() {
   };
 
   const paymentElement = elements.create("payment", paymentElementOptions);
-  console.log(paymentElement);
   paymentElement.mount("#payment-element");
 
   // [DEV] For demo purposes only
