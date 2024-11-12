@@ -38,60 +38,69 @@ var bar;
 // mac, pin, site key and start and end times. This works recursively by handling
 // itself to a callback function that the HTTP client uses once a response is
 // received; a side effect of using XMLHttpRequest properly i.e. asynchronously.
-function graphHandler(host, skey, mac, pin, s, f, tz, res) {
-  // If first call, we'll set up a progress bar and prep the query strings.
-  if (data.length == 0) {
-    document.getElementById("graph-error").innerHTML = "";
-    console.log("first graphHandler call");
-    bar = new ProgressBar.Line("#progress", {
-      easing: "easeInOut",
-    });
-    prepQueries(host, skey, mac, pin, s, f, tz, res);
-  }
-
-  // This means we've got all the data; graph and clear values for next time.
-  if (qCnt == queries.length) {
-    console.log("got all data");
-    graph();
-    data = [];
-    queries = [];
-    qCnt = 0;
-    err = false;
-    return;
-  }
+async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
+  document.getElementById("graph-error").innerHTML = "";
+  bar = new ProgressBar.Line("#progress", {
+    easing: "easeInOut",
+  });
+  prepQueries(host, skey, mac, pin, s, f, tz, res);
 
   // We have some data we need to get, so set up a HTTP request and have the
   // HTTP client callback this handler function.
   const tzUnix = parseFloat(tz) * 3600;
-  asyncHTTPGet(
-    queries[qCnt],
-    function (response) {
-      qCnt++;
-      // Animate progress bar to indicate progress.
-      bar.animate(qCnt / queries.length);
 
-      // Need to parse the CSV response string and get components.
-      var lines = response.split("\n");
-      for (var j = 0; j < lines.length; j++) {
-        var sub = lines[j].split(",");
-        var date = timeFormatToDate(sub[0], tzUnix);
-        var value = sub[1];
-        data.push({
-          date: date,
-          value: value,
-        });
-      }
-      // Have client callback this handler function.
-      graphHandler(host, skey, mac, pin, s, f, tz, res);
-    },
-    function (xhr) {
-      document.getElementById("graph-error").innerHTML =
-        "HTTP error, status: " +
-        xhr.statusText +
-        " for URL: " +
-        xhr.responseURL;
-    },
+  // Store the responses from the queries in order.
+  let responses = new Array(queries.length);
+
+  // Reset progress.
+  let done = 0;
+
+  // Pipeline all queries at once.
+  const fetchPromises = queries.map((query, i) =>
+    fetch(queries[i])
+      .then((resp) => {
+        if (resp.status == 200) {
+          return resp.text();
+        } else {
+          document.getElementById("graph-error").innerHTML =
+            "HTTP error, status: " +
+            resp.statusText +
+            " for URL: " +
+            resp.responseURL;
+        }
+      })
+      .then((text) => {
+        responses[i] = text;
+        done++;
+        bar.animate(done / queries.length);
+      }),
   );
+
+  // Wait for all queries to resolve promise.
+  // (All queries have returned)
+  await Promise.all(fetchPromises);
+
+  // Need to parse the CSV response string and get components.
+  for (let i = 0; i < queries.length; i++) {
+    var lines = responses[i].split("\n");
+    for (var j = 0; j < lines.length; j++) {
+      var sub = lines[j].split(",");
+      var date = timeFormatToDate(sub[0], tzUnix);
+      var value = sub[1];
+      data.push({
+        date: date,
+        value: value,
+      });
+    }
+  }
+
+  console.log("got all data");
+  graph();
+  data = [];
+  queries = [];
+  qCnt = 0;
+  done = 0;
+  err = false;
 }
 
 // prepQueries prepares a string array of the required queries to be made to get
