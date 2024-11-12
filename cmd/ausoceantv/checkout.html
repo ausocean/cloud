@@ -7,11 +7,12 @@
     <title>AusOcean.TV</title>
     <link rel="stylesheet" href="./src/checkout.css" />
     <link rel="stylesheet" href="./src/index.css" />
-    <script type="module" src="/src/logo-holder.ts"></script>
+    <script type="module" src="/src/plan.ts"></script>
     <script src="https://js.stripe.com/v3/"></script>
     <script src="/src/checkout.js" defer></script>
   </head>
-  <body>
+  <body class="flex flex-row">
+    <plan-element plan-name="Premium" price="3.99" period="month"></plan-element>
     <form id="payment-form">
       <div id="payment-element">
         <!--Stripe.js injects the Payment Element-->
