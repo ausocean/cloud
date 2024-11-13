@@ -164,6 +164,7 @@ function graph() {
     // Create axes
     var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
     dateAxis.renderer.minGridDistance = 60;
+    dateAxis.groupData = true;
 
     var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());
 
