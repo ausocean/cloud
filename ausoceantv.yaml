@@ -5,12 +5,20 @@ env_variables:
   NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
 
-main: cmd/ausoceantv
+main: ./cmd/ausoceantv/main.go
 
 handlers:
-  - url: /s/*
-    static_dir: cmd/ausoceantv/s
 
-  - url: /.*
-    secure: always
+  - url: /api/.*
     script: auto
+  
+  # Serve index.html as /
+  - url: /
+    static_files: cmd/ausoceantv/dist/index.html  
+    upload: cmd/ausoceantv/dist/index.html
+
+  # TODO: Serve watch.html and home.html from /watch and /home urls.
+  
+  # Serve all files in dist.
+  - url: /
+    static_dir: cmd/ausoceantv/dist
