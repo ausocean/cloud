@@ -79,8 +79,16 @@ func main() {
 	ctx := context.Background()
 	app.setup(ctx)
 
+	http.HandleFunc("/api/", app.apiHandler)
+
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+}
+
+// apiHandler handles requests for the ausoceantv API.
+func (svc *service) apiHandler(w http.ResponseWriter, r *http.Request) {
+	svc.logRequest(r)
+	w.Write([]byte(projectID + " " + version))
 }
 
 // setup executes per-instance one-time warmup and is used to
