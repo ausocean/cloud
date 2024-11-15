@@ -4,14 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/src/assets/ausocean_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AusOcean.TV</title>
+    <title>AusOcean TV | Welcome</title>
     <link rel="stylesheet" href="./src/index.css" />
-    <script type="module" src="/src/logo-holder.ts"></script>
   </head>
-  <body>
-    <logo-holder>
-      <h1>AusOcean TV</h1>
-      <p>Coming soon...</p>
-    </logo-holder>
+  <body class="h-screen">
+    <div class="container flex flex-col h-full m-auto justify-center align-center">
+      <a href="https://ausocean.org" target="_blank">
+        <img src="src/assets/ausocean_logo.png" class="logo w-64 mx-auto m-12" alt="AusOcean logo" />
+      </a>
+      <h1 class="text-2xl sm:text-4xl md:text-6xl font-bold text-center whitespace-nowrap m-12">Welcome to AusOcean TV</h1>
+      <button class="text-center whitespace-nowrap bg-gray-300 rounded w-auto mx-auto px-5 py-3">
+        <a href="home.html">Sign Up</a>
+      </button>
+    </div>
   </body>
 </html>
