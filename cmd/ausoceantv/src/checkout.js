@@ -1,5 +1,5 @@
 // This is your test publishable API key.
-const stripe = Stripe();
+const stripe = Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 // TODO: Add Ausocean stripe public key.
 
 let elements;
@@ -15,7 +15,6 @@ async function initialize() {
   const response = await fetch("/stripe/create-payment-intent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
   });
   const { clientSecret, dpmCheckerLink } = await response.json();
 
