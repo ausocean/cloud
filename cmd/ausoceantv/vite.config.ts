@@ -11,5 +11,13 @@ export default defineConfig({
                 watch: resolve(__dirname, 'watch.html'),
             }
         }
-    }
+    },
+    server: {
+        proxy: {
+          "/auth": {
+            target: "http://localhost:8084",
+            changeOrigin: true,
+          },
+        },
+      },
 })

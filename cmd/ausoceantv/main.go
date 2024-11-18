@@ -26,6 +26,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -34,14 +35,17 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
 )
 
 // Project constants.
 const (
-	projectID = "ausoceantv"
-	version   = "v0.1.1"
+	projectID     = "ausoceantv"
+	version       = "v0.1.1"
+	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
+	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days
 )
 
 // service defines the properties of our web service.
@@ -51,6 +55,7 @@ type service struct {
 	debug         bool
 	standalone    bool
 	storePath     string
+	auth          *gauth.UserAuth
 }
 
 // app is an instance of our service.
@@ -80,6 +85,15 @@ func main() {
 	app.setup(ctx)
 
 	http.HandleFunc("/api/", app.apiHandler)
+	http.HandleFunc("/auth/login", loginHandler)
+	http.HandleFunc("/auth/logout", logoutHandler)
+	http.HandleFunc("/auth/oauth2callback", oauthCallbackHandler)
+
+	if !app.standalone {
+		log.Printf("Initializing OAuth2")
+		app.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+		app.auth.Init()
+	}
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
@@ -89,6 +103,42 @@ func main() {
 func (svc *service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	svc.logRequest(r)
 	w.Write([]byte(projectID + " " + version))
+}
+
+// loginHandler handles user login requests.
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	app.logRequest(r)
+	if app.standalone {
+		return
+	}
+	err := app.auth.LoginHandler(w, r)
+	if err != nil {
+		writeError(w, err)
+	}
+}
+
+// logoutHandler handles user logout requests.
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	app.logRequest(r)
+	if app.standalone {
+		return
+	}
+	err := app.auth.LogoutHandler(w, r)
+	if err != nil {
+		writeError(w, err)
+	}
+}
+
+// oauthCallbackHandler implements the OAuth2 callback that completes the authentication process.
+func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	app.logRequest(r)
+	if app.standalone {
+		return
+	}
+	err := app.auth.CallbackHandler(w, r)
+	if err != nil {
+		writeError(w, err)
+	}
 }
 
 // setup executes per-instance one-time warmup and is used to
@@ -128,4 +178,17 @@ func (svc *service) logRequest(r *http.Request) {
 		return
 	}
 	log.Println(r.URL.Path + "?" + r.URL.RawQuery)
+}
+
+// writeError writes an error in JSON format.
+func writeError(w http.ResponseWriter, err error) {
+	w.Header().Add("Content-Type", "application/json")
+	err2 := json.NewEncoder(w).Encode(map[string]string{"er": err.Error()})
+	if err2 != nil {
+		log.Printf("failed to write error (%v): %v", err, err2)
+		return
+	}
+	if app.debug {
+		log.Println("Wrote error: " + err.Error())
+	}
 }
