@@ -41,7 +41,7 @@ import (
 // Project constants.
 const (
 	projectID = "ausoceantv"
-	version   = "v0.0.1"
+	version   = "v0.1.1"
 )
 
 // service defines the properties of our web service.
@@ -79,18 +79,14 @@ func main() {
 	ctx := context.Background()
 	app.setup(ctx)
 
-	// Serve static files when running locally
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
-
-	http.HandleFunc("/", app.indexHandler)
+	http.HandleFunc("/api/", app.apiHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
 }
 
-// indexHandler handles requests for the home page and is here just to
-// test that the service is running. Devices do not use this endpoint.
-func (svc *service) indexHandler(w http.ResponseWriter, r *http.Request) {
+// apiHandler handles requests for the ausoceantv API.
+func (svc *service) apiHandler(w http.ResponseWriter, r *http.Request) {
 	svc.logRequest(r)
 	w.Write([]byte(projectID + " " + version))
 }
