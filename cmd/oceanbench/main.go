@@ -200,6 +200,11 @@ func main() {
 		log.Printf("could not get cronSecret: %v", err)
 	}
 
+	// Warmup handler.
+	http.HandleFunc("/_ah/warmup", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("warmup request received, version: " + version)
+	})
+
 	// User requests.
 	http.HandleFunc("/search", searchHandler)
 	http.HandleFunc("/play", playHandler)
