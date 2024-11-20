@@ -48,6 +48,10 @@ const (
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days
 )
 
+const (
+	localEmail = "localuser@localhost"
+)
+
 // service defines the properties of our web service.
 type service struct {
 	setupMutex    sync.Mutex
@@ -87,6 +91,7 @@ func main() {
 	http.HandleFunc("/api/", app.apiHandler)
 	http.HandleFunc("/auth/login", loginHandler)
 	http.HandleFunc("/auth/logout", logoutHandler)
+	http.HandleFunc("/auth/getprofile", profileHandler)
 	http.HandleFunc("/auth/oauth2callback", oauthCallbackHandler)
 
 	if !app.standalone {
@@ -127,6 +132,20 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, err)
 	}
+}
+
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	p, err := app.auth.GetProfile(w, r)
+	if err != nil {
+		writeError(w, err)
+	}
+
+	// Write JSON profile data.
+	b, err := json.Marshal(p)
+	if err != nil {
+		writeError(w, err)
+	}
+	w.Write(b)
 }
 
 // oauthCallbackHandler implements the OAuth2 callback that completes the authentication process.

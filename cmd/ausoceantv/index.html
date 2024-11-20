@@ -6,15 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AusOcean TV | Welcome</title>
     <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="./src/profile-signup.ts"></script>
   </head>
   <body class="h-screen">
-    <div class="container flex flex-col h-full m-auto justify-center align-center">
+    <div class="align-center container m-auto flex h-full flex-col justify-center">
       <a href="https://ausocean.org" target="_blank">
-        <img src="src/assets/ausocean_logo.png" class="logo w-64 mx-auto m-12" alt="AusOcean logo" />
+        <img src="src/assets/ausocean_logo.png" class="logo m-12 mx-auto w-64" alt="AusOcean logo" />
       </a>
-      <h1 class="text-2xl sm:text-4xl md:text-6xl font-bold text-center whitespace-nowrap m-12">Welcome to AusOcean TV</h1>
-      <button class="text-center whitespace-nowrap bg-gray-300 rounded w-auto mx-auto px-5 py-3">
-        <a href="/auth/login">Sign Up</a>
+      <h1 class="m-12 whitespace-nowrap text-center text-2xl font-bold sm:text-4xl md:text-6xl">Welcome to AusOcean TV</h1>
+      <button class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">
+        <profile-signup></profile-signup>
       </button>
     </div>
   </body>
