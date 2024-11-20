@@ -73,8 +73,8 @@ class SiteMenu extends LitElement {
                     opt.label = site.Name
                     opt.setAttribute("perm", site.Perm)
                     if (site.Public) {
-                        opt.setAttribute("perm", "1")
                         opt.label += " (Public)"
+                        opt.getAttribute("perm") == "0" ? opt.setAttribute("perm", "1") : null;
                     }
                     switch (opt.getAttribute("perm")){
                         case "1":
