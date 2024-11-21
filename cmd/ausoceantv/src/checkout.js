@@ -1,6 +1,5 @@
 // This is your test publishable API key.
 const stripe = Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-// TODO: Add Ausocean stripe public key.
 
 let elements;
 
