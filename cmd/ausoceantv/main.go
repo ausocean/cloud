@@ -39,7 +39,6 @@ import (
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/stripe/stripe-go/v81"
 )
 
 // Project constants.
@@ -77,14 +76,6 @@ func main() {
 		if err == nil {
 			defaultPort = i
 		}
-	}
-
-	// Get stripe secret key.
-	v = os.Getenv("AUSOCEAN_STRIPE_SECRET_KEY")
-	if v == "" {
-		log.Println("AUSOCEAN_STRIPE_SECRET_KEY not found, cannot take payments")
-	} else {
-		stripe.Key = v
 	}
 
 	var host string
