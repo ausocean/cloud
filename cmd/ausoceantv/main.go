@@ -26,16 +26,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
 
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 // Project constants.
@@ -53,8 +57,30 @@ type service struct {
 	storePath     string
 }
 
-// app is an instance of our service.
-var app *service = &service{}
+// svc is an instance of our service.
+var svc *service = &service{}
+
+func registerAPIRoutes(app *fiber.App) {
+	v1 := app.Group("/api/v1")
+	v1.Get("version", versionHandler)
+}
+
+// errorHandler creates a HTTP response with the given status code or 500 by default.
+// The response body is JSON: {"message": "<error message here>"}
+func errorHandler(ctx *fiber.Ctx, err error) error {
+	// Status code defaults to 500.
+	code := fiber.StatusInternalServerError
+
+	// Retrieve the custom status code if it's a *fiber.Error.
+	var e *fiber.Error
+	if errors.As(err, &e) {
+		code = e.Code
+	}
+
+	// Send JSON response.
+	ctx.Status(code).JSON(api.Failure{Message: err.Error()})
+	return nil
+}
 
 func main() {
 	defaultPort := 8084
@@ -68,27 +94,70 @@ func main() {
 
 	var host string
 	var port int
-	flag.BoolVar(&app.debug, "debug", false, "Run in debug mode.")
-	flag.BoolVar(&app.standalone, "standalone", false, "Run in standalone mode.")
+	flag.BoolVar(&svc.debug, "debug", false, "Run in debug mode.")
+	flag.BoolVar(&svc.standalone, "standalone", false, "Run in standalone mode.")
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
-	flag.StringVar(&app.storePath, "filestore", "store", "File store path")
+	flag.StringVar(&svc.storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
 	ctx := context.Background()
-	app.setup(ctx)
+	svc.setup(ctx)
 
-	http.HandleFunc("/api/", app.apiHandler)
+	// Create app.
+	app := fiber.New(fiber.Config{ErrorHandler: errorHandler})
 
-	log.Printf("Listening on %s:%d", host, port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+	// Recover from panics.
+	app.Use(recover.New())
+
+	// CORS middleware.
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+	}))
+
+	// Attach global service to request context.
+	app.Use(serviceMiddleware(svc))
+
+	// Set the logging level.
+	if svc.debug {
+		log.SetLevel(log.LevelDebug)
+	} else if svc.standalone {
+		log.SetLevel(log.LevelInfo)
+	} else {
+		// Appengine logs requests for us.
+		log.SetLevel(log.LevelError)
+	}
+
+	// Add logging middleware to log requests if applicable.
+	app.Use(func(ctx *fiber.Ctx) error {
+		log.Info(ctx.Path())
+		return ctx.Next()
+	})
+
+	// Register routes.
+	registerAPIRoutes(app)
+
+	// Start web server.
+	listenOn := fmt.Sprintf(":%d", port)
+	fmt.Printf("starting web server on %s\n", listenOn)
+	app.Listen(listenOn)
 }
 
-// apiHandler handles requests for the ausoceantv API.
-func (svc *service) apiHandler(w http.ResponseWriter, r *http.Request) {
-	svc.logRequest(r)
-	w.Write([]byte(projectID + " " + version))
+// ServiceMiddleware attaches the global service pointer to
+// each of the requests.
+func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
+	log.Info("Attaching service to context locals")
+	return func(ctx *fiber.Ctx) error {
+		ctx.Locals("service", svc)
+		return ctx.Next()
+	}
+}
+
+// versionHandler handles requests for the ausoceantv API.
+func versionHandler(ctx *fiber.Ctx) error {
+	ctx.Write([]byte(projectID + " " + version))
+	return nil
 }
 
 // setup executes per-instance one-time warmup and is used to
@@ -103,29 +172,15 @@ func (svc *service) setup(ctx context.Context) {
 
 	var err error
 	if svc.standalone {
-		log.Printf("Running in standalone mode")
+		log.Info("Running in standalone mode")
 		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
 	} else {
-		log.Printf("Running in App Engine mode")
+		log.Info("Running in App Engine mode")
 		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
 	}
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
 	model.RegisterEntities()
-	log.Printf("set up datastore")
-}
-
-// logRequest logs a request if in debug mode and standalone mode.
-// It does nothing in App Engine mode as App Engine logs requests
-// automatically.
-func (svc *service) logRequest(r *http.Request) {
-	if !(svc.debug || svc.standalone) {
-		return
-	}
-	if r.URL.RawQuery == "" {
-		log.Println(r.URL.Path)
-		return
-	}
-	log.Println(r.URL.Path + "?" + r.URL.RawQuery)
+	log.Info("set up datastore")
 }
