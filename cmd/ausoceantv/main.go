@@ -26,7 +26,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -65,23 +64,6 @@ func registerAPIRoutes(app *fiber.App) {
 	v1.Get("version", versionHandler)
 }
 
-// errorHandler creates a HTTP response with the given status code or 500 by default.
-// The response body is JSON: {"message": "<error message here>"}
-func errorHandler(ctx *fiber.Ctx, err error) error {
-	// Status code defaults to 500.
-	code := fiber.StatusInternalServerError
-
-	// Retrieve the custom status code if it's a *fiber.Error.
-	var e *fiber.Error
-	if errors.As(err, &e) {
-		code = e.Code
-	}
-
-	// Send JSON response.
-	ctx.Status(code).JSON(api.Failure{Message: err.Error()})
-	return nil
-}
-
 func main() {
 	defaultPort := 8084
 	v := os.Getenv("PORT")
@@ -106,7 +88,7 @@ func main() {
 	svc.setup(ctx)
 
 	// Create app.
-	app := fiber.New(fiber.Config{ErrorHandler: errorHandler})
+	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -141,10 +123,10 @@ func main() {
 	// Start web server.
 	listenOn := fmt.Sprintf(":%d", port)
 	fmt.Printf("starting web server on %s\n", listenOn)
-	app.Listen(listenOn)
+	log.Fatal(app.Listen(listenOn))
 }
 
-// ServiceMiddleware attaches the global service pointer to
+// serviceMiddleware attaches the global service pointer to
 // each of the requests.
 func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
 	log.Info("Attaching service to context locals")
