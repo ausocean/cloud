@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AusOcean TV |</title>
+        <script type="module" src="./src/plan-element.ts"></script>
+        <link rel="stylesheet" href="./src/index.css" />
+    </head>
+    <body class="h-screen">
+        <div class="container h-full flex justify-center items-center gap-5">
+            <plan-element plan-type="Day Pass" plan-cost="4" class="h-fit w-1/3" href="/checkout?product=day-pass"></plan-element>
+            <plan-element plan-type="Monthly Subscription" plan-cost="5" class="h-fit w-1/3" href="/checkout?product=month-subscription"></plan-element>
+            <plan-element plan-type="Yearly Subscription" plan-cost="30" comp-cost="60" class="h-fit w-1/3" href="/checkout?product=year-subscription"></plan-element>
+        </div>
+    </body>
+</html>
