@@ -49,7 +49,7 @@ func setupStripe(ctx context.Context) {
 }
 
 // handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
-func handleCreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
+func (app *service) handleCreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
 	app.logRequest(r)
 
 	if r.Method == http.MethodOptions {
