@@ -61,7 +61,7 @@ var svc *service = &service{}
 
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
-	v1.Get("version", versionHandler)
+	v1.Get("version", svc.versionHandler)
 }
 
 func main() {
@@ -98,9 +98,6 @@ func main() {
 		AllowOrigins: "*",
 	}))
 
-	// Attach global service to request context.
-	app.Use(serviceMiddleware(svc))
-
 	// Set the logging level.
 	if svc.debug {
 		log.SetLevel(log.LevelDebug)
@@ -126,19 +123,9 @@ func main() {
 	log.Fatal(app.Listen(listenOn))
 }
 
-// serviceMiddleware attaches the global service pointer to
-// each of the requests.
-func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
-	log.Info("Attaching service to context locals")
-	return func(ctx *fiber.Ctx) error {
-		ctx.Locals("service", svc)
-		return ctx.Next()
-	}
-}
-
 // versionHandler handles requests for the ausoceantv API.
-func versionHandler(ctx *fiber.Ctx) error {
-	ctx.Write([]byte(projectID + " " + version))
+func (svc *service) versionHandler(ctx *fiber.Ctx) error {
+	ctx.WriteString(projectID + " " + version)
 	return nil
 }
 
