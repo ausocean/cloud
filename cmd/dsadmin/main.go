@@ -47,6 +47,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -249,7 +250,17 @@ func dump(store datastore.Store, kind, file string) error {
 		if err != nil {
 			return err
 		}
-		data = append(data, e.Encode()...)
+
+		var encoded []byte
+
+		encodable, ok := e.(datastore.EntityEncoder)
+		if ok {
+			encoded = encodable.Encode()
+		} else {
+			encoded, _ = json.Marshal(e)
+		}
+
+		data = append(data, encoded...)
 		data = append(data, '\n')
 		n += 1
 	}
