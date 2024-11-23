@@ -25,9 +25,7 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -64,6 +62,10 @@ var svc *service = &service{}
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
 	v1.Get("version", svc.versionHandler)
+
+	v1.Group("/stripe").
+		Options("/create-payment-intent", svc.preFlightOK).
+		Post("/create-payment-intent", svc.handleCreatePaymentIntent)
 }
 
 func main() {
@@ -125,6 +127,11 @@ func main() {
 	log.Fatal(app.Listen(listenOn))
 }
 
+// preFlightOK returns a statusOK message to preflight messages.
+func (svc *service) preFlightOK(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusOK)
+}
+
 // versionHandler handles requests for the ausoceantv API.
 func (svc *service) versionHandler(ctx *fiber.Ctx) error {
 	ctx.WriteString(projectID + " " + version)
@@ -154,4 +161,6 @@ func (svc *service) setup(ctx context.Context) {
 	}
 	model.RegisterEntities()
 	log.Info("set up datastore")
+
+	svc.setupStripe(ctx)
 }
