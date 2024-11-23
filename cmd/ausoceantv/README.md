@@ -76,3 +76,27 @@ Tailwind is class based styling framework, which makes styling elements easy
 without the worry of unexpected cascading issues.
 
 To Learn more about Tailwind see: [Tailwind](https://tailwindcss.com/).
+
+### Prettier
+To ensure that AusOcean TV files are easy to edit without worrying about formnatting, this directory includes
+a ```.prettierrc``` file which can be used to format according to the same guidelines. Prettier should be installed
+if all npm packages have been installed using ```npm install```.
+
+To format all files run:
+```bash
+$ npm run format
+```
+OR
+```bash
+$ npm run format:watch
+```
+to format when new changes are detected.
+
+To only format a specific file or set of files use:
+```bash
+$ npx prettier -w [Path]
+```
+This command will format all the files specified by that path.
+
+Many editors also support Prettier as a default formater, and will read the .prettierrc file from the directory and
+apply the relevant formatting when formatted. To set this up will change depending on your development environment.
