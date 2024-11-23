@@ -20,6 +20,7 @@ require (
 	github.com/mailjet/mailjet-apiv3-go v0.0.0-20201009050126-c24bc15a9394
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/stripe/stripe-go/v81 v81.0.0
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	golang.org/x/oauth2 v0.7.0
