@@ -50,7 +50,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.1.4"
+	version       = "v0.1.5"
 )
 
 // service defines the properties of our web service.
