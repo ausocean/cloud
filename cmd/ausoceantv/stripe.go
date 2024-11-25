@@ -1,14 +1,38 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
+
+  This file is part of AusOcean TV. AusOcean TV is free software: you can
+  redistribute it and/or modify it under the terms of the GNU
+  General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option)
+  any later version.
+
+  AusOcean TV is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with AusOcean TV in gpl.txt.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
 package main
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ausocean/cloud/gauth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/paymentintent"
+
+	"github.com/ausocean/cloud/gauth"
 )
 
 // setupStripe gets the secrets required to set the stripe Key.
@@ -50,7 +74,7 @@ func (svc *service) setupStripe(ctx context.Context) {
 }
 
 // handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
-func (app *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
+func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 	// TODO: Get product details.
 	// 	description := product.description
 	// 	price := calculatePrice(product)

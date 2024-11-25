@@ -21,7 +21,15 @@ LICENSE
 
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/openfish/datastore"
+)
+
+const (
+	typeSubscription = "Subscription" // Subscription datastore type.
+)
 
 // Subscription is an entity in the datastore that represents the relationship between a subscriber and a feed.
 type Subscription struct {
@@ -32,4 +40,25 @@ type Subscription struct {
 	Start        time.Time // Start time of the subscription.
 	Finish       time.Time // Finish time of the subscription.
 	Renew        bool      // True if the subscription should auto-renew.
+}
+
+// Copy copies a Subscription to dst, or returns a copy of the Subscription when dst is nil.
+func (s *Subscription) Copy(dst datastore.Entity) (datastore.Entity, error) {
+	var s2 *Subscription
+	if dst == nil {
+		s2 = new(Subscription)
+	} else {
+		var ok bool
+		s2, ok = dst.(*Subscription)
+		if !ok {
+			return nil, datastore.ErrWrongType
+		}
+	}
+	*s2 = *s
+	return s2, nil
+}
+
+// GetCache returns nil, indicating no caching.
+func (s *Subscription) GetCache() datastore.Cache {
+	return nil
 }
