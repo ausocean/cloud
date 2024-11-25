@@ -61,7 +61,7 @@ var svc *service = &service{}
 
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
-	v1.Get("version", versionHandler)
+	v1.Get("version", svc.versionHandler)
 }
 
 func main() {
@@ -97,9 +97,6 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 	}))
-
-	// Attach global service to request context.
-	app.Use(serviceMiddleware(svc))
 
 	// Set the logging level.
 	if svc.debug {
@@ -138,8 +135,8 @@ func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
 }
 
 // versionHandler handles requests for the ausoceantv API.
-func versionHandler(ctx *fiber.Ctx) error {
-	ctx.Write([]byte(projectID + " " + version))
+func (svc *service) versionHandler(ctx *fiber.Ctx) error {
+	ctx.WriteString(projectID + " " + version)
 	return nil
 }
 
