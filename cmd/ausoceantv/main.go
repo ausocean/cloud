@@ -38,6 +38,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/session"
 )
@@ -99,12 +100,12 @@ func main() {
 	flag.StringVar(&svc.storePath, "filestore", "store", "File store path")
 	flag.Parse()
 
-	// Perform one-time setup or bail.
-	ctx := context.Background()
-	svc.setup(ctx)
-
 	// Create app.
 	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
+
+	// Perform one-time setup or bail.
+	ctx := context.Background()
+	svc.setup(ctx, app)
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -130,9 +131,6 @@ func main() {
 		return ctx.Next()
 	})
 
-	// Create Fiber Session store (in memory).
-	svc.auth.sessionStore = session.New()
-
 	// Register routes.
 	registerAPIRoutes(app)
 
@@ -155,7 +153,10 @@ func (svc *service) versionHandler(ctx *fiber.Ctx) error {
 
 // setup executes per-instance one-time warmup and is used to
 // initialize the service. Any errors are considered fatal.
-func (svc *service) setup(ctx context.Context) {
+//
+// NOTE: This function must be called before any middleware which uses
+// cookies is attached to the app.
+func (svc *service) setup(ctx context.Context, app *fiber.App) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
@@ -183,4 +184,13 @@ func (svc *service) setup(ctx context.Context) {
 	log.Info("Initializing OAuth2")
 	svc.auth = &UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
 	svc.auth.Init()
+
+	// Encrypt cookies.
+	// NOTE: This must be done before any middleware which uses cookies.
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: svc.auth.sessionKey,
+	}))
+
+	// Create Fiber Session store (in memory).
+	svc.auth.sessionStore = session.New()
 }
