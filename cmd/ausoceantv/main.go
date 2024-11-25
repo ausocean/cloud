@@ -46,7 +46,7 @@ import (
 // Project constants.
 const (
 	projectID = "ausoceantv"
-	version   = "v0.1.1"
+	version   = "v0.1.2"
 )
 
 // service defines the properties of our web service.
@@ -67,6 +67,10 @@ func registerAPIRoutes(app *fiber.App) {
 	v1.Get("version", versionHandler)
 
 	v1.Group("/feeds").Post("/", api.CreateFeed)
+
+	v1.Group("/stripe").
+		Options("/create-payment-intent", svc.preFlightOK).
+		Post("/create-payment-intent", svc.handleCreatePaymentIntent)
 }
 
 func main() {
@@ -103,9 +107,6 @@ func main() {
 		AllowOrigins: "*",
 	}))
 
-	// Attach global service to request context.
-	app.Use(serviceMiddleware(svc))
-
 	// Set the logging level.
 	if svc.debug {
 		log.SetLevel(log.LevelDebug)
@@ -131,19 +132,14 @@ func main() {
 	log.Fatal(app.Listen(listenOn))
 }
 
-// serviceMiddleware attaches the global service pointer to
-// each of the requests.
-func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
-	log.Info("attaching service to context locals")
-	return func(ctx *fiber.Ctx) error {
-		ctx.Locals("service", svc)
-		return ctx.Next()
-	}
+// preFlightOK returns a statusOK message to preflight messages.
+func (svc *service) preFlightOK(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusOK)
 }
 
 // versionHandler handles requests for the ausoceantv API.
-func versionHandler(ctx *fiber.Ctx) error {
-	ctx.Write([]byte(projectID + " " + version))
+func (svc *service) versionHandler(ctx *fiber.Ctx) error {
+	ctx.WriteString(projectID + " " + version)
 	return nil
 }
 
@@ -170,4 +166,6 @@ func (svc *service) setup(ctx context.Context) {
 	}
 	model.RegisterEntities()
 	log.Info("set up datastore")
+
+	svc.setupStripe(ctx)
 }
