@@ -24,11 +24,14 @@ LICENSE
 // Package api provides API handlers for the AusOcean TV API.
 package api
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/ausocean/openfish/datastore"
+	"github.com/gofiber/fiber/v2"
+)
 
 func CreateFeed(ctx *fiber.Ctx) error {
 
-	ctx.Locals("service").(*service)
+	ctx.Locals("store").(*datastore.Store)
 
 	return ctx.JSON(Feed{ID: &id})
 }
