@@ -32,6 +32,11 @@ export class Authenticator extends TailwindElement() {
         } else {
           console.log("Error fetching profile:", err);
         }
+
+        // Send Non-Authenticated users to the index page.
+        if (window.location.pathname != "/") {
+          window.location.assign("/");
+        }
       });
   }
 
