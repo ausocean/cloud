@@ -338,7 +338,16 @@ func (svc *service) GetProfile(c *fiber.Ctx) (*Profile, error) {
 	if err != nil {
 		return nil, SessionNotFound
 	}
-	tok := sess.Get(oauthTokenSessionKey).(*oauth2.Token)
+
+	tokenValue := sess.Get(oauthTokenSessionKey)
+	if tokenValue == nil {
+		return nil, TokenNotFound
+	}
+
+	tok, ok := tokenValue.(*oauth2.Token)
+	if !ok {
+		return nil, fmt.Errorf("could not assert session token as type *oauth2.Token")
+	}
 
 	profile := sess.Get(profileKey).(*Profile)
 
