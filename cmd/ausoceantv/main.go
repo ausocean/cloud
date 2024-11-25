@@ -32,13 +32,15 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/cmd/openfish/api"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+
+	"github.com/ausocean/cloud/cmd/ausoceantv/api"
+	"github.com/ausocean/cloud/model"
+	openfish "github.com/ausocean/openfish/cmd/openfish/api"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // Project constants.
@@ -61,7 +63,10 @@ var svc *service = &service{}
 
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
+
 	v1.Get("version", versionHandler)
+
+	v1.Group("/feeds").Post("/", api.CreateFeed)
 }
 
 func main() {
@@ -88,7 +93,7 @@ func main() {
 	svc.setup(ctx)
 
 	// Create app.
-	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
+	app := fiber.New(fiber.Config{ErrorHandler: openfish.ErrorHandler})
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -129,7 +134,7 @@ func main() {
 // serviceMiddleware attaches the global service pointer to
 // each of the requests.
 func serviceMiddleware(svc *service) func(*fiber.Ctx) error {
-	log.Info("Attaching service to context locals")
+	log.Info("attaching service to context locals")
 	return func(ctx *fiber.Ctx) error {
 		ctx.Locals("service", svc)
 		return ctx.Next()
@@ -154,10 +159,10 @@ func (svc *service) setup(ctx context.Context) {
 
 	var err error
 	if svc.standalone {
-		log.Info("Running in standalone mode")
+		log.Info("running in standalone mode")
 		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
 	} else {
-		log.Info("Running in App Engine mode")
+		log.Info("running in App Engine mode")
 		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
 	}
 	if err != nil {
