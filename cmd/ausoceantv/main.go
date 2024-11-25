@@ -44,7 +44,7 @@ import (
 // Project constants.
 const (
 	projectID = "ausoceantv"
-	version   = "v0.1.2"
+	version   = "v0.1.3"
 )
 
 // service defines the properties of our web service.
