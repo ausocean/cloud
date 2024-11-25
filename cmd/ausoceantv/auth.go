@@ -34,6 +34,10 @@ import (
 
 // loginHandler handles login requests, and starts the oauth2 login flow.
 func (svc *service) loginHandler(c *fiber.Ctx) error {
+	p, _ := svc.GetProfile(c)
+	if p != nil {
+		return c.Redirect(c.FormValue("target", "/"), fiber.StatusFound)
+	}
 	return svc.LoginHandler(c)
 }
 
