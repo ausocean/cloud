@@ -25,13 +25,15 @@ LICENSE
 package api
 
 import (
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
 	"github.com/gofiber/fiber/v2"
 )
 
 func CreateFeed(ctx *fiber.Ctx) error {
 
-	ctx.Locals("store").(*datastore.Store)
+	store := dsclient.Get()
+
+	store.Put()
 
 	return ctx.JSON(Feed{ID: &id})
 }
