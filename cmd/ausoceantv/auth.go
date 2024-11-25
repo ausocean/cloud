@@ -26,6 +26,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
@@ -49,7 +50,9 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 // profileHandler handles requests to get the profile of the logged in user.
 func (svc *service) profileHandler(c *fiber.Ctx) error {
 	p, err := svc.GetProfile(c)
-	if err != nil {
+	if errors.Is(err, SessionNotFound) || errors.Is(err, TokenNotFound) {
+		return fiber.ErrUnauthorized
+	} else if err != nil {
 		return fmt.Errorf("unable to get profile: %w", err)
 	}
 	bytes, err := json.Marshal(p)
