@@ -22,6 +22,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stripe/stripe-go/v81 v81.0.0
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
+	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/oauth2 v0.7.0
 	google.golang.org/api v0.118.0
 )
