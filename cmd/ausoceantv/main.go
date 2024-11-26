@@ -32,14 +32,16 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/cmd/openfish/api"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/session"
+
+	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/cmd/openfish/api"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // Project constants.
@@ -163,14 +165,7 @@ func (svc *service) setup(ctx context.Context) {
 		return
 	}
 
-	var err error
-	if svc.standalone {
-		log.Info("Running in standalone mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
-	} else {
-		log.Info("Running in App Engine mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-	}
+	err := dsclient.Init(svc.standalone, svc.storePath)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}

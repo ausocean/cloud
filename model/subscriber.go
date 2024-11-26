@@ -21,7 +21,15 @@ LICENSE
 
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/openfish/datastore"
+)
+
+const (
+	typeSubscriber = "Subscriber" // Subscriber datastore type.
+)
 
 // Subscriber is an entity in the datastore representing a user who subscribes to AusOcean.TV.
 type Subscriber struct {
@@ -34,4 +42,25 @@ type Subscriber struct {
 	DemographicInfo string    // Optional demographic info about the subscriber, e.g., their postcode.
 	PaymentInfo     string    // Info required to use a payments platform.
 	Created         time.Time // Time the subscriber entity was created.
+}
+
+// Copy copies a Subscriber to dst, or returns a copy of the Subscriber when dst is nil.
+func (s *Subscriber) Copy(dst datastore.Entity) (datastore.Entity, error) {
+	var s2 *Subscriber
+	if dst == nil {
+		s2 = new(Subscriber)
+	} else {
+		var ok bool
+		s2, ok = dst.(*Subscriber)
+		if !ok {
+			return nil, datastore.ErrWrongType
+		}
+	}
+	*s2 = *s
+	return s2, nil
+}
+
+// GetCache returns nil, indicating no caching.
+func (s *Subscriber) GetCache() datastore.Cache {
+	return nil
 }
