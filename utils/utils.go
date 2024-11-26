@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	runtime "runtime/debug"
+
+	"golang.org/x/exp/rand"
 )
 
 // TokenURIFromAccount forms a Google Cloud Storage URI for a YouTube token
@@ -254,4 +256,17 @@ func (m *RecoverableServeMux) Handle(pattern string, handler http.Handler) {
 // HandleFunc registers the handler function for the given pattern.
 func (m *RecoverableServeMux) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 	m.ServeMux.HandleFunc(pattern, handler)
+}
+
+// GenerateInt64ID generates a 10 digit int64 value which can be used as
+// an ID in many datastore types.
+//
+// NOTE: the generated ID can be cast to an int32 if required.
+func GenerateInt64ID() int64 {
+	// This function generates a random number between 0, and
+	// the largest number which can be expressed as a signed int32.
+	// Subtracting 1000000000 from the range allows 1000000000 to be
+	// added back to the number after generation to ensure that the
+	// value is at least 10 digits long.
+	return rand.Int63n((1<<31)-1000000000) + 1000000000
 }

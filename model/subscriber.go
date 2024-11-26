@@ -22,14 +22,20 @@ LICENSE
 package model
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
 )
 
 const (
 	typeSubscriber = "Subscriber" // Subscriber datastore type.
 )
+
+var errDuplicateSubscriberEmails = errors.New("more than one subscriber exists for a given email")
 
 // Subscriber is an entity in the datastore representing a user who subscribes to AusOcean.TV.
 type Subscriber struct {
@@ -63,4 +69,68 @@ func (s *Subscriber) Copy(dst datastore.Entity) (datastore.Entity, error) {
 // GetCache returns nil, indicating no caching.
 func (s *Subscriber) GetCache() datastore.Cache {
 	return nil
+}
+
+// CreateSubscriber creates a new subscriber from the passed subscriber (s).
+//
+// If the passed subscriber has an ID it will try to create a subscriber with that ID,
+// which may result in ErrEntityExists.
+//
+// If the passed subscriber does not have an ID, a unique ID will be generated.
+//
+// NOTE: The Created field will be overwritten with the current time.
+func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber) error {
+	// Set the Created time.
+	s.Created = time.Now()
+
+	// If the subscriber has an ID, use that.
+	if s.ID != 0 {
+		key := store.IDKey(typeSubscriber, s.ID)
+		return store.Create(ctx, key, s)
+	}
+
+	// Otherwise generate and use a unique ID.
+	for {
+		s.ID = utils.GenerateInt64ID()
+		key := store.IDKey(typeSubscriber, s.ID)
+		err := store.Create(ctx, key, s)
+		if err == nil {
+			return nil
+		} else if err != datastore.ErrEntityExists {
+			return fmt.Errorf("could not create subscriber: %v", err)
+		}
+	}
+}
+
+// GetSubscriberByEmail returns the subscriber with the given email if it exists.
+func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email string) (*Subscriber, error) {
+	q := store.NewQuery(typeSubscriber, false)
+	q.FilterField("Email", "=", email)
+	var subs []Subscriber
+	_, err := store.GetAll(ctx, q, &subs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all subscribers: %w", err)
+	}
+
+	if len(subs) == 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+
+	if len(subs) > 1 {
+		return nil, errDuplicateSubscriberEmails
+	}
+
+	return &subs[0], err
+}
+
+// GetSubscriber gets the subscriber with the given ID.
+func GetSubscriber(ctx context.Context, store datastore.Store, id int64) (*Subscriber, error) {
+	key := store.IDKey(typeSubscriber, id)
+	sub := &Subscriber{}
+	err := store.Get(ctx, key, sub)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get Subscriber with id: %d: %v", id, err)
+	}
+
+	return sub, nil
 }
