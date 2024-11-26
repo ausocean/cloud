@@ -25,10 +25,13 @@ LICENSE
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"cloud.google.com/go/datastore"
+	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -48,14 +51,40 @@ func (svc *service) logoutHandler(c *fiber.Ctx) error {
 
 // callbackHandler handles callbacks from google's oauth2 flow.
 func (svc *service) callbackHandler(c *fiber.Ctx) error {
-	return svc.CallbackHandler(c)
+	err := svc.CallbackHandler(c)
+	if err != nil {
+		return fmt.Errorf("error handling callback: %w", err)
+	}
+
+	// Check if a user already exists.
+	p, err := svc.GetProfile(c)
+	if errors.Is(err, SessionNotFound) || errors.Is(err, TokenNotFound) {
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+	} else if err != nil {
+		return fmt.Errorf("unable to get profile: %w", err)
+	}
+
+	ctx := context.Background()
+
+	_, err = model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, datastore.ErrNoSuchEntity) {
+		return fmt.Errorf("failed getting subscriber by email: %w", err)
+	}
+
+	newSub := model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
+
+	// Create a new subscriber.
+	return model.CreateSubscriber(ctx, svc.settingsStore, &newSub)
 }
 
 // profileHandler handles requests to get the profile of the logged in user.
 func (svc *service) profileHandler(c *fiber.Ctx) error {
 	p, err := svc.GetProfile(c)
 	if errors.Is(err, SessionNotFound) || errors.Is(err, TokenNotFound) {
-		return fiber.ErrUnauthorized
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
 	} else if err != nil {
 		return fmt.Errorf("unable to get profile: %w", err)
 	}
