@@ -170,6 +170,7 @@ func (svc *service) setup(ctx context.Context, app *fiber.App) {
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
+	svc.settingsStore = dsclient.Get()
 	model.RegisterEntities()
 	log.Info("set up datastore")
 
