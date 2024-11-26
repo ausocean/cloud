@@ -146,14 +146,16 @@ func (svc *service) setup(ctx context.Context) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
-	if svc.settingsStore == nil {
-		err := dsclient.Init(svc.standalone, svc.storePath)
-		if err != nil {
-			log.Fatalf("could not set up datastore: %v", err)
-		}
-		model.RegisterEntities()
-		log.Info("set up datastore")
+	if svc.settingsStore != nil {
+		return
 	}
+
+	err := dsclient.Init(svc.standalone, svc.storePath)
+	if err != nil {
+		log.Fatalf("could not set up datastore: %v", err)
+	}
+	model.RegisterEntities()
+	log.Info("set up datastore")
 
 	svc.setupStripe(ctx)
 }
