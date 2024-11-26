@@ -36,6 +36,7 @@ import (
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
 	"github.com/ausocean/cloud/model"
@@ -45,8 +46,10 @@ import (
 
 // Project constants.
 const (
-	projectID = "ausoceantv"
-	version   = "v0.1.2"
+	projectID     = "ausoceantv"
+	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
+	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
+	version       = "v0.1.4"
 )
 
 // service defines the properties of our web service.
@@ -56,6 +59,7 @@ type service struct {
 	debug         bool
 	standalone    bool
 	storePath     string
+	auth          *UserAuth
 }
 
 // svc is an instance of our service.
@@ -63,6 +67,14 @@ var svc *service = &service{}
 
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
+
+	// Authentication Routes.
+	v1.Group("/auth").
+		Get("/login", svc.loginHandler).
+		Get("/logout", svc.logoutHandler).
+		Get("oauth2callback", svc.callbackHandler).
+		Get("profile", svc.profileHandler)
+
 	v1.Get("version", svc.versionHandler)
 
 	v1.Group("/stripe").
@@ -120,6 +132,9 @@ func main() {
 		return ctx.Next()
 	})
 
+	// Create Fiber Session store (in memory).
+	svc.auth.sessionStore = session.New()
+
 	// Register routes.
 	registerAPIRoutes(app)
 
@@ -158,4 +173,9 @@ func (svc *service) setup(ctx context.Context) {
 	log.Info("set up datastore")
 
 	svc.setupStripe(ctx)
+
+	// Initialise OAuth2.
+	log.Info("Initializing OAuth2")
+	svc.auth = &UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	svc.auth.Init()
 }
