@@ -33,7 +33,7 @@ const (
 
 // Subscription is an entity in the datastore that represents the relationship between a subscriber and a feed.
 type Subscription struct {
-	SubscriberID string    // Subscriber’s ID.
+	SubscriberID int64     // Subscriber’s ID.
 	FeedID       string    // Feed’s ID.
 	Class        string    // Subscription class, e.g., “Day”, “Month”, or “Year”.
 	Prefs        string    // User’s preferences for the presentation of this stream, e.g., “Top, Favorite”.

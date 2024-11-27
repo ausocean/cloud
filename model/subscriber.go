@@ -33,7 +33,7 @@ const (
 
 // Subscriber is an entity in the datastore representing a user who subscribes to AusOcean.TV.
 type Subscriber struct {
-	ID              string    // AusOcean assigned Subscriber ID.
+	ID              int64     // AusOcean assigned Subscriber ID.
 	AccountID       string    // Google Account ID. NB: May not be necessary.
 	Email           string    // Subscriber's email address.
 	GivenName       string    // Subscriber's given name.
