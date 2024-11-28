@@ -109,7 +109,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	skey, _ := profileData(profile)
 	sandbox := false
 	file := "set/device.html"
-	if skey == model.SandboxSkey {
+	if skey == model.SandboxSkey && r.FormValue("new-configuration") == "true" {
 		sandbox = true
 		file = "sandbox.html"
 	}
