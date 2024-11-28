@@ -1,19 +1,57 @@
 function init() {
-    'use strict'
+  // Fetch all the forms we want to apply custom Bootstrap validation styles to
+  const forms = document.querySelectorAll(".needs-validation");
 
-    // Fetch all the forms we want to apply custom Bootstrap validation styles to
-    var forms = document.querySelectorAll('.needs-validation')
+  // Loop over them and prevent submission
+  Array.from(forms).forEach((form) => {
+    form.addEventListener(
+      "submit",
+      async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!form.checkValidity()) {
+          form.classList.add("was-validated");
+          return;
+        }
 
-    // Loop over them and prevent submission
-    Array.prototype.slice.call(forms)
-        .forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }
+        // Format the request to meet the REST API.
+        let data = new FormData(form);
 
-                form.classList.add('was-validated')
-            }, false)
-        })
+        if (data.get("lat") != "" && data.get("long") != "") {
+          data.set("ll", data.get("lat") + "," + data.get("long"));
+        }
+        data.delete("lat");
+        data.delete("long");
+
+        if (data.get("ssid") != "" && data.get("pass") != "") {
+          data.set("wi", data.get("ssid") + "," + data.get("pass"));
+        }
+        data.delete("ssid");
+        data.delete("pass");
+
+        await submitForm(data);
+      },
+      false,
+    );
+  });
+}
+
+async function submitForm(data) {
+  // Submit the form.
+  const resp = await fetch("/set/devices/configure", {
+    method: "POST",
+    body: data,
+  });
+
+  if (resp.redirected) {
+    console.log("redirecting to devices page");
+    window.location.href = resp.url;
+    return;
+  }
+
+  const error = await resp.json();
+
+  let msg = document.getElementById("msg");
+  msg.innerText = error.er;
+  msg.style.display = "block";
 }
