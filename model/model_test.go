@@ -27,6 +27,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -43,49 +44,51 @@ import (
 )
 
 const (
-	testSiteKey    = 1
-	testSiteKey2   = 2
-	testSiteName   = "OfficialTestSite"
-	testSiteOrg    = "AusOcean"
-	testSiteOps    = "ops@ausocean.org"
-	testSiteLat    = -34.91805
-	testSiteLng    = 138.60475
-	testSiteTZ     = 9.5
-	testSiteEnc    = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"1970-01-01T00:00:00Z","Created":"1970-01-01T00:00:00Z"}`
-	testDevMac     = "00:00:00:00:00:01"
-	testDevMa      = 1
-	testMID        = testDevMa << 4
-	testDevDkey    = 10000001
-	testDevID      = "TestDevice"
-	testDevInputs  = "A0,V0"
-	testDevEnc     = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
-	testDevEnc2    = "1\t10000001\t1\tTestDevice\t\t\t"
-	testDevEnc3    = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
-	testUserEmail  = "test@ausocean.org"
-	testUserEmail2 = "test@testdomain.org"
-	testUserPerm   = ReadPermission
-	testUserPerm2  = ReadPermission | WritePermission
-	testUserTime   = 1572157457
-	testUserTime2  = 1572157475
-	testUserEnc    = "1\ttest@ausocean.org\t\t1\t1572157457"
-	testUserEnc2   = "2\ttest@ausocean.org\t\t3\t1572157475"
-	testDevMac2    = "00:00:00:00:00:0F"
-	testDevMac3    = "1A:2B:3C:4F:50:61"
-	testDevMa2     = 15
-	testMID2       = testDevMa2 << 4
-	testMIDAll     = 0
-	testDevPin     = "V0"
-	testDevPin2    = "S1"
-	testMetadata   = "loc:-34.91805,138.60475"
-	testTimestamp  = datastore.EpochStart
-	testGeohash    = "r1f9652gs"
-	testTextMID    = (testDevMa << 4) | 0x08
-	testDomain     = "@ausocean.org"
-	testDomain2    = "@testdomain.org"
-	testOtherUser  = "other@ausocean.org"
-	testJunkUser   = "someone@junk.com"
-	anyDomain      = "@"
-	testCronEnc    = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
+	testSiteKey      = 1
+	testSiteKey2     = 2
+	testSiteName     = "OfficialTestSite"
+	testSiteOrg      = "AusOcean"
+	testSiteOps      = "ops@ausocean.org"
+	testSiteLat      = -34.91805
+	testSiteLng      = 138.60475
+	testSiteTZ       = 9.5
+	testSiteEnc      = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"1970-01-01T00:00:00Z","Created":"1970-01-01T00:00:00Z"}`
+	testDevMac       = "00:00:00:00:00:01"
+	testDevMa        = 1
+	testMID          = testDevMa << 4
+	testDevDkey      = 10000001
+	testDevID        = "TestDevice"
+	testDevInputs    = "A0,V0"
+	testDevEnc       = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
+	testDevEnc2      = "1\t10000001\t1\tTestDevice\t\t\t"
+	testDevEnc3      = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
+	testUserEmail    = "test@ausocean.org"
+	testUserEmail2   = "test@testdomain.org"
+	testUserPerm     = ReadPermission
+	testUserPerm2    = ReadPermission | WritePermission
+	testUserTime     = 1572157457
+	testUserTime2    = 1572157475
+	testUserEnc      = "1\ttest@ausocean.org\t\t1\t1572157457"
+	testUserEnc2     = "2\ttest@ausocean.org\t\t3\t1572157475"
+	testDevMac2      = "00:00:00:00:00:0F"
+	testDevMac3      = "1A:2B:3C:4F:50:61"
+	testDevMa2       = 15
+	testMID2         = testDevMa2 << 4
+	testMIDAll       = 0
+	testDevPin       = "V0"
+	testDevPin2      = "S1"
+	testMetadata     = "loc:-34.91805,138.60475"
+	testTimestamp    = datastore.EpochStart
+	testGeohash      = "r1f9652gs"
+	testTextMID      = (testDevMa << 4) | 0x08
+	testDomain       = "@ausocean.org"
+	testDomain2      = "@testdomain.org"
+	testOtherUser    = "other@ausocean.org"
+	testJunkUser     = "someone@junk.com"
+	anyDomain        = "@"
+	testCronEnc      = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
+	testSubscriberID = 1234567890
+	testFeedID       = 9876543210
 )
 
 var testTime = time.Unix(0, 0).UTC()
@@ -414,6 +417,8 @@ func TestNetreceiverFileAccess(t *testing.T) {
 	testDevice(t, "file")
 	testVariable(t, "file")
 	testCron(t, "file")
+	testSubscriber(t, "file")
+	testSubscription(t, "file")
 }
 
 func TestNetreceiverCloudAccess(t *testing.T) {
@@ -424,6 +429,8 @@ func TestNetreceiverCloudAccess(t *testing.T) {
 	testDevice(t, "cloud")
 	testVariable(t, "cloud")
 	testCron(t, "cloud")
+	testSubscriber(t, "cloud")
+	testSubscription(t, "cloud")
 }
 
 // testEntities tests access to various entities in NetReceiver's datastore.
@@ -1322,6 +1329,144 @@ func testCron(t *testing.T, kind string) {
 	if err != nil {
 		t.Errorf("DeleteCron failed with error %v", err)
 	}
+}
+
+// testSubscriber tests Subscriber methods.
+func testSubscriber(t *testing.T, kind string) {
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	if err != nil {
+		t.Fatalf("could not create new store: %v", err)
+	}
+
+	// Since we will create a new subscriber, we need to make sure to delete the existing one if it exists
+	store.Delete(ctx, store.IDKey(typeSubscriber, testSubscriberID))
+
+	// Remove the monotonic time element from the Created field.
+	s1 := &Subscriber{testSubscriberID, "", testUserEmail, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
+
+	err = CreateSubscriber(ctx, store, s1)
+	if err != nil {
+		t.Errorf("CreateSubscriber failed with error: %v", err)
+	}
+
+	s2, err := GetSubscriber(ctx, store, s1.ID)
+	if err != nil {
+		t.Errorf("GetSubscriber failed with error: %v", err)
+	}
+
+	if !reflect.DeepEqual(s1, s2) {
+		t.Errorf("Got different subscriber than created (by ID), got: \n%+v, wanted \n%+v", s2, s1)
+	}
+
+	s2, err = GetSubscriberByEmail(ctx, store, testUserEmail)
+	if err != nil {
+		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+	}
+
+	if !reflect.DeepEqual(s1, s2) {
+		t.Errorf("Got different subscriber than created (by Email), got: \n%+v, wanted \n%+v", s2, s1)
+	}
+
+	s1.FamilyName = "New-Name"
+	err = UpdateSubscriber(ctx, store, s1)
+	if err != nil {
+		t.Errorf("UpdateSubscriber failed with error: %v", err)
+	}
+
+	s2, err = GetSubscriber(ctx, store, testSubscriberID)
+	if err != nil {
+		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+	}
+
+	if !reflect.DeepEqual(s1, s2) {
+		t.Errorf("Got different subscriber than updated (by ID), got: \n%+v, wanted \n%+v", s2, s1)
+	}
+
+	// Test Key generation.
+	newID := NewSubscriberID(ctx, store)
+
+	// Check the length of the key.
+	s := fmt.Sprintf("%d", newID)
+	if len(s) != 10 {
+		t.Errorf("new SubscriberID has incorrect length, wanted: 10, got: %d", len(s))
+	}
+
+	_, err = GetSubscriber(ctx, store, newID)
+	if err != datastore.ErrNoSuchEntity {
+		t.Errorf("got entity for newly generated ID key")
+	}
+
+}
+
+// testSubscriber tests Subscription methods.
+func testSubscription(t *testing.T, kind string) {
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	if err != nil {
+		t.Fatalf("could not create new store: %v", err)
+	}
+
+	// Since we will create a new subscription, we need to make sure to delete the existing one if it exists
+	store.Delete(ctx, store.NameKey(typeSubscription, fmt.Sprintf("%d.%d", testSubscriberID, testFeedID)))
+
+	start := time.Now().Truncate(24 * time.Hour).UTC()
+	finish := start.AddDate(0, 0, 1)
+	s1 := &Subscription{testSubscriberID, testFeedID, SubscriptionDay, "", start, finish, true}
+
+	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, SubscriptionDay, "", true)
+	if err != nil {
+		t.Errorf("CreateSubscription failed with error: %v", err)
+	}
+
+	s2, err := GetSubscription(ctx, store, testSubscriberID, testFeedID)
+	if err != nil {
+		t.Errorf("GetSubscription failed with error: %v", err)
+	}
+
+	if !reflect.DeepEqual(s1, s2) {
+		t.Errorf("Got different subscription than created (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
+	}
+
+	subs, err := GetSubscriptions(ctx, store, testSubscriberID)
+	if err != nil {
+		t.Errorf("GetSubscriptions failed with error: %v", err)
+	}
+
+	if len(subs) != 1 {
+		t.Errorf("got incorrect number of subscriptions, got %d, wanted 1", len(subs))
+	}
+
+	if !reflect.DeepEqual(s1, &subs[0]) {
+		t.Errorf("Got different subscription than created, got: \n%+v, wanted \n%+v", s1, subs[0])
+	}
+
+	s1.Renew = false
+	err = UpdateSubscription(ctx, store, s1)
+	if err != nil {
+		t.Errorf("UpdateSubscriber failed with error: %v", err)
+	}
+
+	s2, err = GetSubscription(ctx, store, testSubscriberID, testFeedID)
+	if err != nil {
+		t.Errorf("GetSubscription failed with error: %v", err)
+	}
+
+	if !reflect.DeepEqual(s1, s2) {
+		t.Errorf("Got different subscription than updated (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
+	}
+
+}
+
+func testFeed(t *testing.T, kind string) {
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	if err != nil {
+		t.Fatalf("could not create new store: %v", err)
+	}
+
+	// Since we will create a new Feed, we need to make sure to delete the existing one if it exists
+	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
 }
 
 // Benchmarks follow.

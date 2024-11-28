@@ -33,7 +33,7 @@ const (
 
 // Feed is an entity in the datastore that represents information about a particular feed.
 type Feed struct {
-	ID      string    // AusOcean assigned Feed ID.
+	ID      int64     // AusOcean assigned Feed ID.
 	Name    string    // Display name, e.g., “Rapid Bay Live Stream”.
 	Area    string    // Location, e.g., “SA” or “FNQ”.
 	Class   string    // Feed class, e.g., “Video” or “Data”.
