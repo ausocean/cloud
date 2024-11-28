@@ -31,6 +31,7 @@
       {{if .Msg}}{{.Msg}}{{end}}
     </div>
     <div class="border rounded p-4 container-md bg-white">
+      <a href="/set/devices?ma={{.MAC}}">Manual Configuration</a>
       <form action="/set/devices/configure" enctype="multipart/form-data" method="post" class="needs-validation" novalidate>
         <input name="ma" value="{{.MAC}}" hidden>
         <div class="row d-flex gx-1 pb-1">
