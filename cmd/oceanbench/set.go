@@ -528,7 +528,10 @@ type configureData struct {
 }
 
 func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
-	data := configureData{}
+	data := configureData{
+		commonData: commonData{
+			Pages: pages("devices"),
+		}}
 	ctx := r.Context()
 	var err error
 
