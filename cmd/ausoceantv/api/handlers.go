@@ -25,7 +25,12 @@ LICENSE
 package api
 
 import (
+	"context"
+	"time"
+
 	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
+	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -33,7 +38,20 @@ func CreateFeed(ctx *fiber.Ctx) error {
 
 	store := dsclient.Get()
 
-	store.Put()
+	feed := model.Feed{
+		ID:      "",
+		Name:    "",
+		Area:    "",
+		Class:   "",
+		Source:  "",
+		Params:  "",
+		Bundle:  []string{},
+		Created: time.Now(),
+	}
 
-	return ctx.JSON(Feed{ID: &id})
+	err := model.PutFeed(context.Background(), store, &feed)
+	if err != nil {
+		return api.DatastoreWriteFailure(err)
+	}
+	return nil
 }

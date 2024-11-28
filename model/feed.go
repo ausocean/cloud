@@ -22,8 +22,10 @@ LICENSE
 package model
 
 import (
+	"context"
 	"time"
 
+	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -62,4 +64,21 @@ func (f *Feed) Copy(dst datastore.Entity) (datastore.Entity, error) {
 // GetCache returns nil, indicating no caching.
 func (f *Feed) GetCache() datastore.Cache {
 	return nil
+}
+
+// PutFeed creates or updates a Feed.
+func PutFeed(ctx context.Context, store datastore.Store, feed *Feed) error {
+
+	key := store.IncompleteKey(typeFeed)
+
+	key, err := store.Put(ctx, key, feed)
+	if err != nil {
+		return err
+	}
+
+	if err != nil {
+		return api.DatastoreWriteFailure(err)
+	}
+
+	return err
 }
