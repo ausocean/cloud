@@ -185,5 +185,4 @@ func (svc *testService) getHandlerHttp(w http.ResponseWriter, r *http.Request) {
 	if v != testCookieValue {
 		svc.t.Errorf("mismatch in set value and gotten value, got: %s, wanted: %s", v, testCookieValue)
 	}
-
 }
