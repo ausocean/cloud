@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gorilla/sessions"
 )
 
 // Session defines an interface for a session to keep track of user
@@ -72,13 +73,49 @@ func (s *FiberSession) Get(key string) (interface{}, error) {
 }
 
 // Invalidate implements the Invalidate method of the Session interface by setting
-// the Max Age of the cookie to 0.
+// the Max Age of the cookie to -1.
 func (s *FiberSession) Invalidate() error {
-	s.cookie.MaxAge = 0
+	s.cookie.MaxAge = -1
 	return nil
 }
 
 // getCookie is a helper function which returns the fiber Cookie used to store the Fiber Session.
 func (s *FiberSession) getCookie() *fiber.Cookie {
 	return s.cookie
+}
+
+// GorillaSession implements the Session interface using Gorilla Sessions.
+type GorillaSession struct {
+	session *sessions.Session
+}
+
+func NewGorillaSession(session *sessions.Session) *GorillaSession {
+	return &GorillaSession{session: session}
+}
+
+// SetMaxAge implements the SetMaxAge method of the Session interface by setting
+// the maximum age of the cookie.
+func (s *GorillaSession) SetMaxAge(maxAge time.Duration) error {
+	s.session.Options.MaxAge = int(maxAge.Seconds())
+	return nil
+}
+
+// Set implements the Set method of the Session interface by adding the key, value
+// pair to the gorilla session's Values map.
+func (s *GorillaSession) Set(key string, value interface{}) error {
+	s.session.Values[key] = value
+	return nil
+}
+
+// Get implements the Get method of the Session interface by getting the for the given key
+// of a key value pair stored in the session.
+func (s *GorillaSession) Get(key string) (interface{}, error) {
+	return s.session.Values[key], nil
+}
+
+// Invalidate implements the Invalidate method of the Session interface by setting
+// the Max Age of the cookie to -1.
+func (s *GorillaSession) Invalidate() error {
+	s.session.Options.MaxAge = -1
+	return nil
 }
