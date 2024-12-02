@@ -2,9 +2,11 @@ package backend
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gorilla/sessions"
 )
 
 // SessionStore defines an interface which manages the handling of Session management.
@@ -88,4 +90,68 @@ func (s *FiberSessionStore) Save(session Session, opts ...SessionStoreOption) er
 	s.ctx.Cookie(fs.getCookie())
 
 	return nil
+}
+
+// GorillaSessionStore implements the SessionStore interface using Gorilla Sessions.
+type GorillaSessionStore struct {
+	store sessions.Store
+	w     http.ResponseWriter
+	r     *http.Request
+}
+
+// NewGorillaSessionStore creates a new GorillaSessionStore using a Gorilla Cookie Store
+// for client side sessions storage.
+func NewGorillaSessionStore(privateKeySecret string) *GorillaSessionStore {
+	store := sessions.NewCookieStore([]byte(privateKeySecret))
+	return &GorillaSessionStore{store: store}
+}
+
+// WithNetHttpHandler adds the handler types for a net/http request to the GorillaSessionStore
+// to allow methods to access the request bindings.
+func WithNetHttpHandler(w http.ResponseWriter, r *http.Request) SessionStoreOption {
+	return func(s SessionStore) error {
+		store, ok := s.(*GorillaSessionStore)
+		if !ok {
+			return fmt.Errorf("incorrect SessionStore type, expected *GorillaSessionStore, got %s", reflect.TypeOf(s))
+		}
+
+		store.w = w
+		store.r = r
+		return nil
+	}
+}
+
+// Get implements the SessionStore interface for the GorillaSessionStore type.
+//
+// NOTE: The WithNetHttpHanlder option must be used to provide the request handlers for calls to Get.
+func (s *GorillaSessionStore) Get(id string, opts ...SessionStoreOption) (Session, error) {
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	// Check that the http handlers are attached.
+	if s.r == nil || s.w == nil {
+		return nil, fmt.Errorf("cannot save session with nil http handlers")
+	}
+
+	sess, err := s.store.Get(s.r, id)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get session with ID: %s: %w", id, err)
+	}
+
+	return NewGorillaSession(sess), nil
+}
+
+// Save implements the Save method of the SessionStore interface using GorillaSessions.
+//
+// NOTE: The WithNetHttpHanlder option must be used to provide the request handlers for
+// calls to Save.
+func (s *GorillaSessionStore) Save(session Session, opts ...SessionStoreOption) error {
+	// Check that the session is a gorilla session.
+	gs, ok := session.(*GorillaSession)
+	if !ok {
+		return fmt.Errorf("incompatible session type, wanted GorillaSession, got %v", reflect.TypeOf(gs))
+	}
+
+	return s.store.Save(s.r, s.w, gs.session)
 }
