@@ -26,10 +26,12 @@ LICENSE
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
 )
 
@@ -42,7 +44,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.LoginHandler(w, r)
+
+	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
+	if err != nil {
+		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
+	}
+	err = auth.LoginHandler(h)
 	if err != nil {
 		writeError(w, err)
 	}
@@ -54,7 +61,12 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.LogoutHandler(w, r)
+
+	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
+	if err != nil {
+		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
+	}
+	err = auth.LogoutHandler(h)
 	if err != nil {
 		writeError(w, err)
 	}
@@ -66,7 +78,11 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.CallbackHandler(w, r)
+	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
+	if err != nil {
+		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
+	}
+	err = auth.CallbackHandler(h)
 	if err != nil {
 		writeError(w, err)
 	}
@@ -77,7 +93,11 @@ func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) 
 	if standalone {
 		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
 	}
-	return auth.GetProfile(w, r)
+	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
+	if err != nil {
+		return nil, fmt.Errorf("error creating new net/http handler; %w", err)
+	}
+	return auth.GetProfile(h)
 }
 
 // putProfileData puts profile data.
@@ -86,7 +106,11 @@ func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 		standaloneData = val
 		return nil
 	}
-	return auth.PutData(w, r, val)
+	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
+	if err != nil {
+		return fmt.Errorf("error creating new net/http handler; %w", err)
+	}
+	return auth.PutData(h, val)
 }
 
 // profileData extracts site key and name from the given profile.
