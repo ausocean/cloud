@@ -61,6 +61,8 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 		sm.handleStartedEvent(event.(startedEvent))
 	case startFailedEvent:
 		sm.handleStartFailedEvent(event.(startFailedEvent))
+	case criticalFailureEvent:
+		sm.handleCriticalFailureEvent(event.(criticalFailureEvent))
 	case hardwareStartFailedEvent:
 		sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
 	case badHealthEvent:
@@ -206,6 +208,25 @@ func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) 
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	case *directStarting:
 		sm.transition(newDirectIdle(sm.ctx))
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+	return nil
+}
+
+func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailureEvent) error {
+	sm.log("handling critical failure event")
+	switch sm.currentState.(type) {
+	case *vidforwardPermanentStarting:
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case *vidforwardSecondaryStarting:
+		// There might need to be a secondary failure state, but we're not sure
+		// yet. For now, we'll just transition to idle. Most failures will occur
+		// as a result of a hardware failure, for which the primary broadcast
+		// will subsequently be in a failure state.
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+	case *directStarting:
+		sm.transition(newDirectFailure(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}

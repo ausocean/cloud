@@ -464,7 +464,7 @@ func TestRateLimited(t *testing.T) {
 		{
 			desc:      "Rate Limited",
 			limited:   true,
-			expEvents: []event{startFailedEvent{}},
+			expEvents: []event{criticalFailureEvent{}},
 		},
 	}
 

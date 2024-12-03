@@ -29,6 +29,10 @@ type startFailedEvent struct{}
 
 func (e startFailedEvent) String() string { return "startFailedEvent" }
 
+type criticalFailureEvent struct{}
+
+func (e criticalFailureEvent) String() string { return "criticalFailureEvent" }
+
 type healthCheckDueEvent struct{}
 
 func (e healthCheckDueEvent) String() string { return "healthCheckDueEvent" }
@@ -158,6 +162,7 @@ func stringToEvent(name string) (event, error) {
 		"startEvent":                startEvent{},
 		"startedEvent":              startedEvent{},
 		"startFailedEvent":          startFailedEvent{},
+		"criticalFailureEvent":      criticalFailureEvent{},
 		"healthCheckDueEvent":       healthCheckDueEvent{},
 		"statusCheckDueEvent":       statusCheckDueEvent{},
 		"chatMessageDueEvent":       chatMessageDueEvent{},
