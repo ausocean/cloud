@@ -100,7 +100,7 @@ func GetSubscription(ctx context.Context, store datastore.Store, sid, fid int64)
 // see time.Time.AddDate() for further details.
 func CreateSubscription(ctx context.Context, store datastore.Store, sid, fid int64, class, prefs string, renew bool) error {
 	// Calculate characteristics of the subscription.
-	start := time.Now().Truncate(time.Hour * 24) // Start the subscription at the start of the current day.
+	start := time.Now().Truncate(time.Hour * 24).UTC() // Start the subscription at the start of the current day.
 	var end time.Time
 	switch class {
 	case SubscriptionDay:
