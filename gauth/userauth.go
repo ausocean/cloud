@@ -35,6 +35,7 @@ package gauth
 import (
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -45,7 +46,6 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/backend"
-	"github.com/ausocean/cloud/utils"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -359,19 +359,39 @@ func (ua *UserAuth) GetProfile(h backend.HTTPHandler) (*Profile, error) {
 	if err != nil {
 		return nil, TokenNotFound
 	}
+	var tok *oauth2.Token
 	tok, ok := v.(*oauth2.Token)
 	if !ok {
-		// Try and manually convert using a map.
-		tok, err = utils.MapToOAuth2Token(v)
+		// Try to reencode and decode using JSON.
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", TokenNotFound, err)
+		}
+		log.Println("marshal err:", err)
+		err = json.Unmarshal(b, &tok)
+		log.Println("unmarshal err:", err)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", TokenNotFound, err)
 		}
 	}
 
 	v, err = sess.Get(profileKey)
-	profile, ok := v.(*Profile)
-	if !ok || err != nil {
+	if err != nil {
 		return nil, ProfileNotFound
+	}
+	profile, ok := v.(*Profile)
+	if !ok {
+		// Try to reencode and decode using JSON.
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ProfileNotFound, err)
+		}
+		log.Println("marshal err:", err)
+		err = json.Unmarshal(b, &profile)
+		log.Println("unmarshal err:", err)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ProfileNotFound, err)
+		}
 	}
 	if tok.Valid() {
 		return profile, nil
