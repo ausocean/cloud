@@ -29,7 +29,6 @@ import (
 
 	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
-	"golang.org/x/exp/rand"
 )
 
 const (
