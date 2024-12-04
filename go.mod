@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.3
 
 require (
-	bou.ke/monkey v1.0.2
+	cloud.google.com/go/datastore v1.11.0
 	cloud.google.com/go/storage v1.30.1
 	github.com/Comcast/gots/v2 v2.2.1
 	github.com/Knetic/govaluate v3.0.0+incompatible
@@ -17,13 +17,9 @@ require (
 	github.com/google/uuid v1.5.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/sessions v1.2.2
-	github.com/kortschak/sun v1.1.0
 	github.com/mailjet/mailjet-apiv3-go v0.0.0-20201009050126-c24bc15a9394
-	github.com/pkg/errors v0.9.1
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.8.1
 	github.com/stripe/stripe-go/v81 v81.0.0
-	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/oauth2 v0.7.0
 	google.golang.org/api v0.118.0
@@ -33,7 +29,6 @@ require (
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/datastore v1.11.0 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -47,7 +42,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

@@ -33,6 +33,7 @@ import (
 	"cloud.google.com/go/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 )
 
 // loginHandler handles login requests, and starts the oauth2 login flow.
@@ -67,6 +68,7 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	_, err = model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	log.Error(err)
 	if err == nil {
 		return nil
 	}
@@ -74,7 +76,15 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		return fmt.Errorf("failed getting subscriber by email: %w", err)
 	}
 
-	newSub := model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
+	// Create a new Stripe customer to attach to the subscriber.
+	customerID, err := createCustomer(p.GivenName, p.FamilyName, p.Email)
+	if err != nil {
+		return fmt.Errorf("error creating stripe customer: %w", err)
+	}
+
+	log.Info("got customerID: %s", customerID)
+
+	newSub := model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email, PaymentInfo: customerID}
 
 	// Create a new subscriber.
 	return model.CreateSubscriber(ctx, svc.settingsStore, &newSub)

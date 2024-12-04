@@ -4,22 +4,26 @@ runtime: go121
 env_variables:
   NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
+  AUSOCEANTV_SECRETS: gs://ausocean/AusOceanTV-secrets.txt
+  OAUTH2_CALLBACK: http://dev-dot-ausoceantv.ts.r.appspot.com/api/v1/auth/oauth2callback
 
-main: ./cmd/ausoceantv/main.go
+main: ./cmd/ausoceantv
 
 handlers:
-
   - url: /api/.*
     script: auto
     secure: always
-  
+
   # Serve index.html as /
   - url: /
-    static_files: cmd/ausoceantv/dist/index.html  
+    static_files: cmd/ausoceantv/dist/index.html
     upload: cmd/ausoceantv/dist/index.html
 
-  # TODO: Serve watch.html and home.html from /watch and /home urls.
-  
+  # Serve any .html file from /<name> without the .html extension.
+  - url: /(home|watch|plans|checkout)$
+    static_files: cmd/ausoceantv/dist/\1\.html
+    upload: cmd/ausoceantv/dist/.*\.html
+
   # Serve all files in dist.
   - url: /
     static_dir: cmd/ausoceantv/dist

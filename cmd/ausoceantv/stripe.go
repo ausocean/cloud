@@ -30,9 +30,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/stripe/stripe-go/v81"
-	"github.com/stripe/stripe-go/v81/paymentintent"
+	"github.com/stripe/stripe-go/v81/customer"
+	"github.com/stripe/stripe-go/v81/subscription"
 
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 // setupStripe gets the secrets required to set the stripe Key.
@@ -59,7 +61,7 @@ func (svc *service) setupStripe(ctx context.Context) {
 
 			Using production Stripe keys
 		`)
-		key, err = gauth.GetSecret(ctx, projectID, "STRIPE_SECRET_KEY")
+		key, err = gauth.GetSecret(ctx, projectID, "DEV_STRIPE_SECRET_KEY")
 	}
 
 	if err != nil {
@@ -75,32 +77,81 @@ func (svc *service) setupStripe(ctx context.Context) {
 
 // handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
 func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
-	// TODO: Get product details.
-	// 	description := product.description
-	// 	price := calculatePrice(product)
-
-	// Enable auto payment method for better conversions.
-	autoPaymentMethodEnabled := true
-
-	// Create a PaymentIntent with amount and currency.
-	params := &stripe.PaymentIntentParams{
-		Amount:                  stripe.Int64(1099),
-		Currency:                stripe.String(string(stripe.CurrencyAUD)),
-		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{Enabled: &autoPaymentMethodEnabled},
+	// Get priceID from query parameters.
+	priceID := c.FormValue("priceID")
+	if priceID == "" {
+		return fmt.Errorf("no product selected")
 	}
 
-	// NOTE: DO NOT LOG PAYMENT INTENT.
-	pi, err := paymentintent.New(params)
+	// Get the customer ID for the current user.
+	customerID, err := svc.getCustomerID(c)
 	if err != nil {
-		log.Errorf("Error creating new Stripe payment intent: %v", err)
-		return c.App().ErrorHandler(c, fmt.Errorf("could not create payment intent: %w", err))
+		return fmt.Errorf("error getting customer ID: %w", err)
 	}
 
-	v := struct {
-		ClientSecret string `json:"clientSecret"`
-	}{
-		ClientSecret: pi.ClientSecret,
+	// Set the subscription parameters.
+	paymentSettings := &stripe.SubscriptionPaymentSettingsParams{
+		SaveDefaultPaymentMethod: stripe.String("on_subscription"),
+	}
+	subParams := &stripe.SubscriptionParams{
+		Customer: stripe.String(customerID),
+		Items: []*stripe.SubscriptionItemsParams{{
+			Price: stripe.String("price_1QRoJWDMhXzQAv2T7Raa9QcV"),
+		}},
+		PaymentSettings: paymentSettings,
+		PaymentBehavior: stripe.String("default_incomplete"),
+	}
+	subParams.AddExpand("latest_invoice.payment_intent")
+	s, err := subscription.New(subParams)
+	if err != nil {
+		log.Errorf("subscription.New: %v", err)
+		return fmt.Errorf("unable to create new stripe subscription: %w", err)
 	}
 
-	return c.JSON(v)
+	return c.JSON(
+		struct {
+			SubscriptionID string `json:"subscriptionId"`
+			ClientSecret   string `json:"clientSecret"`
+		}{
+			SubscriptionID: s.ID,
+			ClientSecret:   s.LatestInvoice.PaymentIntent.ClientSecret,
+		},
+	)
+}
+
+// createCustomer creates a new Stripe customer object, returning the ID of
+// the newly created customer.
+func createCustomer(givenName, familyName, email string) (string, error) {
+	// Set the parameters.
+	params := &stripe.CustomerParams{
+		Name:  stripe.String(fmt.Sprintf("%s %s", givenName, familyName)),
+		Email: stripe.String(email),
+	}
+
+	// Create a new customer.
+	cust, err := customer.New(params)
+	if err != nil {
+		return "", fmt.Errorf("error creating new stripe customer: %w", err)
+	}
+
+	return cust.ID, nil
+}
+
+// getCustomer returns the customer ID for the current user.
+func (svc *service) getCustomerID(c *fiber.Ctx) (string, error) {
+	p, err := svc.GetProfile(c)
+	if err != nil {
+		return "", fmt.Errorf("error getting profile: %w", err)
+	}
+
+	sub, err := model.GetSubscriberByEmail(context.Background(), svc.settingsStore, p.Email)
+	if err != nil {
+		return "", fmt.Errorf("error getting subscriber for email: %s, err: %w", p.Email, err)
+	}
+
+	if sub.PaymentInfo == "" {
+		return "", fmt.Errorf("no customerID attached to subscriber entity")
+	}
+
+	return sub.PaymentInfo, nil
 }

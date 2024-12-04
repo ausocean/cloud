@@ -25,11 +25,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
-	"golang.org/x/exp/rand"
 )
 
 const (
@@ -47,7 +47,7 @@ type Subscriber struct {
 	FamilyName      string    // Subscriber's family name.
 	Area            []string  // Subscriber’s area(s) of interest.
 	DemographicInfo string    // Optional demographic info about the subscriber, e.g., their postcode.
-	PaymentInfo     string    // Info required to use a payments platform.
+	PaymentInfo     string    // Info required to use a payments platform. (Stripe Customer ID)
 	Created         time.Time // Time the subscriber entity was created.
 }
 
@@ -105,13 +105,15 @@ func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber)
 
 // GetSubscriberByEmail returns the subscriber with the given email if it exists.
 func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email string) (*Subscriber, error) {
-	q := store.NewQuery(typeSubscriber, false)
+	q := store.NewQuery(typeSubscriber, false, "Email")
 	q.FilterField("Email", "=", email)
 	var subs []Subscriber
 	_, err := store.GetAll(ctx, q, &subs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all subscribers: %w", err)
 	}
+
+	log.Println("%+v", subs)
 
 	if len(subs) == 0 {
 		return nil, datastore.ErrNoSuchEntity

@@ -11,10 +11,26 @@ document
 
 // Fetches a payment intent and captures the client secret
 async function initialize() {
-  const response = await fetch("/api/v1/stripe/create-payment-intent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  });
+  // Extract the 'priceID' query parameter from the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get("priceID");
+
+  if (!id) {
+    console.log("setting error message");
+    let msg = document.getElementById("msg");
+    msg.innerHTML = "<p>Choose a Plan <a href='/plans'>here</a></p>";
+    msg.removeAttribute("hidden");
+
+    document.getElementById("payment-form").setAttribute("hidden", true);
+  }
+
+  const response = await fetch(
+    "/api/v1/stripe/create-payment-intent?priceID=" + id,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
   const { clientSecret, dpmCheckerLink } = await response.json();
 
   const appearance = {
