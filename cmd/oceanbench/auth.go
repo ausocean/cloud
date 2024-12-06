@@ -26,7 +26,6 @@ LICENSE
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,11 +44,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
-	if err != nil {
-		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
-	}
-	err = auth.LoginHandler(h)
+	err := auth.LoginHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -62,11 +57,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
-	if err != nil {
-		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
-	}
-	err = auth.LogoutHandler(h)
+	err := auth.LogoutHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -78,11 +69,7 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
-	if err != nil {
-		writeError(w, fmt.Errorf("error creating new net/http handler; %w", err))
-	}
-	err = auth.CallbackHandler(h)
+	err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -93,11 +80,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) 
 	if standalone {
 		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
 	}
-	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
-	if err != nil {
-		return nil, fmt.Errorf("error creating new net/http handler; %w", err)
-	}
-	return auth.GetProfile(h)
+	return auth.GetProfile(backend.NewNetHandler(w, r, auth.NetStore))
 }
 
 // putProfileData puts profile data.
@@ -106,11 +89,7 @@ func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 		standaloneData = val
 		return nil
 	}
-	h, err := backend.NewHTTPHandler(backend.NetHTTP, backend.WithHTTPWriterAndRequest(w, r))
-	if err != nil {
-		return fmt.Errorf("error creating new net/http handler; %w", err)
-	}
-	return auth.PutData(h, val)
+	return auth.PutData(backend.NewNetHandler(w, r, auth.NetStore), val)
 }
 
 // profileData extracts site key and name from the given profile.

@@ -124,6 +124,10 @@ func (s *GorillaSession) Set(key string, value interface{}) error {
 func (s *GorillaSession) Get(key string, dst any) error {
 	v := s.session.Values[key]
 
+	if v == nil {
+		return fmt.Errorf("session %s has no value for key %s", s.session.ID, key)
+	}
+
 	// Use reflection to set the value
 	rv := reflect.ValueOf(dst)
 	if rv.Kind() != reflect.Pointer {
