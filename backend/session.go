@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -121,7 +122,17 @@ func (s *GorillaSession) Set(key string, value interface{}) error {
 // Get implements the Get method of the Session interface by getting the for the given key
 // of a key value pair stored in the session.
 func (s *GorillaSession) Get(key string, dst any) error {
-	dst = s.session.Values[key]
+	v := s.session.Values[key]
+
+	// Use reflection to set the value
+	rv := reflect.ValueOf(dst)
+	if rv.Kind() != reflect.Pointer {
+		return fmt.Errorf("dst must be a pointer")
+	}
+
+	rv = rv.Elem()
+	rv.Set(reflect.ValueOf(v))
+
 	return nil
 }
 
