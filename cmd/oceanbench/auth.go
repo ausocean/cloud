@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
 )
 
@@ -42,7 +43,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.LoginHandler(w, r)
+
+	err := auth.LoginHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -54,7 +56,8 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.LogoutHandler(w, r)
+
+	err := auth.LogoutHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -66,7 +69,7 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.CallbackHandler(w, r)
+	err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 	}
@@ -77,7 +80,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) 
 	if standalone {
 		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
 	}
-	return auth.GetProfile(w, r)
+	return auth.GetProfile(backend.NewNetHandler(w, r, auth.NetStore))
 }
 
 // putProfileData puts profile data.
@@ -86,7 +89,7 @@ func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 		standaloneData = val
 		return nil
 	}
-	return auth.PutData(w, r, val)
+	return auth.PutData(backend.NewNetHandler(w, r, auth.NetStore), val)
 }
 
 // profileData extracts site key and name from the given profile.
