@@ -266,11 +266,7 @@ func main() {
 	} else {
 		log.Printf("Initializing OAuth2")
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-		h, err := backend.NewHTTPHandler(backend.NetHTTP)
-		if err != nil {
-			log.Println("error creating new net/http handler; %v", err)
-		}
-		auth.Init(h)
+		auth.Init(backend.NewNetHandler(nil, nil, nil))
 		host = "" // Host is determined by App Engine.
 	}
 
