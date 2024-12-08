@@ -1,3 +1,24 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean).
+
+  This is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see http://www.gnu.org/licenses/.
+*/
+
 package backend
 
 import (
@@ -74,8 +95,12 @@ func (s *FiberSession) Set(key string, value any) error {
 	}
 	s.values[key] = json.RawMessage(v)
 	bytes, err := json.Marshal(s.values)
+	if err != nil {
+		return fmt.Errorf("unable to marshal cookie value: %w", err)
+	}
+
 	s.cookie.Value = url.QueryEscape(string(bytes))
-	return err
+	return nil
 }
 
 // Get implements the Get method of the Session interface by getting the for the given key
