@@ -8,8 +8,3 @@ This is aiming to include common methods for net/http implementations and fiber 
 
 Session is an interface which describes and manages access to user sessions, which can either be stored client
 side in user cookies, or server side.
-
-## SessionStore
-
-SessionStore is an interface to manage Sessions, including getting the session from the store, and saving the
-session state back to the store.
