@@ -1,3 +1,24 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean).
+
+  This is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see http://www.gnu.org/licenses/.
+*/
+
 package backend
 
 import (
@@ -16,8 +37,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Random ID used as the sessionID.
 var sessionID = uuid.NewString()
 
+// testService contains commonly used fields across handlers.
 type testService struct {
 	t        *testing.T
 	netStore *sessions.CookieStore
@@ -31,6 +54,7 @@ var testTok = &oauth2.Token{
 	Expiry:       time.Now().AddDate(0, 0, 7),
 }
 
+// TestFiberHandler tests the implementation of the FiberHandler using FiberSessions.
 func TestFiberHandler(t *testing.T) {
 	svc := &testService{t, nil}
 
@@ -65,6 +89,7 @@ func (svc *testService) fiberGetHandler(c *fiber.Ctx) error {
 	return svc.get(NewFiberHandler(c))
 }
 
+// TestNetHandler tests the NetHandler implementation using GorillaSessions.
 func TestNetHandler(t *testing.T) {
 	// Create a new cookie store.
 	store := sessions.NewCookieStore(securecookie.GenerateRandomKey(64))

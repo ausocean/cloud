@@ -47,6 +47,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	err := auth.LoginHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
+		return
 	}
 }
 
@@ -60,6 +61,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	err := auth.LogoutHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
+		return
 	}
 }
 
@@ -72,6 +74,7 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
+		return
 	}
 }
 
