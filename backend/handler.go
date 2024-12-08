@@ -1,3 +1,33 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2024 the Australian Ocean Lab (AusOcean).
+
+  This is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see http://www.gnu.org/licenses/.
+*/
+
+// Package backend provides a unified interface for handling HTTP requests and managing user sessions.
+//
+// The `Handler` interface abstracts common HTTP operations, such as accessing form values,
+// redirecting requests, and retrieving context. Concrete implementations are provided for
+// Fiber and net/http frameworks.
+//
+// The `Session` interface defines a standardized way to manage user sessions, including setting
+// expiration times, storing and retrieving data, and invalidating sessions.
+// Implementations for Fiber-based and Gorilla sessions are included.
 package backend
 
 import (
