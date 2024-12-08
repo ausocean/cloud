@@ -10,6 +10,17 @@
         "singleQuote": false,
         "htmlWhitespaceSensitivity": "ignore"
       }
+    },
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "options": {
+        "printWidth": 2000,
+        "tabWidth": 2,
+        "useTabs": false,
+        "singleQuote": false,
+        "htmlWhitespaceSensitivity": "ignore",
+        "embeddedLanguageFormatting": "auto"
+      }
     }
   ]
 }
