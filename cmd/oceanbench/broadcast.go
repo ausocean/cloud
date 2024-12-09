@@ -600,9 +600,3 @@ func incrementVisitCount(ctx context.Context, store datastore.Store, streamName 
 		return strconv.Itoa(visitCount), nil
 	})
 }
-
-// writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
-func writeHttpErrorAndLog(w http.ResponseWriter, code int, err error) {
-	writeHttpError(w, code, err.Error())
-	log.Printf(err.Error())
-}
