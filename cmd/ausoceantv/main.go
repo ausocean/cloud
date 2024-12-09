@@ -37,9 +37,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
@@ -50,7 +51,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.1.5"
+	version       = "v0.1.6"
 )
 
 // service defines the properties of our web service.
@@ -60,7 +61,7 @@ type service struct {
 	debug         bool
 	standalone    bool
 	storePath     string
-	auth          *UserAuth
+	auth          *gauth.UserAuth
 }
 
 // svc is an instance of our service.
@@ -178,15 +179,17 @@ func (svc *service) setup(ctx context.Context, app *fiber.App) {
 
 	// Initialise OAuth2.
 	log.Info("Initializing OAuth2")
-	svc.auth = &UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-	svc.auth.Init()
+	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	svc.auth.Init(backend.NewFiberHandler(nil))
+
+	sessionKey, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Fatalf("unable to get sessionKey: %v", err)
+	}
 
 	// Encrypt cookies.
 	// NOTE: This must be done before any middleware which uses cookies.
 	app.Use(encryptcookie.New(encryptcookie.Config{
-		Key: svc.auth.sessionKey,
+		Key: sessionKey,
 	}))
-
-	// Create Fiber Session store (in memory).
-	svc.auth.sessionStore = session.New()
 }
