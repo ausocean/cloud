@@ -132,6 +132,59 @@ func PutVariable(ctx context.Context, store datastore.Store, skey int64, name, v
 	return err
 }
 
+// PutVariableInTransaction updates or creates a variable in the datastore atomically.
+// If the variable doesn't exist, it is created with an empty value string, then the update function is applied. If it exists, the
+// provided update function is applied to modify its value.
+//
+// Argument updateFunc is a function that takes the current value of the variable and returns a new value.
+// It is used to atomically update the variable's value in the datastore. The function should return both the updated value and any error
+// encountered during the update logic.
+func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey int64, name string, updateFunc func(currentValue string) string) error {
+	// If a dot exists in the name, that indicates scope, remove any colons from the scope.
+	sep := strings.Index(name, ".")
+	scope := ""
+	if sep >= 0 {
+		scope = strings.ReplaceAll(name[:sep], ":", "")
+		name = scope + name[sep:]
+	}
+
+	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
+	var variable Variable
+	err := store.Get(ctx, key, &variable)
+
+	if err == datastore.ErrNoSuchEntity {
+		// The variable doesn't exist, initialize it with an empty value.
+		variable = Variable{
+			Skey:    skey,
+			Name:    name,
+			Scope:   scope,
+			Value:   "",
+			Updated: time.Now(),
+		}
+
+		// Create the variable in the datastore.
+		if createErr := store.Create(ctx, key, &variable); createErr != nil {
+			return fmt.Errorf("failed to create variable: %w", createErr)
+		}
+	}
+
+	err = store.Update(ctx, key, func(entity datastore.Entity) {
+		if v, ok := entity.(*Variable); ok {
+			v.Value = updateFunc(v.Value)
+			v.Updated = time.Now()
+		}
+	}, &variable)
+	if err != nil {
+		return fmt.Errorf("failed to update variable: %w", err)
+	}
+
+	if cache := variable.GetCache(); cache != nil {
+		cache.Set(key, &variable)
+	}
+
+	return nil
+}
+
 // GetVariable gets a variable.
 // Ignore colons in the scope.
 func GetVariable(ctx context.Context, store datastore.Store, skey int64, name string) (*Variable, error) {
