@@ -50,9 +50,17 @@ run_service() {
     local command="$3"
 
     echo "Starting $service_name in directory $service_path..."
+    (
+        cd "$service_path"
+        
+        # Attempt to run npm run build if it's OceanBench.
+        if [[ "$service_name" == "OceanBench" ]]; then
+            npm run build || echo "Warning: npm run build failed for OceanBench"
+        fi
 
-    # Combine stderr and stdout and prefix with the service name.
-    (cd "$service_path" && $command 2>&1 | sed "s/^/[$service_name] /") &
+        # Run the service.
+        $command 2>&1 | sed "s/^/[$service_name] /"
+    ) &
     local pid=$!
     echo "$service_name started with PID $pid"
 }
@@ -68,10 +76,10 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Run all services.
-run_service "OceanBench" "$OCEANBENCH_PATH" "./oceanbench --standalone --tvurl $TV_URL --cronurl $CRON_URL"
-run_service "OceanTV" "$OCEANTV_PATH" "./oceantv --standalone --filestore $FILESTORE_PATH"
-run_service "OceanCron" "$OCEANCRON_PATH" "./oceancron --standalone --filestore $FILESTORE_PATH"
-run_service "DataBlue" "$DATABLUE_PATH" "./datablue --standalone --filestore $FILESTORE_PATH"
+run_service "OceanBench" "$OCEANBENCH_PATH" "go run . --standalone --tvurl $TV_URL --cronurl $CRON_URL"
+run_service "OceanTV" "$OCEANTV_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
+run_service "OceanCron" "$OCEANCRON_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
+run_service "DataBlue" "$DATABLUE_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
 
 # Wait for all background processes.
 echo "All services are running. Press Ctrl+C to stop them."
