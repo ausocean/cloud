@@ -132,6 +132,69 @@ func PutVariable(ctx context.Context, store datastore.Store, skey int64, name, v
 	return err
 }
 
+// PutVariableInTransaction updates or creates a variable in the datastore atomically.
+// If the variable doesn't exist, it is created with an empty value string, then the update function is applied. If it exists, the
+// provided update function is applied to modify its value.
+//
+// Argument updateFunc is a function that takes the current value of the variable and returns a new value.
+// It is used to atomically update the variable's value in the datastore. The function should return both the updated value and any error
+// encountered during the update logic.
+func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey int64, name string, updateFunc func(currentValue string) (string, error)) error {
+	// If a dot exists in the name, that indicates scope, remove any colons from the scope.
+	sep := strings.Index(name, ".")
+	scope := ""
+	if sep >= 0 {
+		scope = strings.ReplaceAll(name[:sep], ":", "")
+		name = scope + name[sep:]
+	}
+
+	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
+
+	var variable Variable
+	// Get the current value.
+	err := store.Get(ctx, key, &variable)
+
+	// If the variable doesn't exist, initialize it with default values.
+	if err == datastore.ErrNoSuchEntity {
+		variable = Variable{
+			Skey:    skey,
+			Name:    name,
+			Scope:   scope,
+			Value:   "",
+			Updated: time.Now(),
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to fetch variable: %w", err)
+	}
+
+	// Modify the value using the update function.
+	newValue, err := updateFunc(variable.Value)
+	if err != nil {
+		return fmt.Errorf("failed to update with new value: %w", err)
+	}
+	variable.Value = newValue
+	variable.Updated = time.Now()
+
+	// Use store.Update() to atomically update the variable.
+	err = store.Update(ctx, key, func(entity datastore.Entity) {
+		// Assert the entity to *Variable type.
+		if v, ok := entity.(*Variable); ok {
+			v.Value = variable.Value
+			v.Updated = variable.Updated
+		}
+	}, &Variable{})
+	if err != nil {
+		return fmt.Errorf("failed to update variable: %w", err)
+	}
+
+	// Handle cache invalidation if needed.
+	if cache := variable.GetCache(); cache != nil {
+		cache.Set(key, &variable)
+	}
+
+	return nil
+}
+
 // GetVariable gets a variable.
 // Ignore colons in the scope.
 func GetVariable(ctx context.Context, store datastore.Store, skey int64, name string) (*Variable, error) {

@@ -523,14 +523,6 @@ func (e ErrInvalidEndTime) Error() string {
 	return fmt.Sprintf("end time (%v) is invalid relative to start time (%v)", e.end, e.start)
 }
 
-// saveLinkFunc provides a closure for saving a broadcast link with a given key.
-func saveLinkFunc() func(string, string) error {
-	return func(key, link string) error {
-		key = removeDate(key)
-		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
-	}
-}
-
 func performRequestWithRetries(dest string, data any, maxRetries int) error {
 	var retries int
 retry:
@@ -561,6 +553,7 @@ retry:
 
 // liveHandler handles requests to /live/<broadcast name>. This redirects to the
 // livestream URL stored in a variable with name corresponding to the given broadcast name.
+// A counter for link visits is also kept and incremented on each visit.
 func liveHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
@@ -574,8 +567,38 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Increment the link visit count.
+	go func() {
+		bgCtx := context.Background()
+		if err := incrementVisitCount(bgCtx, settingsStore, key); err != nil {
+			log.Printf("failed to increment counter for livestream %s: %v", key, err)
+		}
+	}()
+
 	log.Printf("redirecting to livestream link, link: %s", v.Value)
 	http.Redirect(w, r, v.Value, http.StatusFound)
+}
+
+// incrementVisitCount increments the visits counter for the given stream name.
+func incrementVisitCount(ctx context.Context, store datastore.Store, streamName string) error {
+	variableName := fmt.Sprintf("visits.%s", streamName)
+
+	// Put the incremented count. A site key of -1 indicates a global variable.
+	return model.PutVariableInTransaction(ctx, store, -1, variableName, func(currentValue string) (string, error) {
+		// Parse the current count or default to 0 if the variable doesn't exist.
+		visitCount := 0
+		if currentValue != "" {
+			var err error
+			visitCount, err = strconv.Atoi(currentValue)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse current value: %w", err)
+			}
+		}
+
+		// Increment the count.
+		visitCount++
+		return strconv.Itoa(visitCount), nil
+	})
 }
 
 // writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
