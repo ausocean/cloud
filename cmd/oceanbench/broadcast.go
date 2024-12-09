@@ -584,19 +584,19 @@ func incrementVisitCount(ctx context.Context, store datastore.Store, streamName 
 	variableName := fmt.Sprintf("visits.%s", streamName)
 
 	// Put the incremented count. A site key of -1 indicates a global variable.
-	return model.PutVariableInTransaction(ctx, store, -1, variableName, func(currentValue string) (string, error) {
+	return model.PutVariableInTransaction(ctx, store, -1, variableName, func(currentValue string) string {
 		// Parse the current count or default to 0 if the variable doesn't exist.
 		visitCount := 0
 		if currentValue != "" {
 			var err error
 			visitCount, err = strconv.Atoi(currentValue)
 			if err != nil {
-				return "", fmt.Errorf("failed to parse current value: %w", err)
+				return ""
 			}
 		}
 
 		// Increment the count.
 		visitCount++
-		return strconv.Itoa(visitCount), nil
+		return strconv.Itoa(visitCount)
 	})
 }

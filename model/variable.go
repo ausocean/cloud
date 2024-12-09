@@ -139,7 +139,7 @@ func PutVariable(ctx context.Context, store datastore.Store, skey int64, name, v
 // Argument updateFunc is a function that takes the current value of the variable and returns a new value.
 // It is used to atomically update the variable's value in the datastore. The function should return both the updated value and any error
 // encountered during the update logic.
-func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey int64, name string, updateFunc func(currentValue string) (string, error)) error {
+func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey int64, name string, updateFunc func(currentValue string) string) error {
 	// If a dot exists in the name, that indicates scope, remove any colons from the scope.
 	sep := strings.Index(name, ".")
 	scope := ""
@@ -168,10 +168,7 @@ func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey i
 	}
 
 	// Modify the value using the update function.
-	newValue, err := updateFunc(variable.Value)
-	if err != nil {
-		return fmt.Errorf("failed to update with new value: %w", err)
-	}
+	newValue := updateFunc(variable.Value)
 	variable.Value = newValue
 	variable.Updated = time.Now()
 
