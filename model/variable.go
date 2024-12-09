@@ -149,13 +149,11 @@ func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey i
 	}
 
 	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
-
 	var variable Variable
-	// Get the current value.
 	err := store.Get(ctx, key, &variable)
 
-	// If the variable doesn't exist, initialize it with default values.
 	if err == datastore.ErrNoSuchEntity {
+		// The variable doesn't exist, initialize it with an empty value.
 		variable = Variable{
 			Skey:    skey,
 			Name:    name,
@@ -163,28 +161,23 @@ func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey i
 			Value:   "",
 			Updated: time.Now(),
 		}
-	} else if err != nil {
-		return fmt.Errorf("failed to fetch variable: %w", err)
+
+		// Create the variable in the datastore.
+		if createErr := store.Create(ctx, key, &variable); createErr != nil {
+			return fmt.Errorf("failed to create variable: %w", createErr)
+		}
 	}
 
-	// Modify the value using the update function.
-	newValue := updateFunc(variable.Value)
-	variable.Value = newValue
-	variable.Updated = time.Now()
-
-	// Use store.Update() to atomically update the variable.
 	err = store.Update(ctx, key, func(entity datastore.Entity) {
-		// Assert the entity to *Variable type.
 		if v, ok := entity.(*Variable); ok {
-			v.Value = variable.Value
-			v.Updated = variable.Updated
+			v.Value = updateFunc(v.Value)
+			v.Updated = time.Now()
 		}
-	}, &Variable{})
+	}, &variable)
 	if err != nil {
 		return fmt.Errorf("failed to update variable: %w", err)
 	}
 
-	// Handle cache invalidation if needed.
 	if cache := variable.GetCache(); cache != nil {
 		cache.Set(key, &variable)
 	}
