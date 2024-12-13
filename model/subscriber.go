@@ -29,7 +29,6 @@ import (
 
 	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
-	"golang.org/x/exp/rand"
 )
 
 const (
@@ -78,12 +77,7 @@ func (s *Subscriber) GetCache() datastore.Cache {
 // which may result in ErrEntityExists.
 //
 // If the passed subscriber does not have an ID, a unique ID will be generated.
-//
-// NOTE: The Created field will be overwritten with the current time.
 func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber) error {
-	// Set the Created time.
-	s.Created = time.Now()
-
 	// If the subscriber has an ID, use that.
 	if s.ID != 0 {
 		key := store.IDKey(typeSubscriber, s.ID)
@@ -122,6 +116,14 @@ func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email stri
 	}
 
 	return &subs[0], err
+}
+
+// UpdateSubscriber updates the subscriber record with the given subscriber, based on the ID
+// of the passed subscriber.
+func UpdateSubscriber(ctx context.Context, store datastore.Store, subscriber *Subscriber) error {
+	key := store.IDKey(typeSubscriber, subscriber.ID)
+	_, err := store.Put(ctx, key, subscriber)
+	return err
 }
 
 // GetSubscriber gets the subscriber with the given ID.

@@ -1382,21 +1382,6 @@ func testSubscriber(t *testing.T, kind string) {
 	if !reflect.DeepEqual(s1, s2) {
 		t.Errorf("Got different subscriber than updated (by ID), got: \n%+v, wanted \n%+v", s2, s1)
 	}
-
-	// Test Key generation.
-	newID := NewSubscriberID(ctx, store)
-
-	// Check the length of the key.
-	s := fmt.Sprintf("%d", newID)
-	if len(s) != 10 {
-		t.Errorf("new SubscriberID has incorrect length, wanted: 10, got: %d", len(s))
-	}
-
-	_, err = GetSubscriber(ctx, store, newID)
-	if err != datastore.ErrNoSuchEntity {
-		t.Errorf("got entity for newly generated ID key")
-	}
-
 }
 
 // testSubscriber tests Subscription methods.
@@ -1438,7 +1423,7 @@ func testSubscription(t *testing.T, kind string) {
 	}
 
 	if !reflect.DeepEqual(s1, &subs[0]) {
-		t.Errorf("Got different subscription than created, got: \n%+v, wanted \n%+v", s1, subs[0])
+		t.Errorf("Got different subscription than created, got: \n%+v, wanted \n%+v", &subs[0], s1)
 	}
 
 	s1.Renew = false

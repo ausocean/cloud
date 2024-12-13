@@ -468,10 +468,12 @@ func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
 func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error) {
 	// Get AlarmVoltage variable; if the voltage is above this we expect the controller to be on.
 	// If the voltage is below this, we expect the controller to be off.
-	alarmVoltageVar, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, "AlarmVoltage")
+	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
+	alarmVoltageVar, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".AlarmVoltage")
 	if err != nil {
 		return 0, fmt.Errorf("could not get alarm voltage variable: %v", err)
 	}
+	ctx.log("got AlarmVoltage for %s: %s", controllerMACHex, alarmVoltageVar.Value)
 
 	uncalibratedAlarmVoltage, err := strconv.Atoi(alarmVoltageVar.Value)
 	if err != nil {
@@ -540,6 +542,7 @@ func (c *revidCameraClient) publishEventIfStatus(event event, status bool, mac i
 }
 
 func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {
+	sm.log("saving hardware state to config: %v", hardwareStateToString(sm.currentState))
 	hardwareState := hardwareStateToString(sm.currentState)
 	hardwareStateData, err := json.Marshal(sm.currentState)
 	if err != nil {
