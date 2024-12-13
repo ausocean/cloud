@@ -577,7 +577,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURL := v.Value
 
 	// Provide embed link if requested.
-	if r.FormValue("embed") == "true" {
+	if _, ok := r.URL.Query()["embed"]; ok {
 		redirectURL = strings.ReplaceAll(redirectURL, "watch?v=", "embed/")
 	}
 
