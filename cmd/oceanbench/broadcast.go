@@ -580,8 +580,15 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("redirecting to livestream link, link: %s", v.Value)
-	http.Redirect(w, r, v.Value, http.StatusFound)
+	redirectURL := v.Value
+
+	// Provide embed link if requested.
+	if _, ok := r.URL.Query()["embed"]; ok {
+		redirectURL = strings.ReplaceAll(redirectURL, "watch?v=", "embed/")
+	}
+
+	log.Printf("redirecting to livestream link, link: %s", redirectURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
