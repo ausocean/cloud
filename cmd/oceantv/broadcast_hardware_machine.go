@@ -3,17 +3,49 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 )
 
+func register(state registry.Named) struct{} {
+	err := registry.Register(state)
+	if err != nil {
+		panic(fmt.Errorf("could not register state: %v", err))
+	}
+	return struct{}{}
+}
+
+func newableWithContext(new func(ctx *broadcastContext) any, args ...interface{}) (any, error) {
+	var ctx *broadcastContext
+	for _, arg := range args {
+		if _ctx, ok := arg.(*broadcastContext); ok {
+			ctx = _ctx
+			break
+		}
+	}
+	if ctx == nil {
+		return nil, errors.New("init args did not contain required broadcast context")
+	}
+	return new(ctx), nil
+}
+
 type hardwareRestarting struct {
 	*broadcastContext `json:"-"`
+}
+
+var _ = register(hardwareRestarting{})
+
+func (s hardwareRestarting) Name() string { return "hardwareRestarting" }
+
+// New implements registry.Newable for creating a fresh value of
+// hardwareRestarting from an existing value.
+func (s hardwareRestarting) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareRestarting(ctx) }, args...)
 }
 
 func newHardwareRestarting(ctx *broadcastContext) *hardwareRestarting {
@@ -30,9 +62,20 @@ type hardwareStarting struct {
 	LastEntered       time.Time
 }
 
+var _ = register(hardwareStarting{})
+
+func (s hardwareStarting) Name() string { return "hardwareStarting" }
+
+// New implements registry.Newable for creating a fresh value of
+// hardwareStarting from an existing value.
+func (s hardwareStarting) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareStarting(ctx) }, args...)
+}
+
 func newHardwareStarting(ctx *broadcastContext) *hardwareStarting {
 	return &hardwareStarting{broadcastContext: ctx}
 }
+
 func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
 	// A MAC of 0 indicates it is invalid or unset, proceed with starting the camera.
@@ -115,6 +158,14 @@ type hardwareRecoveringVoltage struct {
 	stateWithTimeoutFields
 }
 
+var _ = register(hardwareRecoveringVoltage{})
+
+func (s hardwareRecoveringVoltage) Name() string { return "hardwareRecoveringVoltage" }
+
+func (s hardwareRecoveringVoltage) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareRecoveringVoltage(ctx) }, args...)
+}
+
 func newHardwareRecoveringVoltage(ctx *broadcastContext) *hardwareRecoveringVoltage {
 	s := newStateWithTimeoutFields(ctx)
 	s.Timeout = time.Duration(sanatisedVoltageRecoveryTimeout(ctx)) * time.Hour
@@ -145,6 +196,16 @@ type hardwareStopping struct {
 	*broadcastContext `json:"-"`
 }
 
+var _ = register(hardwareStopping{})
+
+func (s hardwareStopping) Name() string { return "hardwareStopping" }
+
+// New implements registry.Newable for creating a fresh value of
+// hardwareStopping from an existing value.
+func (s hardwareStopping) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareStopping(ctx) }, args...)
+}
+
 func newHardwareStopping(ctx *broadcastContext) *hardwareStopping { return &hardwareStopping{ctx} }
 func (s *hardwareStopping) enter() {
 	s.camera.stop(s.broadcastContext)
@@ -153,11 +214,31 @@ func (s *hardwareStopping) exit() {}
 
 type hardwareOn struct{}
 
+var _ = register(hardwareOn{})
+
+func (s hardwareOn) Name() string { return "hardwareOn" }
+
+// New implements registry.Newable for creating a fresh value of
+// hardwareOn from an existing value.
+func (s hardwareOn) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareOn() }, args...)
+}
+
 func newHardwareOn() *hardwareOn { return &hardwareOn{} }
 func (s *hardwareOn) enter()     {}
 func (s *hardwareOn) exit()      {}
 
 type hardwareOff struct{}
+
+var _ = register(hardwareOff{})
+
+func (s hardwareOff) Name() string { return "hardwareOff" }
+
+// New implements registry.Newable for creating a fresh value of
+// hardwareOff from an existing value.
+func (s hardwareOff) New(args ...interface{}) (any, error) {
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareOff() }, args...)
+}
 
 func newHardwareOff() *hardwareOff { return &hardwareOff{} }
 func (s *hardwareOff) enter()      {}
@@ -169,25 +250,23 @@ type hardwareStateMachine struct {
 }
 
 func getHardwareState(ctx *broadcastContext) state {
-	var _state state
-	switch ctx.cfg.HardwareState {
-	case "hardwareOn":
-		_state = newHardwareOn()
-	case "hardwareOff", "": // Also account for "" in case we haven't set the hardware state yet.
-		_state = newHardwareOff()
-	case "hardwareStarting":
-		_state = newHardwareStarting(ctx)
-	case "hardwareStopping":
-		_state = newHardwareStopping(ctx)
-	case "hardwareRestarting":
-		_state = newHardwareRestarting(ctx)
-	case "hardwareRecoveringVoltage":
-		_state = newHardwareRecoveringVoltage(ctx)
-	default:
-		panic(fmt.Sprintf("invalid hardware state: %s", ctx.cfg.HardwareState))
+	// If hardware state is not set, default to hardwareOff.
+	// This will happen with fresh configurations.
+	if ctx.cfg.HardwareState == "" {
+		return newHardwareOff()
 	}
 
-	err := json.Unmarshal(ctx.cfg.HardwareStateData, &_state)
+	obj, err := registry.Get(ctx.cfg.HardwareState, ctx)
+	if err != nil {
+		panic(fmt.Sprintf("could not get hardware state from registry: %v", err))
+	}
+
+	_state, ok := obj.(state)
+	if !ok {
+		panic(fmt.Sprintf("could not cast hardware state for %s to state: %v", ctx.cfg.HardwareState, obj))
+	}
+
+	err = json.Unmarshal(ctx.cfg.HardwareStateData, &_state)
 	if err != nil {
 		ctx.log("unexpected error when unmarshaling hardware state data; this could mean we have an unexpected state: %v", err)
 	}
@@ -195,7 +274,7 @@ func getHardwareState(ctx *broadcastContext) state {
 }
 
 func hardwareStateToString(state state) string {
-	return strings.TrimPrefix(reflect.TypeOf(state).String(), "*main.")
+	return state.(registry.Named).Name()
 }
 
 func newHardwareStateMachine(ctx *broadcastContext) *hardwareStateMachine {
