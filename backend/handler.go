@@ -66,7 +66,7 @@ type FiberHandler struct {
 	Ctx *fiber.Ctx
 }
 
-// NewFiberHandler creates a new FiberHandler with the given options.
+// NewFiberHandler creates a new FiberHandler.
 func NewFiberHandler(c *fiber.Ctx) Handler {
 	return &FiberHandler{c}
 }
@@ -103,7 +103,7 @@ func (h *FiberHandler) SaveSession(session Session) error {
 	}
 
 	// Get the cookie from the FiberSession.
-	h.Ctx.Cookie(fs.getCookie())
+	h.Ctx.Cookie(fs.cookie)
 
 	return nil
 }
@@ -117,7 +117,7 @@ type NetHandler struct {
 	store *sessions.CookieStore
 }
 
-// NewNetHandler creates a new NetHandler with the passed options.
+// NewNetHandler creates a new NetHandler.
 func NewNetHandler(w http.ResponseWriter, r *http.Request, store *sessions.CookieStore) Handler {
 	return &NetHandler{w, r, store}
 }

@@ -57,7 +57,8 @@ type FiberSession struct {
 	values map[string]json.RawMessage // Map of the key value pairs to be encoded into the session.
 }
 
-// NewFiberSession creates a new empty FiberSession with the given id.
+// NewFiberSession creates a new empty FiberSession with the given id, and value.
+// NOTE: The passed value should be the stored value of the cookie, which may be empty.
 func NewFiberSession(id, value string) (*FiberSession, error) {
 	s := &FiberSession{cookie: &fiber.Cookie{Name: id}, values: make(map[string]json.RawMessage)}
 
@@ -114,11 +115,6 @@ func (s *FiberSession) Get(key string, dst any) error {
 func (s *FiberSession) Invalidate() error {
 	s.cookie.MaxAge = -1
 	return nil
-}
-
-// getCookie is a helper function which returns the fiber Cookie used to store the Fiber Session.
-func (s *FiberSession) getCookie() *fiber.Cookie {
-	return s.cookie
 }
 
 // GorillaSession implements the Session interface using Gorilla Sessions.
