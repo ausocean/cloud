@@ -37,9 +37,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
@@ -60,7 +61,7 @@ type service struct {
 	debug         bool
 	standalone    bool
 	storePath     string
-	auth          *UserAuth
+	auth          *gauth.UserAuth
 }
 
 // svc is an instance of our service.
@@ -105,9 +106,19 @@ func main() {
 	// Create app.
 	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
 
-	// Perform one-time setup or bail.
+	// Encrypt cookies.
+	// NOTE: This must be done before any middleware which uses cookies.
 	ctx := context.Background()
-	svc.setup(ctx, app)
+	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Fatalf("unable to get sessionKey secret: %v", err)
+	}
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: key,
+	}))
+
+	// Perform one-time setup or bail.
+	svc.setup(ctx)
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -158,7 +169,7 @@ func (svc *service) versionHandler(ctx *fiber.Ctx) error {
 //
 // NOTE: This function must be called before any middleware which uses
 // cookies is attached to the app.
-func (svc *service) setup(ctx context.Context, app *fiber.App) {
+func (svc *service) setup(ctx context.Context) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
@@ -178,15 +189,6 @@ func (svc *service) setup(ctx context.Context, app *fiber.App) {
 
 	// Initialise OAuth2.
 	log.Info("Initializing OAuth2")
-	svc.auth = &UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-	svc.auth.Init()
-
-	// Encrypt cookies.
-	// NOTE: This must be done before any middleware which uses cookies.
-	app.Use(encryptcookie.New(encryptcookie.Config{
-		Key: svc.auth.sessionKey,
-	}))
-
-	// Create Fiber Session store (in memory).
-	svc.auth.sessionStore = session.New()
+	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	svc.auth.Init(backend.NewFiberHandler(nil))
 }
