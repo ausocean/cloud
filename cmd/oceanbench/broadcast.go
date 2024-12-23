@@ -591,6 +591,7 @@ func incrementVisitCount(ctx context.Context, store datastore.Store, streamName 
 			var err error
 			visitCount, err = strconv.Atoi(currentValue)
 			if err != nil {
+				log.Printf("could not parse visit count: %v", err)
 				return ""
 			}
 		}
