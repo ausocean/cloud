@@ -25,14 +25,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"cloud.google.com/go/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 // setupStripe gets the secrets required to set the stripe Key.
@@ -75,6 +79,27 @@ func (svc *service) setupStripe(ctx context.Context) {
 
 // handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
 func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
+	// Check if a subscriber already exists.
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+	} else if err != nil {
+		return fmt.Errorf("unable to get profile: %w", err)
+	}
+
+	ctx := context.Background()
+
+	_, err = model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	if !errors.Is(err, datastore.ErrNoSuchEntity) {
+		subscriber := &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
+		err := model.CreateSubscriber(ctx, svc.settingsStore, subscriber)
+		if err != nil {
+			return fmt.Errorf("unable to create susbcriber %v: %w", subscriber, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed getting subscriber by email: %w", err)
+	}
+
 	// TODO: Get product details.
 	// 	description := product.description
 	// 	price := calculatePrice(product)
