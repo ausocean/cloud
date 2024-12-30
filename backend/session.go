@@ -89,7 +89,6 @@ func (s *FiberSession) SetMaxAge(age time.Duration) error {
 // Set implements the Set method of the Session interface by encoding a query escaped
 // map in JSON format to the cookie value.
 func (s *FiberSession) Set(key string, value any) error {
-	// Convert the value into a json RawMessage.
 	v, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("unable to marshal value to json: %w:", err)
