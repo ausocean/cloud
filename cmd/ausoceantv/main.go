@@ -53,7 +53,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.2.3"
+	version       = "v0.3.0"
 )
 
 // service defines the properties of our web service.
@@ -85,6 +85,8 @@ func registerAPIRoutes(app *fiber.App) {
 	v1.Group("/stripe").
 		Options("/create-payment-intent", svc.preFlightOK).
 		Post("/create-payment-intent", svc.handleCreatePaymentIntent).
+		Get("/price/:id", svc.handleGetPrice).
+		Get("/product/:id", svc.handleGetProduct).
 		Post("/cancel", svc.cancelSubscription)
 
 	v1.Group("/get").
