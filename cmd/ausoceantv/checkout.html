@@ -11,15 +11,30 @@
     <script type="module" src="/src/checkout.js" defer></script>
   </head>
   <body>
-    <form id="payment-form">
-      <div id="payment-element">
-        <!--Stripe.js injects the Payment Element-->
+    <div id="msg" hidden></div>
+    <div class="flex flex-col items-center gap-5">
+      <a href="plans.html" class="w-1/3 min-w-[400px] text-left text-gray-600">&#8249; Plans</a>
+      <div class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow">
+        <h2 class="text-left text-xl font-bold">Cart</h2>
+        <hr class="mb-2" />
+        <div id="items" class="animate-pulse">
+          <div class="flex justify-between">
+            <p id="name" class="font-bold">AusOcean TV</p>
+            <p id="price">$-</p>
+          </div>
+          <small id="desc" class="text-gray-600">Access to AusOcean TV...</small>
+        </div>
       </div>
-      <button id="submit">
-        <div class="spinner hidden" id="spinner"></div>
-        <span id="button-text">Pay now</span>
-      </button>
-      <div id="payment-message" class="hidden"></div>
-    </form>
+      <form id="payment-form" class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow">
+        <div id="payment-element">
+          <!--Stripe.js injects the Payment Element-->
+        </div>
+        <button id="submit" class="w-full rounded-sm border bg-white drop-shadow">
+          <div class="spinner hidden" id="spinner"></div>
+          <span id="button-text">Pay now</span>
+        </button>
+        <div id="payment-message" class="hidden"></div>
+      </form>
+    </div>
   </body>
 </html>

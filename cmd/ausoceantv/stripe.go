@@ -35,6 +35,7 @@ import (
 	"github.com/stripe/stripe-go/v81/customer"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/price"
+	"github.com/stripe/stripe-go/v81/product"
 	"github.com/stripe/stripe-go/v81/subscription"
 
 	"github.com/ausocean/cloud/backend"
@@ -273,4 +274,39 @@ func createCustomer(givenName, familyName, email string) (string, error) {
 func getPrice(pid string) (*stripe.Price, error) {
 	params := &stripe.PriceParams{}
 	return price.Get(pid, params)
+}
+
+func (svc *service) handleGetPrice(c *fiber.Ctx) error {
+	pid := c.Params("id")
+	if pid == "" {
+		return fmt.Errorf("must specify price_id")
+	}
+	log.Infof("getting price for '%s'", pid)
+
+	price, err := getPrice(pid)
+	if err != nil {
+		return fmt.Errorf("error getting price: %w", err)
+	}
+
+	log.Infof("price: %+v", price)
+
+	return c.JSON(price)
+}
+
+func (svc *service) handleGetProduct(c *fiber.Ctx) error {
+	pid := c.Params("id")
+	if pid == "" {
+		return fmt.Errorf("must specify product_id")
+	}
+	log.Infof("getting product for '%s'", pid)
+
+	params := &stripe.ProductParams{}
+	product, err := product.Get(pid, params)
+	if err != nil {
+		return fmt.Errorf("error getting product for id: %s, err: %w", pid, err)
+	}
+
+	log.Infof("product: %+v", product)
+
+	return c.JSON(product)
 }
