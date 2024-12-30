@@ -51,7 +51,7 @@ var testTok = &oauth2.Token{
 	AccessToken:  "example_access_token_12345",
 	TokenType:    "Bearer",
 	RefreshToken: "example_refresh_token_67890",
-	Expiry:       time.Now().AddDate(0, 0, 7),
+	Expiry:       time.Now().UTC().AddDate(0, 0, 7),
 }
 
 // TestFiberHandler tests the implementation of the FiberHandler using FiberSessions.
@@ -133,7 +133,7 @@ func (svc *testService) set(h Handler) error {
 
 	err = sess.Set("oauth2_token", testTok)
 	if err != nil {
-		return fmt.Errorf("unable to set seesion value: %w", err)
+		return fmt.Errorf("unable to set session value: %w", err)
 	}
 
 	return h.SaveSession(sess)
