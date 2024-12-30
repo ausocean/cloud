@@ -11,10 +11,27 @@ document
 
 // Fetches a payment intent and captures the client secret
 async function initialize() {
-  const response = await fetch("/api/v1/stripe/create-payment-intent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  });
+  // Extract the 'priceID' query parameter from the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get("priceID");
+
+  if (!id) {
+    console.log("setting error message");
+    let msg = document.getElementById("msg");
+    msg.innerHTML = "<p>Choose a Plan <a href='/plans.html'>here</a></p>";
+    msg.removeAttribute("hidden");
+
+    document.getElementById("payment-form").setAttribute("hidden", true);
+    return;
+  }
+
+  const response = await fetch(
+    "/api/v1/stripe/create-payment-intent?priceID=" + id,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
   const { clientSecret, dpmCheckerLink } = await response.json();
 
   const appearance = {
@@ -28,6 +45,35 @@ async function initialize() {
 
   const paymentElement = elements.create("payment", paymentElementOptions);
   paymentElement.mount("#payment-element");
+
+  const priceJSON = await fetch("api/v1/stripe/price/" + id, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  }).then((resp) => {
+    return resp.json();
+  });
+  console.debug(priceJSON);
+
+  const product = await fetch("api/v1/stripe/product/" + priceJSON.product.id, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  }).then((resp) => {
+    return resp.json();
+  });
+  console.debug(product);
+
+  // Show the product information in the cart.
+  let items = document.getElementById("items");
+  let name = document.getElementById("name");
+  let price = document.getElementById("price");
+  let desc = document.getElementById("desc");
+
+  name.innerText = product.name;
+  price.innerText = "$" + priceJSON.unit_amount / 100;
+  desc.innerText = product.description;
+
+  // Stop the loading animation.
+  items.classList.remove("animate-pulse");
 
   // [DEV] For demo purposes only
   setDpmCheckerLink(dpmCheckerLink);

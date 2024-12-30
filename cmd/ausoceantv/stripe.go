@@ -35,6 +35,7 @@ import (
 	"github.com/stripe/stripe-go/v81/customer"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/price"
+	"github.com/stripe/stripe-go/v81/product"
 	"github.com/stripe/stripe-go/v81/subscription"
 
 	"github.com/ausocean/cloud/backend"
@@ -42,7 +43,12 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
-var ErrNoProductSelected = errors.New("no product selected")
+// Errors from malformed API requests.
+var (
+	ErrNoProductSelected = errors.New("no product selected")
+	errEmptyPriceID      = errors.New("price_id empty")
+	errEmptyProductID    = errors.New("product_id empty")
+)
 
 // setupStripe gets the secrets required to set the stripe Key.
 // The secrets required are DEV_STRIPE_SECRET_KEY for standalone mode,
@@ -143,7 +149,6 @@ func (svc *service) createPaymentIntent(c *fiber.Ctx, cid string, price *stripe.
 		Customer:                stripe.String(cid),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{Enabled: stripe.Bool(true)},
 	}
-
 	// Check for an incomplete payment intent. This could happen if a user restarts the checkout flow,
 	// and Stripe recommends reusing payment intents to track the history of a purchase.
 	var err error
@@ -293,4 +298,39 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 	log.Panic("cannot cancel by stripe, unimplemented")
 
 	return model.UpdateSubscription(ctx, svc.settingsStore, sub)
+}
+
+func (svc *service) handleGetPrice(c *fiber.Ctx) error {
+	pid := c.Params("id")
+	if pid == "" {
+		return errEmptyPriceID
+	}
+	log.Infof("getting price for '%s'", pid)
+
+	price, err := getPrice(pid)
+	if err != nil {
+		return fmt.Errorf("error getting price: %w", err)
+	}
+
+	log.Infof("price: %+v", price)
+
+	return c.JSON(price)
+}
+
+func (svc *service) handleGetProduct(c *fiber.Ctx) error {
+	pid := c.Params("id")
+	if pid == "" {
+		return errEmptyProductID
+	}
+	log.Infof("getting product for '%s'", pid)
+
+	params := &stripe.ProductParams{}
+	product, err := product.Get(pid, params)
+	if err != nil {
+		return fmt.Errorf("error getting product for id: %s, err: %w", pid, err)
+	}
+
+	log.Infof("product: %+v", product)
+
+	return c.JSON(product)
 }
