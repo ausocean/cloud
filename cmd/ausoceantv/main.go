@@ -81,7 +81,9 @@ func registerAPIRoutes(app *fiber.App) {
 
 	v1.Group("/stripe").
 		Options("/create-payment-intent", svc.preFlightOK).
-		Post("/create-payment-intent", svc.handleCreatePaymentIntent)
+		Post("/create-payment-intent", svc.handleCreatePaymentIntent).
+		Get("/price/:id", svc.handleGetPrice).
+		Get("/product/:id", svc.handleGetProduct)
 }
 
 func main() {
