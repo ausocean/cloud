@@ -58,22 +58,18 @@ var testTok = &oauth2.Token{
 func TestFiberHandler(t *testing.T) {
 	svc := &testService{t, nil}
 
-	// Create a fiber app.
 	app := fiber.New()
 
-	// Add endpoints.
 	app.Get("/set", svc.fiberSetHandler)
 	app.Get("/get", svc.fiberGetHandler)
 
-	// Make a request to /set.
 	req1 := httptest.NewRequest(http.MethodGet, "/set", nil)
 	resp1, err := app.Test(req1, -1)
 	assert.Nil(t, err)
 	assert.Len(t, resp1.Cookies(), 1, "expected 1 cookie to be set, got: %d", len(resp1.Cookies()))
 
-	// Get the cookie.
 	ck := resp1.Cookies()[0]
-	// Make a request to /get.
+
 	req2 := httptest.NewRequest(http.MethodGet, "/get", nil)
 	req2.AddCookie(ck)
 	resp2, err := app.Test(req2, -1)
@@ -91,13 +87,11 @@ func (svc *testService) fiberGetHandler(c *fiber.Ctx) error {
 
 // TestNetHandler tests the NetHandler implementation using GorillaSessions.
 func TestNetHandler(t *testing.T) {
-	// Create a new cookie store.
 	store := sessions.NewCookieStore(securecookie.GenerateRandomKey(64))
 	gob.Register(&oauth2.Token{})
 
 	svc := &testService{t, store}
 
-	// Make a request to /set.
 	req1 := httptest.NewRequest(http.MethodGet, "/set", nil)
 	w1 := httptest.NewRecorder()
 	svc.netSetHandler(w1, req1)
@@ -107,9 +101,8 @@ func TestNetHandler(t *testing.T) {
 	cookies := resp1.Cookies()
 	assert.Equal(t, 1, len(cookies))
 
-	// Get the cookie.
 	ck := cookies[0]
-	// Make a request to /get.
+
 	req2 := httptest.NewRequest(http.MethodGet, "/get", nil)
 	req2.AddCookie(ck)
 	w2 := httptest.NewRecorder()
@@ -133,31 +126,26 @@ func (svc *testService) netGetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *testService) set(h Handler) error {
-	// Get a session.
 	sess, err := h.LoadSession(sessionID)
 	if err != nil {
 		return fmt.Errorf("error getting session: %w", err)
 	}
 
-	// Set a session value.
 	err = sess.Set("oauth2_token", testTok)
 	if err != nil {
 		return fmt.Errorf("unable to set seesion value: %w", err)
 	}
 
-	// Save the session.
 	return h.SaveSession(sess)
 }
 
 func (svc *testService) get(h Handler) error {
-	// Get the session.
 	sess, err := h.LoadSession(sessionID)
 	if err != nil {
 		svc.t.Errorf("unable to get Session with id %s: %v", sessionID, err)
 		return fmt.Errorf("unable to get Session with id %s: %w", sessionID, err)
 	}
 
-	// Get the value from the session.
 	tok := &oauth2.Token{}
 	err = sess.Get("oauth2_token", &tok)
 	if err != nil {
