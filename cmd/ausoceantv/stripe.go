@@ -37,7 +37,6 @@ import (
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/cmd/openfish/api"
 )
 
 // setupStripe gets the secrets required to set the stripe Key.
@@ -134,8 +133,10 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 	ctx := context.Background()
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
-	if err != nil {
-		return api.Unauthorized(err)
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+	} else if err != nil {
+		return fmt.Errorf("unable to get profile: %w", err)
 	}
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
@@ -151,6 +152,7 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 	sub.Renew = false
 
 	// TODO: Update the Stripe subscription to cancel at period end.
+	log.Panic("cannot cancel by stripe, unimplemented")
 
 	return model.UpdateSubscription(ctx, svc.settingsStore, sub)
 }

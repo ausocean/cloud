@@ -37,6 +37,10 @@ const (
 )
 
 const (
+	NoFeedID = 0 // Corresponds to a subscription witout a specified Feed ID.
+)
+
+const (
 	typeSubscription = "Subscription" // Subscription datastore type.
 )
 
