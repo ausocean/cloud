@@ -26,11 +26,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -51,7 +53,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.1.6"
+	version       = "v0.2.0"
 )
 
 // service defines the properties of our web service.
@@ -83,6 +85,9 @@ func registerAPIRoutes(app *fiber.App) {
 		Options("/create-payment-intent", svc.preFlightOK).
 		Post("/create-payment-intent", svc.handleCreatePaymentIntent).
 		Post("/cancel", svc.cancelSubscription)
+
+	v1.Group("/get").
+		Get("/subscription", svc.getSubscriptionHandler)
 }
 
 func main() {
@@ -192,4 +197,32 @@ func (svc *service) setup(ctx context.Context) {
 	log.Info("Initializing OAuth2")
 	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
 	svc.auth.Init(backend.NewFiberHandler(nil))
+}
+
+func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
+	ctx := context.Background()
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+	} else if err != nil {
+		return fmt.Errorf("unable to get profile: %w", err)
+	}
+
+	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	if err != nil {
+		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
+	}
+
+	subscription, err := model.GetSubscription(ctx, svc.settingsStore, subscriber.ID, model.NoFeedID)
+	if err != nil {
+		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
+	}
+
+	// Check that the current time is prior to the end date of the subscription.
+	// ie. the subscription hasn't expired and is still valid.
+	if subscription.Finish.Before(time.Now()) {
+		return c.JSON(nil)
+	}
+
+	return c.JSON(subscription)
 }
