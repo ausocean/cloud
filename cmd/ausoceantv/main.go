@@ -51,7 +51,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.1.5"
+	version       = "v0.1.6"
 )
 
 // service defines the properties of our web service.
@@ -111,7 +111,7 @@ func main() {
 	ctx := context.Background()
 	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
 	if err != nil {
-		log.Fatalf("unable to get sessionKey secret: %v", err)
+		log.Panicf("unable to get sessionKey secret: %v", err)
 	}
 	app.Use(encryptcookie.New(encryptcookie.Config{
 		Key: key,
