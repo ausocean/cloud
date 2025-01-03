@@ -8,7 +8,9 @@
     "format": "prettier --write ./",
     "format:watch": "onchange \"**/*\" -- prettier --write --ignore-unknown {{changed}}",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "../../deploy.sh ausoceantv",
+    "deploy:dev": "../../deploy.sh -db ausoceantv"
   },
   "dependencies": {
     "@lit/context": "^1.1.3",
