@@ -39,7 +39,7 @@ import (
 func (svc *service) loginHandler(c *fiber.Ctx) error {
 	p, _ := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if p != nil {
-		return c.Redirect(c.FormValue("target", "/"), fiber.StatusFound)
+		return c.Redirect(c.FormValue("redirect", "/"), fiber.StatusFound)
 	}
 	return svc.auth.LoginHandler(backend.NewFiberHandler(c))
 }
