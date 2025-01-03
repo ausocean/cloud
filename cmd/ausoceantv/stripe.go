@@ -56,7 +56,7 @@ func (svc *service) setupStripe(ctx context.Context) {
 	)
 
 	// In standalone mode we want to use developer test keys.
-	if svc.standalone {
+	if svc.standalone || svc.development {
 		key, err = gauth.GetSecret(ctx, projectID, "DEV_STRIPE_SECRET_KEY")
 	} else {
 		// NOTE: This will be linked to production keys, and not test keys.

@@ -1,14 +1,19 @@
 import { defineConfig } from "vite";
-import { resolve } from "path";
+import { globSync } from "glob";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const input = Object.fromEntries(
+  globSync("*.html").map((file) => [
+    file.slice(0, file.length - path.extname(file).length),
+    fileURLToPath(new URL(file, import.meta.url)),
+  ]),
+);
 
 export default defineConfig({
   build: {
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, "index.html"),
-        home: resolve(__dirname, "home.html"),
-        watch: resolve(__dirname, "watch.html"),
-      },
+      input,
     },
   },
   server: {
