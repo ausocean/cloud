@@ -59,6 +59,7 @@ type service struct {
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
+	development   bool
 	storePath     string
 	auth          *UserAuth
 }
@@ -91,6 +92,11 @@ func main() {
 		if err == nil {
 			defaultPort = i
 		}
+	}
+
+	v = os.Getenv("DEVELOPMENT")
+	if v != "" {
+		svc.development = true
 	}
 
 	var host string
