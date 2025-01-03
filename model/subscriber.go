@@ -35,7 +35,10 @@ const (
 	typeSubscriber = "Subscriber" // Subscriber datastore type.
 )
 
-var errDuplicateSubscriberEmails = errors.New("more than one subscriber exists for a given email")
+var (
+	errDuplicateSubscriberEmails = errors.New("more than one subscriber exists for a given email")
+	errDuplicateSubscriberIDs    = errors.New("more than one subscriber exists for a given id")
+)
 
 // Subscriber is an entity in the datastore representing a user who subscribes to AusOcean.TV.
 type Subscriber struct {
@@ -46,7 +49,7 @@ type Subscriber struct {
 	FamilyName      string    // Subscriber's family name.
 	Area            []string  // Subscriber’s area(s) of interest.
 	DemographicInfo string    // Optional demographic info about the subscriber, e.g., their postcode.
-	PaymentInfo     string    // Info required to use a payments platform.
+	PaymentInfo     string    // Info required to use a payments platform. (Stripe Customer ID)
 	Created         time.Time // Time the subscriber entity was created.
 }
 
@@ -80,14 +83,14 @@ func (s *Subscriber) GetCache() datastore.Cache {
 func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber) error {
 	// If the subscriber has an ID, use that.
 	if s.ID != 0 {
-		key := store.IDKey(typeSubscriber, s.ID)
+		key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", s.ID, s.Email))
 		return store.Create(ctx, key, s)
 	}
 
 	// Otherwise generate and use a unique ID.
 	for {
 		s.ID = utils.GenerateInt64ID()
-		key := store.IDKey(typeSubscriber, s.ID)
+		key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", s.ID, s.Email))
 		err := store.Create(ctx, key, s)
 		if err == nil {
 			return nil
@@ -99,7 +102,7 @@ func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber)
 
 // GetSubscriberByEmail returns the subscriber with the given email if it exists.
 func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email string) (*Subscriber, error) {
-	q := store.NewQuery(typeSubscriber, false)
+	q := store.NewQuery(typeSubscriber, false, "ID", "Email")
 	q.FilterField("Email", "=", email)
 	var subs []Subscriber
 	_, err := store.GetAll(ctx, q, &subs)
@@ -121,19 +124,28 @@ func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email stri
 // UpdateSubscriber updates the subscriber record with the given subscriber, based on the ID
 // of the passed subscriber.
 func UpdateSubscriber(ctx context.Context, store datastore.Store, subscriber *Subscriber) error {
-	key := store.IDKey(typeSubscriber, subscriber.ID)
+	key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", subscriber.ID, subscriber.Email))
 	_, err := store.Put(ctx, key, subscriber)
 	return err
 }
 
 // GetSubscriber gets the subscriber with the given ID.
 func GetSubscriber(ctx context.Context, store datastore.Store, id int64) (*Subscriber, error) {
-	key := store.IDKey(typeSubscriber, id)
-	sub := &Subscriber{}
-	err := store.Get(ctx, key, sub)
+	q := store.NewQuery(typeSubscriber, false, "ID", "Email")
+	q.FilterField("ID", "=", id)
+	var subs []Subscriber
+	_, err := store.GetAll(ctx, q, &subs)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get Subscriber with id: %d: %v", id, err)
+		return nil, fmt.Errorf("failed to get all subscribers: %w", err)
 	}
 
-	return sub, nil
+	if len(subs) == 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+
+	if len(subs) > 1 {
+		return nil, errDuplicateSubscriberIDs
+	}
+
+	return &subs[0], err
 }
