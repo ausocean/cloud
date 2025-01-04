@@ -292,14 +292,24 @@ func (v *dummyForwardingService) Stream(cfg *Cfg) error                         
 func (v *dummyForwardingService) Slate(cfg *Cfg, opts ...SlateOption) error               { return nil }
 func (v *dummyForwardingService) UploadSlate(cfg *Cfg, name string, file io.Reader) error { return nil }
 
+type request struct {
+	kind string
+	time.Time
+}
+
 type dummyHardwareManager struct {
-	hardwareHealthy bool
-	startCalled     bool
-	stopCalled      bool
-	checkMAC        bool
-	volts           float64
-	alarmVolts      float64
-	chargeRate      float64
+	hardwareHealthy   bool
+	startCalled       bool
+	shutdownCalled    bool
+	stopCalled        bool
+	checkMAC          bool
+	volts             float64
+	alarmVolts        float64
+	chargeRate        float64
+	cameraIsReporting bool
+	controllerMAC     string
+	cameraMAC         string
+	latestRequest     request
 }
 
 func withHardwareFault() func(*dummyHardwareManager) {
@@ -326,6 +336,24 @@ func withChargingFault() func(*dummyHardwareManager) {
 	}
 }
 
+func withController(mac string) func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.controllerMAC = mac
+	}
+}
+
+func withCamera(mac string) func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.cameraMAC = mac
+	}
+}
+
+func withInitialCameraState(s bool) func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.cameraIsReporting = s
+	}
+}
+
 func newDummyHardwareManager(options ...func(*dummyHardwareManager)) *dummyHardwareManager {
 	const (
 		defaultVolts      = 24.8
@@ -337,6 +365,8 @@ func newDummyHardwareManager(options ...func(*dummyHardwareManager)) *dummyHardw
 		alarmVolts:      defaultAlarmVolts,
 		chargeRate:      defaultChargeRate,
 		hardwareHealthy: true,
+		controllerMAC:   "00:00:00:00:00:01",
+		cameraMAC:       "00:00:00:00:00:02",
 	}
 	for _, option := range options {
 		option(m)
@@ -351,26 +381,75 @@ func (h *dummyHardwareManager) voltage(ctx *broadcastContext) (float64, error) {
 func (h *dummyHardwareManager) alarmVoltage(ctx *broadcastContext) (float64, error) {
 	return h.alarmVolts, nil
 }
-func (h *dummyHardwareManager) isUp(ctx *broadcastContext) (bool, error) {
-	if h.volts < h.alarmVolts {
-		return false, nil
+func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, error) {
+	if mac == h.controllerMAC {
+		ctx.log("checking controller status, volts: %v, alarmVolts: %v, hardwareHealthy: %v", h.volts, h.alarmVolts, h.hardwareHealthy)
+		if h.volts < h.alarmVolts {
+			return false, nil
+		}
+		if !h.hardwareHealthy {
+			return false, nil
+		}
+		return true, nil
 	}
-	return h.hardwareHealthy, nil
+
+	if mac == h.cameraMAC {
+		if !h.hardwareHealthy {
+			return false, nil
+		}
+		ctx.log("checking camera status: %v", h.latestRequest)
+		if h.latestRequest.kind != "" && time.Now().Sub(h.latestRequest.Time) > 1*time.Minute {
+			switch h.latestRequest.kind {
+			case "start":
+				h.cameraIsReporting = true
+			case "stop", "shutdown":
+				h.cameraIsReporting = false
+			default:
+				panic("unknown request kind")
+			}
+			h.latestRequest = request{}
+		}
+		return h.cameraIsReporting, nil
+	}
+
+	return false, fmt.Errorf("could not get device: %w", datastore.ErrNoSuchEntity)
 }
+
 func (h *dummyHardwareManager) start(ctx *broadcastContext) {
+	ctx.log("starting hardware")
 	h.startCalled = true
+	// Can't start if we're already shutting down.
+	if h.latestRequest.kind != "shutdown" {
+		h.latestRequest = request{"start", time.Now()}
+	}
+}
+func (h *dummyHardwareManager) shutdown(ctx *broadcastContext) {
+	ctx.log("shutting down hardware")
+	h.shutdownCalled = true
+	if ctx.cfg.ShutdownActions == "" {
+		ctx.bus.publish(hardwareShutdownFailedEvent{})
+		return
+	}
+	h.latestRequest = request{"shutdown", time.Now()}
 }
 func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
+	ctx.log("stopping hardware")
 	h.stopCalled = true
+	h.latestRequest = request{"stop", time.Now()}
 }
-func (h *dummyHardwareManager) publishEventIfStatus(event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
+func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
 	if h.checkMAC && mac == 0 {
 		log("camera is not set in configuration")
 		publish(invalidConfigurationEvent{"camera mac is empty"})
 		return
 	}
-	log("status is %v, hardware is healthy %v", status, h.hardwareHealthy)
-	if status == true && h.hardwareHealthy {
+	up, err := h.isUp(ctx, model.MacDecode(mac))
+	if err != nil {
+		publish(invalidConfigurationEvent{fmt.Sprintf("could not get device: %v", err)})
+		return
+	}
+
+	if status == true && up {
 		publish(event)
 	} else if status == false {
 		publish(event)
@@ -494,7 +573,7 @@ func (bus *mockEventBus) subscribe(handler handler) { bus.handlers = append(bus.
 
 func (bus *mockEventBus) publish(event event) {
 	bus.eventHistory = append(bus.eventHistory, event)
-	bus.log("publishing event: %s", event.String())
+	bus.log("publishing event: %s: %v", event.String(), event)
 
 	for _, handler := range bus.handlers {
 		err := handler(event)

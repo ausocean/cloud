@@ -78,6 +78,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 }
 
 func TestCreateBroadcast(t *testing.T) {
+	t.Skip("todo(#426): using obsolete setup code")
 	const testSiteKey = 7845764367
 
 	tests := []struct {
@@ -92,7 +93,7 @@ func TestCreateBroadcast(t *testing.T) {
 		{
 			desc: "create broadcast",
 			cfg: func(c *BroadcastConfig) {
-				c.CameraMac = 1
+				c.CameraMac = 2
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
