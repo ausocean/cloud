@@ -101,6 +101,9 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
   qCnt = 0;
   done = 0;
   err = false;
+  
+  // Remove progress bar.
+  bar.destroy(); 
 }
 
 // prepQueries prepares a string array of the required queries to be made to get
@@ -165,6 +168,21 @@ function graph() {
     var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
     dateAxis.renderer.minGridDistance = 60;
     dateAxis.groupData = true;
+    dateAxis.groupCount = 500;
+    dateAxis.groupIntervals.setAll([
+      { timeUnit: "millisecond", count: 1},
+      { timeUnit: "millisecond", count: 10 },
+      { timeUnit: "millisecond", count: 100 },
+      { timeUnit: "second", count: 1 },
+      { timeUnit: "second", count: 10 },
+      { timeUnit: "minute", count: 1 },
+      { timeUnit: "minute", count: 2 },
+      { timeUnit: "minute", count: 5 },
+      { timeUnit: "minute", count: 10 },
+      { timeUnit: "minute", count: 20 },
+      { timeUnit: "hour", count: 1 },
+      { timeUnit: "hour", count: 3 }
+    ]);
 
     var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());
 
