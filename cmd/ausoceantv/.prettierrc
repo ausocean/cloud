@@ -6,6 +6,12 @@
       "options": {
         "printWidth": 2000
       }
+    },
+    {
+      "files": "*.ts",
+      "options": {
+        "printWidth": 2000
+      }
     }
   ]
 }

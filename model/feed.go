@@ -22,8 +22,11 @@ LICENSE
 package model
 
 import (
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -57,6 +60,40 @@ func (f *Feed) Copy(dst datastore.Entity) (datastore.Entity, error) {
 	}
 	*f2 = *f
 	return f2, nil
+}
+
+// PutFeed creates or updates a feed.
+func PutFeed(ctx context.Context, store datastore.Store, feed *Feed) error {
+	key := store.NameKey(typeFeed, fmt.Sprintf("%s.%s.%d", feed.Area, feed.Class, feed.ID))
+	_, err := store.Put(ctx, key, feed)
+	return err
+}
+
+// CreateFeed creates a new feed.
+func CreateFeed(ctx context.Context, store datastore.Store, feed *Feed) (*Feed, error) {
+	feed.Created = time.Now()
+	// Create a new ID until the feed saves successfully.
+	for {
+		feed.ID = utils.GenerateInt64ID()
+		key := store.NameKey(typeFeed, fmt.Sprintf("%s.%s.%d", feed.Area, feed.Class, feed.ID))
+		err := store.Create(ctx, key, feed)
+		if err == nil {
+			return feed, nil
+		} else if err != datastore.ErrEntityExists {
+			return nil, fmt.Errorf("could not create subscriber: %v", err)
+		}
+	}
+}
+
+// GetAllFeeds returns all feeds in the datastore.
+func GetAllFeeds(ctx context.Context, store datastore.Store) ([]Feed, error) {
+	q := store.NewQuery(typeFeed, false, "Area", "Class", "ID")
+	var feeds []Feed
+	_, err := store.GetAll(ctx, q, &feeds)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all feeds: %w", err)
+	}
+	return feeds, nil
 }
 
 // GetCache returns nil, indicating no caching.

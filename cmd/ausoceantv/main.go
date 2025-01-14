@@ -90,7 +90,14 @@ func registerAPIRoutes(app *fiber.App) {
 		Post("/cancel", svc.cancelSubscription)
 
 	v1.Group("/get").
-		Get("/subscription", svc.getSubscriptionHandler)
+		Get("/subscription", svc.getSubscriptionHandler).
+		Get("/feeds/all", svc.getFeedsHandler)
+
+	admin := v1.Group("/admin")
+
+	admin.Group("/feed").
+		Post("/new", svc.adminFeedNewHandler).
+		Post("/save", svc.adminFeedUpdateHandler)
 }
 
 func main() {
