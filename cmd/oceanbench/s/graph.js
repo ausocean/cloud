@@ -39,15 +39,50 @@ var bar;
 // itself to a callback function that the HTTP client uses once a response is
 // received; a side effect of using XMLHttpRequest properly i.e. asynchronously.
 async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
+  // We have some data we need to get, so set up a HTTP request and have the
+  // HTTP client callback this handler function.
+  const tzUnix = parseFloat(tz) * 3600;
+
+  if(pin == "throughput"){
+    query = throughputQuery(host, mac, pin, s, f, tz);
+    console.debug("query: %s", query);
+    fetch(query).then((resp) => {
+      if (resp.status == 200) {
+        return resp.text();
+      } else {
+        document.getElementById("graph-error").innerHTML =
+          "HTTP error, status: " +
+          resp.statusText +
+          " for URL: " +
+          resp.responseURL;
+      }
+    }).then((text) => {
+      var lines = text.split("\n");
+      for (var j = 0; j < lines.length; j++) {
+        var sub = lines[j].split(",");
+        var date = timeFormatToDate(sub[0], tzUnix);
+        var value = sub[1];
+        data.push({
+          date: date,
+          value: value,
+        });
+      }
+      graph();
+      data = [];
+      queries = [];
+      qCnt = 0;
+      err = false;
+    }).catch((err) => {
+      console.error('There was a problem with the fetch operation:', err);
+    });
+    return
+  }
+
   document.getElementById("graph-error").innerHTML = "";
   bar = new ProgressBar.Line("#progress", {
     easing: "easeInOut",
   });
   prepQueries(host, skey, mac, pin, s, f, tz, res);
-
-  // We have some data we need to get, so set up a HTTP request and have the
-  // HTTP client callback this handler function.
-  const tzUnix = parseFloat(tz) * 3600;
 
   // Store the responses from the queries in order.
   let responses = new Array(queries.length);
@@ -101,6 +136,27 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
   qCnt = 0;
   done = 0;
   err = false;
+}
+
+function throughputQuery(host, mac, pin, s, f, tz){
+  // Query URL characteristics.
+  const request = "/throughputs";
+  const exportFormat = "csv";
+
+  var baseURL = host + request;
+
+  var params = {
+    ma: mac,
+    pn: pin,
+    do: exportFormat,
+    ds: s.toString(),
+    df: f.toString(),
+    tz: tz,
+  };
+
+  var queryParams = encodeQuery(params);
+  var url = baseURL + "?" + queryParams;
+  return url
 }
 
 // prepQueries prepares a string array of the required queries to be made to get

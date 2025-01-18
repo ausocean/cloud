@@ -197,3 +197,103 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	return
 }
+
+func throughputsHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+	setup(ctx)
+
+	q := r.URL.Query()
+	ma := q.Get("ma") // Mac.
+	do := q.Get("do") // Data output format (e.g. csv).
+	ds := q.Get("ds") // Data start as Unix timestamp.
+	df := q.Get("df") // Data finish as Unix timestamp.
+	tz := q.Get("tz") // Timezone.
+
+	if do == "" {
+		do = defaultOutFmt
+	}
+	if !strings.Contains(validFmts, do) {
+		writeError(w, fmt.Errorf("invalid data format: %s", do))
+		return
+	}
+
+	stUnix, err := strconv.ParseInt(ds, 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("invalid start time: %w", err))
+		return
+	}
+	ftUnix, err := strconv.ParseInt(df, 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("invalid finish time: %w", err))
+		return
+	}
+	tzUnix, err := strconv.ParseFloat(tz, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("invalid timezone: %w", err))
+		return
+	}
+
+	// Get the throughput data for the device.
+	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
+	if err != nil {
+		writeError(w, fmt.Errorf("could not get device: %w", err))
+		return
+	}
+	start := time.Unix(stUnix, 0).In(fixedTimezone(tzUnix))
+	end := time.Unix(ftUnix, 0).In(fixedTimezone(tzUnix))
+	throughputs, err := throughputsFor(ctx, dev, start, end)
+	if err != nil {
+		writeError(w, fmt.Errorf("could not get throughputs for provided period: %w", err))
+		return
+	}
+
+	const timeFmt = "2006-01-02 15:04"
+	switch do {
+	case "csv":
+		csvw := csv.NewWriter(w)
+		for i, throughput := range throughputs {
+			ts := start.Add(countPeriod * time.Duration(i)).Format(timeFmt)
+			err := csvw.Write([]string{ts, strconv.FormatFloat(throughput, 'f', 3, 64)})
+			if err != nil {
+				writeError(w, fmt.Errorf("could not write csv scalar record: %w", err))
+				return
+			}
+		}
+		csvw.Flush()
+
+	case "json":
+		enc := json.NewEncoder(w)
+
+		type throughputData struct {
+			d string
+			v float64
+		}
+
+		type throughputOut struct {
+			MA string           `json:"ma"`
+			TZ string           `json:"tz"`
+			TD []throughputData `json:"td"`
+		}
+
+		out := throughputOut{
+			MA: ma,
+			TZ: tz,
+			TD: make([]throughputData, len(throughputs)),
+		}
+
+		for i, throughput := range throughputs {
+			ts := start.Add(countPeriod * time.Duration(i)).Format(timeFmt)
+			out.TD[i].d = ts
+			out.TD[i].v = throughput
+		}
+
+		err = enc.Encode(out)
+		if err != nil {
+			writeError(w, fmt.Errorf("could not encode json scalar record: %w", err))
+			return
+		}
+	default:
+		writeError(w, fmt.Errorf("unimplemented data output format: %s", do))
+	}
+}

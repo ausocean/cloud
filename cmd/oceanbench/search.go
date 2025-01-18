@@ -212,6 +212,11 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	// Calculate search period.
 	sd.Period = calcPeriod(sd.St, sd.Ft)
 
+	if sd.Pn == "throughput" {
+		writeTemplate(w, r, searchTemplate, &sd, "")
+		return
+	}
+
 	sd.PinType = sd.Pn[0]
 	switch sd.PinType {
 	case 'T':

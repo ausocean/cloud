@@ -238,6 +238,7 @@ func main() {
 	http.HandleFunc("/admin/broadcast", adminHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
 	http.HandleFunc("/data/", dataHandler)
+	http.HandleFunc("/throughputs", throughputsHandler)
 	http.HandleFunc("/", indexHandler)
 
 	if standalone {
