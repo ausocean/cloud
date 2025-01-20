@@ -29,10 +29,11 @@ LICENSE
   If not, see http://www.gnu.org/licenses.
 */
 
-var data = [];
-var queries = [];
-var qCnt = 0;
-var bar;
+let data = [];
+let queries = [];
+let chart;
+let qCnt = 0;
+let bar;
 
 // graphHandler handles the collection and graphing of data for the specified
 // mac, pin, site key and start and end times. This works recursively by handling
@@ -81,6 +82,7 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
   await Promise.all(fetchPromises);
 
   // Need to parse the CSV response string and get components.
+  data = [];
   for (let i = 0; i < queries.length; i++) {
     var lines = responses[i].split("\n");
     for (var j = 0; j < lines.length; j++) {
@@ -96,7 +98,6 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
 
   console.log("got all data");
   graph();
-  data = [];
   queries = [];
   qCnt = 0;
   done = 0;
@@ -152,6 +153,13 @@ function prepQueries(host, skey, mac, pin, s, f, tz, res) {
 // in the global data array.
 function graph() {
   console.log("graphing");
+
+  // Dispose of existing chart if it exists.
+  if (chart) {
+    chart.dispose();
+    chart = null;
+  }
+
   document.getElementById("graph").innerHTML = `
     <div id="chartdiv"></div>
   `;
@@ -160,14 +168,26 @@ function graph() {
     // Themes begin
     am4core.useTheme(am4themes_animated);
     // Themes end
-    var chart = am4core.create("chartdiv", am4charts.XYChart);
+    chart = am4core.create("chartdiv", am4charts.XYChart);
 
     chart.data = data;
 
     // Create axes
     var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
     dateAxis.renderer.minGridDistance = 60;
-    dateAxis.groupData = true;
+    
+    const isChecked = document.getElementById("groupDataToggle").checked;
+    if (isChecked) {
+      dateAxis.groupData = true;
+    } else {
+      dateAxis.groupData = false;
+    }
+
+    // When the number of points displayed is greater than groupCount, the graph will
+    // use the smallest interval to bring the number of point shown to less than groupCount.
+    // Relevant documentation here: https://www.amcharts.com/docs/v4/reference/dateaxis/#groupIntervals_property
+    // No interval bigger than 3 hours was added because it's useful to see the peaks and troughs in daily
+    // battery voltage over large spans of time.
     dateAxis.groupCount = 500;
     dateAxis.groupIntervals.setAll([
       { timeUnit: "millisecond", count: 1},
@@ -200,6 +220,16 @@ function graph() {
 
     chart.scrollbarX = new am4core.Scrollbar();
   });
+  console.log("graphing done");
+}
+
+function toggleGrouping() {
+  if (chart){
+    chart.invalidateRawData();
+    graph();
+  } else {
+    console.log("no chart to toggle grouping yet");
+  }
 }
 
 // asyncHTTPGet performs a HTTP GET request to the specified URL. This works
