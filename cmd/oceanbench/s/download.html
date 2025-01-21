@@ -1,43 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="/s/main.css" rel="stylesheet" type="text/css"/>
-  <title>VidGrind media downloader</title>
-  <script type="text/javascript" src="/s/main.js" ></script>
-</head>
-<body>
-<section>
-<h1><img src="/s/tiny_logo.png" alt="AusOcean logo"> Media downloader</h1>
-<form action="/play" method="GET">
-  <fieldset>
-    <label>App key:</label>
-    <input type="input" name="ak">
-    <br>
-    <label>Media ID:</label>
-    <input type="input" name="id" id="id">
-    <br>
-    <label>Timestamp*:</label>
-    <input type="input" name="ts">
-    <br>
-    <label>Output:</label>
-    <input type="radio" name="output" value="" checked>MPEG-TS&nbsp;<input type="radio" name="output" value="m3u">M3U8
-    <br>
-    <input type="submit" value="Download" name="submit">
-  </fieldset>
-</form>
-<br>
-<br>
-<button onClick="updateMID('ma','pn','id');">Convert to Media ID</button>
-MAC:<input type="input" id="ma" placeholder="00:00:00:00:00:00"> Pin:<input type="input" id="pn" value="V0">
-<br>
-<br>
-<p class="fineprint">* Either a single Unix timestamp or hyphen-separated timestamps (t1-t2).</p>
-</section>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <title>VidGrind media downloader</title>
+    <script type="text/javascript" src="/s/main.js"></script>
+  </head>
+  <body>
+    <section>
+      <h1>
+        <img src="/s/tiny_logo.png" alt="AusOcean logo" />
+        Media downloader
+      </h1>
+      <form action="/play" method="GET">
+        <fieldset>
+          <label>App key:</label>
+          <input type="input" name="ak" />
+          <br />
+          <label>Media ID:</label>
+          <input type="input" name="id" id="id" />
+          <br />
+          <label>Timestamp*:</label>
+          <input type="input" name="ts" />
+          <br />
+          <label>Output:</label>
+          <input type="radio" name="output" value="" checked />
+          MPEG-TS&nbsp;
+          <input type="radio" name="output" value="m3u" />
+          M3U8
+          <br />
+          <input type="submit" value="Download" name="submit" />
+        </fieldset>
+      </form>
+      <br />
+      <br />
+      <button onClick="updateMID('ma','pn','id');">Convert to Media ID</button>
+      MAC:
+      <input type="input" id="ma" placeholder="00:00:00:00:00:00" />
+      Pin:
+      <input type="input" id="pn" value="V0" />
+      <br />
+      <br />
+      <p class="fineprint">* Either a single Unix timestamp or hyphen-separated timestamps (t1-t2).</p>
+    </section>
 
-<footer id="footer">
-  <p>&copy;2019-2021 Australian Ocean Laboratory Limited (AusOcean) (<a rel="license" href="https://www.ausocean.org/license">License</a>)</p>
-</footer>
-</body>
+    <footer id="footer">
+      <p>
+        &copy;2019-2021 Australian Ocean Laboratory Limited (AusOcean) (
+        <a rel="license" href="https://www.ausocean.org/license">License</a>
+        )
+      </p>
+    </footer>
+  </body>
 </html>
