@@ -481,6 +481,19 @@ func (s *directIdle) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 
+type directFailure struct {
+	stateFields
+	*broadcastContext `json: "-"`
+}
+
+func newDirectFailure(ctx *broadcastContext) *directFailure {
+	return &directFailure{broadcastContext: ctx}
+}
+func (s *directFailure) enter() {
+	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct failure entry", s.log)
+	s.bus.publish(hardwareStopRequestEvent{})
+}
+
 func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 	switch state.(type) {
 	case *vidforwardPermanentLive:
@@ -490,6 +503,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardPermanentTransitionLiveToSlate:
 		cfg.Active = true
 		cfg.Slate = false
@@ -497,6 +511,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = true
+		cfg.InFailure = false
 	case *vidforwardPermanentLiveUnhealthy:
 		cfg.Active = true
 		cfg.Slate = false
@@ -504,6 +519,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = true
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardPermanentSlate:
 		cfg.Active = true
 		cfg.Slate = true
@@ -511,6 +527,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardPermanentTransitionSlateToLive:
 		cfg.Active = true
 		cfg.Slate = true
@@ -519,6 +536,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.Unhealthy = false
 		cfg.Transitioning = true
 		cfg.RecoveringVoltage = false
+		cfg.InFailure = false
 	case *vidforwardPermanentVoltageRecoverySlate:
 		cfg.Active = true
 		cfg.Slate = true
@@ -527,6 +545,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.Unhealthy = false
 		cfg.Transitioning = true
 		cfg.RecoveringVoltage = true
+		cfg.InFailure = false
 	case *vidforwardPermanentSlateUnhealthy:
 		cfg.Active = true
 		cfg.Slate = true
@@ -534,6 +553,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = true
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardPermanentFailure:
 		cfg.Active = true
 		cfg.Slate = true
@@ -549,6 +569,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardPermanentStarting:
 		cfg.Active = false
 		cfg.Slate = false
@@ -556,6 +577,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = true
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardSecondaryLive:
 		cfg.Active = true
 		cfg.Slate = false
@@ -563,6 +585,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardSecondaryLiveUnhealthy:
 		cfg.Active = true
 		cfg.Slate = false
@@ -570,6 +593,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = true
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardSecondaryIdle:
 		cfg.Active = false
 		cfg.Slate = false
@@ -577,6 +601,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *vidforwardSecondaryStarting:
 		cfg.Active = false
 		cfg.Slate = false
@@ -584,6 +609,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = true
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *directLive:
 		cfg.Active = true
 		cfg.Slate = false
@@ -591,6 +617,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *directLiveUnhealthy:
 		cfg.Active = true
 		cfg.Slate = false
@@ -598,6 +625,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = true
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	case *directIdle:
 		cfg.Active = false
 		cfg.Slate = false
@@ -605,6 +633,15 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = false
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
+	case *directFailure:
+		cfg.Active = false
+		cfg.Slate = false
+		cfg.UsingVidforward = false
+		cfg.AttemptingToStart = false
+		cfg.Unhealthy = false
+		cfg.Transitioning = false
+		cfg.InFailure = true
 	case *directStarting:
 		cfg.Active = false
 		cfg.Slate = false
@@ -612,6 +649,7 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 		cfg.AttemptingToStart = true
 		cfg.Unhealthy = false
 		cfg.Transitioning = false
+		cfg.InFailure = false
 	default:
 		panic(fmt.Sprintf("unknown state: %v", stateToString(state)))
 	}
@@ -621,6 +659,8 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 	if err != nil {
 		panic(fmt.Sprintf("could not marshal state data: %v", err))
 	}
+
+	cfg.BroadcastState = stateToString(state)
 }
 
 func broadcastCfgToState(ctx *broadcastContext) state {
@@ -637,50 +677,52 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 	)
 	var newState state
 	switch {
-	case vid && !slate && !unhealthy && starting && !isSecondary:
+	case vid && !slate && !unhealthy && starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentStarting(ctx)
-	case vid && active && !slate && !unhealthy && !starting && !isSecondary && !transitioning:
+	case vid && active && !slate && !unhealthy && !starting && !isSecondary && !transitioning && !inFailure:
 		newState = newVidforwardPermanentLive()
-	case vid && active && !slate && !unhealthy && !starting && !isSecondary && transitioning:
+	case vid && active && !slate && !unhealthy && !starting && !isSecondary && transitioning && !inFailure:
 		newState = newVidforwardPermanentTransitionLiveToSlate(ctx)
-	case vid && active && !slate && unhealthy && !starting && !isSecondary:
+	case vid && active && !slate && unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentLiveUnhealthy(ctx)
 	case vid && active && slate && !unhealthy && !starting && !isSecondary && !transitioning && !inFailure:
 		newState = newVidforwardPermanentSlate()
-	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && !recoveringVoltage:
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && !recoveringVoltage && !inFailure:
 		newState = newVidforwardPermanentTransitionSlateToLive(ctx)
-	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && recoveringVoltage:
+	case vid && active && slate && !unhealthy && !starting && !isSecondary && transitioning && recoveringVoltage && !inFailure:
 		newState = newVidforwardPermanentVoltageRecoverySlate(ctx)
 	case vid && active && slate && unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentSlateUnhealthy(ctx)
-	case vid && !active && !slate && !unhealthy && !starting && !isSecondary:
+	case vid && !active && !slate && !unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newVidforwardPermanentIdle(ctx)
 	case vid && active && slate && !unhealthy && !starting && !isSecondary && inFailure:
 		newState = newVidforwardPermanentFailure(ctx)
-	case !vid && active && !slate && !unhealthy && !starting && isSecondary:
+	case !vid && active && !slate && !unhealthy && !starting && isSecondary && !inFailure:
 		fallthrough
-	case vid && active && !slate && !unhealthy && !starting && isSecondary:
+	case vid && active && !slate && !unhealthy && !starting && isSecondary && !inFailure:
 		newState = newVidforwardSecondaryLive(ctx)
-	case !vid && active && !slate && unhealthy && !starting && isSecondary:
+	case !vid && active && !slate && unhealthy && !starting && isSecondary && !inFailure:
 		fallthrough
-	case vid && active && !slate && unhealthy && !starting && isSecondary:
+	case vid && active && !slate && unhealthy && !starting && isSecondary && !inFailure:
 		newState = newVidforwardSecondaryLiveUnhealthy()
-	case !vid && !active && !slate && !unhealthy && !starting && isSecondary:
+	case !vid && !active && !slate && !unhealthy && !starting && isSecondary && !inFailure:
 		fallthrough
-	case vid && !active && !slate && !unhealthy && !starting && isSecondary:
+	case vid && !active && !slate && !unhealthy && !starting && isSecondary && !inFailure:
 		newState = newVidforwardSecondaryIdle(ctx)
-	case !vid && !slate && !unhealthy && starting && isSecondary:
+	case !vid && !slate && !unhealthy && starting && isSecondary && !inFailure:
 		fallthrough
-	case vid && !slate && !unhealthy && starting && isSecondary:
+	case vid && !slate && !unhealthy && starting && isSecondary && !inFailure:
 		newState = newVidforwardSecondaryStarting(ctx)
-	case !vid && active && !slate && !unhealthy && !starting && !isSecondary:
+	case !vid && active && !slate && !unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newDirectLive(ctx)
-	case !vid && active && !slate && unhealthy && !starting && !isSecondary:
+	case !vid && active && !slate && unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newDirectLiveUnhealthy(ctx)
-	case !vid && !active && !slate && !unhealthy && !starting && !isSecondary:
+	case !vid && !active && !slate && !unhealthy && !starting && !isSecondary && !inFailure:
 		newState = newDirectIdle(ctx)
-	case !vid && !slate && !unhealthy && starting && !isSecondary:
+	case !vid && !slate && !unhealthy && starting && !isSecondary && !inFailure:
 		newState = newDirectStarting(ctx)
+	case !vid && !slate && !unhealthy && starting && !isSecondary && inFailure:
+		newState = newDirectFailure(ctx)
 	default:
 		panic(fmt.Sprintf("unknown state for broadcast, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", vid, active, slate, unhealthy, starting, isSecondary, transitioning))
 	}
@@ -740,15 +782,20 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirstFail bool) func(err error) {
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
-		ctx.bus.publish(startFailedEvent{})
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
+				// Critical start failure event. This means we've tried too many times (which could be even once).
+				ctx.bus.publish(criticalFailureEvent{})
+				ctx.logAndNotify(broadcastGeneric, "broadcast start failure limit reached after %d attempts, entering broadcast failure state, error: %v)", _cfg.StartFailures, err)
 				_cfg.StartFailures = 0
-				_cfg.Enabled = false
-				ctx.logAndNotify(broadcastGeneric, "failed to start %d times, disabling (disabled on first start: %v, error: %v)", maxStartFailures, disableOnFirstFail, err)
+				return
 			}
+
+			// Less critical start failure event; this will give us another chance to broadcast
+			// if disableOnFirstFail is false.
+			ctx.bus.publish(startFailedEvent{})
 		}),
 			"could not update config after failed start",
 			ctx.log,

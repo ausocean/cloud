@@ -648,6 +648,7 @@ func TestVidgrindFileAccess(t *testing.T) {
 	testScalar(t, "file")
 	testActuator(t, "file")
 	testMtsDurations(t, "file")
+	testSubscriber(t, "file")
 }
 
 func TestVidgrindCloudAccess(t *testing.T) {
@@ -660,6 +661,7 @@ func TestVidgrindCloudAccess(t *testing.T) {
 	testScalar(t, "cloud")
 	testActuator(t, "cloud")
 	testMtsDurations(t, "cloud")
+	testSubscriber(t, "cloud")
 }
 
 // testMtsMedia tests MtsMedia methods.

@@ -65,6 +65,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
@@ -72,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.24.5"
+	version     = "v0.25.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -265,7 +266,7 @@ func main() {
 	} else {
 		log.Printf("Initializing OAuth2")
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-		auth.Init()
+		auth.Init(backend.NewNetHandler(nil, nil, nil))
 		host = "" // Host is determined by App Engine.
 	}
 

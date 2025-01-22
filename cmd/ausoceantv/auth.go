@@ -25,65 +25,39 @@ LICENSE
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/datastore"
-	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
+
+	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/gauth"
 )
 
 // loginHandler handles login requests, and starts the oauth2 login flow.
 func (svc *service) loginHandler(c *fiber.Ctx) error {
-	p, _ := svc.GetProfile(c)
+	p, _ := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if p != nil {
-		return c.Redirect(c.FormValue("target", "/"), fiber.StatusFound)
+		return c.Redirect(c.FormValue("redirect", "/"), fiber.StatusFound)
 	}
-	return svc.LoginHandler(c)
+	return svc.auth.LoginHandler(backend.NewFiberHandler(c))
 }
 
 // logoutHandler removes the current session, and logs out the user.
 func (svc *service) logoutHandler(c *fiber.Ctx) error {
-	return svc.LogoutHandler(c)
+	return svc.auth.LogoutHandler(backend.NewFiberHandler(c))
 }
 
 // callbackHandler handles callbacks from google's oauth2 flow.
 func (svc *service) callbackHandler(c *fiber.Ctx) error {
-	err := svc.CallbackHandler(c)
-	if err != nil {
-		return fmt.Errorf("error handling callback: %w", err)
-	}
-
-	// Check if a user already exists.
-	p, err := svc.GetProfile(c)
-	if errors.Is(err, SessionNotFound) || errors.Is(err, TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
-	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
-	}
-
-	ctx := context.Background()
-
-	_, err = model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, datastore.ErrNoSuchEntity) {
-		return fmt.Errorf("failed getting subscriber by email: %w", err)
-	}
-
-	newSub := model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
-
-	// Create a new subscriber.
-	return model.CreateSubscriber(ctx, svc.settingsStore, &newSub)
+	return svc.auth.CallbackHandler(backend.NewFiberHandler(c))
 }
 
 // profileHandler handles requests to get the profile of the logged in user.
 func (svc *service) profileHandler(c *fiber.Ctx) error {
-	p, err := svc.GetProfile(c)
-	if errors.Is(err, SessionNotFound) || errors.Is(err, TokenNotFound) {
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
 		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
 	} else if err != nil {
 		return fmt.Errorf("unable to get profile: %w", err)

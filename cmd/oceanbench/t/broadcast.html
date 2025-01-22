@@ -125,6 +125,18 @@
                   <input class="w-50 form-control" id="time-zone" size="1" value="{{with .Site}}{{if .Timezone}}{{.Timezone}}{{end}}{{end}}" readonly>
                 </div>
               </div>
+              <div class="d-flex align-items-center gap-1 mb-1">
+                <label class="w-25 text-end">Broadcast State:</label>
+                <input class="w-50 align-items-center form-control" id="broadcast-state" size="1" value="{{.CurrentBroadcast.BroadcastState}}" readonly>
+              </div>
+              <div class="d-flex align-items-center gap-1 mb-1">
+                <label class="w-25 text-end">Hardware State:</label>
+                <input class="w-50 align-items-center form-control" id="hardware-state" size="1" value="{{.CurrentBroadcast.HardwareState}}" readonly>
+              </div>
+              <div class="d-flex align-items-center gap-1 mb-1">
+                <label class="w-25 text-end">Hardware State Data:</label>
+                <input class="w-50 align-items-center form-control" id="hardware-state-data" size="1" value="{{.CurrentBroadcast.PrettyHardwareStateData}}" readonly>
+              </div>
             </div>
           </fieldset>
           <h2 class="pt-5">Device Settings</h2>

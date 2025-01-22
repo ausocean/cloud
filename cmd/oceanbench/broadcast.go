@@ -141,6 +141,7 @@ type BroadcastConfig struct {
 	Enabled                  bool          // Is the broadcast enabled? If not, it will not be started.
 	Events                   []string      // Holds names of events that are yet to be handled.
 	Unhealthy                bool          // True if the broadcast is unhealthy.
+	BroadcastState           string        // Holds the current state of the broadcast.
 	HardwareState            string        // Holds the current state of the hardware.
 	StartFailures            int           // The number of times the broadcast has failed to start.
 	Transitioning            bool          // If the broadcast is transition from live to slate, or vice versa.
@@ -153,6 +154,10 @@ type BroadcastConfig struct {
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
 	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string        // The capture source to register the stream to.
+}
+
+func (b *BroadcastConfig) PrettyHardwareStateData() string {
+	return string(b.HardwareStateData)
 }
 
 // SensorEntry contains the information for each sensor.
@@ -345,7 +350,13 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
 		err = model.PutCron(context.Background(), settingsStore, c)
 		if err != nil {
-			reportError(w, r, req, "Warning: failed to verify checkbroadcasts cron: %v", err)
+			reportError(w, r, req, "warning: failed to verify checkbroadcasts cron: %v", err)
+			return
+		}
+
+		err = cronScheduler.Set(c)
+		if err != nil {
+			reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
 			return
 		}
 
@@ -575,8 +586,14 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	log.Printf("redirecting to livestream link, link: %s", v.Value)
-	http.Redirect(w, r, v.Value, http.StatusFound)
+	// Provide embed link if requested.
+	redirectURL := v.Value
+	if _, ok := r.URL.Query()["embed"]; ok {
+		redirectURL = strings.ReplaceAll(redirectURL, "watch?v=", "embed/")
+	}
+
+	log.Printf("redirecting to livestream link, link: %s", redirectURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // incrementVisitCount increments the visits counter for the given stream name.

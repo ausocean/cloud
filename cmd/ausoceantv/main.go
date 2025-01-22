@@ -26,20 +26,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/cmd/ausoceantv/dsclient"
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
@@ -50,7 +53,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.1.5"
+	version       = "v0.3.0"
 )
 
 // service defines the properties of our web service.
@@ -59,8 +62,9 @@ type service struct {
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
+	development   bool
 	storePath     string
-	auth          *UserAuth
+	auth          *gauth.UserAuth
 }
 
 // svc is an instance of our service.
@@ -80,7 +84,13 @@ func registerAPIRoutes(app *fiber.App) {
 
 	v1.Group("/stripe").
 		Options("/create-payment-intent", svc.preFlightOK).
-		Post("/create-payment-intent", svc.handleCreatePaymentIntent)
+		Post("/create-payment-intent", svc.handleCreatePaymentIntent).
+		Get("/price/:id", svc.handleGetPrice).
+		Get("/product/:id", svc.handleGetProduct).
+		Post("/cancel", svc.cancelSubscription)
+
+	v1.Group("/get").
+		Get("/subscription", svc.getSubscriptionHandler)
 }
 
 func main() {
@@ -91,6 +101,11 @@ func main() {
 		if err == nil {
 			defaultPort = i
 		}
+	}
+
+	v = os.Getenv("DEVELOPMENT")
+	if v != "" {
+		svc.development = true
 	}
 
 	var host string
@@ -105,9 +120,19 @@ func main() {
 	// Create app.
 	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
 
-	// Perform one-time setup or bail.
+	// Encrypt cookies.
+	// NOTE: This must be done before any middleware which uses cookies.
 	ctx := context.Background()
-	svc.setup(ctx, app)
+	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Panicf("unable to get sessionKey secret: %v", err)
+	}
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: key,
+	}))
+
+	// Perform one-time setup or bail.
+	svc.setup(ctx)
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -158,7 +183,7 @@ func (svc *service) versionHandler(ctx *fiber.Ctx) error {
 //
 // NOTE: This function must be called before any middleware which uses
 // cookies is attached to the app.
-func (svc *service) setup(ctx context.Context, app *fiber.App) {
+func (svc *service) setup(ctx context.Context) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
@@ -178,15 +203,34 @@ func (svc *service) setup(ctx context.Context, app *fiber.App) {
 
 	// Initialise OAuth2.
 	log.Info("Initializing OAuth2")
-	svc.auth = &UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-	svc.auth.Init()
+	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	svc.auth.Init(backend.NewFiberHandler(nil))
+}
 
-	// Encrypt cookies.
-	// NOTE: This must be done before any middleware which uses cookies.
-	app.Use(encryptcookie.New(encryptcookie.Config{
-		Key: svc.auth.sessionKey,
-	}))
+func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
+	ctx := context.Background()
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
+		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+	} else if err != nil {
+		return fmt.Errorf("unable to get profile: %w", err)
+	}
 
-	// Create Fiber Session store (in memory).
-	svc.auth.sessionStore = session.New()
+	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	if err != nil {
+		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
+	}
+
+	subscription, err := model.GetSubscription(ctx, svc.settingsStore, subscriber.ID, model.NoFeedID)
+	if err != nil {
+		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
+	}
+
+	// Check that the current time is prior to the end date of the subscription.
+	// ie. the subscription hasn't expired and is still valid.
+	if subscription.Finish.Before(time.Now()) {
+		return c.JSON(nil)
+	}
+
+	return c.JSON(subscription)
 }

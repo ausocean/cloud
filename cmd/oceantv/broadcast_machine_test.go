@@ -1626,7 +1626,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				startEvent{},
 				hardwareStartRequestEvent{},
 				controllerFailureEvent{},
-				startFailedEvent{},
+				criticalFailureEvent{},
 				hardwareStopRequestEvent{},
 				hardwareStopRequestEvent{},
 			},
