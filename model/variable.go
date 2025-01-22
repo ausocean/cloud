@@ -26,6 +26,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"strconv"
@@ -150,9 +151,15 @@ func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey i
 
 	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
 	var variable Variable
-	err := store.Get(ctx, key, &variable)
 
-	if err == datastore.ErrNoSuchEntity {
+update:
+	err := store.Update(ctx, key, func(entity datastore.Entity) {
+		if v, ok := entity.(*Variable); ok {
+			v.Value = updateFunc(v.Value)
+			v.Updated = time.Now()
+		}
+	}, &variable)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
 		// The variable doesn't exist, initialize it with an empty value.
 		variable = Variable{
 			Skey:    skey,
@@ -163,17 +170,16 @@ func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey i
 		}
 
 		// Create the variable in the datastore.
-		if createErr := store.Create(ctx, key, &variable); createErr != nil {
-			return fmt.Errorf("failed to create variable: %w", createErr)
+		err := store.Create(ctx, key, &variable)
+		if errors.Is(err, datastore.ErrEntityExists) {
+			// do nothing.
 		}
+		if err != nil {
+			return fmt.Errorf("failed to create variable: %w", err)
+		}
+		goto update
 	}
 
-	err = store.Update(ctx, key, func(entity datastore.Entity) {
-		if v, ok := entity.(*Variable); ok {
-			v.Value = updateFunc(v.Value)
-			v.Updated = time.Now()
-		}
-	}, &variable)
 	if err != nil {
 		return fmt.Errorf("failed to update variable: %w", err)
 	}
