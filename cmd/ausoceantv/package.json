@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "format": "prettier --write ./",
-    "format:watch": "onchange \"**/*\" -- prettier --write --ignore-unknown {{changed}}",
+    "format": "prettier --write \"**/*.{html,css,js,ts,json}\"",
+    "format:watch": "onchange \"**/*.{html,css,js,ts,json}\" -- prettier --write --ignore-unknown {{changed}}",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "deploy": "../../deploy.sh ausoceantv",
