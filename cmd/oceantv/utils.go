@@ -112,7 +112,7 @@ func setVar(ctx context.Context, store datastore.Store, name, value string, sKey
 // the datastore. An error is returned if there's no match or for other issues.
 func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
 	// Load config information for any prior broadcasts that have been saved.
-	vars, err := model.GetVariablesBySite(context.Background(), settingsStore, sKey, broadcastScope)
+	vars, err := model.GetVariablesBySite(context.Background(), store, sKey, broadcastScope)
 	if err != nil {
 		return nil, fmt.Errorf("could not get broadcast variables by site: %w", err)
 	}
