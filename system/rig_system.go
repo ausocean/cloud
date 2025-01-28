@@ -145,9 +145,9 @@ func WithRigSystemDefaults() func(any) error {
 // NewRigSystem returns a new RigSystem with the given options. It is the callers
 // responsibility to put the components into the datastore.
 //
-// MAC and name refer to the MAC Address and name of the Controller which will be the heart of
-// the RigSystem.
-func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, error) {
+// dkey, MAC and name refer to the device key, MAC Address and name of the Controller which will
+// be the heart of the RigSystem.
+func NewRigSystem(skey, dkey int64, MAC, name string, options ...Option) (*RigSystem, error) {
 	if model.MacEncode(MAC) == 0 {
 		return nil, model.ErrInvalidMACAddress
 	}
@@ -155,6 +155,7 @@ func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, 
 	sys := &RigSystem{
 		Controller: model.Device{
 			Skey:          skey,
+			Dkey:          dkey,
 			Mac:           model.MacEncode(MAC),
 			Name:          name,
 			Type:          model.DevTypeController,
