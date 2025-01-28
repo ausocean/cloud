@@ -29,18 +29,18 @@
       <div class="red">{{.Msg}}</div>
       <br />
       {{end}}
-      <h1 class="container-md">Devices</h1>
+      <h1 class="container-md">Configure</h1>
       <div class="border rounded p-4 container-md bg-white">
-        <a href="/set/devices">Manual Configuration</a>
         {{ if eq (len .Devices) 0 }} No Devices waiting to be configured {{else}}
-        <form action="/set/devices/configure" enctype="multipart/form-data" method="get">
+        <form action="/admin/sandbox/configure" enctype="multipart/form-data" method="get">
           <fieldset>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label class="col-4 text-end">Device:</label>
               <div class="col-6 d-flex gap-1">
                 <select name="ma" onchange="location.assign('?ma=' + this.value)" class="form-select h-auto align-items-center">
+                  <option value="">--New Device--</option>
                   {{range .Devices}}
-                  <option value="{{ .MAC }}" {{if eq .MAC $.Mac}} selected{{end}}>{{ .Name }}</option>
+                  <option value="{{ .MAC }}" {{if eq .MAC $.Device.MAC}} selected{{end}}>{{ .Name }}</option>
                   {{end}}
                 </select>
                 <button class="btn btn-primary h-auto">Configure</button>
@@ -60,12 +60,6 @@
           <label class="col-4 text-end">MAC:</label>
           <div class="col-6">
             <input class="form-control" value="{{.MAC}}" readonly />
-          </div>
-        </div>
-        <div class="d-flex align-items-center gap-1 mb-1">
-          <label class="col-4 text-end">Last updated:</label>
-          <div class="col-6">
-            <input class="form-control" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" disabled />
           </div>
         </div>
         <div class="d-flex align-items-center gap-1 mb-1">

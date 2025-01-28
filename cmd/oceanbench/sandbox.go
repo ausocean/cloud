@@ -13,6 +13,56 @@ import (
 	"github.com/ausocean/cloud/system"
 )
 
+type sandboxData struct {
+	Devices []model.Device
+	Mac     string
+	Device  model.Device
+	commonData
+}
+
+func sandboxHandler(w http.ResponseWriter, r *http.Request) {
+	profile, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+	skey, _ := profileData(profile)
+
+	data := sandboxData{
+		commonData: commonData{
+			Pages:   pages("home"),
+			Profile: profile,
+		},
+	}
+
+	if skey != model.SandboxSkey {
+		writeTemplate(w, r, "sandbox.html", &data, "Must be on Sandbox Site.")
+		return
+	}
+
+	ctx := context.Background()
+	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
+
+	ma := r.FormValue("ma")
+	if !model.IsMacAddress(ma) && ma != "" {
+		writeTemplate(w, r, "sandbox.html", &data, "invalid mac address")
+		return
+	}
+
+	for _, d := range data.Devices {
+		if d.MAC() == ma {
+			data.Device = d
+			break
+		}
+	}
+
+	writeTemplate(w, r, "sandbox.html", &data, "")
+	return
+}
+
 // configDevicesHandler handles configuration of new devices.
 //
 // Form Fields:
@@ -48,6 +98,13 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	ll := r.FormValue("ll")
 	sk := r.FormValue("sk")
 	r.ParseForm()
+
+	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
+	if err != nil {
+		writeError(w, fmt.Errorf("unable to get device by mac: %w", err))
+		return
+	}
+	log.Printf("got device: %+v", dev)
 
 	// Parse location.
 	var lat, long float64
@@ -98,7 +155,7 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	switch dt {
 	case model.DevTypeController:
 		// Create a controller with all default values defined in rig_system.go.
-		sys, err = system.NewRigSystem(skey, ma, dn,
+		sys, err = system.NewRigSystem(skey, dev.Dkey, ma, dn,
 			system.WithRigSystemDefaults(),
 			system.WithWifi(ssid, pass),
 			system.WithLocation(lat, long),
@@ -155,6 +212,11 @@ func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profi
 
 	// Parse form values.
 	data.MAC = r.FormValue("ma")
+	if data.MAC == "" {
+		// TODO: Allow creation of new device from Sandbox page.
+		http.Redirect(w, r, "/admin/sandbox", http.StatusFound)
+		return
+	}
 	data.DevTypes = devTypes
 	r.ParseForm()
 
