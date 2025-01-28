@@ -183,6 +183,7 @@ function graph() {
       dateAxis.groupData = false;
     }
 
+    // These are options for how many points will be displayed based on the zoom level.
     // When the number of points displayed is greater than groupCount, the graph will
     // use the smallest interval to bring the number of point shown to less than groupCount.
     // Relevant documentation here: https://www.amcharts.com/docs/v4/reference/dateaxis/#groupIntervals_property
@@ -228,7 +229,7 @@ function toggleGrouping() {
     chart.invalidateRawData();
     graph();
   } else {
-    console.log("no chart to toggle grouping yet");
+    console.warn("no chart to toggle grouping yet");
   }
 }
 
