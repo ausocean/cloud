@@ -4,7 +4,11 @@
     {
       "files": "*.html",
       "options": {
-        "printWidth": 2000
+        "printWidth": 2000,
+        "tabWidth": 2,
+        "useTabs": false,
+        "singleQuote": false,
+        "htmlWhitespaceSensitivity": "ignore"
       }
     }
   ]
