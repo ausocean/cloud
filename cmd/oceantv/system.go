@@ -155,11 +155,7 @@ func (bs *broadcastSystem) tick() error {
 	}
 
 	for _, event := range bs.ctx.cfg.Events {
-		e, err := stringToEvent(event)
-		if err != nil {
-			bs.log("could not convert event string to event: %v", err)
-			continue
-		}
+		e := stringToEvent(event)
 		bs.log("publishing stored event: %s", e.String())
 		bs.ctx.bus.publish(e)
 	}

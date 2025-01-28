@@ -1,70 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
-<head>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CloudBlue | Play</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <link href="/s/main.css" rel="stylesheet" type="text/css" />
-  <link href="/s/play.css" rel="stylesheet" type="text/css" />
-  <link href="/s/filter.css" rel="stylesheet" type="text/css" />
-  <script type="module" src="/s/lit/header-group.js"></script>
-  <script type="text/javascript" src="/s/main.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
-  <script type="text/javascript" src="/s/player/audio/pcm-to-wav.js"></script>
-  <script type="text/javascript" src="/s/player/audio/adpcm.js"></script>
-  <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/wavesurfer.js"></script>
-  <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/plugin/wavesurfer.spectrogram.js"></script>
-  <script type="module" src="/s/play.js"></script>
-</head>
-<body>
-  <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true"{{end}}>
-    <nav-menu id="nav-menu" slot="nav-menu">
-      {{range .Pages -}}
-        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
-          <a {{if .URL}}href="{{.URL}}"{{end}}{{if .Selected}} class="selected"{{end}}>{{.Name}}</a>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CloudBlue | Play</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <link href="/s/play.css" rel="stylesheet" type="text/css" />
+    <link href="/s/filter.css" rel="stylesheet" type="text/css" />
+    <script type="module" src="/s/lit/header-group.js"></script>
+    <script type="text/javascript" src="/s/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+    <script type="text/javascript" src="/s/player/audio/pcm-to-wav.js"></script>
+    <script type="text/javascript" src="/s/player/audio/adpcm.js"></script>
+    <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/wavesurfer.js"></script>
+    <script type="module" src="https://unpkg.com/wavesurfer.js@6.6.3/dist/plugin/wavesurfer.spectrogram.js"></script>
+    <script type="module" src="/s/play.js"></script>
+  </head>
+  <body>
+    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{ range .Pages -}}
+        <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
-      {{- end}}
-    </nav-menu>
-    <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}"{{end}} slot="site-menu">
-      {{range .Users -}}
-        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
-      {{- end}}
-    </site-menu>
-  </header-group>
-  <section id="main" class="main">
-    <h1 class="container-md">Play</h1>
-    <div id="msg" class="red"></div>
-    <div class="border rounded p-4 container-md bg-white">
-      <div class="d-flex flex-column gap-2">
-        <div class="d-flex gap-2">
-          <a class="btn btn-primary" id="mjpeg-tab" href="/play?out=x-motion-jpeg">Video (MJPEG)</a>
-          <a class="btn btn-primary" id="h264-tab" href="/play?out=h264">Video (H264)</a>
-          <a class="btn btn-primary" id="audio-tab" href="/play?out=pcm">Audio</a>
-        </div>
-        <div class="d-flex align-items-center gap-2">
+        {{- end }}
+      </nav-menu>
+      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+        {{ range .Users -}}
+        <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
+        {{- end }}
+      </site-menu>
+    </header-group>
+    <section id="main" class="main">
+      <h1 class="container-md">Play</h1>
+      <div id="msg" class="red"></div>
+      <div class="border rounded p-4 container-md bg-white">
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex gap-2">
+            <a class="btn btn-primary" id="mjpeg-tab" href="/play?out=x-motion-jpeg">Video (MJPEG)</a>
+            <a class="btn btn-primary" id="h264-tab" href="/play?out=h264">Video (H264)</a>
+            <a class="btn btn-primary" id="audio-tab" href="/play?out=pcm">Audio</a>
+          </div>
+          <div class="d-flex align-items-center gap-2">
             URL:
-            <input type="text" id="url" class="form-control">
+            <input type="text" id="url" class="form-control" />
             <button id="loadBtn" class="btn btn-primary">Load</button>
-        </div>
-        <div id="liverow">
+          </div>
+          <div id="liverow">
             <fieldset class="d-flex align-items-center justify-content-between gap-2">
               Media ID:
-              <input type="input" id="id" {{if .MID}} value="{{ .MID}}" {{end}} class="form-control w-25">
+              <input type="input" id="id" {{ if .MID }}value="{{ .MID }}" {{ end }} class="form-control w-25" />
               Buffer:
-              <input type="input" id="fd" value="10" size="2" class="form-control w-25"> seconds
+              <input type="input" id="fd" value="10" size="2" class="form-control w-25" />
+              seconds
               <button id="liveBtn" class="btn btn-primary w-25">Live stream</button>
             </fieldset>
+          </div>
         </div>
+        <hr />
+        <div id="specific"></div>
+        <div id="view"></div>
       </div>
-      <hr>
-      <div id="specific"></div>
-      <div id="view"></div>
-    </div>
-  </section>
-  {{.Footer}}
-</body>
-
+    </section>
+    {{ .Footer }}
+  </body>
 </html>

@@ -659,6 +659,8 @@ func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 	if err != nil {
 		panic(fmt.Sprintf("could not marshal state data: %v", err))
 	}
+
+	cfg.BroadcastState = stateToString(state)
 }
 
 func broadcastCfgToState(ctx *broadcastContext) state {

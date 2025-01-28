@@ -145,7 +145,7 @@ func TestStringToEvent(t *testing.T) {
 				}
 			}()
 
-			got, _ := stringToEvent(tt.name)
+			got := stringToEvent(tt.name)
 			if !tt.wantPanic && !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("stringToEvent() got = %v, expected %v", got, tt.expected)
 			}

@@ -127,6 +127,7 @@ type BroadcastConfig struct {
 	CameraMac                int64         // Camera hardware's MAC address.
 	ControllerMAC            int64         // Controller hardware's MAC adress (controller used to power camera).
 	OnActions                string        // A series of actions to be used for power up of camera hardware.
+	ShutdownActions          string        // A series of actions to be used for shutdown of camera hardware.
 	OffActions               string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar                  string        // The variable name that holds the RTMP URL and key.
 	Active                   bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
@@ -141,6 +142,7 @@ type BroadcastConfig struct {
 	Enabled                  bool          // Is the broadcast enabled? If not, it will not be started.
 	Events                   []string      // Holds names of events that are yet to be handled.
 	Unhealthy                bool          // True if the broadcast is unhealthy.
+	BroadcastState           string        // Holds the current state of the broadcast.
 	HardwareState            string        // Holds the current state of the hardware.
 	StartFailures            int           // The number of times the broadcast has failed to start.
 	Transitioning            bool          // If the broadcast is transition from live to slate, or vice versa.
@@ -153,6 +155,10 @@ type BroadcastConfig struct {
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
 	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string        // The capture source to register the stream to.
+}
+
+func (b *BroadcastConfig) PrettyHardwareStateData() string {
+	return string(b.HardwareStateData)
 }
 
 // SensorEntry contains the information for each sensor.
@@ -327,6 +333,18 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		msg = "channel authenticated successfully"
 	case broadcastSave:
+		// Check if we've just pulled the hardware out of a failure state.
+		// We do this by checking if the hardware was in a failure state and
+		// now it's not.
+		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
+		if err != nil {
+			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
+			return
+		}
+		if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+			cfg.HardwareState = "hardwareOff"
+		}
+
 		// If we haven't just generated a token we should keep the same account
 		// that the config previously had.
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
@@ -334,7 +352,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
 			return
 		}
-		err := saveBroadcast(ctx, &req.CurrentBroadcast)
+
+		err = saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
