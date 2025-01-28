@@ -1,6 +1,8 @@
 import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 
+export const SandboxSkey: Number = 3;
+
 @customElement('site-menu')
 class SiteMenu extends LitElement {
 
@@ -125,6 +127,10 @@ class SiteMenu extends LitElement {
             r.onreadystatechange = () => {
                 if (r.readyState == XMLHttpRequest.DONE) {
                     console.log("response from set site request: ", r.responseText);
+                    if (Number(selectedKey) == SandboxSkey) {
+                        window.location.assign("/admin/sandbox")
+                        return
+                    }
                     window.location.reload();
                 }
             }

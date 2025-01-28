@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.28.0"
+	version     = "v0.29.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -235,6 +235,7 @@ func main() {
 	http.HandleFunc("/admin/user/delete", adminHandler)
 	http.HandleFunc("/admin/site", adminHandler)
 	http.HandleFunc("/admin/broadcast", adminHandler)
+	http.HandleFunc("/admin/sandbox", sandboxHandler)
 	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
 	http.HandleFunc("/data/", dataHandler)
@@ -625,6 +626,12 @@ func pages(selected string) []page {
 		{
 			Name:  "broadcast",
 			URL:   "/admin/broadcast",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "configuration",
+			URL:   "/admin/sandbox",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
