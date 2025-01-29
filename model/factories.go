@@ -101,6 +101,76 @@ func WaterTemperatureSensor() *SensorV2 {
 	)
 }
 
+// ESP32Power1Sensor returns a Power 1 Voltage sensor for an ESP32 with
+// the given scale factor.
+func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Power 1 Voltage",
+		pinESP32Power1Voltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
+// ESP32Power2Sensor returns a Power 2 Voltage sensor for an ESP32 with
+// the given scale factor.
+func ESP32Power2Sensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Power 2 Voltage",
+		pinESP32Power2Voltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
+// ESP32Power3Sensor returns a Power 3 Voltage sensor for an ESP32 with
+// the given scale factor.
+func ESP32Power3Sensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Power 3 Voltage",
+		pinESP32Power3Voltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
+// ESP32NetworkSensor returns a Network Voltage sensor for an ESP32 with
+// the given scale factor.
+func ESP32NetworkSensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Network Voltage",
+		pinESP32NetworkVoltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
+// ESP32CurrentSensor returns a Current sensor for an ESP32 with
+// the given scale factor.
+func ESP32CurrentSensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Current Draw",
+		pinESP32Current,
+		nmea.DCCurrent,
+		funcScale,
+		unitMilliamps,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
 // NewAlarmNetworkVar returns a new AlarmNetwork var with the
 // passed number of failures as its value.
 func NewAlarmNetworkVar(numberOfFailures int) *Variable {
@@ -236,5 +306,35 @@ func NewDevice3Actuator() *ActuatorV2 {
 		"Device 3",
 		"Power3",
 		PinPower3,
+	)
+}
+
+// NewDevice1Actuator returns a new actuator to control device 1.
+// The actuator is linked to the Power 1 variable (and Pin).
+func NewESP32Device1Actuator() *ActuatorV2 {
+	return actuatorShim(
+		"Device 1",
+		"Power1",
+		PinESP32Power1,
+	)
+}
+
+// NewDevice2Actuator returns a new actuator to control device 2.
+// The actuator is linked to the Power 2 variable (and Pin).
+func NewESP32Device2Actuator() *ActuatorV2 {
+	return actuatorShim(
+		"Device 2",
+		"Power2",
+		PinESP32Power2,
+	)
+}
+
+// NewDevice3Actuator returns a new actuator to control device 3.
+// The actuator is linked to the Power 3 variable (and Pin).
+func NewESP32Device3Actuator() *ActuatorV2 {
+	return actuatorShim(
+		"Device 3",
+		"Power3",
+		PinESP32Power3,
 	)
 }
