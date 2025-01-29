@@ -17,6 +17,7 @@
     "lit": "^3.2.1"
   },
   "devDependencies": {
+    "@types/node": "^22.12.0",
     "autoprefixer": "^10.4.20",
     "onchange": "^7.1.0",
     "postcss": "^8.4.48",
