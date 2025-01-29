@@ -1,6 +1,6 @@
 import { html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { TailwindElement } from "./shared/tailwind.element.ts";
+import { TailwindElement } from "./shared/web-components/tailwind.element.ts";
 
 @customElement("plan-element")
 export class planElement extends TailwindElement() {

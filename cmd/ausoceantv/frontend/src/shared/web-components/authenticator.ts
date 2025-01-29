@@ -1,8 +1,8 @@
 import { html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { TailwindElement } from "../shared/tailwind.element.ts";
+import { TailwindElement } from "./tailwind.element.ts";
 import { provide } from "@lit/context";
-import { userContext } from "../utils/context.ts";
+import { userContext } from "./context.ts";
 import { User } from "../types/user.ts";
 
 @customElement("auth-wrapper")
