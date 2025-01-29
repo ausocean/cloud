@@ -10,7 +10,11 @@
   </head>
   <body class="h-screen">
     <auth-wrapper>
-      <div class="align-center container m-auto flex h-full flex-col justify-center">
+      <div class="relative w-full h-screen overflow-hidden">
+        <video class="absolute top-0 left-0 w-full h-full object-cover z-[-1]" autoplay muted loop>
+          <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
         <a href="https://ausocean.org" target="_blank">
           <img src="src/assets/ausocean_logo.png" class="logo m-12 mx-auto w-64" alt="AusOcean logo" />
         </a>
