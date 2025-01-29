@@ -8,12 +8,30 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body>
+  <body class="h-screen bg-gradient-to-b from-blue-800 via-black to-black text-white">
     <auth-wrapper>
-      <div class="flex flex-col">
-        <p>AusOcean TV</p>
-        <a href="watch.html" class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">Watch</a>
-        <a href="/api/v1/auth/logout" class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">Logout</a>
+      <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+        
+        <!-- Title -->
+        <h1 class="text-4xl font-extrabold mb-4 tracking-tight md:text-6xl text-blue-400">
+          Welcome to AusOcean TV
+        </h1>
+
+        <!-- Description -->
+        <p class="text-lg text-gray-300 mb-8 max-w-lg">
+          Dive underwater at the Rapid Bay Jetty, South Australia.
+        </p>
+
+        <!-- Buttons -->
+        <div class="space-y-4">
+          <a href="watch.html" class="block rounded-lg bg-gradient-to-r from-green-400 to-cyan-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:shadow-lg hover:brightness-110 transition-all">
+            Watch Now
+          </a>
+
+          <a href="/api/v1/auth/logout" class="block rounded-lg bg-gradient-to-r from-red-500 to-pink-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:shadow-lg hover:brightness-110 transition-all">
+            Logout
+          </a>
+        </div>
       </div>
     </auth-wrapper>
   </body>

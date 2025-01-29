@@ -8,16 +8,34 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="mx-0 h-screen w-full">
+  <body class="h-screen bg-gradient-to-b from-blue-800 via-black to-black text-white">
     <auth-wrapper>
-      <div id="page-column" class="mx-0 flex h-full w-full flex-col">
-        <div id="header" class="flex flex-col">
-          <h1>AusOcean TV</h1>
-          <a href="home.html" class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">&lt; Home</a>
+      <div id="page-column" class="flex flex-col h-full">
+
+        <!-- Header Section -->
+        <div id="header" class="flex flex-col items-center py-8 space-y-4 z-10">
+          <h1 class="text-4xl font-extrabold text-blue-400 tracking-tight md:text-6xl">
+            AusOcean TV
+          </h1>
+          <a href="home.html" class="rounded-lg bg-gradient-to-r from-green-400 to-cyan-500 px-6 py-3 text-lg font-semibold text-white shadow-md hover:shadow-lg hover:brightness-110 transition-all">
+            &lt; Home
+          </a>
         </div>
-        <div id="theater" class="flex w-full justify-center bg-black">
-          <iframe id="ytplayer" type="text/html" width="1920" height="500" src="https://www.youtube.com/embed/_x3g71FEp5s?autoplay=1&origin=https://ausocean.tv&mode=theater&rel=0" frameborder="0"></iframe>
+
+        <!-- Video Theater Section with Aspect Ratio Lock -->
+        <div id="theater" class="w-full relative md:px-16">
+          <!-- Aspect Ratio Box -->
+          <div class="relative w-full" style="padding-top: 56.25%;"> <!-- 16:9 Aspect Ratio (100 / (16/9)) -->
+            <iframe
+              id="ytplayer"
+              type="text/html"
+              src="https://bench.cloudblue.org/live/RapidBayLivebyAusOcean?embed"
+              frameborder="0"
+              class="absolute top-0 left-0 w-full h-full object-cover rounded-none shadow-xl"
+            ></iframe>
+          </div>
         </div>
+
       </div>
     </auth-wrapper>
   </body>

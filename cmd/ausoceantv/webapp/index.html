@@ -8,21 +8,34 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="h-screen">
+  <body class="h-screen bg-black text-white">
     <auth-wrapper>
-      <div class="relative w-full h-screen overflow-hidden">
-        <video class="absolute top-0 left-0 w-full h-full object-cover z-[-1]" autoplay muted loop>
+      <div class="relative w-full h-screen flex items-center justify-center overflow-hidden">
+        
+        <!-- Background Video -->
+        <video class="absolute top-0 left-0 w-full h-full object-cover z-[-1] opacity-75" autoplay muted loop>
           <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
-        <a href="https://ausocean.org" target="_blank">
-          <img src="src/assets/ausocean_logo.png" class="logo m-12 mx-auto w-64" alt="AusOcean logo" />
-        </a>
-        <h1 class="m-12 whitespace-nowrap text-center text-2xl font-bold sm:text-4xl md:text-6xl">Welcome to AusOcean TV</h1>
-        <button class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">
-          <a href="/api/v1/auth/login?redirect=/home.html">Sign Up</a>
-        </button>
+  
+        <!-- Foreground Content -->
+        <div class="text-center z-10 max-w-3xl p-6 bg-black/50 rounded-2xl shadow-lg backdrop-blur-sm">
+          <a href="https://ausocean.org" target="_blank">
+            <img src="src/assets/ausocean_logo.png" class="logo mb-8 mx-auto w-40 md:w-64 hover:scale-105 transition-transform" alt="AusOcean logo" />
+          </a>
+          <h1 class="mb-6 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-6xl">
+            Welcome to <span class="text-blue-400">AusOcean TV</span>
+          </h1>
+          <p class="mb-8 text-lg text-gray-200 md:text-xl">
+            Experience the wonders of Australia's oceans in real time.
+          </p>
+          <button class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-3 text-lg font-semibold text-white shadow-md hover:shadow-lg hover:brightness-110 transition-all">
+            <a href="/api/v1/auth/login?redirect=/home.html">Sign Up</a>
+          </button>
+        </div>
+  
       </div>
     </auth-wrapper>
   </body>
+  
 </html>
