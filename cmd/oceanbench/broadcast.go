@@ -337,11 +337,12 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		// We do this by checking if the hardware was in a failure state and
 		// now it's not.
 		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
-		if err != nil {
+		if errors.Is(err, ErrBroadcastNotFound{}) {
+			// Assume the broadcast is newly saved.
+		} else if err != nil {
 			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
 			return
-		}
-		if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+		} else if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
 			cfg.HardwareState = "hardwareOff"
 		}
 
