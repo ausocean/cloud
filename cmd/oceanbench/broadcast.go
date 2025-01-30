@@ -603,38 +603,30 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 
 	redirectURL := v.Value
 
-	// Append query parameters to the URL.
 	u, err := url.Parse(redirectURL)
 	if err != nil {
 		http.Error(w, "Invalid livestream URL", http.StatusInternalServerError)
 		return
 	}
-
-	// Ensure query parameters for embedding and additional YouTube options.
 	query := u.Query()
 
-	// Always add rel=0
-	query.Set("rel", "0")
-
-	// Provide embed link if requested.
+	// Append embed, mute and autoplay if present in the request query.
 	if _, ok := r.URL.Query()["embed"]; ok {
 		u.Path = strings.Replace(u.Path, "watch?v=", "embed/", 1)
+		// Always add rel=0 for embedded videos.
+		query.Set("rel", "0")
 	}
-
-	// Append mute and autoplay if present in the request query.
 	if _, ok := r.URL.Query()["mute"]; ok {
 		query.Set("mute", "1")
 	}
-
 	if _, ok := r.URL.Query()["autoplay"]; ok {
 		query.Set("autoplay", "1")
 	}
 
 	u.RawQuery = query.Encode()
-
 	redirectURL = u.String()
 
-	log.Printf("Redirecting to livestream link: %s", redirectURL)
+	log.Printf("redirecting to livestream link: %s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
