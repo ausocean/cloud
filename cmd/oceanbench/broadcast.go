@@ -607,7 +607,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURL, err = transformYouTubeURL(redirectURL, r)
 	if err != nil {
 		log.Printf("error transforming YouTube URL: %v", err)
-		http.Error(w, "invalid livestream URL", http.StatusInternalServerError)
+		writeHttpError(w, http.StatusInternalServerError, "invalid livestream URL")
 		return
 	}
 
@@ -615,30 +615,30 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
+// transformYouTubeURL transforms the YouTube URL based on options in the query parameters.
+// The options are autoplay, mute, and embed. The embed option will also cause rel=0 to be added.
+// rel=0 means that only videos from your channel will be suggested when the video is stopped.
 func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse YouTube watch URL: %w", err)
 	}
 
 	query := u.Query()
 	videoID := query.Get("v")
 	if videoID == "" {
-		return "", fmt.Errorf("invalid YouTube watch URL, missing video ID")
+		return "", errors.New("invalid YouTube watch URL, missing video ID")
 	}
 
-	// Update path if embed is requested.
-	embed := false
+	// Update path if embed is requested, otherwise keep the video ID in the query.
+	newQuery := url.Values{}
 	if _, ok := r.URL.Query()["embed"]; ok {
-		embed = true
 		u.Path = fmt.Sprintf("/embed/%s", videoID)
 		u.RawQuery = "" // Reset query parameters.
-	}
-	newQuery := url.Values{}
-
-	// Always set rel=0 for embedded videos.
-	if embed {
+		// Always set rel=0 for embedded videos.
 		newQuery.Set("rel", "0")
+	} else {
+		newQuery.Set("v", videoID)
 	}
 
 	// Conditionally set mute and autoplay if requested.
