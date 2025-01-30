@@ -50,11 +50,9 @@ const (
 	searchTemplate = "search.html"
 )
 
-// NOTE: this is a temporary work around while we have not yet implemented a
-// Sensor type in vidgrind. This map assumes devices are abiding by the
-// pin assignment conventions outlined on the netreceiver help page.
-// Ideally, we would get Sensors and their pins and derive the associated
-// names for display in the search pin list.
+// NOTE: this was implemented as a work around whilst Sensors were not yet
+// implemented. They have been left here to be default values for pins if they do not
+// have a properly defined sensor with name.
 var pinMap = map[string]string{
 	"V0":  "video",
 	"S0":  "sound",
@@ -157,7 +155,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		Exporting:  r.FormValue("export") == "true",
 		Searching:  r.FormValue("search") == "true",
 		DataHost:   dataHost,
-		PinNames:   pinMap, // ToDo: Use sensor names instead of default pin names where available.
+		PinNames:   pinMap,
 	}
 
 	ctx := r.Context()
@@ -209,8 +207,22 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sensors, err := model.GetSensorsV2(ctx, settingsStore, sd.Device.Mac)
+	if err != nil {
+		writeError(w, fmt.Errorf("unable to get sensors for device with MAC: %s, err: %w", sd.Device.MAC(), err))
+		return
+	}
+	for _, s := range sensors {
+		sd.PinNames[s.Pin] = s.Name
+	}
+
 	// Calculate search period.
 	sd.Period = calcPeriod(sd.St, sd.Ft)
+
+	if sd.Pn == "throughput" {
+		writeTemplate(w, r, searchTemplate, &sd, "")
+		return
+	}
 
 	sd.PinType = sd.Pn[0]
 	switch sd.PinType {

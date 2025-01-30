@@ -127,6 +127,7 @@ type BroadcastConfig struct {
 	CameraMac                int64         // Camera hardware's MAC address.
 	ControllerMAC            int64         // Controller hardware's MAC adress (controller used to power camera).
 	OnActions                string        // A series of actions to be used for power up of camera hardware.
+	ShutdownActions          string        // A series of actions to be used for shutdown of camera hardware.
 	OffActions               string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar                  string        // The variable name that holds the RTMP URL and key.
 	Active                   bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
@@ -332,6 +333,19 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		msg = "channel authenticated successfully"
 	case broadcastSave:
+		// Check if we've just pulled the hardware out of a failure state.
+		// We do this by checking if the hardware was in a failure state and
+		// now it's not.
+		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
+		if errors.Is(err, ErrBroadcastNotFound{}) {
+			// Assume the broadcast is newly saved.
+		} else if err != nil {
+			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
+			return
+		} else if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+			cfg.HardwareState = "hardwareOff"
+		}
+
 		// If we haven't just generated a token we should keep the same account
 		// that the config previously had.
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
@@ -339,7 +353,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
 			return
 		}
-		err := saveBroadcast(ctx, &req.CurrentBroadcast)
+
+		err = saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return

@@ -106,17 +106,19 @@ var _ = registerEvent(hardwareResetRequestEvent{})
 
 func (e hardwareResetRequestEvent) String() string { return "hardwareResetRequestEvent" }
 
-type hardwareStartFailedEvent struct{}
+type hardwareStartFailedEvent struct{ string }
 
 var _ = registerEvent(hardwareStartFailedEvent{})
 
 func (e hardwareStartFailedEvent) String() string { return "hardwareStartFailedEvent" }
+func (e hardwareStartFailedEvent) Error() string  { return e.string }
 
-type hardwareStopFailedEvent struct{}
+type hardwareStopFailedEvent struct{ string }
 
 var _ = registerEvent(hardwareStopFailedEvent{})
 
 func (e hardwareStopFailedEvent) String() string { return "hardwareStopFailedEvent" }
+func (e hardwareStopFailedEvent) Error() string  { return e.string }
 
 type hardwareStartedEvent struct{}
 
@@ -130,11 +132,12 @@ var _ = registerEvent(hardwareStoppedEvent{})
 
 func (e hardwareStoppedEvent) String() string { return "hardwareStoppedEvent" }
 
-type controllerFailureEvent struct{}
+type controllerFailureEvent struct{ string }
 
 var _ = registerEvent(controllerFailureEvent{})
 
 func (e controllerFailureEvent) String() string { return "controllerFailureEvent" }
+func (e controllerFailureEvent) Error() string  { return e.string }
 
 type slateResetRequested struct{}
 
