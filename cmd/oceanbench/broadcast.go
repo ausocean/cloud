@@ -603,31 +603,54 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 
 	redirectURL := v.Value
 
-	u, err := url.Parse(redirectURL)
+	// Transform the YouTube URL based on options in query parameters.
+	redirectURL, err = transformYouTubeURL(redirectURL, r)
 	if err != nil {
-		http.Error(w, "Invalid livestream URL", http.StatusInternalServerError)
+		log.Printf("error transforming YouTube URL: %v", err)
+		http.Error(w, "invalid livestream URL", http.StatusInternalServerError)
 		return
 	}
-	query := u.Query()
-
-	// Append embed, mute and autoplay if present in the request query.
-	if _, ok := r.URL.Query()["embed"]; ok {
-		u.Path = strings.Replace(u.Path, "watch?v=", "embed/", 1)
-		// Always add rel=0 for embedded videos.
-		query.Set("rel", "0")
-	}
-	if _, ok := r.URL.Query()["mute"]; ok {
-		query.Set("mute", "1")
-	}
-	if _, ok := r.URL.Query()["autoplay"]; ok {
-		query.Set("autoplay", "1")
-	}
-
-	u.RawQuery = query.Encode()
-	redirectURL = u.String()
 
 	log.Printf("redirecting to livestream link: %s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	query := u.Query()
+	videoID := query.Get("v")
+	if videoID == "" {
+		return "", fmt.Errorf("invalid YouTube watch URL, missing video ID")
+	}
+
+	// Update path if embed is requested.
+	embed := false
+	if _, ok := r.URL.Query()["embed"]; ok {
+		embed = true
+		u.Path = fmt.Sprintf("/embed/%s", videoID)
+		u.RawQuery = "" // Reset query parameters.
+	}
+	newQuery := url.Values{}
+
+	// Always set rel=0 for embedded videos.
+	if embed {
+		newQuery.Set("rel", "0")
+	}
+
+	// Conditionally set mute and autoplay if requested.
+	if _, ok := r.URL.Query()["mute"]; ok {
+		newQuery.Set("mute", "1")
+	}
+	if _, ok := r.URL.Query()["autoplay"]; ok {
+		newQuery.Set("autoplay", "1")
+	}
+
+	u.RawQuery = newQuery.Encode()
+	return u.String(), nil
 }
 
 // writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
