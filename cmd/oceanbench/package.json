@@ -5,8 +5,8 @@
     "build:watch": "rollup -c --watch",
     "format": "prettier --write \"**/*.html\"",
     "serve": "es-dev-server --node-resolve --watch",
-    "deploy": "../../deploy.sh -b oceanbench",
-    "deploy:dev": "../../deploy.sh -db oceanbench"
+    "deploy": "../../scripts/deploy.sh -b oceanbench",
+    "deploy:dev": "../../scripts/deploy.sh -db oceanbench"
   },
   "dependencies": {
     "es-dev-server": "^2.1.0",
