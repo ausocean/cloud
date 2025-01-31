@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -602,13 +603,54 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 
 	redirectURL := v.Value
 
-	// Provide embed link if requested.
-	if _, ok := r.URL.Query()["embed"]; ok {
-		redirectURL = strings.ReplaceAll(redirectURL, "watch?v=", "embed/")
+	// Transform the YouTube URL based on options in query parameters.
+	redirectURL, err = transformYouTubeURL(redirectURL, r)
+	if err != nil {
+		log.Printf("error transforming YouTube URL: %v", err)
+		writeHttpError(w, http.StatusInternalServerError, "invalid livestream URL")
+		return
 	}
 
-	log.Printf("redirecting to livestream link, link: %s", redirectURL)
+	log.Printf("redirecting to livestream link: %s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+// transformYouTubeURL transforms the YouTube URL based on options in the query parameters.
+// The options are autoplay, mute, and embed. The embed option will also cause rel=0 to be added.
+// rel=0 means that only videos from your channel will be suggested when the video is stopped.
+func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("could not parse YouTube watch URL: %w", err)
+	}
+
+	query := u.Query()
+	videoID := query.Get("v")
+	if videoID == "" {
+		return "", errors.New("invalid YouTube watch URL, missing video ID")
+	}
+
+	// Update path if embed is requested, otherwise keep the video ID in the query.
+	newQuery := url.Values{}
+	if _, ok := r.URL.Query()["embed"]; ok {
+		u.Path = fmt.Sprintf("/embed/%s", videoID)
+		u.RawQuery = "" // Reset query parameters.
+		// Always set rel=0 for embedded videos.
+		newQuery.Set("rel", "0")
+
+		// Conditionally set mute and autoplay if requested.
+		if _, ok := r.URL.Query()["mute"]; ok {
+			newQuery.Set("mute", "1")
+		}
+		if _, ok := r.URL.Query()["autoplay"]; ok {
+			newQuery.Set("autoplay", "1")
+		}
+	} else {
+		newQuery.Set("v", videoID)
+	}
+
+	u.RawQuery = newQuery.Encode()
+	return u.String(), nil
 }
 
 // writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
