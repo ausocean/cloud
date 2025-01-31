@@ -10,30 +10,19 @@
   </head>
   <body class="h-screen bg-gradient-to-b from-blue-800 via-black to-black text-white">
     <auth-wrapper>
-      <div id="page-column" class="flex flex-col h-full">
+      <div id="page-column" class="flex h-full flex-col">
         <!-- Header Section -->
-        <div id="header" class="flex flex-col items-center py-4 md:py-8 space-y-4 z-10">
-          <h1 class="text-4xl font-extrabold text-blue-400 tracking-tight md:text-6xl">
-            AusOcean TV
-          </h1>
-          <a href="home.html" class="rounded-lg bg-gradient-to-r from-green-400 to-cyan-500 px-6 py-3 text-lg font-semibold text-white shadow-md hover:shadow-lg hover:brightness-110 transition-all">
-            &lt; Home
-          </a>
+        <div id="header" class="z-10 flex flex-col items-center space-y-4 py-4 md:py-8">
+          <h1 class="text-4xl font-extrabold tracking-tight text-blue-400 md:text-6xl">AusOcean TV</h1>
+          <a href="home.html" class="rounded-lg bg-gradient-to-r from-green-400 to-cyan-500 px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">&lt; Home</a>
         </div>
 
         <!-- Video Theater Section -->
-        <div id="theater" class="flex-1 min-h-0 px-4 md:px-16 flex items-center">
+        <div id="theater" class="flex min-h-0 flex-1 items-center px-4 md:px-16">
           <!-- Video Container -->
-          <div class="w-full h-full max-h-[calc(100vh-16rem)] flex items-center">
-            <div class="w-full relative" style="padding-top: min(56.25%, calc(100vh - 16rem));">
-              <iframe
-                id="ytplayer"
-                type="text/html"
-                src="https://bench.cloudblue.org/live/RapidBayLivebyAusOcean?embed"
-                frameborder="0"
-                allowfullscreen
-                class="absolute top-0 left-0 w-full h-full object-contain rounded-none shadow-xl"
-              ></iframe>
+          <div class="flex h-full max-h-[calc(100vh-16rem)] w-full items-center">
+            <div class="relative w-full" style="padding-top: min(56.25%, calc(100vh - 16rem))">
+              <iframe id="ytplayer" type="text/html" src="https://bench.cloudblue.org/live/RapidBayLivebyAusOcean?embed" frameborder="0" allowfullscreen class="absolute left-0 top-0 h-full w-full rounded-none object-contain shadow-xl"></iframe>
             </div>
           </div>
         </div>
