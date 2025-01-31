@@ -637,16 +637,16 @@ func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
 		u.RawQuery = "" // Reset query parameters.
 		// Always set rel=0 for embedded videos.
 		newQuery.Set("rel", "0")
+
+		// Conditionally set mute and autoplay if requested.
+		if _, ok := r.URL.Query()["mute"]; ok {
+			newQuery.Set("mute", "1")
+		}
+		if _, ok := r.URL.Query()["autoplay"]; ok {
+			newQuery.Set("autoplay", "1")
+		}
 	} else {
 		newQuery.Set("v", videoID)
-	}
-
-	// Conditionally set mute and autoplay if requested.
-	if _, ok := r.URL.Query()["mute"]; ok {
-		newQuery.Set("mute", "1")
-	}
-	if _, ok := r.URL.Query()["autoplay"]; ok {
-		newQuery.Set("autoplay", "1")
 	}
 
 	u.RawQuery = newQuery.Encode()
