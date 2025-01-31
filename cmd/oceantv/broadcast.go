@@ -30,6 +30,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -104,6 +105,7 @@ type BroadcastConfig struct {
 	CameraMac                int64         // Camera hardware's MAC address.
 	ControllerMAC            int64         // Controller hardware's MAC adress (controller used to power camera).
 	OnActions                string        // A series of actions to be used for power up of camera hardware.
+	ShutdownActions          string        // A series of actions to be used for shutdown of camera hardware.
 	OffActions               string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar                  string        // The variable name that holds the RTMP URL and key.
 	Active                   bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
@@ -186,7 +188,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	skey := int64(claims["skey"].(float64))
-	site, err := model.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, store, skey)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %v", skey, err))
 		return
@@ -204,7 +206,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
 	var cfgVars []model.Variable
 	for _, s := range sites {
-		vars, err := model.GetVariablesBySite(ctx, settingsStore, s.Skey, broadcastScope)
+		vars, err := model.GetVariablesBySite(ctx, store, s.Skey, broadcastScope)
 		if err != nil {
 			log.Printf("could not get broadcast entities for site, skey: %d, name: %s, %v", s.Skey, s.Name, err)
 			continue
@@ -228,7 +230,7 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
 	}
 
 	for i := range cfgs {
-		err := performChecks(ctx, &cfgs[i], settingsStore)
+		err := performChecks(ctx, &cfgs[i], store)
 		if err != nil {
 			return fmt.Errorf("could not perform checks for broadcast: %s, ID: %s: %w", cfgs[i].Name, cfgs[i].ID, err)
 		}
@@ -290,7 +292,7 @@ func (e ErrInvalidEndTime) Error() string {
 func saveLinkFunc() func(string, string) error {
 	return func(key, link string) error {
 		key = removeDate(key)
-		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
+		return model.PutVariable(context.Background(), store, -1, liveScope+"."+key, link)
 	}
 }
 
@@ -304,9 +306,24 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...int
 	}
 
 	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + rtmpDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, settingsStore, log)
+	err := setActionVars(ctx, cfg.SKey, onActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
+	}
+
+	return nil
+}
+
+var errNoShutdownActions = errors.New("no shutdown actions provided")
+
+func extShutdown(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+	if cfg.ShutdownActions == "" {
+		return errNoShutdownActions
+	}
+
+	err := setActionVars(ctx, cfg.SKey, cfg.ShutdownActions, store, log)
+	if err != nil {
+		return fmt.Errorf("could not set device variables to end stream: %w", err)
 	}
 
 	return nil
@@ -319,7 +336,7 @@ func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...inte
 		return nil
 	}
 
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, settingsStore, log)
+	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables to end stream: %w", err)
 	}
@@ -423,7 +440,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := model.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, store, -1, liveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return

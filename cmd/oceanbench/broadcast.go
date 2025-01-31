@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -127,6 +128,7 @@ type BroadcastConfig struct {
 	CameraMac                int64         // Camera hardware's MAC address.
 	ControllerMAC            int64         // Controller hardware's MAC adress (controller used to power camera).
 	OnActions                string        // A series of actions to be used for power up of camera hardware.
+	ShutdownActions          string        // A series of actions to be used for shutdown of camera hardware.
 	OffActions               string        // A series of actions to be used for power down of camera hardware.
 	RTMPVar                  string        // The variable name that holds the RTMP URL and key.
 	Active                   bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
@@ -332,6 +334,19 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		msg = "channel authenticated successfully"
 	case broadcastSave:
+		// Check if we've just pulled the hardware out of a failure state.
+		// We do this by checking if the hardware was in a failure state and
+		// now it's not.
+		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
+		if errors.Is(err, ErrBroadcastNotFound{}) {
+			// Assume the broadcast is newly saved.
+		} else if err != nil {
+			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
+			return
+		} else if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+			cfg.HardwareState = "hardwareOff"
+		}
+
 		// If we haven't just generated a token we should keep the same account
 		// that the config previously had.
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
@@ -339,7 +354,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
 			return
 		}
-		err := saveBroadcast(ctx, &req.CurrentBroadcast)
+
+		err = saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
 			reportError(w, r, req, "could not save broadcast: %v", err)
 			return
@@ -534,14 +550,6 @@ func (e ErrInvalidEndTime) Error() string {
 	return fmt.Sprintf("end time (%v) is invalid relative to start time (%v)", e.end, e.start)
 }
 
-// saveLinkFunc provides a closure for saving a broadcast link with a given key.
-func saveLinkFunc() func(string, string) error {
-	return func(key, link string) error {
-		key = removeDate(key)
-		return model.PutVariable(context.Background(), settingsStore, -1, liveScope+"."+key, link)
-	}
-}
-
 func performRequestWithRetries(dest string, data any, maxRetries int) error {
 	var retries int
 retry:
@@ -572,6 +580,7 @@ retry:
 
 // liveHandler handles requests to /live/<broadcast name>. This redirects to the
 // livestream URL stored in a variable with name corresponding to the given broadcast name.
+// A counter for link visits is also kept and incremented on each visit.
 func liveHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
@@ -585,19 +594,84 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectURL := v.Value
+	// Increment the link visit count.
+	go func() {
+		bgCtx := context.Background()
+		if err := incrementVisitCount(bgCtx, settingsStore, key); err != nil {
+			log.Printf("failed to increment counter for livestream %s: %v", key, err)
+		}
+	}()
 
-	// Provide embed link if requested.
-	if _, ok := r.URL.Query()["embed"]; ok {
-		redirectURL = strings.ReplaceAll(redirectURL, "watch?v=", "embed/")
+	// Transform the YouTube URL based on options in query parameters.
+	redirectURL := v.Value
+	redirectURL, err = transformYouTubeURL(redirectURL, r)
+	if err != nil {
+		log.Printf("error transforming YouTube URL: %v", err)
+		writeHttpError(w, http.StatusInternalServerError, "invalid livestream URL")
+		return
 	}
 
-	log.Printf("redirecting to livestream link, link: %s", redirectURL)
+	log.Printf("redirecting to livestream link: %s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-// writeHttpErrorAndLog is a wrapper for writeHttpError that adds logging.
-func writeHttpErrorAndLog(w http.ResponseWriter, code int, err error) {
-	writeHttpError(w, code, err.Error())
-	log.Printf(err.Error())
+// incrementVisitCount increments the visits counter for the given stream name.
+func incrementVisitCount(ctx context.Context, store datastore.Store, streamName string) error {
+	variableName := fmt.Sprintf("visits.%s", streamName)
+
+	// Put the incremented count. A site key of -1 indicates a global variable.
+	return model.PutVariableInTransaction(ctx, store, -1, variableName, func(currentValue string) string {
+		// Parse the current count or default to 0 if the variable doesn't exist.
+		visitCount := 0
+		if currentValue != "" {
+			var err error
+			visitCount, err = strconv.Atoi(currentValue)
+			if err != nil {
+				log.Printf("could not parse visit count: %v", err)
+				return ""
+			}
+		}
+
+		// Increment the count.
+		visitCount++
+		return strconv.Itoa(visitCount)
+	})
+}
+
+// transformYouTubeURL transforms the YouTube URL based on options in the query parameters.
+// The options are autoplay, mute, and embed. The embed option will also cause rel=0 to be added.
+// rel=0 means that only videos from your channel will be suggested when the video is stopped.
+func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("could not parse YouTube watch URL: %w", err)
+	}
+
+	query := u.Query()
+	videoID := query.Get("v")
+	if videoID == "" {
+		return "", errors.New("invalid YouTube watch URL, missing video ID")
+	}
+
+	// Update path if embed is requested, otherwise keep the video ID in the query.
+	newQuery := url.Values{}
+	if _, ok := r.URL.Query()["embed"]; ok {
+		u.Path = fmt.Sprintf("/embed/%s", videoID)
+		u.RawQuery = "" // Reset query parameters.
+		// Always set rel=0 for embedded videos.
+		newQuery.Set("rel", "0")
+
+		// Conditionally set mute and autoplay if requested.
+		if _, ok := r.URL.Query()["mute"]; ok {
+			newQuery.Set("mute", "1")
+		}
+		if _, ok := r.URL.Query()["autoplay"]; ok {
+			newQuery.Set("autoplay", "1")
+		}
+	} else {
+		newQuery.Set("v", videoID)
+	}
+
+	u.RawQuery = newQuery.Encode()
+	return u.String(), nil
 }

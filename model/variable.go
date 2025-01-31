@@ -26,6 +26,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"strconv"
@@ -130,6 +131,62 @@ func PutVariable(ctx context.Context, store datastore.Store, skey int64, name, v
 		invalidateVarSum(ctx, store, skey, name)
 	}
 	return err
+}
+
+// PutVariableInTransaction updates or creates a variable in the datastore atomically.
+// First it will try to update, if that fails, it will create, then try to update again.
+//
+// Argument updateFunc is a function that takes the current value of the variable and returns a new value.
+// It is used to atomically update the variable's value in the datastore. The function should return both the updated value and any error
+// encountered during the update logic.
+func PutVariableInTransaction(ctx context.Context, store datastore.Store, skey int64, name string, updateFunc func(currentValue string) string) error {
+	// If a dot exists in the name, that indicates scope, remove any colons from the scope.
+	sep := strings.Index(name, ".")
+	scope := ""
+	if sep >= 0 {
+		scope = strings.ReplaceAll(name[:sep], ":", "")
+		name = scope + name[sep:]
+	}
+
+	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
+	var variable Variable
+
+update:
+	err := store.Update(ctx, key, func(entity datastore.Entity) {
+		if v, ok := entity.(*Variable); ok {
+			v.Value = updateFunc(v.Value)
+			v.Updated = time.Now()
+		}
+	}, &variable)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		// The variable doesn't exist, initialize it with an empty value.
+		variable = Variable{
+			Skey:    skey,
+			Name:    name,
+			Scope:   scope,
+			Value:   "",
+			Updated: time.Now(),
+		}
+
+		// Create the variable in the datastore.
+		err := store.Create(ctx, key, &variable)
+		if errors.Is(err, datastore.ErrEntityExists) {
+			// Do nothing.
+		} else if err != nil {
+			return fmt.Errorf("failed to create variable: %w", err)
+		}
+		goto update
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to update variable: %w", err)
+	}
+
+	if cache := variable.GetCache(); cache != nil {
+		cache.Set(key, &variable)
+	}
+
+	return nil
 }
 
 // GetVariable gets a variable.

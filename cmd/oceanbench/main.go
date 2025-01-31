@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.25.0"
+	version     = "v0.27.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -238,6 +238,7 @@ func main() {
 	http.HandleFunc("/admin/broadcast", adminHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
 	http.HandleFunc("/data/", dataHandler)
+	http.HandleFunc("/throughputs", throughputsHandler)
 	http.HandleFunc("/", indexHandler)
 
 	if standalone {
