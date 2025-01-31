@@ -123,8 +123,31 @@ if $DEVELOPMENT; then
     sed -i "s/# OAUTH2_CALLBACK/\OAUTH2_CALLBACK/g; s/# DEVELOPMENT/\DEVELOPMENT/g" $YAML
 else
     # Get the version from main.go in the local directory.
+    # Traverse up the directory tree until main.go is found.
+    echo "Searching for main.go in the directory tree..."
+    current_dir=$(pwd)
+
+    while [ ! -f "$current_dir/main.go" ]; do
+        echo "main.go not found in $current_dir"
+        # Move one directory up.
+        current_dir=$(dirname "$current_dir")
+        
+        # Check if we are at the root directory.
+        if [ "$current_dir" = "/" ]; then
+            echo "Error: main.go not found in any parent directory."
+            exit 1
+        fi
+    done
+
+    echo "Found main.go in directory: $current_dir"
+
     echo "Looking for version number in main.go"
-    version_line=$(grep -oP 'version\s+=\s+"v\d+\.\d+\.\d+"' "main.go")
+    main_go_file="$current_dir/main.go"
+    version_line=$(grep -oP 'version\s+=\s+"v\d+\.\d+\.\d+"' "$main_go_file")
+    if [ -z "$version_line" ]; then
+        echo "Error: No version number found in main.go."
+        exit 1
+    fi
     echo "Found version in main.go: $(echo "$version_line" | cut -d '"' -f 2)"
 
     PROMOTE="--promote"
@@ -133,7 +156,7 @@ fi
 
 echo "Deploying to version: $DEPLOYMENT_VERSION"
 
-# Deploy using app.yaml file in cloud/ directory
+# Deploy using app.yaml file in cloud/ directory.
 gcloud "app" "deploy" "--project=$1" "--version=$DEPLOYMENT_VERSION" "$PROMOTE" "--no-cache" "$YAML"
 
 if $DEVELOPMENT; then

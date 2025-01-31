@@ -9,8 +9,8 @@
     "format:watch": "onchange \"**/*.{html,css,js,ts,json}\" -- prettier --write --ignore-unknown {{changed}}",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "../../deploy.sh ausoceantv",
-    "deploy:dev": "../../deploy.sh -db ausoceantv"
+    "deploy": "../../../scripts/deploy.sh ausoceantv",
+    "deploy:dev": "../../../scripts/deploy.sh -db ausoceantv"
   },
   "dependencies": {
     "@lit/context": "^1.1.3",
