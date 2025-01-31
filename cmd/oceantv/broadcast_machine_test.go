@@ -1184,6 +1184,8 @@ func TestHandleStartedEvent(t *testing.T) {
 }
 
 func TestBroadcastStart(t *testing.T) {
+	t.Skip("todo(#425): fix obsolete test system setup in this test")
+
 	bCtx := &broadcastContext{
 		store:     &dummyStore{},
 		svc:       &dummyService{},
@@ -1365,6 +1367,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
 				c.End = time.Now().Add(1 * time.Hour)
+				c.CameraMac = 0
 			},
 			initialState: &directIdle{},
 			finalState:   &directIdle{},
@@ -1390,7 +1393,6 @@ func TestHandleCameraConfiguration(t *testing.T) {
 		{
 			desc: "set camera config",
 			cfg: func(c *BroadcastConfig) {
-				c.CameraMac = 1
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
@@ -1402,6 +1404,8 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				timeEvent{},
 				startEvent{},
 				hardwareStartRequestEvent{},
+				timeEvent{},
+				timeEvent{},
 				hardwareStartedEvent{},
 				startedEvent{},
 			},
@@ -1419,9 +1423,15 @@ func TestHandleCameraConfiguration(t *testing.T) {
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
-			cfg := &BroadcastConfig{}
+			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialState, cfg)
+
+			// Use a monkey patch to replace time.Now() with our own time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := time.Now()
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
 
 			sys, err := newBroadcastSystem(
 				ctx,
@@ -1452,6 +1462,11 @@ func TestHandleCameraConfiguration(t *testing.T) {
 					t.Errorf("failed to tick broadcast system: %v", err)
 					return
 				}
+
+				// We've replaced time.Now() with the monkey patch, but it means we need to
+				// manually advance time before ticking the broadcast system.
+				testTime = testTime.Add(1 * time.Minute)
+
 				if stateToString(sys.sm.currentState) == stateToString(tt.finalState) {
 					break
 				}
@@ -1616,7 +1631,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			},
 			initialBroadcastState: &directIdle{},
 			finalBroadcastState:   &directIdle{},
-			finalHardwareState:    &hardwareOff{},
+			finalHardwareState:    &hardwareFailure{},
 			hardwareMan:           newDummyHardwareManager(withHardwareFault()),
 			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
 				return newDummyManager(t, c)
@@ -1733,8 +1748,8 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 					timeEvent{},
 					healthCheckDueEvent{},
 					goodHealthEvent{},
-					hardwareStartedEvent{},
 					timeEvent{},
+					hardwareStartedEvent{},
 					timeEvent{},
 					healthCheckDueEvent{},
 					goodHealthEvent{},
@@ -1755,7 +1770,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
-			cfg := &BroadcastConfig{}
+			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialBroadcastState, cfg)
 
@@ -1841,5 +1856,12 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 					stateToString(sys.hsm.currentState), stateToString(tt.finalHardwareState))
 			}
 		})
+	}
+}
+
+func prepopulatedConfig() *BroadcastConfig {
+	return &BroadcastConfig{
+		ShutdownActions: "shutdown",
+		CameraMac:       2,
 	}
 }

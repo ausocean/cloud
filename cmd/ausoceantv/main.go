@@ -118,7 +118,7 @@ func main() {
 	flag.Parse()
 
 	// Create app.
-	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler})
+	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler, ReadBufferSize: 8192})
 
 	// Encrypt cookies.
 	// NOTE: This must be done before any middleware which uses cookies.

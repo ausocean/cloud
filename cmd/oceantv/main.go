@@ -46,22 +46,21 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.4.1"
+	version            = "v0.6.0"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
 )
 
 var (
-	setupMutex    sync.Mutex
-	settingsStore datastore.Store
-	mediaStore    datastore.Store
-	debug         bool
-	standalone    bool
-	notifier      notify.Notifier
-	ofsvc         openfish.OpenfishService
-	cronSecret    []byte
-	storePath     string
+	setupMutex sync.Mutex
+	store      *CompositeStore
+	debug      bool
+	standalone bool
+	notifier   notify.Notifier
+	ofsvc      openfish.OpenfishService
+	cronSecret []byte
+	storePath  string
 )
 
 func main() {
@@ -150,7 +149,7 @@ func errNoGlobalNotifierHandler(secrets map[string]string) utils.RecoveryHandler
 			notifier, err = notify.NewMailjetNotifier(
 				notify.WithSecrets(secrets),
 				notify.WithRecipientLookup(tvRecipients),
-				notify.WithStore(notify.NewStore(settingsStore)),
+				notify.WithStore(notify.NewStore(store)),
 			)
 			if err != nil {
 				log.Printf("could not remediate missing global notifier: %v", err)
@@ -180,11 +179,14 @@ func setup(ctx context.Context) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
-	if settingsStore != nil {
+	if store != nil {
 		return
 	}
 
-	var err error
+	var (
+		err                       error
+		settingsStore, mediaStore datastore.Store
+	)
 	if standalone {
 		log.Printf("Running in standalone mode")
 		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
@@ -203,6 +205,8 @@ func setup(ctx context.Context) {
 	}
 	model.RegisterEntities()
 
+	store = ausOceanCompositeStore(settingsStore, mediaStore)
+
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
 		log.Printf("could not get cronSecret: %v", err)
@@ -216,7 +220,7 @@ func setup(ctx context.Context) {
 	notifier, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(tvRecipients),
-		notify.WithStore(notify.NewStore(settingsStore)),
+		notify.WithStore(notify.NewStore(store)),
 	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
@@ -232,7 +236,7 @@ func setup(ctx context.Context) {
 // for the given site,
 func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
 	ctx := context.Background()
-	site, err := model.GetSite(ctx, settingsStore, skey)
+	site, err := model.GetSite(ctx, store, skey)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error getting site: %w", err)
 	}
@@ -301,7 +305,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the broadcast manager to save the broadcast.
 	// We can provide a nil BroadcastService given that Save
 	// won't need this.
-	err = newOceanBroadcastManager(nil, &cfg, settingsStore, log).Save(ctx, nil)
+	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, nil)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

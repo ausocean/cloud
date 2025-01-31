@@ -149,30 +149,66 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 	writeTemplate(w, r, "monitor.html", &data, "")
 }
 
+// scalarCount returns the number of scalars received for the first pin of a device
+// for the period of time defined by start and end. This can be used to determine
+// the throughput of a device.
+func scalarCount(ctx context.Context, device *model.Device, start, end int64) (count int, err error) {
+	for _, pin := range strings.Split(device.Inputs, ",") {
+		if count != 0 || (pin[0] != 'A' && pin[0] != 'D' && pin[0] != 'X') {
+			continue
+		}
+		sid := model.ToSID(model.MacDecode(device.Mac), pin)
+		keys, err := model.GetScalarKeys(ctx, mediaStore, sid, []int64{start, end})
+		if err != nil {
+			return 0, fmt.Errorf("could not get scalar keys: %v", err)
+		}
+		count = len(keys)
+		break
+	}
+	return count, nil
+}
+
 // throughput determines the number of scalars received within the count
 // period for a device, as well as the maximum number of scalars expected.
-// The first A, D or X pin that provides count data is used.
-func throughput(ctx context.Context, device model.Device) (count, maxCount int, err error) {
-	if device.Inputs != "" && device.MonitorPeriod != 0 {
-		pins := strings.Split(device.Inputs, ",")
-		monitorDuration := time.Duration(device.MonitorPeriod) * time.Second
-		maxCount = int(countPeriod / monitorDuration)
+func throughput(ctx context.Context, device *model.Device) (count, maxCount int, err error) {
+	if device.Inputs == "" || device.MonitorPeriod == 0 {
+		return count, maxCount, nil
+	}
 
-		start := time.Now().Add(-countPeriod).Unix()
-		for _, pin := range pins {
-			if count != 0 || (pin[0] != 'A' && pin[0] != 'D' && pin[0] != 'X') {
-				continue
-			}
-			sid := model.ToSID(model.MacDecode(device.Mac), pin)
-			keys, err := model.GetScalarKeys(ctx, mediaStore, sid, []int64{start, -1})
-			if err != nil {
-				return 0, 0, fmt.Errorf("could not get scalar keys: %v", err)
-			}
-			count = len(keys)
-			break
-		}
+	monitorDuration := time.Duration(device.MonitorPeriod) * time.Second
+	maxCount = int(countPeriod / monitorDuration)
+
+	start := time.Now().Add(-countPeriod).Unix()
+	count, err = scalarCount(ctx, device, start, -1)
+	if err != nil {
+		return 0, 0, fmt.Errorf("could not get scalar count: %v", err)
 	}
 	return count, maxCount, nil
+}
+
+// throughputsFor returns the throughput percentages for each count period within the time range
+// defined by from and to for a device.
+func throughputsFor(ctx context.Context, device *model.Device, from, to time.Time) ([]float64, error) {
+	if device.Inputs == "" {
+		return nil, errors.New("device has no inputs")
+	}
+
+	if device.MonitorPeriod == 0 {
+		return nil, errors.New("device has no monitor period")
+	}
+
+	monitorDuration := time.Duration(device.MonitorPeriod) * time.Second
+	maxCount := int(countPeriod / monitorDuration)
+
+	var percentages []float64
+	for start := from; !start.After(to); start = start.Add(countPeriod) {
+		count, err := scalarCount(ctx, device, start.Unix(), start.Add(countPeriod).Unix())
+		if err != nil {
+			return nil, fmt.Errorf("could not get scalar count: %v", err)
+		}
+		percentages = append(percentages, 100.0*float64(count)/float64(maxCount))
+	}
+	return percentages, nil
 }
 
 func monitorLoadRoutine(
@@ -192,7 +228,7 @@ func monitorLoadRoutine(
 
 	// Determine the device throughput.
 	var err error
-	md.Count, md.MaxCount, err = throughput(ctx, dev)
+	md.Count, md.MaxCount, err = throughput(ctx, &dev)
 	if err != nil {
 		reportMonitorError(w, r, &data, "could not get throughput: %v", err)
 		return

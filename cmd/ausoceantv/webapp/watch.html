@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/src/assets/ausocean_logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AusOcean TV | Watch</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="src/web-components/authenticator.ts"></script>
+  </head>
+  <body class="mx-0 h-screen w-full">
+    <auth-wrapper>
+      <div id="page-column" class="mx-0 flex h-full w-full flex-col">
+        <div id="header" class="flex flex-col">
+          <h1>AusOcean TV</h1>
+          <a href="home.html" class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">&lt; Home</a>
+        </div>
+        <div id="theater" class="flex w-full justify-center bg-black">
+          <iframe id="ytplayer" type="text/html" width="1920" height="500" src="https://www.youtube.com/embed/_x3g71FEp5s?autoplay=1&origin=https://ausocean.tv&mode=theater&rel=0" frameborder="0"></iframe>
+        </div>
+      </div>
+    </auth-wrapper>
+  </body>
+</html>
