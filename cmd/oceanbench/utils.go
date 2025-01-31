@@ -30,7 +30,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -40,7 +39,6 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // reportError writes an error message to the logs and template.
@@ -104,58 +102,6 @@ func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
 		return nil, fmt.Errorf("could not get the broadcast (%s) from the broadcast vars: %w", name, err)
 	}
 	return cfg, nil
-}
-
-func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, broadcast string, update func(cfg *BroadcastConfig) error) error {
-	name := broadcastScope + "." + broadcast
-	sep := strings.Index(name, ".")
-	if sep >= 0 {
-		name = strings.ReplaceAll(name[:sep], ":", "") + name[sep:]
-	}
-	const typeVariable = "Variable"
-	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
-
-	var callBackErr error
-	updateConfig := func(ety datastore.Entity) {
-		v, ok := ety.(*model.Variable)
-		if !ok {
-			callBackErr = errors.New("could not cast entity to type Variable")
-			return
-		}
-
-		var cfg BroadcastConfig
-		err := json.Unmarshal([]byte(v.Value), &cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
-			return
-		}
-
-		err = update(&cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("error from broadcast update callback: %w", err)
-			return
-		}
-
-		d, err := json.Marshal(cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
-			return
-		}
-
-		v.Value = string(d)
-		v.Updated = time.Now()
-	}
-
-	err := store.Update(ctx, key, updateConfig, &model.Variable{})
-	if err != nil {
-		return fmt.Errorf("could not update variable: %w", err)
-	}
-
-	if callBackErr != nil {
-		return fmt.Errorf("error from broadcast update callback: %w", callBackErr)
-	}
-
-	return nil
 }
 
 type ErrBroadcastNotFound struct{ name string }
