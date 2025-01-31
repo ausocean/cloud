@@ -134,8 +134,7 @@ func PutVariable(ctx context.Context, store datastore.Store, skey int64, name, v
 }
 
 // PutVariableInTransaction updates or creates a variable in the datastore atomically.
-// If the variable doesn't exist, it is created with an empty value string, then the update function is applied. If it exists, the
-// provided update function is applied to modify its value.
+// First it will try to update, if that fails, it will create, then try to update again.
 //
 // Argument updateFunc is a function that takes the current value of the variable and returns a new value.
 // It is used to atomically update the variable's value in the datastore. The function should return both the updated value and any error
@@ -172,9 +171,8 @@ update:
 		// Create the variable in the datastore.
 		err := store.Create(ctx, key, &variable)
 		if errors.Is(err, datastore.ErrEntityExists) {
-			// do nothing.
-		}
-		if err != nil {
+			// Do nothing.
+		} else if err != nil {
 			return fmt.Errorf("failed to create variable: %w", err)
 		}
 		goto update
