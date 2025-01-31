@@ -26,6 +26,7 @@ cmd/oceantv/oceantv
 cmd/oceantv/*~
 cmd/oceantv/#*
 cmd/oceantv/store/*
+cmd/oceantv/youtube-api-credentials.json
 # oceancron
 cmd/oceancron/.git
 cmd/oceancron/.gitignore
@@ -53,3 +54,4 @@ cmd/vidforward/#*
 cmd/ausoceantv/.git
 cmd/ausoceantv/.gitignore
 cmd/ausoceantv/node_modules/
+cmd/ausoceantv/webapp/node_modules/
