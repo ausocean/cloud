@@ -125,7 +125,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		cfg.Name+" "+dateStr,
 		cfg.Description,
 		cfg.StreamName,
-		cfg.Privacy,
+		cfg.LivePrivacy,
 		cfg.Resolution,
 		timeCreated,
 		cfg.End,
@@ -356,10 +356,11 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		// configuration, except for a few of the fields.
 		_cfg.Name = secondaryName
 		_cfg.StreamName = secondaryName
-		_cfg.Privacy = "unlisted" // We don't want the secondary broadcast to be easily discovered by youtube watchers.
-		_cfg.OnActions = ""       // We don't need it to have any control of the camera hardware.
-		_cfg.OffActions = ""      // Ditto.
-		_cfg.SendMsg = true       // It would be handy to have sensors stored in the store broadcasts too.
+		_cfg.LivePrivacy = "unlisted"     // We don't want the secondary broadcast to be easily discovered by youtube watchers.
+		_cfg.PostLivePrivacy = "unlisted" // This will be public eventually, but not while the software is young.
+		_cfg.OnActions = ""               // We don't need it to have any control of the camera hardware.
+		_cfg.OffActions = ""              // Ditto.
+		_cfg.SendMsg = true               // It would be handy to have sensors stored in the store broadcasts too.
 		_cfg.Start = cfg.Start
 		_cfg.End = cfg.End
 		_cfg.Resolution = cfg.Resolution
