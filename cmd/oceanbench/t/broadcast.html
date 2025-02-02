@@ -12,6 +12,7 @@
       }
     </style>
     <script type="module" src="/s/lit/header-group.js"></script>
+    <script type="module" src="/s/lit/action-list.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript" src="/s/broadcast.js"></script>
   </head>
@@ -173,16 +174,16 @@
               </select>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
-              <label for="on-actions" class="w-25 text-end">On Actions:</label>
-              <input type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions" />
+              <label for="on-actions" class="w-25 text-end">On Actions: {{.CurrentBroadcast.OnActions}}</label>
+              <action-list name="on-actions" value="00:00:00:00:00:01.power1=true,00:00:00:00:00:02.power2=false,00:00:00:00:00:01.power3=fhdsajkfa" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="shutdown-actions" class="w-25 text-end">Shutdown Actions:</label>
-              <input type="input" name="shutdown-actions" class="form-control w-50" value="{{.CurrentBroadcast.ShutdownActions}}" class="actions" />
+              <action-list name="shutdown-actions" value="{{.CurrentBroadcast.ShutdownActions}}" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="off-actions" class="w-25 text-end">Off Actions:</label>
-              <input type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions" />
+              <action-list name="off-actions" value="{{.CurrentBroadcast.OffActions}}" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="rtmp-key-var" class="w-25 text-end">RTMP URL Variable:</label>

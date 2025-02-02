@@ -49,5 +49,21 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/action-list.ts',
+    output: {
+      file: 's/lit/action-list.js',
+      format: 'iife',
+      name: 'actionList',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      resolve(),
+      typescript()
+    ]
   }
 ];
