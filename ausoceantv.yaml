@@ -8,6 +8,7 @@ env_variables:
   OAUTH2_CALLBACK: https://ausocean.tv/api/v1/auth/oauth2callback
   # OAUTH2_CALLBACK: https://dev-dot-ausoceantv.ts.r.appspot.com/api/v1/auth/oauth2callback
   # DEVELOPMENT: true
+  LITE: true
 
 main: ./cmd/ausoceantv
 
