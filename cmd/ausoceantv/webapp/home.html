@@ -6,22 +6,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AusOceanTV | Home</title>
     <link rel="stylesheet" href="./src/index.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="h-screen bg-gradient-to-b from-blue-800 via-black to-black text-white">
+  <body class="h-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
     <auth-wrapper>
-      <div class="flex h-full flex-col items-center justify-center p-6 text-center">
-        <!-- Title -->
-        <h1 class="mb-4 text-4xl font-extrabold tracking-tight text-blue-400 md:text-6xl">Welcome to AusOceanTV</h1>
+      <div id="page-column" class="flex h-full flex-col">
+        <!-- Header Section -->
+        <div class="flex items-center justify-between bg-neutral-50 px-6 py-4 shadow-lg">
+          <a href="https://ausocean.org" target="_blank" class="flex items-center justify-center">
+            <img src="src/assets/ausocean_logo.png" class="logo w-20 transition-transform hover:scale-110 md:w-28" alt="AusOcean logo" />
+          </a>
+          <div class="flex items-center space-x-6">
+            <a href="home.html" title="Home" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+              <i class="fas fa-home"></i>
+            </a>
+            <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+              <i class="fas fa-sign-out-alt"></i>
+            </a>
+          </div>
+        </div>
 
-        <!-- Description -->
-        <p class="mb-8 max-w-lg text-lg text-gray-300">Dive underwater at the Rapid Bay Jetty, South Australia.</p>
+        <!-- Main Content Section -->
+        <div class="flex min-h-[calc(100vh-5rem)] flex-1 flex-col items-center justify-center p-6 text-center">
+          <h1 class="mb-4 text-4xl font-extrabold tracking-tight text-[#fcaf18] md:text-6xl">Welcome to AusOceanTV</h1>
+          <p class="mb-8 max-w-xl text-lg text-gray-300">Explore live and upcoming underwater streams from South Australia.</p>
 
-        <!-- Buttons -->
-        <div class="space-y-4">
-          <a href="watch.html" class="block rounded-lg bg-gradient-to-r from-green-400 to-cyan-500 px-8 py-4 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Watch Now</a>
+          <div class="w-full max-w-4xl space-y-6">
+            <a href="watch.html" class="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#0c69ad] to-[#fcaf18] px-8 py-6 text-left shadow-md transition-all hover:bg-[#fcaf18] hover:shadow-lg hover:brightness-110">
+              <div>
+                <h2 class="text-2xl font-bold text-white">Rapid Bay Live</h2>
+                <p class="text-gray-200">Watch the underwater live stream from Rapid Bay Jetty.</p>
+              </div>
+              <img src="https://img.youtube.com/vi/0RyxgSm0mPc/maxresdefault.jpg" alt="YouTube Thumbnail" class="ml-4 h-32 w-32 rounded-lg object-cover" />
+            </a>
 
-          <a href="/api/v1/auth/logout" class="block rounded-lg bg-gradient-to-r from-red-500 to-pink-500 px-8 py-4 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Logout</a>
+            <div class="block w-full rounded-xl bg-gradient-to-r from-[#1d7fa3] to-[#1a6f91] px-8 py-6 text-left shadow-md">
+              <h2 class="text-2xl font-bold text-white">(Coming Soon)</h2>
+              <p class="text-gray-200">Stay tuned for more underwater streams.</p>
+            </div>
+
+            <div class="block w-full rounded-xl bg-gradient-to-r from-[#1d7fa3] to-[#1a6f91] px-8 py-6 text-left shadow-md">
+              <h2 class="text-2xl font-bold text-white">(Coming Soon)</h2>
+              <p class="text-gray-200">Stay tuned for more underwater streams.</p>
+            </div>
+          </div>
         </div>
       </div>
     </auth-wrapper>
