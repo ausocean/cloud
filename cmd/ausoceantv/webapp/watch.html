@@ -4,19 +4,44 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/src/assets/ausocean_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AusOcean TV | Watch</title>
+    <title>AusOceanTV | Watch</title>
     <link rel="stylesheet" href="./src/index.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="mx-0 h-screen w-full">
+  <body class="h-screen bg-gradient-to-b from-yellow-50 via-blue-950 to-black text-white">
     <auth-wrapper>
-      <div id="page-column" class="mx-0 flex h-full w-full flex-col">
-        <div id="header" class="flex flex-col">
-          <h1>AusOcean TV</h1>
-          <a href="home.html" class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">&lt; Home</a>
+      <div id="page-column" class="flex h-full flex-col">
+        <!-- Header Section (Logo + Navigation) -->
+        <div class="flex items-center justify-between bg-neutral-50 px-6 py-4 shadow-lg">
+          <!-- Logo Section (Top Left) -->
+          <div class="flex items-center justify-center">
+            <img src="src/assets/ausocean_logo.png" class="logo w-20 md:w-28" alt="AusOcean logo" />
+          </div>
+
+          <!-- Navigation & Logout Button -->
+          <div class="flex items-center space-x-6">
+            <!-- Home Icon -->
+            <a href="home.html" title="Home" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+              <i class="fas fa-home"></i>
+            </a>
+
+            <!-- Logout Icon -->
+            <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+              <i class="fas fa-sign-out-alt"></i>
+            </a>
+          </div>
         </div>
-        <div id="theater" class="flex w-full justify-center bg-black">
-          <iframe id="ytplayer" type="text/html" width="1920" height="500" src="https://www.youtube.com/embed/_x3g71FEp5s?autoplay=1&origin=https://ausocean.tv&mode=theater&rel=0" frameborder="0"></iframe>
+
+        <!-- Video Theater Section -->
+        <div id="theater" class="flex min-h-0 flex-1 items-center px-4 md:px-16">
+          <!-- Video Container -->
+          <div class="flex h-full max-h-[calc(100vh-16rem)] w-full items-center">
+            <div class="relative w-full" style="padding-top: min(56.25%, calc(100vh - 16rem))">
+              <iframe id="ytplayer" type="text/html" src="https://bench.cloudblue.org/live/RapidBayLivebyAusOcean?embed&mute&autoplay" frameborder="0" allowfullscreen class="absolute left-0 top-0 h-full w-full rounded-none object-contain"></iframe>
+            </div>
+          </div>
         </div>
       </div>
     </auth-wrapper>

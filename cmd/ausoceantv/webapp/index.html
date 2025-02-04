@@ -4,20 +4,33 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/src/assets/ausocean_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AusOcean TV | Welcome</title>
+    <title>AusOceanTV | Welcome</title>
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="h-screen">
+  <body class="h-screen bg-black text-white">
     <auth-wrapper>
-      <div class="align-center container m-auto flex h-full flex-col justify-center">
-        <a href="https://ausocean.org" target="_blank">
-          <img src="src/assets/ausocean_logo.png" class="logo m-12 mx-auto w-64" alt="AusOcean logo" />
-        </a>
-        <h1 class="m-12 whitespace-nowrap text-center text-2xl font-bold sm:text-4xl md:text-6xl">Welcome to AusOcean TV</h1>
-        <button class="mx-auto w-auto whitespace-nowrap rounded bg-gray-300 px-5 py-3 text-center">
-          <a href="/api/v1/auth/login?redirect=/home.html">Sign Up</a>
-        </button>
+      <div class="relative flex h-screen w-full items-center justify-center overflow-hidden">
+        <!-- Background Video -->
+        <video class="absolute left-0 top-0 z-[-1] h-full w-full object-cover opacity-75" autoplay muted loop>
+          <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+
+        <!-- Foreground Content -->
+        <div class="z-10 max-w-6xl rounded-2xl bg-black/40 p-20 text-center shadow-lg backdrop-blur-sm">
+          <div>
+            <img src="src/assets/ausocean_logo.png" class="logo mx-auto mb-10 w-40 md:w-72" alt="AusOcean logo" />
+          </div>
+          <h1 class="mb-6 whitespace-nowrap text-3xl font-extrabold tracking-tight sm:text-4xl md:text-6xl">
+            Welcome to
+            <span class="text-blue-400">AusOceanTV</span>
+          </h1>
+          <p class="mb-8 text-lg text-gray-200 md:text-xl">Experience the wonders of Australia's oceans in real time.</p>
+          <button class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">
+            <a href="/api/v1/auth/login?redirect=/home.html">Sign Up</a>
+          </button>
+        </div>
       </div>
     </auth-wrapper>
   </body>
