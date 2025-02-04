@@ -30,14 +30,23 @@
       <div>
         {{ range .Devices }}
         <div class="border rounded p-4 container-md bg-white">
-          <span value="{{ .Device.MAC }}" {{ if eq .Device.MAC $.Ma }}selected{{ end }}>
-            <span class="monitor-title">
+          <div value="{{ .Device.MAC }}" {{ if eq .Device.MAC $.Ma }}selected{{ end }}>
+            <p>
               {{ if $.WritePerm }}
-              <a href="/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>
-              {{ else }} {{ .Device.Name }} {{ end }}
-            </span>
-            ({{ .Device.MAC }})
-            <br />
+              <a href="/set/devices/?ma={{ .Device.MAC }}" class="monitor-title fw-semibold fs-3">{{ .Device.Name }}</a>
+              {{ else }} {{ .Device.Name }} {{ end }} ({{ .Device.MAC }})
+            </p>
+            <div class="d-flex flex-wrap gap-3 py-2">
+              {{ $mac := .Device.MAC }} {{ range .Sensors }}
+              <a href="/search?ma={{ $mac }}&pn={{ .Pin }}" class="border rounded w-25 d-flex flex-column text-center text-black sensor-widget">
+                <p class="fs-2 fw-semibold">{{ .Scalar }} {{ .Units }}</p>
+                <div class="px-2">
+                  <p class="monitor-title fw-semibold">{{ .Name }}</p>
+                  <p>{{ .Date }}</p>
+                </div>
+              </a>
+              {{ end }}
+            </div>
             Address: {{ if (.Address) }}{{ .Address }}{{ end }}
             <br />
             Protocol: {{ .Device.Protocol }}
@@ -51,19 +60,7 @@
             {{ if eq .Sending "green" }} Uptime: {{ .Uptime }}
             <br />
             {{ else }} Last Reported: {{ localdatetime .LastReportedTimestamp $.Timezone }} {{ end }} {{ if eq .Count 0 }}{{ else }}Throughput: {{ .Throughput }}% {{ .Count }}/{{ .MaxCount }}{{ end }}
-          </span>
-          {{ $mac := .Device.MAC }} {{ range .Sensors }}
-          <hr />
-          <span>
-            <div class="d-flex align-items-start">
-              <a href="/search?ma={{ $mac }}&pn={{ .Pin }}"><i class="material-icons">search</i></a>
-              <span class="monitor-title">{{ .Name }}</span>
-            </div>
-            <br />
-            <span class="signal-date">{{ .Date }}</span>
-            <span class="signal-value">{{ .Scalar }} {{ .Units }}</span>
-          </span>
-          {{ end }}
+          </div>
         </div>
         <br />
         {{ end }}

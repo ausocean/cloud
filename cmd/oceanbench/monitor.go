@@ -35,6 +35,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -295,10 +296,13 @@ func monitorLoadRoutine(
 			Units:  sensor.Units,
 			Pin:    sensor.Pin,
 			Scalar: fmt.Sprintf("%.2f", value),
-			Date:   time.Unix(scalar.Timestamp, 0).In(fixedTimezone(tz)).Format("Jan 2 15:04:05"),
+			Date:   time.Unix(scalar.Timestamp, 0).In(fixedTimezone(tz)).Format("Jan 2 3:04 PM"),
 		}
 		md.Sensors = append(md.Sensors, sensorData)
 	}
+	sort.Slice(md.Sensors, func(i, j int) bool {
+		return md.Sensors[i].Name < md.Sensors[j].Name
+	})
 	ch <- md
 	wg.Done()
 }
