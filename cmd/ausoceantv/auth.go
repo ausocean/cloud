@@ -25,14 +25,17 @@ LICENSE
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"cloud.google.com/go/datastore"
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 )
 
 // loginHandler handles login requests, and starts the oauth2 login flow.
@@ -51,7 +54,27 @@ func (svc *service) logoutHandler(c *fiber.Ctx) error {
 
 // callbackHandler handles callbacks from google's oauth2 flow.
 func (svc *service) callbackHandler(c *fiber.Ctx) error {
-	return svc.auth.CallbackHandler(backend.NewFiberHandler(c))
+	p, err := svc.auth.CallbackHandler(backend.NewFiberHandler(c))
+	if err != nil {
+		return fmt.Errorf("error handling callback: %w", err)
+	}
+
+	// Check if a user already exists.
+	fmt.Print("Checking if user exists.")
+	ctx := context.Background()
+
+	_, err = model.GetSubscriberByEmail(ctx, svc.store, p.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		subscriber := &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
+		err := model.CreateSubscriber(ctx, svc.store, subscriber)
+		if err != nil {
+			return fmt.Errorf("unable to create susbcriber %v: %w", subscriber, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed getting subscriber by email: %w", err)
+	}
+
+	return nil
 }
 
 // profileHandler handles requests to get the profile of the logged in user.

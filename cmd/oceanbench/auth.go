@@ -71,7 +71,7 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if standalone {
 		return
 	}
-	err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	_, err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
 	if err != nil {
 		writeError(w, err)
 		return

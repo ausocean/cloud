@@ -228,57 +228,57 @@ func validateRedirectURL(path string) (string, error) {
 
 // CallbackHandler completes the OAuth flow, retrieves the user's
 // profile information and stores info in the default session.
-func (ua *UserAuth) CallbackHandler(h backend.Handler) error {
+func (ua *UserAuth) CallbackHandler(h backend.Handler) (*Profile, error) {
 	ua.Lock()
 	defer ua.Unlock()
 
 	if ua.cfg == nil {
-		return NotConfigured
+		return nil, NotConfigured
 	}
 
 	oauthFlowSession, err := h.LoadSession(h.FormValue("state"))
 	if err != nil {
-		return fmt.Errorf("could not get state parameter from session store: %w", err)
+		return nil, fmt.Errorf("could not get state parameter from session store: %w", err)
 	}
 
 	redirectURL := ""
 	err = oauthFlowSession.Get(oauthFlowRedirectKey, &redirectURL)
 	if err != nil {
-		return fmt.Errorf("redirect key %v does not exist in oauthFlowSession.Values", oauthFlowRedirectKey)
+		return nil, fmt.Errorf("redirect key %v does not exist in oauthFlowSession.Values", oauthFlowRedirectKey)
 	}
 
 	ctx := context.Background()
 	code := h.FormValue("code")
 	tok, err := ua.cfg.Exchange(ctx, code)
 	if err != nil {
-		return fmt.Errorf("exchange failed with error: %w", err)
+		return nil, fmt.Errorf("exchange failed with error: %w", err)
 	}
 
 	sess, err := h.LoadSession(ua.SessionID)
 	if err != nil {
-		return fmt.Errorf("could not create session %s: %w", ua.SessionID, err)
+		return nil, fmt.Errorf("could not create session %s: %w", ua.SessionID, err)
 	}
 
 	clt := oauth2.NewClient(ctx, ua.cfg.TokenSource(ctx, tok))
 	profile, err := fetchProfile(clt)
 	if err != nil {
-		return fmt.Errorf("could not fetch profile: %w", err)
+		return nil, fmt.Errorf("could not fetch profile: %w", err)
 	}
 
 	err = sess.Set(oauthTokenSessionKey, tok)
 	if err != nil {
-		return fmt.Errorf("unable to set token session key: %w", err)
+		return nil, fmt.Errorf("unable to set token session key: %w", err)
 	}
 	err = sess.Set(profileKey, profile)
 	if err != nil {
-		return fmt.Errorf("unable to set profile key: %w", err)
+		return nil, fmt.Errorf("unable to set profile key: %w", err)
 	}
 	err = h.SaveSession(sess)
 	if err != nil {
-		return fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
+		return nil, fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
 	}
 
-	return h.Redirect(redirectURL, http.StatusFound)
+	return profile, h.Redirect(redirectURL, http.StatusFound)
 }
 
 // fetchProfile retrieves profile info for the logged-in user, i.e.,
