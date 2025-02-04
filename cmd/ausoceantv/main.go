@@ -58,14 +58,14 @@ const (
 
 // service defines the properties of our web service.
 type service struct {
-	setupMutex    sync.Mutex
-	settingsStore datastore.Store
-	debug         bool
-	standalone    bool
-	development   bool
-	lite          bool
-	storePath     string
-	auth          *gauth.UserAuth
+	setupMutex  sync.Mutex
+	store       datastore.Store
+	debug       bool
+	standalone  bool
+	development bool
+	lite        bool
+	storePath   string
+	auth        *gauth.UserAuth
 }
 
 // svc is an instance of our service.
@@ -195,7 +195,7 @@ func (svc *service) setup(ctx context.Context) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
-	if svc.settingsStore != nil {
+	if svc.store != nil {
 		return
 	}
 
@@ -203,7 +203,7 @@ func (svc *service) setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	svc.settingsStore = dsclient.Get()
+	svc.store = dsclient.Get()
 	model.RegisterEntities()
 	log.Info("set up datastore")
 
@@ -226,12 +226,12 @@ func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
 		return fmt.Errorf("unable to get profile: %w", err)
 	}
 
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
 		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
 	}
 
-	subscription, err := model.GetSubscription(ctx, svc.settingsStore, subscriber.ID, model.NoFeedID)
+	subscription, err := model.GetSubscription(ctx, svc.store, subscriber.ID, model.NoFeedID)
 	if err != nil {
 		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
 	}

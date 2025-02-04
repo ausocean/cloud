@@ -87,6 +87,8 @@ func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber)
 		return store.Create(ctx, key, s)
 	}
 
+	s.Created = time.Now()
+
 	// Otherwise generate and use a unique ID.
 	for {
 		s.ID = utils.GenerateInt64ID()

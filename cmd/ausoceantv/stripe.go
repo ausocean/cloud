@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/stripe/stripe-go/v81"
@@ -100,15 +99,9 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
-	if errors.Is(err, datastore.ErrNoSuchEntity) {
-		subscriber = &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
-		err := model.CreateSubscriber(ctx, svc.settingsStore, subscriber)
-		if err != nil {
-			return fmt.Errorf("unable to create susbcriber %v: %w", subscriber, err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed getting subscriber by email: %w", err)
+	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
+	if err != nil {
+		return fmt.Errorf("failed getting subscriber, try logging in again: %w", err)
 	}
 
 	customerID, err := svc.getCustomerID(subscriber)
@@ -240,7 +233,7 @@ func (svc *service) getCustomerID(sub *model.Subscriber) (string, error) {
 	}
 
 	sub.PaymentInfo = id
-	err = model.UpdateSubscriber(context.Background(), svc.settingsStore, sub)
+	err = model.UpdateSubscriber(context.Background(), svc.store, sub)
 	if err != nil {
 		return "", fmt.Errorf("error updating subscriber with new payment info: %w", err)
 	}
@@ -282,12 +275,12 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 		return fmt.Errorf("unable to get profile: %w", err)
 	}
 
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.settingsStore, p.Email)
+	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
 		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
 	}
 
-	sub, err := model.GetSubscription(ctx, svc.settingsStore, subscriber.ID, 0)
+	sub, err := model.GetSubscription(ctx, svc.store, subscriber.ID, 0)
 	if err != nil {
 		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
 	}
@@ -297,7 +290,7 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 	// TODO: Update the Stripe subscription to cancel at period end.
 	log.Panic("cannot cancel by stripe, unimplemented")
 
-	return model.UpdateSubscription(ctx, svc.settingsStore, sub)
+	return model.UpdateSubscription(ctx, svc.store, sub)
 }
 
 func (svc *service) handleGetPrice(c *fiber.Ctx) error {
