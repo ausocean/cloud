@@ -8,6 +8,7 @@ env_variables:
   OAUTH2_CALLBACK: https://ausocean.tv/api/v1/auth/oauth2callback
   # OAUTH2_CALLBACK: https://dev-dot-ausoceantv.ts.r.appspot.com/api/v1/auth/oauth2callback
   # DEVELOPMENT: true
+  LITE: true
 
 main: ./cmd/ausoceantv
 
@@ -18,9 +19,9 @@ handlers:
 
   # Serve index.html as /
   - url: /
-    static_files: cmd/ausoceantv/dist/index.html
-    upload: cmd/ausoceantv/dist/index.html
+    static_files: cmd/ausoceantv/webapp/dist/index.html
+    upload: cmd/ausoceantv/webapp/dist/index.html
 
   # Serve all files in dist.
   - url: /
-    static_dir: cmd/ausoceantv/dist
+    static_dir: cmd/ausoceantv/webapp/dist

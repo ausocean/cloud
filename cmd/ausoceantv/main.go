@@ -63,6 +63,7 @@ type service struct {
 	debug         bool
 	standalone    bool
 	development   bool
+	lite          bool
 	storePath     string
 	auth          *gauth.UserAuth
 }
@@ -82,15 +83,17 @@ func registerAPIRoutes(app *fiber.App) {
 
 	v1.Get("version", svc.versionHandler)
 
-	v1.Group("/stripe").
-		Options("/create-payment-intent", svc.preFlightOK).
-		Post("/create-payment-intent", svc.handleCreatePaymentIntent).
-		Get("/price/:id", svc.handleGetPrice).
-		Get("/product/:id", svc.handleGetProduct).
-		Post("/cancel", svc.cancelSubscription)
+	if !svc.lite {
+		v1.Group("/stripe").
+			Options("/create-payment-intent", svc.preFlightOK).
+			Post("/create-payment-intent", svc.handleCreatePaymentIntent).
+			Get("/price/:id", svc.handleGetPrice).
+			Get("/product/:id", svc.handleGetProduct).
+			Post("/cancel", svc.cancelSubscription)
 
-	v1.Group("/get").
-		Get("/subscription", svc.getSubscriptionHandler)
+		v1.Group("/get").
+			Get("/subscription", svc.getSubscriptionHandler)
+	}
 }
 
 func main() {
@@ -106,6 +109,11 @@ func main() {
 	v = os.Getenv("DEVELOPMENT")
 	if v != "" {
 		svc.development = true
+	}
+
+	v = os.Getenv("LITE")
+	if v != "" {
+		svc.lite = true
 	}
 
 	var host string
@@ -199,7 +207,9 @@ func (svc *service) setup(ctx context.Context) {
 	model.RegisterEntities()
 	log.Info("set up datastore")
 
-	svc.setupStripe(ctx)
+	if !svc.lite {
+		svc.setupStripe(ctx)
+	}
 
 	// Initialise OAuth2.
 	log.Info("Initializing OAuth2")
