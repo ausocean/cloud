@@ -47,7 +47,7 @@ func Init(standalone bool, filestorePath string) error {
 		store, err = datastore.NewStore(ctx, "file", "vidgrind", filestorePath)
 	} else {
 		log.Info("running in App Engine mode")
-		store, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
+		store, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
 	}
 	return err
 }
