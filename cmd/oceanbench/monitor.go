@@ -61,6 +61,7 @@ type sensorData struct {
 	Units  string
 	Scalar string
 	Date   string
+	Pin    string
 }
 
 // monitorDevice holds the relevant information for each device.
@@ -292,6 +293,7 @@ func monitorLoadRoutine(
 		sensorData := sensorData{
 			Name:   sensor.Name,
 			Units:  sensor.Units,
+			Pin:    sensor.Pin,
 			Scalar: fmt.Sprintf("%.2f", value),
 			Date:   time.Unix(scalar.Timestamp, 0).In(fixedTimezone(tz)).Format("Jan 2 15:04:05"),
 		}
