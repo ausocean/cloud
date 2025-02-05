@@ -72,6 +72,9 @@ export class ProfileDetails extends TailwindElement() {
   }
 
   subscriptionDetails() {
+    if (import.meta.env.VITE_LITE == "true") {
+      return html``;
+    }
     return html`
       <div class="flex w-full flex-col items-center rounded-xl bg-white px-8 py-6 text-left shadow-md">
         <h1 class="text-xl font-bold">Subscription</h1>
