@@ -59,10 +59,8 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		return fmt.Errorf("error handling callback: %w", err)
 	}
 
-	// Check if a user already exists.
-	fmt.Print("Checking if user exists.")
+	// Create a new subscriber if one does not exist.
 	ctx := context.Background()
-
 	_, err = model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) {
 		subscriber := &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
