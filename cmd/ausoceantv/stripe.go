@@ -73,7 +73,7 @@ func (svc *service) setupStripe(ctx context.Context) {
 
 			Using production Stripe keys
 		`)
-		key, err = gauth.GetSecret(ctx, projectID, "STRIPE_SECRET_KEY")
+		key, err = gauth.GetSecret(ctx, projectID, "DEV_STRIPE_SECRET_KEY")
 	}
 
 	if err != nil {
@@ -289,6 +289,8 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 
 	// TODO: Update the Stripe subscription to cancel at period end.
 	log.Panic("cannot cancel by stripe, unimplemented")
+	c.WriteString("failed to cancel subscription, please try again, or contact tv@ausocean.org")
+	c.Status(fiber.StatusInternalServerError)
 
 	return model.UpdateSubscription(ctx, svc.store, sub)
 }
