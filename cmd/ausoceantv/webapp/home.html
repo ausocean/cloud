@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
+    <script type="module" src="src/web-components/free-banner.ts"></script>
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
@@ -16,23 +17,25 @@
           <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
-
         <app-header></app-header>
+        <free-banner></free-banner>
 
         <!-- Main Content Section -->
         <div class="flex items-center justify-center">
           <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-4 text-center shadow-lg backdrop-blur-sm sm:mt-4 sm:rounded-2xl sm:p-20 md:max-w-6xl">
+            <!-- Big Logo -->
             <div class="relative flex items-center justify-center">
               <div class="absolute z-[-1] h-64 w-64 rounded-full bg-gradient-to-b from-neutral-50 via-neutral-50 to-transparent blur-xl md:h-96 md:w-96 md:blur-2xl"></div>
-              <img src="src/assets/blue_logo.png" class="logo w-44 py-16 drop-shadow-2xl md:w-72" alt="AusOcean logo" />
+              <img src="src/assets/blue_logo.png" class="logo w-44 pb-8 pt-20 drop-shadow-2xl md:w-72 md:py-16" alt="AusOcean logo" />
             </div>
 
-            <h1 class="mb-6 text-[#0c69ad] whitespace-nowrap text-3xl font-extrabold tracking-tight sm:text-4xl md:text-6xl">
+            <h1 class="mb-6 whitespace-nowrap text-3xl font-extrabold tracking-tight text-[#0c69ad] sm:text-4xl md:text-6xl">
               Welcome to
               <span class="text-[#0c69ad]">AusOceanTV</span>
             </h1>
             <p class="mb-8 max-w-xl text-lg text-gray-800">Explore live underwater streams from South Australia.</p>
 
+            <!-- Stream List -->
             <div class="w-full max-w-4xl space-y-6">
               <a href="watch.html" class="flex w-full items-center justify-between rounded-xl bg-[#0c69ad] px-8 py-6 text-left shadow-md transition-all hover:shadow-lg hover:brightness-125">
                 <div>
