@@ -12,7 +12,7 @@
     <auth-wrapper>
       <div class="relative flex h-screen w-full items-center justify-center overflow-hidden">
         <!-- Background Video -->
-        <video class="absolute left-0 top-0 z-[-1] h-full w-full object-cover opacity-75" autoplay muted loop>
+        <video class="absolute left-0 top-0 z-[-1] h-full w-full object-cover opacity-75" autoplay muted playsinline loop>
           <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
@@ -27,9 +27,9 @@
             <span class="text-[#fcaf18]">AusOceanTV</span>
           </h1>
           <p class="mb-8 text-lg text-gray-200 md:text-xl">Experience the wonders of Australia's oceans in real time.</p>
-          <button class="rounded-lg bg-gradient-to-r from-[#0c69ad] to-blue-500 px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">
-            <a href="/api/v1/auth/login?redirect=/home.html">Sign Up</a>
-          </button>
+          <a href="/api/v1/auth/login?redirect=/home.html">
+            <button class="rounded-lg bg-gradient-to-r from-[#0c69ad] to-blue-500 px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Sign Up</button>
+          </a>
         </div>
       </div>
     </auth-wrapper>

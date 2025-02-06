@@ -9,10 +9,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
   </head>
-  <body class="h-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
+  <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
       <div id="page-column" class="flex min-h-screen flex-col">
-        <video style="position: fixed" class="absolute left-0 top-0 z-[-1] h-full w-full object-cover opacity-30" autoplay muted loop>
+        <video class="fixed inset-0 left-0 top-0 z-[-1] h-full w-full object-cover opacity-30" autoplay muted playsinline loop>
           <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
@@ -23,13 +23,13 @@
             <img src="src/assets/blue_logo.png" class="logo w-12 pt-1 md:w-20" alt="AusOcean logo" />
           </a>
           <div class="flex items-center space-x-6">
-            <a href="home.html" title="Home" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+            <a href="home.html" title="Home" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
               <i class="fas fa-home"></i>
             </a>
-            <a href="profile.html" title="Profile" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+            <a href="profile.html" title="Profile" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
               <i class="fas fa-user"></i>
             </a>
-            <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c4a72] transition-all hover:text-[#1f617a]">
+            <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
               <i class="fas fa-sign-out-alt"></i>
             </a>
           </div>
@@ -37,7 +37,7 @@
 
         <!-- Main Content Section -->
         <div class="flex items-center justify-center">
-          <div class="z-9 flex max-w-6xl flex-1 flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-neutral-50 via-neutral-50/5 to-[#0c69ad]/5 p-20 text-center shadow-lg backdrop-blur-sm sm:mt-4">
+          <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-gradient-to-b from-neutral-50 via-neutral-50/5 to-[#0c69ad]/5 p-4 text-center shadow-lg backdrop-blur-sm sm:mt-4 sm:rounded-2xl sm:p-20 md:max-w-6xl">
             <div class="relative flex items-center justify-center">
               <div class="absolute z-[-1] h-64 w-64 rounded-full bg-gradient-to-b from-neutral-50 via-neutral-50 to-transparent blur-xl md:h-96 md:w-96 md:blur-2xl"></div>
               <img src="src/assets/blue_logo.png" class="logo w-44 py-16 drop-shadow-2xl md:w-72" alt="AusOcean logo" />
