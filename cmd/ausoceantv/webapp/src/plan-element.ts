@@ -23,28 +23,19 @@ export class planElement extends TailwindElement() {
   render() {
     let comparePrice = html``;
     if (this.compCost != "") {
-      comparePrice = html`<p class="line-through">$${this.compCost}</p>`;
+      comparePrice = html`
+        <p class="line-through">$${this.compCost}</p>
+      `;
     }
 
     return html`
-      <div
-        class="flex h-fit flex-col items-center gap-5 overflow-hidden rounded bg-gray-300"
-      >
-        <p
-          class="w-full bg-gray-800 p-5 text-center text-lg font-bold text-white"
-        >
-          ${this.planType}
-        </p>
+      <div class="flex h-fit flex-col items-center gap-5 overflow-hidden rounded bg-gray-300">
+        <p class="w-full bg-gray-800 p-5 text-center text-lg font-bold text-white">${this.planType}</p>
         <div id="price" class="flex justify-center">
           <p class="text-3xl font-bold">$${this.planCost}</p>
           ${comparePrice}
         </div>
-        <button
-          @click="${this.selectPlan}"
-          class="mb-5 w-fit rounded bg-gray-800 px-10 py-2 text-white"
-        >
-          Select Plan
-        </button>
+        <button @click="${this.selectPlan}" class="mb-5 w-fit rounded bg-gray-800 px-10 py-2 text-white">Select Plan</button>
       </div>
     `;
   }

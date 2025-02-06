@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import { TailwindElement } from "../shared/tailwind.element.ts";
 import { provide } from "@lit/context";
 import { userContext } from "../utils/context.ts";
@@ -8,8 +8,8 @@ import { User } from "../types/user.ts";
 @customElement("auth-wrapper")
 export class Authenticator extends TailwindElement() {
   @provide({ context: userContext })
-  @property({ type: Object })
-  user: User | null = null;
+  @state()
+  user: User = new User();
 
   async connectedCallback() {
     super.connectedCallback();
@@ -23,8 +23,8 @@ export class Authenticator extends TailwindElement() {
       })
       .then((resp) => {
         this.user = new User();
-        this.user.name = resp.GivenName;
-        console.log(this.user.name);
+        this.user.name = resp.GivenName + " " + resp.FamilyName;
+        this.user.email = resp.Email;
       })
       .catch((err) => {
         if (err == 401) {
@@ -41,7 +41,9 @@ export class Authenticator extends TailwindElement() {
   }
 
   render() {
-    return html` <slot></slot> `;
+    return html`
+      <slot></slot>
+    `;
   }
 }
 
