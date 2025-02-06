@@ -236,6 +236,8 @@ func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
 		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
 	}
 
+	log.Infof("got subscription: %+v", subscription)
+
 	// Check that the current time is prior to the end date of the subscription.
 	// ie. the subscription hasn't expired and is still valid.
 	if subscription.Finish.Before(time.Now()) {
