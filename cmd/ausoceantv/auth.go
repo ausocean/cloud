@@ -32,6 +32,7 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
@@ -55,7 +56,10 @@ func (svc *service) logoutHandler(c *fiber.Ctx) error {
 // callbackHandler handles callbacks from google's oauth2 flow.
 func (svc *service) callbackHandler(c *fiber.Ctx) error {
 	p, err := svc.auth.CallbackHandler(backend.NewFiberHandler(c))
-	if err != nil {
+	if errors.Is(err, &gauth.ErrOauth2RedirectError{}) {
+		log.Warn(err)
+		return c.Redirect("/", fiber.StatusFound)
+	} else if err != nil {
 		return fmt.Errorf("error handling callback: %w", err)
 	}
 
