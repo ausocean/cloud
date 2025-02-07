@@ -118,7 +118,8 @@ type BroadcastConfig struct {
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
 	Description              string        // The broadcast description shown below viewing window.
-	Privacy                  string        // Privacy of the broadcast i.e. public, private or unlisted.
+	LivePrivacy              string        // Privacy of the broadcast while live i.e. public, private or unlisted.
+	PostLivePrivacy          string        // Privacy of the broadcast after it has ended i.e. public, private or unlisted.
 	Resolution               string        // Resolution of the stream e.g. 1080p.
 	StartTimestamp           string        // Start time of the broadcast in unix format.
 	Start                    time.Time     // Start time in native go format for easy operations.
@@ -207,7 +208,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			ID:                    r.FormValue("broadcast-id"),
 			StreamName:            r.FormValue("stream-name"),
 			Description:           r.FormValue("description"),
-			Privacy:               r.FormValue("privacy"),
+			LivePrivacy:           r.FormValue("live-privacy"),
+			PostLivePrivacy:       r.FormValue("post-live-privacy"),
 			Resolution:            r.FormValue("resolution"),
 			StartTimestamp:        r.FormValue("start-timestamp"),
 			EndTimestamp:          r.FormValue("end-timestamp"),
