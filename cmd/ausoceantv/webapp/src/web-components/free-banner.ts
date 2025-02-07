@@ -11,8 +11,8 @@ export class FreeBanner extends TailwindElement() {
         <button class="mt-2 text-sm text-gray-300 hover:underline" @click="${this.toggleInfo}">Learn More</button>
 
         <div id="promo-info" class="mt-2 hidden">
-          <p class="text-sm text-white">AusOcean is a non-profit dedicated to developing innovative tech to help our oceans. Your support helps sustain our mission.</p>
-          <a href="https://www.ausocean.org/support" class="mt-2 block max-w-64 rounded bg-blue-600 py-2 text-center text-sm text-white hover:brightness-110">Support Our Mission</a>
+          <p class="text-sm text-white">AusOcean is a non-profit dedicated to developing innovative tech to help our oceans.<br>AusOceanTV is an effort to combat ocean blindness and collect useful ocean data. To help sustain AusOcean's mission, AusOceanTV will soon be moving towards a paid subscription model.</p>
+          <a href="https://www.ausocean.org/support" target="_blank" class="mt-2 block max-w-64 rounded bg-blue-600 py-2 text-center text-sm text-white hover:brightness-110">Support Our Mission</a>
         </div>
       </div>
     `;
