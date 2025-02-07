@@ -72,6 +72,7 @@ type BroadcastService interface {
 	RTMPKey(ctx context.Context, streamName string) (string, error)
 	CompleteBroadcast(ctx context.Context, id string) error
 	PostChatMessage(cID, msg string) error
+	SetBroadcastPrivacy(ctx context.Context, id, privacy string) error
 }
 
 // YouTubeResponse implements the ServerResponse interface for YouTube.
@@ -297,4 +298,30 @@ func (s *YouTubeBroadcastService) RTMPKey(ctx context.Context, streamName string
 // to the chat identification cID using the YouTube API.
 func (s *YouTubeBroadcastService) PostChatMessage(cID, msg string) error {
 	return broadcast.PostChatMessage(cID, s.tokenURI, msg)
+}
+
+// SetBroadcastPrivacy sets the broadcast privacy of the broadcast with
+// identification ID to the provided privacy using the YouTube API.
+// The privacy can be one of "public", "unlisted", or "private".
+// This can be called before, during or after the broadcast.
+// The broadcast and resulting video share ID and privacy settings.
+func (s *YouTubeBroadcastService) SetBroadcastPrivacy(ctx context.Context, id, privacy string) error {
+	video := &youtube.Video{
+		Id: id,
+		Status: &youtube.VideoStatus{
+			PrivacyStatus: privacy,
+		},
+	}
+
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+	if err != nil {
+		return fmt.Errorf("could not get youtube service: %w", err)
+	}
+
+	call := svc.Videos.Update([]string{"status"}, video)
+	resp, err := call.Do()
+	if err != nil {
+		return fmt.Errorf("could not update video: %w, resp: %v", err, resp)
+	}
+	return nil
 }

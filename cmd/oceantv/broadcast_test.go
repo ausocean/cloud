@@ -280,10 +280,11 @@ func (d *dummyService) BroadcastStatus(ctx Ctx, id string) (string, error) { ret
 func (d *dummyService) BroadcastScheduledStartTime(ctx Ctx, id string) (time.Time, error) {
 	return d.start, nil
 }
-func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error) { return "", nil }
-func (d *dummyService) RTMPKey(ctx Ctx, streamName string) (string, error) { return "", nil }
-func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error         { return nil }
-func (d *dummyService) PostChatMessage(id, msg string) error               { return nil }
+func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error)    { return "", nil }
+func (d *dummyService) RTMPKey(ctx Ctx, streamName string) (string, error)    { return "", nil }
+func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error            { return nil }
+func (d *dummyService) PostChatMessage(id, msg string) error                  { return nil }
+func (d *dummyService) SetBroadcastPrivacy(ctx Ctx, id, privacy string) error { return nil }
 
 type dummyForwardingService struct{}
 
