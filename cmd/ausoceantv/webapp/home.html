@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AusOceanTV | Home</title>
     <link rel="stylesheet" href="./src/index.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
+    <script type="module" src="src/web-components/app-header.ts"></script>
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
@@ -17,23 +17,7 @@
           Your browser does not support the video tag.
         </video>
 
-        <!-- Header Section -->
-        <div class="sticky top-0 z-10 flex items-center justify-between bg-neutral-50 px-4 py-2 shadow-lg">
-          <a href="home.html" class="flex items-center justify-center">
-            <img src="src/assets/blue_logo.png" class="logo w-12 pt-1 md:w-20" alt="AusOcean logo" />
-          </a>
-          <div class="flex items-center space-x-6">
-            <a href="home.html" title="Home" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
-              <i class="fas fa-home"></i>
-            </a>
-            <a href="profile.html" title="Profile" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
-              <i class="fas fa-user"></i>
-            </a>
-            <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
-              <i class="fas fa-sign-out-alt"></i>
-            </a>
-          </div>
-        </div>
+        <app-header></app-header>
 
         <!-- Main Content Section -->
         <div class="flex items-center justify-center">

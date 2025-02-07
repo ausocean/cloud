@@ -41,7 +41,9 @@ export class Authenticator extends TailwindElement() {
   }
 
   render() {
-    return html` <slot></slot> `;
+    return html`
+      <slot></slot>
+    `;
   }
 }
 
