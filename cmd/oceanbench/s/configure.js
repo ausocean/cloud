@@ -38,7 +38,7 @@ function init() {
 
 async function submitForm(data) {
   // Submit the form.
-  const resp = await fetch("/set/devices/configure", {
+  const resp = await fetch("/admin/sandbox/configure", {
     method: "POST",
     body: data,
   });
