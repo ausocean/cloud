@@ -238,6 +238,9 @@ func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
 	}
 
 	subscription, err := model.GetSubscription(ctx, svc.store, subscriber.ID, model.NoFeedID)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		return c.JSON(nil)
+	}
 	if err != nil {
 		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
 	}

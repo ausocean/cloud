@@ -27,6 +27,11 @@ export class ProfileDetails extends TailwindElement() {
   async connectedCallback() {
     super.connectedCallback();
 
+    await this.getSubscription();
+  }
+
+  async getSubscription() {
+    console.log("getting subscription");
     await fetch("/api/v1/get/subscription")
       .then(async (resp) => {
         if (resp.status != 200) {
@@ -75,6 +80,19 @@ export class ProfileDetails extends TailwindElement() {
     if (import.meta.env.VITE_LITE == "true") {
       return html``;
     }
+    if (!this.subscription) {
+      return html`
+        <div class="flex w-full flex-col items-center rounded-xl bg-white px-8 py-6 text-left shadow-md">
+          <a href="plans.html" class="w-1/3"><button class="w-full rounded bg-gray-600 font-bold text-white">Subscribe Now</button></a>
+        </div>
+      `;
+    }
+    let cancelButton;
+    if (this.subscription.Renew) {
+      cancelButton = html`
+        <button @click=${this.handleCancel} class="w-1/3 rounded bg-gray-600 font-bold text-white">Cancel</button>
+      `;
+    }
     return html`
       <div class="flex w-full flex-col items-center rounded-xl bg-white px-8 py-6 text-left shadow-md">
         <h1 class="text-xl font-bold">Subscription</h1>
@@ -84,18 +102,17 @@ export class ProfileDetails extends TailwindElement() {
             <td class="p-2 pb-0">${this.subscription.Class}</td>
           </tr>
           <tr>
-            <td class="p-2 pb-0"><strong>Next Billing Date:</strong></td>
+            <td class="p-2 pb-0"><strong>${this.subscription.Renew ? "Next Billing Date:" : "Subscription Ends:"}</strong></td>
             <td class="p-2 pb-0">${new Date(this.subscription.Finish).toDateString()}</td>
           </tr>
         </table>
-        ${this.subscriptionErrorMsg()}
-        <button @click=${this.handleCancel} class="w-1/3 rounded bg-gray-600 font-bold text-white">Cancel</button>
+        ${this.subscriptionErrorMsg()} ${cancelButton}
       </div>
     `;
   }
 
-  handleCancel() {
-    fetch("api/v1/stripe/cancel", { method: "POST" }).then(async (resp) => {
+  async handleCancel() {
+    await fetch("api/v1/stripe/cancel", { method: "POST" }).then(async (resp) => {
       this.msg = await resp.text();
       if (resp.status >= 200 && resp.status < 300) {
         this.msgColour = textGreen;
@@ -103,6 +120,8 @@ export class ProfileDetails extends TailwindElement() {
         this.msgColour = textRed;
       }
     });
+
+    this.getSubscription();
   }
 
   render() {

@@ -379,13 +379,16 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
 	}
 
+	// Since the day pass is not a renewing subscription, we shouldn't need to cancel it with stripe.
+	if sub.Class != model.SubscriptionDay {
+		subParams := &stripe.SubscriptionParams{CancelAtPeriodEnd: stripe.Bool(true)}
+		_, err = subscription.Update(sub.StripeSubscriptionID, subParams)
+		if err != nil {
+			return fmt.Errorf("failed to cancel subscription: %w", err)
+		}
+	}
+
 	sub.Renew = false
-
-	// TODO: Update the Stripe subscription to cancel at period end.
-	log.Panic("cannot cancel by stripe, unimplemented")
-	c.WriteString("failed to cancel subscription, please try again, or contact tv@ausocean.org")
-	c.Status(fiber.StatusInternalServerError)
-
 	return model.UpdateSubscription(ctx, svc.store, sub)
 }
 
