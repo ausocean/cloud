@@ -1,7 +1,4 @@
 /*
-NAME
-  Ocean Bench sandbox handlers.
-
 AUTHORS
   David Sutton <davidsutton@ausocean.org>
 
