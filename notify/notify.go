@@ -19,12 +19,14 @@ LICENSE
 package notify
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	mailjet "github.com/mailjet/mailjet-apiv3-go"
@@ -183,4 +185,52 @@ func (n *MailjetNotifier) Recipients(skey int64, kind Kind) ([]string, time.Dura
 		return nil, 0, ErrNoRecipient
 	}
 	return recipients_, period, err
+}
+
+// HTMLEmailer is an interface for types which are able to send formatted emails using HTML.
+type HTMLEmailer interface {
+	// SendHTMLEmail sends a formatted HTML email.
+	SendHTMLEmail(ctx context.Context, subject string, templatePath string) error
+}
+
+// SendHTMLEmail sends a formatted HTML email using the MailJet API.
+func (n *MailjetNotifier) SendHTMLEmail(ctx context.Context, subject string, templatePath string, data interface{}) error {
+	t, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return fmt.Errorf("failed to parse template at %s: %w", templatePath, err)
+	}
+
+	clt := mailjet.NewMailjetClient(n.publicKey, n.privateKey)
+	var mjRecipients mailjet.RecipientsV31
+	for _, recipient := range n.recipients {
+		mjRecipients = append(mjRecipients, mailjet.RecipientV31{Email: recipient})
+	}
+
+	htmlBody, err := templateToString(t, data)
+	if err != nil {
+		return fmt.Errorf("error executing template: %w", err)
+	}
+
+	info := []mailjet.InfoMessagesV31{{
+		From:     &mailjet.RecipientV31{Email: n.sender},
+		To:       &mjRecipients,
+		Subject:  subject,
+		HTMLPart: htmlBody,
+	}}
+
+	msgs := mailjet.MessagesV31{Info: info}
+	_, err = clt.SendMailV31(&msgs)
+	if err != nil {
+		return fmt.Errorf("could not send mail: %w", err)
+	}
+	return nil
+}
+
+// templateToString executes a HTML template and returns the result in a string.
+func templateToString(t *template.Template, data interface{}) (string, error) {
+	var b []byte
+	buf := bytes.NewBuffer(b)
+
+	err := t.Execute(buf, data)
+	return string(buf.Bytes()), err
 }
