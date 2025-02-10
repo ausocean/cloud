@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
+    <script type="module" src="src/survey.ts"></script>
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
@@ -17,7 +18,6 @@
           Your browser does not support the video tag.
         </video>
         <app-header></app-header>
-        <free-banner></free-banner>
 
         <!-- Main Content Section -->
         <div class="flex items-center justify-center">
@@ -62,15 +62,17 @@
 
               <!-- Interest Dropdown -->
               <div class="text-left">
-                <label for="user-category" class="block text-lg font-semibold text-gray-700">Why are you interested in underwater livestreams?</label>
+                <label for="user-category" class="block text-lg font-semibold text-gray-900">Why are you interested in underwater livestreams?</label>
                 <select id="user-category" name="user-category" class="mt-2 w-full rounded-lg border-gray-300 p-3 text-gray-800">
                   <option value="">Select your interest...</option>
                   <option value="scuba-diving">Scuba Diving</option>
                   <option value="recreational-fishing">Recreational Fishing</option>
                   <option value="commercial-fishing">Commercial Fishing</option>
                   <option value="snorkelling">Snorkelling</option>
+                  <option value="snorkelling">Spear Fishing</option>
                   <option value="surfing">Surfing</option>
                   <option value="boating">Boating</option>
+                  <option value="other-water-sports">Other Water Sports</option>
                   <option value="entertainment">Entertainment</option>
                   <option value="conservation">Marine Conservation</option>
                   <option value="science">Science</option>
