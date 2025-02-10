@@ -95,7 +95,8 @@ type BroadcastConfig struct {
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
 	Description              string        // The broadcast description shown below viewing window.
-	Privacy                  string        // Privacy of the broadcast i.e. public, private or unlisted.
+	LivePrivacy              string        // Privacy of the broadcast whilst live i.e. public, private or unlisted.
+	PostLivePrivacy          string        // Privacy of the broadcast after it has ended i.e. public, private or unlisted.
 	Resolution               string        // Resolution of the stream e.g. 1080p.
 	StartTimestamp           string        // Start time of the broadcast in unix format.
 	Start                    time.Time     // Start time in native go format for easy operations.
@@ -426,6 +427,13 @@ func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 	err = saveBroadcast(ctx, cfg, store, log)
 	if err != nil {
 		return fmt.Errorf("save broadcast error: %w", err)
+	}
+
+	// Change privacy to post live privacy.
+	// This will also set the privacy of the video after the broadcast has ended.
+	err = svc.SetBroadcastPrivacy(ctx, cfg.ID, cfg.PostLivePrivacy)
+	if err != nil {
+		return fmt.Errorf("could not update broadcast privacy: %w", err)
 	}
 
 	return nil
