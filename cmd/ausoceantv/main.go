@@ -85,6 +85,7 @@ func registerAPIRoutes(app *fiber.App) {
 
 	if !svc.lite {
 		v1.Group("/stripe").
+			Post("/webhook", svc.handleStripeWebhook).
 			Options("/create-payment-intent", svc.preFlightOK).
 			Post("/create-payment-intent", svc.handleCreatePaymentIntent).
 			Get("/price/:id", svc.handleGetPrice).
