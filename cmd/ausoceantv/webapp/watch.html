@@ -8,17 +8,6 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
-    <style>
-      /* Loading Animation Styling */
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    </style>
   </head>
   <body class="h-screen bg-neutral-50 text-white">
     <auth-wrapper>
@@ -45,14 +34,14 @@
         </div>
       </div>
     </auth-wrapper>
-
     <script>
-      // Handle loading animation visibility
-      const iframe = document.getElementById("ytplayer");
-      const loadingOverlay = document.getElementById("loading-overlay");
-
-      iframe.addEventListener("load", () => {
-        loadingOverlay.style.display = "none"; // Hide loading when iframe loads
+      // Hide loading overlay when iframe loads.
+      document.addEventListener('DOMContentLoaded', function() {
+        const iframe = document.getElementById("ytplayer");
+        const loadingOverlay = document.getElementById("loading-overlay");
+        iframe.addEventListener("load", () => {
+          loadingOverlay.style.display = "none";
+        });
       });
     </script>
   </body>
