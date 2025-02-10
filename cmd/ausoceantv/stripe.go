@@ -282,7 +282,7 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 
 	sub, err := model.GetSubscription(ctx, svc.store, subscriber.ID, 0)
 	if err != nil {
-		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
+		return fmt.Errorf("error getting subscription for id: %s: %w", subscriber.ID, err)
 	}
 
 	sub.Renew = false

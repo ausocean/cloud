@@ -44,51 +44,52 @@ import (
 )
 
 const (
-	testSiteKey      = 1
-	testSiteKey2     = 2
-	testSiteName     = "OfficialTestSite"
-	testSiteOrg      = "AusOcean"
-	testSiteOps      = "ops@ausocean.org"
-	testSiteLat      = -34.91805
-	testSiteLng      = 138.60475
-	testSiteTZ       = 9.5
-	testSiteEnc      = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"1970-01-01T00:00:00Z","Created":"1970-01-01T00:00:00Z"}`
-	testDevMac       = "00:00:00:00:00:01"
-	testDevMa        = 1
-	testMID          = testDevMa << 4
-	testDevDkey      = 10000001
-	testDevID        = "TestDevice"
-	testDevInputs    = "A0,V0"
-	testDevEnc       = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
-	testDevEnc2      = "1\t10000001\t1\tTestDevice\t\t\t"
-	testDevEnc3      = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
-	testUserEmail    = "test@ausocean.org"
-	testUserEmail2   = "test@testdomain.org"
-	testUserPerm     = ReadPermission
-	testUserPerm2    = ReadPermission | WritePermission
-	testUserTime     = 1572157457
-	testUserTime2    = 1572157475
-	testUserEnc      = "1\ttest@ausocean.org\t\t1\t1572157457"
-	testUserEnc2     = "2\ttest@ausocean.org\t\t3\t1572157475"
-	testDevMac2      = "00:00:00:00:00:0F"
-	testDevMac3      = "1A:2B:3C:4F:50:61"
-	testDevMa2       = 15
-	testMID2         = testDevMa2 << 4
-	testMIDAll       = 0
-	testDevPin       = "V0"
-	testDevPin2      = "S1"
-	testMetadata     = "loc:-34.91805,138.60475"
-	testTimestamp    = datastore.EpochStart
-	testGeohash      = "r1f9652gs"
-	testTextMID      = (testDevMa << 4) | 0x08
-	testDomain       = "@ausocean.org"
-	testDomain2      = "@testdomain.org"
-	testOtherUser    = "other@ausocean.org"
-	testJunkUser     = "someone@junk.com"
-	anyDomain        = "@"
-	testCronEnc      = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
-	testSubscriberID = 1234567890
-	testFeedID       = 9876543210
+	testSiteKey        = 1
+	testSiteKey2       = 2
+	testSiteName       = "OfficialTestSite"
+	testSiteOrg        = "AusOcean"
+	testSiteOps        = "ops@ausocean.org"
+	testSiteLat        = -34.91805
+	testSiteLng        = 138.60475
+	testSiteTZ         = 9.5
+	testSiteEnc        = `{"Skey":1,"Name":"OfficialTestSite","Description":"","OrgID":"AusOcean","OwnerEmail":"","OpsEmail":"ops@ausocean.org","YouTubeEmail":"","Latitude":-34.91805,"Longitude":138.60475,"Timezone":9.5,"NotifyPeriod":0,"Enabled":true,"Confirmed":false,"Premium":false,"Public":false,"Subscribed":"1970-01-01T00:00:00Z","Created":"1970-01-01T00:00:00Z"}`
+	testDevMac         = "00:00:00:00:00:01"
+	testDevMa          = 1
+	testMID            = testDevMa << 4
+	testDevDkey        = 10000001
+	testDevID          = "TestDevice"
+	testDevInputs      = "A0,V0"
+	testDevEnc         = "1\t10000001\t1\tTestDevice\tX0,V0\t\t"
+	testDevEnc2        = "1\t10000001\t1\tTestDevice\t\t\t"
+	testDevEnc3        = "1\t10000001\t1\tTestDevice\tX0,V0\t\t\t0\t0\t0\ttag\tprotocol\t-34.918050\t138.604750\ttrue\t"
+	testUserEmail      = "test@ausocean.org"
+	testUserEmail2     = "test@testdomain.org"
+	testUserPerm       = ReadPermission
+	testUserPerm2      = ReadPermission | WritePermission
+	testUserTime       = 1572157457
+	testUserTime2      = 1572157475
+	testUserEnc        = "1\ttest@ausocean.org\t\t1\t1572157457"
+	testUserEnc2       = "2\ttest@ausocean.org\t\t3\t1572157475"
+	testDevMac2        = "00:00:00:00:00:0F"
+	testDevMac3        = "1A:2B:3C:4F:50:61"
+	testDevMa2         = 15
+	testMID2           = testDevMa2 << 4
+	testMIDAll         = 0
+	testDevPin         = "V0"
+	testDevPin2        = "S1"
+	testMetadata       = "loc:-34.91805,138.60475"
+	testTimestamp      = datastore.EpochStart
+	testGeohash        = "r1f9652gs"
+	testTextMID        = (testDevMa << 4) | 0x08
+	testDomain         = "@ausocean.org"
+	testDomain2        = "@testdomain.org"
+	testOtherUser      = "other@ausocean.org"
+	testJunkUser       = "someone@junk.com"
+	anyDomain          = "@"
+	testCronEnc        = "1\tTest\t0\tSunrise\tfalse\t0\tset\tPower\toff\tfalse"
+	testSubscriberID   = "beda61e6-8a62-4127-82a5-902aa982bd0f"
+	testSubscriptionID = "sub_ea30eac718044c8c"
+	testFeedID         = 9876543210
 )
 
 var testTime = time.Unix(0, 0).UTC()
@@ -1342,7 +1343,7 @@ func testSubscriber(t *testing.T, kind string) {
 	}
 
 	// Since we will create a new subscriber, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.IDKey(typeSubscriber, testSubscriberID))
+	store.Delete(ctx, store.NameKey(typeSubscriber, fmt.Sprintf("%s.%s", testSubscriberID, testUserEmail)))
 
 	// Remove the monotonic time element from the Created field.
 	s1 := &Subscriber{testSubscriberID, "", testUserEmail, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
@@ -1395,13 +1396,13 @@ func testSubscription(t *testing.T, kind string) {
 	}
 
 	// Since we will create a new subscription, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.NameKey(typeSubscription, fmt.Sprintf("%d.%d", testSubscriberID, testFeedID)))
+	store.Delete(ctx, store.NameKey(typeSubscription, fmt.Sprintf("%s.%d", testSubscriberID, testFeedID)))
 
 	start := time.Now().Truncate(24 * time.Hour).UTC()
 	finish := start.AddDate(0, 0, 1)
-	s1 := &Subscription{testSubscriberID, testFeedID, SubscriptionDay, "", start, finish, true}
+	s1 := &Subscription{ID: testSubscriptionID, SubscriberID: testSubscriberID, FeedID: testFeedID, Class: SubscriptionDay, Prefs: "", Start: start, Finish: finish, Renew: true}
 
-	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, SubscriptionDay, "", true)
+	err = CreateSubscription(ctx, store, testSubscriptionID, testSubscriberID, testFeedID, "", true, WithStartEnd(start.Unix(), finish.Unix()))
 	if err != nil {
 		t.Errorf("CreateSubscription failed with error: %v", err)
 	}

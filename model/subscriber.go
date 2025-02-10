@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/google/uuid"
 )
 
 const (
@@ -42,7 +42,7 @@ var (
 
 // Subscriber is an entity in the datastore representing a user who subscribes to AusOcean.TV.
 type Subscriber struct {
-	ID              int64     // AusOcean assigned Subscriber ID.
+	ID              string    // AusOcean assigned Subscriber ID.
 	AccountID       string    // Google Account ID. NB: May not be necessary.
 	Email           string    // Subscriber's email address.
 	GivenName       string    // Subscriber's given name.
@@ -82,18 +82,31 @@ func (s *Subscriber) GetCache() datastore.Cache {
 // If the passed subscriber does not have an ID, a unique ID will be generated.
 func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber) error {
 	// If the subscriber has an ID, use that.
-	if s.ID != 0 {
-		key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", s.ID, s.Email))
+	if s.ID != "" {
+		key := store.NameKey(typeSubscriber, fmt.Sprintf("%s.%s", s.ID, s.Email))
 		return store.Create(ctx, key, s)
 	}
 
 	s.Created = time.Now()
 
 	// Otherwise generate and use a unique ID.
+	q := store.NewQuery(typeSubscriber, true, "ID", "Email")
 	for {
-		s.ID = utils.GenerateInt64ID()
-		key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", s.ID, s.Email))
-		err := store.Create(ctx, key, s)
+		s.ID = uuid.NewString()
+		err := q.FilterField("ID", "=", s.ID)
+		if err != nil {
+			return err
+		}
+		keys, err := store.GetAll(ctx, q, nil)
+		if err != nil {
+			return err
+		}
+		if len(keys) != 0 {
+			continue
+		}
+
+		key := store.NameKey(typeSubscriber, fmt.Sprintf("%s.%s", s.ID, s.Email))
+		err = store.Create(ctx, key, s)
 		if err == nil {
 			return nil
 		} else if err != datastore.ErrEntityExists {
@@ -126,13 +139,13 @@ func GetSubscriberByEmail(ctx context.Context, store datastore.Store, email stri
 // UpdateSubscriber updates the subscriber record with the given subscriber, based on the ID
 // of the passed subscriber.
 func UpdateSubscriber(ctx context.Context, store datastore.Store, subscriber *Subscriber) error {
-	key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", subscriber.ID, subscriber.Email))
+	key := store.NameKey(typeSubscriber, fmt.Sprintf("%s.%s", subscriber.ID, subscriber.Email))
 	_, err := store.Put(ctx, key, subscriber)
 	return err
 }
 
 // GetSubscriber gets the subscriber with the given ID.
-func GetSubscriber(ctx context.Context, store datastore.Store, id int64) (*Subscriber, error) {
+func GetSubscriber(ctx context.Context, store datastore.Store, id string) (*Subscriber, error) {
 	q := store.NewQuery(typeSubscriber, false, "ID", "Email")
 	q.FilterField("ID", "=", id)
 	var subs []Subscriber
