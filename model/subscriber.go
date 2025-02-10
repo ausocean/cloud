@@ -90,10 +90,23 @@ func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber)
 	s.Created = time.Now()
 
 	// Otherwise generate and use a unique ID.
+	q := store.NewQuery(typeSubscriber, true, "ID", "Email")
 	for {
 		s.ID = utils.GenerateInt64ID()
+		err := q.FilterField("ID", "=", s.ID)
+		if err != nil {
+			return err
+		}
+		keys, err := store.GetAll(ctx, q, nil)
+		if err != nil {
+			return err
+		}
+		if len(keys) != 0 {
+			continue
+		}
+
 		key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", s.ID, s.Email))
-		err := store.Create(ctx, key, s)
+		err = store.Create(ctx, key, s)
 		if err == nil {
 			return nil
 		} else if err != datastore.ErrEntityExists {
