@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	runtime "runtime/debug"
+	"time"
 
 	"golang.org/x/exp/rand"
 )
@@ -263,10 +264,12 @@ func (m *RecoverableServeMux) HandleFunc(pattern string, handler func(http.Respo
 //
 // NOTE: the generated ID can be cast to an int32 if required.
 func GenerateInt64ID() int64 {
+	s := rand.NewSource(uint64(time.Now().UnixNano()))
+	r := rand.New(s)
 	// This function generates a random number between 0, and
 	// the largest number which can be expressed as a signed int32.
 	// Subtracting 1000000000 from the range allows 1000000000 to be
 	// added back to the number after generation to ensure that the
 	// value is at least 10 digits long.
-	return rand.Int63n((1<<31)-1000000000) + 1000000000
+	return r.Int63n((1<<31)-1000000000) + 1000000000
 }
