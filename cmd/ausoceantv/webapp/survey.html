@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/src/assets/favicon2.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AusOceanTV | Survey</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="src/web-components/authenticator.ts"></script>
+    <script type="module" src="src/web-components/app-header.ts"></script>
+    <script type="module" src="src/survey.ts"></script>
+  </head>
+  <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
+    <auth-wrapper>
+      <div id="page-column" class="flex min-h-screen flex-col">
+        <video class="fixed inset-0 left-0 top-0 z-[-1] h-full w-full object-cover opacity-30" autoplay muted playsinline loop>
+          <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <app-header></app-header>
+
+        <!-- Main Content Section -->
+        <div class="flex items-center justify-center">
+          <div class="z-9 flex max-w-7xl flex-1 flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-6 text-center shadow-lg backdrop-blur-sm sm:mt-4 sm:rounded-2xl sm:p-16 md:max-w-4xl">
+            <!-- Big Logo -->
+            <div class="relative mb-8 flex items-center justify-center">
+              <div class="absolute z-[-1] h-64 w-64 rounded-full bg-gradient-to-b from-neutral-50 via-neutral-50 to-transparent blur-xl md:h-96 md:w-96 md:blur-2xl"></div>
+              <img src="src/assets/blue_logo.png" class="logo w-44 drop-shadow-2xl md:w-72" alt="AusOcean logo" />
+            </div>
+
+            <h1 class="mb-6 text-4xl font-extrabold tracking-tight text-[#0c69ad] sm:text-5xl md:text-6xl">We’d love to get to know you better!</h1>
+
+            <!-- Survey Form -->
+            <form class="w-full max-w-lg space-y-6">
+              <!-- Location Dropdown -->
+              <div class="text-left">
+                <label for="city" class="block text-lg font-semibold text-gray-900">Where are you from?</label>
+                <select id="city" name="city" class="mt-2 w-full rounded-lg border-gray-300 p-3 text-gray-800">
+                  <option value="">Select your location...</option>
+                  <optgroup label="Australian States">
+                    <option value="sa">South Australia</option>
+                    <option value="nsw">New South Wales</option>
+                    <option value="vic">Victoria</option>
+                    <option value="qld">Queensland</option>
+                    <option value="wa">Western Australia</option>
+                    <option value="tas">Tasmania</option>
+                    <option value="nt">Northern Territory</option>
+                    <option value="act">Australian Capital Territory</option>
+                  </optgroup>
+
+                  <optgroup label="Continents">
+                    <option value="africa">Africa</option>
+                    <option value="asia">Asia</option>
+                    <option value="europe">Europe</option>
+                    <option value="north-america">North America</option>
+                    <option value="south-america">South America</option>
+                    <option value="australia-oceania">Oceania</option>
+                    <option value="antarctica">Antarctica</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <!-- Interest Dropdown -->
+              <div class="text-left">
+                <label for="user-category" class="block text-lg font-semibold text-gray-900">Why are you interested in underwater livestreams?</label>
+                <select id="user-category" name="user-category" class="mt-2 w-full rounded-lg border-gray-300 p-3 text-gray-800">
+                  <option value="">Select your interest...</option>
+                  <option value="scuba-diving">Scuba Diving</option>
+                  <option value="recreational-fishing">Recreational Fishing</option>
+                  <option value="commercial-fishing">Commercial Fishing</option>
+                  <option value="snorkelling">Snorkelling</option>
+                  <option value="spear-fishing">Spear Fishing</option>
+                  <option value="surfing">Surfing</option>
+                  <option value="boating">Boating</option>
+                  <option value="other-water-sports">Other Water Sports</option>
+                  <option value="entertainment">Entertainment</option>
+                  <option value="conservation">Marine Conservation</option>
+                  <option value="science">Science</option>
+                  <option value="education">Education</option>
+                </select>
+              </div>
+
+              <!-- Submit Button -->
+              <div class="mt-6 text-center">
+                <button type="submit" class="w-full rounded-lg bg-[#0c69ad] px-6 py-3 text-lg font-semibold text-white shadow-lg hover:bg-[#084b73]">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </auth-wrapper>
+  </body>
+</html>
