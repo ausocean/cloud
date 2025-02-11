@@ -56,6 +56,10 @@ func ausOceanCompositeStore(settingsStore, mediaStore datastore.Store) *Composit
 			"Variable":   settingsStore,
 			"BinaryData": settingsStore,
 			"User":       settingsStore,
+			"Sensor":     settingsStore,
+			"SensorV2":   settingsStore,
+			"Actuator":   settingsStore,
+			"ActuatorV2": settingsStore,
 		},
 		getKindFromQuery,
 	)
@@ -87,31 +91,31 @@ func NewCompositeStore(stores map[string]datastore.Store, kindFromQuery KindFrom
 // IDKey implements the Store.IDKey by calling IDKey on the appropriate
 // store based on the kind.
 func (s *CompositeStore) IDKey(kind string, id int64) *Key {
-	return s.stores[kind].IDKey(kind, id)
+	return s.getStore(kind).IDKey(kind, id)
 }
 
 // NameKey implements the Store.NameKey by calling NameKey on the appropriate
 // store based on the kind.
 func (s *CompositeStore) NameKey(kind, name string) *Key {
-	return s.stores[kind].NameKey(kind, name)
+	return s.getStore(kind).NameKey(kind, name)
 }
 
 // IncompleteKey implements the Store.IncompleteKey by calling IncompleteKey
 // on the appropriate store based on the kind.
 func (s *CompositeStore) IncompleteKey(kind string) *Key {
-	return s.stores[kind].IncompleteKey(kind)
+	return s.getStore(kind).IncompleteKey(kind)
 }
 
 // NewQuery implements the Store.NewQuery by calling NewQuery on the appropriate
 // store based on the kind.
 func (s *CompositeStore) NewQuery(kind string, keysOnly bool, keyParts ...string) datastore.Query {
-	return s.stores[kind].NewQuery(kind, keysOnly, keyParts...)
+	return s.getStore(kind).NewQuery(kind, keysOnly, keyParts...)
 }
 
 // Get implements the Store.Get by calling Get on the appropriate store based
 // on the kind.
 func (s *CompositeStore) Get(ctx context.Context, key *Key, dst datastore.Entity) error {
-	return s.stores[key.Kind].Get(ctx, key, dst)
+	return s.getStore(key.Kind).Get(ctx, key, dst)
 }
 
 // GetAll implements the Store.GetAll by calling GetAll on the appropriate store.
@@ -119,35 +123,43 @@ func (s *CompositeStore) Get(ctx context.Context, key *Key, dst datastore.Entity
 // does not contain the kind. We look at possible stores and try to find the matching
 // one.
 func (s *CompositeStore) GetAll(ctx context.Context, query datastore.Query, dst interface{}) ([]*Key, error) {
-	return s.stores[s.kindFromQuery(query)].GetAll(ctx, query, dst)
+	return s.getStore(s.kindFromQuery(query)).GetAll(ctx, query, dst)
 }
 
 // Create implements the Store.Create by calling Create on the appropriate store
 // based on the kind.
 func (s *CompositeStore) Create(ctx context.Context, key *Key, src datastore.Entity) error {
-	return s.stores[key.Kind].Create(ctx, key, src)
+	return s.getStore(key.Kind).Create(ctx, key, src)
 }
 
 // Put implements the Store.Put by calling Put on the appropriate store
 // based on the kind.
 func (s *CompositeStore) Put(ctx context.Context, key *Key, src datastore.Entity) (*Key, error) {
-	return s.stores[key.Kind].Put(ctx, key, src)
+	return s.getStore(key.Kind).Put(ctx, key, src)
 }
 
 // Update implements the Store.Update by calling Update on the appropriate store
 // based on the kind.
 func (s *CompositeStore) Update(ctx context.Context, key *Key, fn func(datastore.Entity), dst datastore.Entity) error {
-	return s.stores[key.Kind].Update(ctx, key, fn, dst)
+	return s.getStore(key.Kind).Update(ctx, key, fn, dst)
 }
 
 // DeleteMulti implements the Store.DeleteMulti by calling DeleteMulti on the
 // appropriate store based on the kind.
 func (s *CompositeStore) DeleteMulti(ctx context.Context, keys []*Key) error {
-	return s.stores[keys[0].Kind].DeleteMulti(ctx, keys)
+	return s.getStore(keys[0].Kind).DeleteMulti(ctx, keys)
 }
 
 // Delete implements the Store.Delete by calling Delete on the appropriate store
 // based on the kind.
 func (s *CompositeStore) Delete(ctx context.Context, key *Key) error {
-	return s.stores[key.Kind].Delete(ctx, key)
+	return s.getStore(key.Kind).Delete(ctx, key)
+}
+
+func (s *CompositeStore) getStore(kind string) datastore.Store {
+	store, ok := s.stores[kind]
+	if !ok {
+		panic(fmt.Sprintf("store not found for kind: %q, ensure this kind is mapped to a store", kind))
+	}
+	return store
 }
