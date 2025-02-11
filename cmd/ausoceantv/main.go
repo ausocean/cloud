@@ -86,7 +86,7 @@ func registerAPIRoutes(app *fiber.App) {
 
 	v1.Group("/survey").
 		Get("/check", svc.checkSurveyHandler).
-		Post("/submit", svc.handleSurveyFormSubmission)
+		Post("/", svc.handleSurveyFormSubmission)
 
 	if !svc.lite {
 		v1.Group("/stripe").
@@ -257,37 +257,48 @@ func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": fmt.Sprintf("error getting profile: %v", err),
+		})
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		log.Error("unable to get profile:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal Server Error",
+		})
 	}
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
+		log.Error("error retrieving subscriber:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal Server Error"})
 	}
 
 	// Check if the subscriber was created more than a day ago.
 	if time.Since(subscriber.Created) < 24*time.Hour {
 		log.Debug("subscriber is new, no survey redirect needed")
+		return c.JSON(fiber.Map{"redirect": ""})
 	}
 
 	// Parse DemographicInfo and check if "interest" is present and non-empty.
 	var demographicData map[string]interface{}
 	if subscriber.DemographicInfo != "" {
 		if err := json.Unmarshal([]byte(subscriber.DemographicInfo), &demographicData); err != nil {
-			return fmt.Errorf("failed to parse demographic info JSON for subscriber %d: %v", subscriber.ID, err)
+			log.Error("failed to parse demographic info JSON for subscriber", subscriber.ID, ":", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal Server Error",
+			})
 		}
 
 		if interest, hasInterest := demographicData["interest"]; hasInterest {
 			if str, ok := interest.(string); ok && str != "" {
 				log.Debug("subscriber has valid interest field, no survey redirect needed")
-				return nil
+				return c.JSON(fiber.Map{"redirect": ""})
 			}
 		}
 	}
 
 	// Redirect to survey if no interest field is found.
+	log.Debug("interest field doesn't exist or is empty, redirecting to survey")
 	return c.JSON(fiber.Map{"redirect": "/survey.html"})
 }
 
@@ -325,7 +336,7 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	}
 	subscriber.DemographicInfo = string(demographicJSON)
 
-	// Save updated subscriber to Datastore.
+	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update subscriber"})
 	}

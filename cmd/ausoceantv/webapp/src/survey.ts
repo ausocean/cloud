@@ -6,7 +6,7 @@ async function handleFormSubmit(event: Event): Promise<void> {
   const interest = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
-    const response = await fetch("/api/v1/survey/submit", {
+    const response = await fetch("/api/v1/survey", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ city, "user-category": interest }).toString(),
@@ -16,12 +16,11 @@ async function handleFormSubmit(event: Event): Promise<void> {
       const error = await response.json();
       alert(`Error: ${error.error}`);
     } else {
-        alert("Survey successfully submitted! Redirecting to home...");
-        window.location.href = "/home.html"; // Redirect to home page
+      window.location.href = "/watch.html"; // Redirect to home page.
     }
   } catch (error) {
     console.error("error submitting survey form:", error);
-    alert("An unexpected error occurred. Please try again later.");
+    alert("An unexpected error occurred. Please contact us or try again later.");
   }
 }
 
