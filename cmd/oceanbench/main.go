@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.28.0"
+	version     = "v0.30.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -215,7 +215,6 @@ func main() {
 	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
 	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
 	http.HandleFunc("/set/devices/edit", editDevicesHandler)
-	http.HandleFunc("/set/devices/configure", configDevicesHandler)
 	http.HandleFunc("/set/devices/", setDevicesHandler)
 	http.HandleFunc("/set/crons/edit", editCronsHandler)
 	http.HandleFunc("/set/crons/", setCronsHandler)
@@ -236,6 +235,8 @@ func main() {
 	http.HandleFunc("/admin/user/delete", adminHandler)
 	http.HandleFunc("/admin/site", adminHandler)
 	http.HandleFunc("/admin/broadcast", adminHandler)
+	http.HandleFunc("/admin/sandbox", sandboxHandler)
+	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
 	http.HandleFunc("/data/", dataHandler)
 	http.HandleFunc("/throughputs", throughputsHandler)
@@ -625,6 +626,12 @@ func pages(selected string) []page {
 		{
 			Name:  "broadcast",
 			URL:   "/admin/broadcast",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "configuration",
+			URL:   "/admin/sandbox",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},

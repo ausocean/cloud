@@ -1399,9 +1399,9 @@ func testSubscription(t *testing.T, kind string) {
 
 	start := time.Now().Truncate(24 * time.Hour).UTC()
 	finish := start.AddDate(0, 0, 1)
-	s1 := &Subscription{testSubscriberID, testFeedID, SubscriptionDay, "", start, finish, true}
+	s1 := &Subscription{SubscriberID: testSubscriberID, FeedID: testFeedID, Class: SubscriptionDay, Prefs: "", Start: start, Finish: finish, Renew: true}
 
-	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, SubscriptionDay, "", true)
+	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, "", true, WithSubscriptionClass(SubscriptionDay))
 	if err != nil {
 		t.Errorf("CreateSubscription failed with error: %v", err)
 	}

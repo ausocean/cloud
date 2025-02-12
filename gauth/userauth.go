@@ -107,6 +107,21 @@ var (
 	ProfileNotFound = errors.New("profile not found")
 )
 
+// ErrOauth2RedirectError is used to wrap errors from OAuth2 redirects
+// and implements the error interface.
+type ErrOauth2RedirectError struct {
+	err string
+}
+
+func (e *ErrOauth2RedirectError) Error() string {
+	return fmt.Sprintf("received error from oauth2 callback: %v", e.err)
+}
+
+func (e *ErrOauth2RedirectError) Is(target error) bool {
+	_, ok := target.(*ErrOauth2RedirectError)
+	return ok
+}
+
 // Init initializes Google user authentication using OAuth2.
 // It requires the use of two secrets obtained via GetSecrets:
 //
@@ -234,6 +249,11 @@ func (ua *UserAuth) CallbackHandler(h backend.Handler) (*Profile, error) {
 
 	if ua.cfg == nil {
 		return nil, NotConfigured
+	}
+
+	redirectErr := h.FormValue("error")
+	if redirectErr != "" {
+		return nil, &ErrOauth2RedirectError{err: redirectErr}
 	}
 
 	oauthFlowSession, err := h.LoadSession(h.FormValue("state"))

@@ -25,8 +25,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -40,6 +42,7 @@ import (
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 )
 
 // Errors from malformed API requests.
@@ -87,6 +90,97 @@ func (svc *service) setupStripe(ctx context.Context) {
 	log.Info("setup stripe")
 }
 
+func (svc *service) handleStripeWebhook(c *fiber.Ctx) error {
+	event := stripe.Event{}
+
+	if err := json.Unmarshal(c.Body(), &event); err != nil {
+		log.Errorf("Failed to parse webhook body json: %w", err.Error())
+		return err
+	}
+
+	switch event.Type {
+	case stripe.EventTypePaymentIntentSucceeded:
+		var pi stripe.PaymentIntent
+		err := json.Unmarshal(event.Data.Raw, &pi)
+		if err != nil {
+			log.Errorf("Error parsing webhook JSON: %w", err)
+			return err
+		}
+		return svc.handleSuccessfulPaymentIntent(pi)
+	case stripe.EventTypeInvoicePaymentSucceeded:
+		var invoice stripe.Invoice
+		err := json.Unmarshal(event.Data.Raw, &invoice)
+		if err != nil {
+			log.Errorf("Error parsing webhook JSON: %w", err)
+			return err
+		}
+		return svc.handleInvoicePaymentSuccess(invoice)
+	default:
+		return errors.New("unsupported event type")
+	}
+}
+
+func (svc *service) handleSuccessfulPaymentIntent(pi stripe.PaymentIntent) error {
+	ctx := context.Background()
+	customer, err := svc.getCustomer(&model.Subscriber{PaymentInfo: pi.Customer.ID})
+	if err != nil {
+		return fmt.Errorf("error getting customer: %w", err)
+	}
+	sub, err := model.GetSubscriberByEmail(ctx, svc.store, customer.Email)
+	if err != nil {
+		log.Errorf("failed to get subscriber for email: %s, err: %v", pi.Customer.Email, err)
+		return fmt.Errorf("failed to get subscriber for email: %s, err: %w", pi.Customer.Email, err)
+	}
+
+	if pi.Invoice != nil {
+		// This payment intent is for a subscription for which we will handle the invoice_payment.succeeded event.
+		return nil
+	}
+
+	// This is for a day pass.
+	return model.CreateSubscription(ctx, svc.store, sub.ID, 0, "", false,
+		model.WithSubscriptionClass(model.SubscriptionDay),
+		model.WithStripePaymentIntentID(pi.ID),
+	)
+}
+
+func (svc *service) handleInvoicePaymentSuccess(invoice stripe.Invoice) error {
+	ctx := context.Background()
+	customer, err := svc.getCustomer(&model.Subscriber{PaymentInfo: invoice.Customer.ID})
+	if err != nil {
+		return fmt.Errorf("error getting customer: %w", err)
+	}
+	subber, err := model.GetSubscriberByEmail(ctx, svc.store, customer.Email)
+	if err != nil {
+		return fmt.Errorf("failed to get subscriber for email: %s, err: %w", invoice.Customer.Email, err)
+	}
+	sub, err := subscription.Get(invoice.Subscription.ID, nil)
+	if err != nil {
+		return fmt.Errorf("error getting subscription from stripe: %w", err)
+	}
+
+	start := sub.CurrentPeriodStart
+	end := sub.CurrentPeriodEnd
+	renew := !sub.CancelAtPeriodEnd
+	id := sub.ID
+
+	curr, err := model.GetSubscription(ctx, svc.store, subber.ID, 0)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		return model.CreateSubscription(ctx, svc.store, subber.ID, 0, "", renew,
+			model.WithStartEnd(start, end),
+			model.WithStripeSubscriptionID(id),
+			model.WithStripePaymentIntentID(invoice.PaymentIntent.ID),
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("unable to get current subscription: %w", err)
+	}
+
+	curr.Start = time.Unix(start, 0)
+	curr.Finish = time.Unix(end, 0)
+	return model.UpdateSubscription(ctx, svc.store, curr)
+}
+
 // handleCreatePaymentIntent handles requests to /stripe/create-payment-intent.
 func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 	// Check if a subscriber already exists.
@@ -104,7 +198,7 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 		return fmt.Errorf("failed getting subscriber, try logging in again: %w", err)
 	}
 
-	customerID, err := svc.getCustomerID(subscriber)
+	customer, err := svc.getCustomer(subscriber)
 	if err != nil {
 		return fmt.Errorf("error getting customer ID: %w", err)
 	}
@@ -126,9 +220,9 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 	// If the price is recurring the selected product is a subscription and needs
 	// to be handled differently to the once off case.
 	if price.Recurring == nil {
-		return svc.createPaymentIntent(c, customerID, price)
+		return svc.createPaymentIntent(c, customer.ID, price)
 	}
-	return svc.createSubscriptionIntent(c, customerID, priceID)
+	return svc.createSubscriptionIntent(c, customer.ID, priceID)
 }
 
 type clientSecretResponse struct {
@@ -220,25 +314,25 @@ func getActivePaymentIntent(cid string) *stripe.PaymentIntent {
 	return pi
 }
 
-// getCustomer returns the customer ID for the current user, if no customer exists, a
+// getCustomer returns the stripe customer for the current user, if no customer exists, a
 // new customer is created.
-func (svc *service) getCustomerID(sub *model.Subscriber) (string, error) {
+func (svc *service) getCustomer(sub *model.Subscriber) (*stripe.Customer, error) {
 	if sub.PaymentInfo != "" {
-		return sub.PaymentInfo, nil
+		return customer.Get(sub.PaymentInfo, nil)
 	}
 
 	id, err := createCustomer(sub.GivenName, sub.FamilyName, sub.Email)
 	if err != nil {
-		return "", fmt.Errorf("error creating new customer: %w", err)
+		return nil, fmt.Errorf("error creating new customer: %w", err)
 	}
 
 	sub.PaymentInfo = id
 	err = model.UpdateSubscriber(context.Background(), svc.store, sub)
 	if err != nil {
-		return "", fmt.Errorf("error updating subscriber with new payment info: %w", err)
+		return nil, fmt.Errorf("error updating subscriber with new payment info: %w", err)
 	}
 
-	return sub.PaymentInfo, nil
+	return customer.Get(sub.PaymentInfo, nil)
 }
 
 // createCustomer creates a new Stripe customer object, returning the ID of
@@ -324,8 +418,6 @@ func (svc *service) handleGetProduct(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("error getting product for id: %s, err: %w", pid, err)
 	}
-
-	log.Infof("product: %+v", product)
 
 	return c.JSON(product)
 }

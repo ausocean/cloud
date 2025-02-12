@@ -82,11 +82,17 @@ type Pin string
 
 // The pins used by sensors.
 const (
-	pinBatteryVoltage   Pin = "A0"
-	pinAnalogValue      Pin = "X10"
-	pinAirTemperature   Pin = "X50"
-	pinHumidity         Pin = "X51"
-	pinWaterTemperature Pin = "X60"
+	pinBatteryVoltage      Pin = "A0"
+	pinAnalogValue         Pin = "X10"
+	pinAirTemperature      Pin = "X50"
+	pinHumidity            Pin = "X51"
+	pinWaterTemperature    Pin = "X60"
+	pinESP32BatteryVoltage Pin = "A4"
+	pinESP32Power1Voltage  Pin = "A26"
+	pinESP32Power2Voltage  Pin = "A27"
+	pinESP32Power3Voltage  Pin = "A14"
+	pinESP32NetworkVoltage Pin = "A15"
+	pinESP32Current        Pin = "A2"
 )
 
 // Unit defines a unit of measurement used by a sensor.
@@ -94,9 +100,10 @@ type Unit string
 
 // The units used by sensors.
 const (
-	unitCelsius Unit = "C"
-	unitPercent Unit = "%"
-	unitVoltage Unit = "V"
+	unitCelsius   Unit = "C"
+	unitPercent   Unit = "%"
+	unitVoltage   Unit = "V"
+	unitMilliamps Unit = "mA"
 )
 
 // Arg defines a float64 value which comprises the arguments to a sensor.
@@ -486,7 +493,10 @@ func sensorShim(name string, pin Pin, qty nmea.Code, function Func, units Unit, 
 // (using the least possible decimal places)
 func catArgs(args ...Arg) string {
 	str := ""
-	for _, arg := range args {
+	for i, arg := range args {
+		if i > 0 {
+			str += ","
+		}
 		str += strconv.FormatFloat(float64(arg), 'f', -1, 64)
 	}
 	return str

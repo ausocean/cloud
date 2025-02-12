@@ -103,8 +103,12 @@ func WithPeripherals(peripherals ...*model.Device) func(any) error {
 	}
 }
 
-// WithDefaults is a functional option that uses all of the current defaults for a rig system.
+// WithRigSystemDefaults is a functional option that uses all of the current defaults for a rig system.
 func WithRigSystemDefaults() func(any) error {
+	const (
+		defaultVoltageScaleFactor = 0.0289
+		defaultCurrentScaleFactor = 0.451
+	)
 	return func(v any) error {
 		sys, ok := v.(*RigSystem)
 		if !ok {
@@ -126,16 +130,20 @@ func WithRigSystemDefaults() func(any) error {
 		)
 
 		sys.Sensors = append(sys.Sensors,
-			model.AnalogValueSensor(),
 			model.AirTemperatureSensor(),
 			model.HumiditySensor(),
 			model.WaterTemperatureSensor(),
+			model.ESP32Power1Sensor(defaultVoltageScaleFactor),
+			model.ESP32Power2Sensor(defaultVoltageScaleFactor),
+			model.ESP32Power3Sensor(defaultVoltageScaleFactor),
+			model.ESP32NetworkSensor(defaultVoltageScaleFactor),
+			model.ESP32CurrentSensor(defaultCurrentScaleFactor),
 		)
 
 		sys.Actuators = append(sys.Actuators,
-			model.NewDevice1Actuator(),
-			model.NewDevice2Actuator(),
-			model.NewDevice3Actuator(),
+			model.NewESP32Device1Actuator(),
+			model.NewESP32Device2Actuator(),
+			model.NewESP32Device3Actuator(),
 		)
 
 		return nil
@@ -145,9 +153,9 @@ func WithRigSystemDefaults() func(any) error {
 // NewRigSystem returns a new RigSystem with the given options. It is the callers
 // responsibility to put the components into the datastore.
 //
-// MAC and name refer to the MAC Address and name of the Controller which will be the heart of
-// the RigSystem.
-func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, error) {
+// dkey, MAC and name refer to the device key, MAC Address and name of the Controller which will
+// be the heart of the RigSystem.
+func NewRigSystem(skey, dkey int64, MAC, name string, options ...Option) (*RigSystem, error) {
 	if model.MacEncode(MAC) == 0 {
 		return nil, model.ErrInvalidMACAddress
 	}
@@ -155,6 +163,7 @@ func NewRigSystem(skey int64, MAC, name string, options ...Option) (*RigSystem, 
 	sys := &RigSystem{
 		Controller: model.Device{
 			Skey:          skey,
+			Dkey:          dkey,
 			Mac:           model.MacEncode(MAC),
 			Name:          name,
 			Type:          model.DevTypeController,

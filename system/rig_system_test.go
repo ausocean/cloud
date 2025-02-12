@@ -11,6 +11,7 @@ import (
 
 const (
 	testSiteKey = 1
+	testDevKey  = 1098765432
 	strTestMAC  = "00:11:22:33:44:55"
 )
 
@@ -18,6 +19,7 @@ func TestNewRigSystem(t *testing.T) {
 	tests := []struct {
 		name           string
 		skey           int64
+		dkey           int64
 		mac            string
 		ControllerName string
 		options        []system.Option
@@ -27,6 +29,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "Valid input without options",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController1",
 			options:        nil,
@@ -44,6 +47,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "Invalid MAC without options",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            "00:11:22:33",
 			ControllerName: "TestController2",
 			options:        nil,
@@ -53,6 +57,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With AlarmNetworkVar",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController3",
 			options:        []system.Option{system.WithVariables(model.NewAlarmNetworkVar(3))},
@@ -73,6 +78,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With BatteryVoltage Sensor",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController4",
 			options:        []system.Option{system.WithSensors(model.BatteryVoltageSensor(0.0289))},
@@ -92,6 +98,7 @@ func TestNewRigSystem(t *testing.T) {
 		}, {
 			name:           "With AirTemperature Sensor",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController5",
 			options:        []system.Option{system.WithSensors(model.AirTemperatureSensor())},
@@ -112,6 +119,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Humidity Sensor",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController6",
 			options:        []system.Option{system.WithSensors(model.HumiditySensor())},
@@ -132,6 +140,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With WaterTemperature Sensor",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController7",
 			options:        []system.Option{system.WithSensors(model.WaterTemperatureSensor())},
@@ -152,6 +161,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With AlarmPeriodVar",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController8",
 			options:        []system.Option{system.WithVariables(model.NewAlarmPeriodVar(30 * time.Second))},
@@ -172,6 +182,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With AlarmRecoveryVoltageVar",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController9",
 			options:        []system.Option{system.WithVariables(model.NewAlarmRecoveryVoltageVar(12))},
@@ -192,6 +203,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Power1Var",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController10",
 			options:        []system.Option{system.WithVariables(model.NewPower1Var(true))},
@@ -212,6 +224,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Power2Var",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController11",
 			options:        []system.Option{system.WithVariables(model.NewPower2Var(false))},
@@ -232,6 +245,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With PulseWidthVar",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController12",
 			options:        []system.Option{system.WithVariables(model.NewPulseWidthVar(15 * time.Second))},
@@ -252,6 +266,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With AutoRestartVar",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController13",
 			options:        []system.Option{system.WithVariables(model.NewAutoRestartVar(5 * time.Minute))},
@@ -272,6 +287,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Device1Actuator",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController14",
 			options:        []system.Option{system.WithActuators(model.NewDevice1Actuator())},
@@ -292,6 +308,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Device2Actuator",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController15",
 			options:        []system.Option{system.WithActuators(model.NewDevice2Actuator())},
@@ -312,6 +329,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With Device3Actuator",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController16",
 			options:        []system.Option{system.WithActuators(model.NewDevice3Actuator())},
@@ -332,6 +350,7 @@ func TestNewRigSystem(t *testing.T) {
 		{
 			name:           "With All Sensors and Variables",
 			skey:           testSiteKey,
+			dkey:           testDevKey,
 			mac:            strTestMAC,
 			ControllerName: "TestController17",
 			options: []system.Option{
@@ -403,7 +422,7 @@ func TestNewRigSystem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := system.NewRigSystem(tt.skey, tt.mac, tt.ControllerName, tt.options...)
+			got, err := system.NewRigSystem(tt.skey, tt.dkey, tt.mac, tt.ControllerName, tt.options...)
 			if err != tt.wantErr {
 				t.Errorf("unexpected error from NewRigSystem, wanted: %v, got: %v", tt.wantErr, err)
 			}

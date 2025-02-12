@@ -47,9 +47,12 @@ const (
 
 // Pins used by actuators.
 const (
-	PinPower1 Pin = "D16"
-	PinPower2 Pin = "D14"
-	PinPower3 Pin = "D15"
+	PinPower1      Pin = "D16"
+	PinPower2      Pin = "D14"
+	PinPower3      Pin = "D15"
+	PinESP32Power1 Pin = "D32"
+	PinESP32Power2 Pin = "D33"
+	PinESP32Power3 Pin = "D25"
 )
 
 // Actuator represents an actuator datastore type to link a device output with

@@ -26,6 +26,8 @@ LICENSE
 package main
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -72,7 +74,12 @@ func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
-	if err != nil {
+	log.Println("errors is:", errors.Is(err, &gauth.ErrOauth2RedirectError{}))
+	if errors.Is(err, &gauth.ErrOauth2RedirectError{}) {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	} else if err != nil {
+		log.Println("got error:", err)
 		writeError(w, err)
 		return
 	}
