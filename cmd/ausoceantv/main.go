@@ -280,7 +280,7 @@ func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"redirect": ""})
 	}
 
-	// Parse DemographicInfo and check if "interest" is present and non-empty.
+	// Parse DemographicInfo and check if "user-category" is present and non-empty.
 	var demographicData map[string]interface{}
 	if subscriber.DemographicInfo != "" {
 		if err := json.Unmarshal([]byte(subscriber.DemographicInfo), &demographicData); err != nil {
@@ -290,16 +290,16 @@ func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		if interest, hasInterest := demographicData["interest"]; hasInterest {
-			if str, ok := interest.(string); ok && str != "" {
-				log.Debug("subscriber has valid interest field, no survey redirect needed")
+		if userCategory, hasUserCategory := demographicData["user-category"]; hasUserCategory {
+			if str, ok := userCategory.(string); ok && str != "" {
+				log.Debug("subscriber has valid user-category field, no survey redirect needed")
 				return c.JSON(fiber.Map{"redirect": ""})
 			}
 		}
 	}
 
-	// Redirect to survey if no interest field is found.
-	log.Debug("interest field doesn't exist or is empty, redirecting to survey")
+	// Redirect to survey if no user-category field is found.
+	log.Debug("user-category field doesn't exist or is empty, redirecting to survey")
 	return c.JSON(fiber.Map{"redirect": "/survey.html"})
 }
 

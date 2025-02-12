@@ -44,20 +44,19 @@ function initAutocomplete(): void {
   const postcodeInput = document.getElementById("postcode") as HTMLInputElement;
 
   if (!input) {
-    console.error("location input not found.");
+    console.error("location input not found");
     return;
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
-    types: ["geocode"], // Prioritize city/postcode addresses
-    componentRestrictions: { country: "AU" }, // Restrict to Australia
+    types: ["geocode"], // Prioritize city/postcode addresses.
   });
 
   autocomplete.addListener("place_changed", () => {
     const place = autocomplete.getPlace();
 
     if (!place.address_components) {
-      console.warn("No address components found.");
+      console.warn("no address components found.");
       return;
     }
 
@@ -73,7 +72,7 @@ function initAutocomplete(): void {
       }
     }
 
-    // Fill the hidden fields
+    // Fill the hidden fields.
     cityInput.value = city;
     postcodeInput.value = postcode;
   });
