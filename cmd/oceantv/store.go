@@ -161,5 +161,8 @@ func (s *CompositeStore) getStore(kind string) datastore.Store {
 	if !ok {
 		panic(fmt.Sprintf("store not found for kind: %q, ensure this kind is mapped to a store", kind))
 	}
+	if store == nil {
+		panic(fmt.Sprintf("store for kind: %q is nil", kind))
+	}
 	return store
 }
