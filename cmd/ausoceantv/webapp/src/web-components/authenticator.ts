@@ -15,9 +15,10 @@ export class Authenticator extends TailwindElement() {
     super.connectedCallback();
 
     await fetch("/api/v1/auth/profile")
-      .then((resp) => {
-        if (resp.status != 200) {
-          throw resp.status;
+      .then(async (resp) => {
+        if (!resp.ok) {
+          const error = await resp.json();
+          throw resp.statusText + ": " + error.message;
         }
         return resp.json();
       })
@@ -27,11 +28,7 @@ export class Authenticator extends TailwindElement() {
         this.user.email = resp.Email;
       })
       .catch((err) => {
-        if (err == 401) {
-          console.log("No session found");
-        } else {
-          console.log("Error fetching profile:", err);
-        }
+        console.warn("Error fetching profile:", err);
 
         // Send Non-Authenticated users to the index page.
         if (window.location.pathname != "/") {

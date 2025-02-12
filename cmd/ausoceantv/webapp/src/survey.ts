@@ -14,7 +14,7 @@ async function handleFormSubmit(event: Event): Promise<void> {
 
     if (!response.ok) {
       const error = await response.json();
-      alert(`Error: ${error.error}`);
+      throw response.statusText + ": " + error.message;
     } else {
       window.location.href = "/watch.html"; // Redirect to home page.
     }
@@ -36,4 +36,3 @@ function initFormHandler(): void {
 
 // Initialize the form submission handler when the document is ready.
 document.addEventListener("DOMContentLoaded", initFormHandler);
-  
