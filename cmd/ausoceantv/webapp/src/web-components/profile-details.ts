@@ -34,9 +34,9 @@ export class ProfileDetails extends TailwindElement() {
     console.log("getting subscription");
     await fetch("/api/v1/get/subscription")
       .then(async (resp) => {
-        if (resp.status != 200) {
-          const errorText = await resp.text();
-          throw errorText;
+        if (!resp.ok) {
+          const error = await resp.json();
+          throw resp.statusText + ": " + error.message;
         }
         return resp.json();
       })
@@ -114,7 +114,7 @@ export class ProfileDetails extends TailwindElement() {
   async handleCancel() {
     await fetch("api/v1/stripe/cancel", { method: "POST" }).then(async (resp) => {
       this.msg = await resp.text();
-      if (resp.status >= 200 && resp.status < 300) {
+      if (resp.ok) {
         this.msgColour = textGreen;
       } else {
         this.msgColour = textRed;
