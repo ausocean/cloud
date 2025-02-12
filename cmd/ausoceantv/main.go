@@ -321,12 +321,14 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 
 	// Extract form values from request body.
 	city := c.FormValue("city")
-	interest := c.FormValue("user-category")
+	postcode := c.FormValue("postcode")
+	userCategory := c.FormValue("user-category")
 
 	// Build demographic info JSON.
 	demographicInfo := map[string]string{
-		"location": city,
-		"interest": interest,
+		"city":          city,
+		"postcode":      postcode,
+		"user-category": userCategory,
 	}
 
 	// Encode demographic info as JSON and store it in Subscriber.

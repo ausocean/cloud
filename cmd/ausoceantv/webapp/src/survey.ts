@@ -3,13 +3,14 @@ async function handleFormSubmit(event: Event): Promise<void> {
   event.preventDefault();
 
   const city = (document.querySelector("#city") as HTMLSelectElement).value;
-  const interest = (document.querySelector("#user-category") as HTMLSelectElement).value;
+  const postcode = (document.querySelector("#postcode") as HTMLSelectElement).value;
+  const userCategory = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
     const response = await fetch("/api/v1/survey", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ city, "user-category": interest }).toString(),
+      body: new URLSearchParams({ "city": city, "postcode": postcode, "user-category": userCategory }).toString(),
     });
 
     if (!response.ok) {
@@ -36,20 +37,20 @@ function initFormHandler(): void {
 
 // Initialize the form submission handler when the document is ready.
 document.addEventListener("DOMContentLoaded", initFormHandler);
-  
+
 function initAutocomplete(): void {
   const input = document.getElementById("location") as HTMLInputElement;
   const cityInput = document.getElementById("city") as HTMLInputElement;
   const postcodeInput = document.getElementById("postcode") as HTMLInputElement;
 
   if (!input) {
-    console.error("Location input not found.");
+    console.error("location input not found.");
     return;
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
     types: ["geocode"], // Prioritize city/postcode addresses
-    componentRestrictions: { country: "AU" } // Restrict to Australia
+    componentRestrictions: { country: "AU" }, // Restrict to Australia
   });
 
   autocomplete.addListener("place_changed", () => {
