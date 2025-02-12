@@ -721,7 +721,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 		newState = newDirectIdle(ctx)
 	case !vid && !slate && !unhealthy && starting && !isSecondary && !inFailure:
 		newState = newDirectStarting(ctx)
-	case !vid && !slate && !unhealthy && starting && !isSecondary && inFailure:
+	case !vid && !slate && !unhealthy && !starting && !isSecondary && inFailure:
 		newState = newDirectFailure(ctx)
 	default:
 		panic(fmt.Sprintf("unknown state for broadcast, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", vid, active, slate, unhealthy, starting, isSecondary, transitioning))
