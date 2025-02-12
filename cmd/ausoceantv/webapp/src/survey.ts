@@ -37,3 +37,45 @@ function initFormHandler(): void {
 // Initialize the form submission handler when the document is ready.
 document.addEventListener("DOMContentLoaded", initFormHandler);
   
+function initAutocomplete(): void {
+  const input = document.getElementById("location") as HTMLInputElement;
+  const cityInput = document.getElementById("city") as HTMLInputElement;
+  const postcodeInput = document.getElementById("postcode") as HTMLInputElement;
+
+  if (!input) {
+    console.error("Location input not found.");
+    return;
+  }
+
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    types: ["geocode"], // Prioritize city/postcode addresses
+    componentRestrictions: { country: "AU" } // Restrict to Australia
+  });
+
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+
+    if (!place.address_components) {
+      console.warn("No address components found.");
+      return;
+    }
+
+    let city = "";
+    let postcode = "";
+
+    for (const component of place.address_components) {
+      if (component.types.includes("locality")) {
+        city = component.long_name;
+      }
+      if (component.types.includes("postal_code")) {
+        postcode = component.long_name;
+      }
+    }
+
+    // Fill the hidden fields
+    cityInput.value = city;
+    postcodeInput.value = postcode;
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initAutocomplete);
