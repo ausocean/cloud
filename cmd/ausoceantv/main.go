@@ -311,38 +311,34 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
 		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		log.Error("failed to get user profile:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Internal Server Error"})
 	}
 
-	// Fetch the subscriber by email from the datastore.
+	// Fetch subscriber.
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "subscriber not found"})
+		log.Error("failed to get subscriber:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to retrieve subscriber"})
 	}
 
-	// Extract form values from request body.
-	city := c.FormValue("city")
-	postcode := c.FormValue("postcode")
-	userCategory := c.FormValue("user-category")
+	// Read the JSON request body.
+	body := c.Body()
 
-	// Build demographic info JSON.
-	demographicInfo := map[string]string{
-		"city":          city,
-		"postcode":      postcode,
-		"user-category": userCategory,
+	// Validate that body is not empty.
+	if len(body) == 0 {
+		log.Error("empty request body")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "request body cannot be empty"})
 	}
 
-	// Encode demographic info as JSON and store it in Subscriber.
-	demographicJSON, err := json.Marshal(demographicInfo)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to encode demographic info"})
-	}
-	subscriber.DemographicInfo = string(demographicJSON)
+	// Directly store the JSON in DemographicInfo.
+	subscriber.DemographicInfo = string(body)
 
-	// Save updated subscriber to datastore.
+	// Save updated subscriber data in Datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update subscriber"})
+		log.Error("failed to update subscriber:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to update subscriber data"})
 	}
 
-	return c.JSON(fiber.Map{"message": "demographic info successfully updated"})
+	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
 }
