@@ -15,7 +15,7 @@ async function handleFormSubmit(event: Event): Promise<void> {
 
     if (!response.ok) {
       const error = await response.json();
-      alert(`Error: ${error.error}`);
+      throw response.statusText + ": " + error.message;
     } else {
       window.location.href = "/watch.html"; // Redirect to home page.
     }
