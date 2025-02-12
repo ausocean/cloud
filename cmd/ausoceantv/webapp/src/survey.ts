@@ -2,15 +2,15 @@ async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
   event.preventDefault();
 
-  const city = (document.querySelector("#city") as HTMLSelectElement).value;
-  const postcode = (document.querySelector("#postcode") as HTMLSelectElement).value;
+  const city = (document.querySelector("#city") as HTMLInputElement).value;
+  const postcode = (document.querySelector("#postcode") as HTMLInputElement).value;
   const userCategory = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
     const response = await fetch("/api/v1/survey", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ city: city, postcode: postcode, "user-category": userCategory }).toString(),
+      body: new URLSearchParams({ city, postcode, "user-category": userCategory }).toString(),
     });
 
     if (!response.ok) {
@@ -49,7 +49,8 @@ function initAutocomplete(): void {
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
-    types: ["geocode"], // Prioritize city/postcode addresses.
+    types: ["geocode"],
+    componentRestrictions: { country: "AU" },
   });
 
   autocomplete.addListener("place_changed", () => {
