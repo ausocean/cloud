@@ -10,7 +10,7 @@ async function handleFormSubmit(event: Event): Promise<void> {
     const response = await fetch("/api/v1/survey", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ "city": city, "postcode": postcode, "user-category": userCategory }).toString(),
+      body: new URLSearchParams({ city: city, postcode: postcode, "user-category": userCategory }).toString(),
     });
 
     if (!response.ok) {
