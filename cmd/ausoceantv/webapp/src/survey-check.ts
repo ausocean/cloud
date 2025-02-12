@@ -7,7 +7,7 @@ async function checkSurveyRedirect() {
       window.location.href = result.redirect;
     }
   } catch (error) {
-    console.error("Failed to check survey redirect:", error);
+    console.error("failed to check survey redirect:", error);
   }
 }
 

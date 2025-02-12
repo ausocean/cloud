@@ -9,6 +9,7 @@
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
     <script type="module" src="src/survey.ts"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB6-x9HZQPJl58suKCxHVzTBGR78Xbst1A&libraries=places"></script>
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
@@ -34,42 +35,25 @@
             <form class="w-full max-w-lg space-y-6">
               <!-- Location Dropdown -->
               <div class="text-left">
-                <label for="city" class="block text-lg font-semibold text-gray-900">Where are you from?</label>
-                <select id="city" name="city" class="mt-2 w-full rounded-lg border-gray-300 p-3 text-gray-800">
-                  <option value="">Select your location...</option>
-                  <optgroup label="Australian States">
-                    <option value="sa">South Australia</option>
-                    <option value="nsw">New South Wales</option>
-                    <option value="vic">Victoria</option>
-                    <option value="qld">Queensland</option>
-                    <option value="wa">Western Australia</option>
-                    <option value="tas">Tasmania</option>
-                    <option value="nt">Northern Territory</option>
-                    <option value="act">Australian Capital Territory</option>
-                  </optgroup>
-
-                  <optgroup label="Continents">
-                    <option value="africa">Africa</option>
-                    <option value="asia">Asia</option>
-                    <option value="europe">Europe</option>
-                    <option value="north-america">North America</option>
-                    <option value="south-america">South America</option>
-                    <option value="australia-oceania">Oceania</option>
-                    <option value="antarctica">Antarctica</option>
-                  </optgroup>
-                </select>
+                <label for="location" class="block text-lg font-semibold text-gray-900">
+                  Which city/suburb are you from?
+                  <span class="text-sm text-gray-500">(optional)</span>
+                </label>
+                <input id="location" type="text" placeholder="Start typing your city or postcode..." class="mt-2 w-full rounded-lg border-gray-300 bg-neutral-50 p-3 text-gray-800" />
+                <input type="hidden" id="city" name="city" />
+                <input type="hidden" id="postcode" name="postcode" />
               </div>
 
               <!-- Interest Dropdown -->
               <div class="text-left">
                 <label for="user-category" class="block text-lg font-semibold text-gray-900">Why are you interested in underwater livestreams?</label>
-                <select id="user-category" name="user-category" class="mt-2 w-full rounded-lg border-gray-300 p-3 text-gray-800">
+                <select id="user-category" name="user-category" class="mt-2 w-full rounded-lg border-gray-300 bg-neutral-50 p-3 text-gray-800">
                   <option value="">Select your interest...</option>
                   <option value="scuba-diving">Scuba Diving</option>
                   <option value="recreational-fishing">Recreational Fishing</option>
                   <option value="commercial-fishing">Commercial Fishing</option>
                   <option value="snorkelling">Snorkelling</option>
-                  <option value="spear-fishing">Spear Fishing</option>
+                  <option value="spearfishing">Spearfishing</option>
                   <option value="surfing">Surfing</option>
                   <option value="boating">Boating</option>
                   <option value="other-water-sports">Other Water Sports</option>
