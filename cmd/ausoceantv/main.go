@@ -30,6 +30,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -54,7 +55,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.4.5"
+	version       = "v0.4.6"
 )
 
 // service defines the properties of our web service.
@@ -392,13 +393,12 @@ func withUserMessage(userMsg string) loggingErrorOption {
 	}
 }
 
-// logAndReturnError logs the passed message as an error, and if no options are passed,
-// will return the same error to the frontend as a JSON formatted error string.
-//
-// The response code defaults to internal server error (500).
+// logAndReturnError logs the passed message as an error and returns an response to the client.
+// The response code defaults to internal server error (500) and the message defaults to the status text.
 func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
 	log.Error(message)
 	c.Status(fiber.StatusInternalServerError)
+	message = http.StatusText(c.Response().StatusCode())
 	for i, opt := range opts {
 		err := opt(c, &message)
 		if err != nil {
