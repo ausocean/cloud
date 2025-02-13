@@ -14,7 +14,7 @@
     <div id="msg" hidden></div>
     <div class="flex flex-col items-center gap-5">
       <a href="plans.html" class="w-1/3 min-w-[400px] text-left text-gray-600">&#8249; Plans</a>
-      <div class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow">
+      <div id="cart-info" class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow">
         <h2 class="text-left text-xl font-bold">Cart</h2>
         <hr class="mb-2" />
         <div id="items" class="animate-pulse">
@@ -25,7 +25,7 @@
           <small id="desc" class="text-gray-600">Access to AusOcean TV...</small>
         </div>
       </div>
-      <form id="payment-form" class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow">
+      <form id="payment-form" class="w-1/3 min-w-[400px] rounded border bg-white p-10 drop-shadow" hidden>
         <div id="payment-element">
           <!--Stripe.js injects the Payment Element-->
         </div>

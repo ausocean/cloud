@@ -16,23 +16,32 @@ async function initialize() {
   const id = urlParams.get("priceID");
 
   if (!id) {
-    console.log("setting error message");
-    let msg = document.getElementById("msg");
-    msg.innerHTML = "<p>Choose a Plan <a href='/plans.html'>here</a></p>";
-    msg.removeAttribute("hidden");
-
-    document.getElementById("payment-form").setAttribute("hidden", true);
+    redirectWithMessage(
+      "/plans.html",
+      "No plan has been selected.",
+      "Choose a Plan",
+    );
     return;
   }
 
-  const response = await fetch(
+  const { clientSecret, dpmCheckerLink } = await fetch(
     "/api/v1/stripe/create-payment-intent?priceID=" + id,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     },
-  );
-  const { clientSecret, dpmCheckerLink } = await response.json();
+  )
+    .then((resp) => {
+      if (!resp.ok) {
+        resp.json().then((error) => {
+          redirectWithMessage("home.html", error.message);
+        });
+      }
+      return resp.json();
+    })
+    .then((data) => {
+      return data;
+    });
 
   const appearance = {
     theme: "stripe",
@@ -57,7 +66,12 @@ async function initialize() {
   const product = await fetch("api/v1/stripe/product/" + priceJSON.product.id, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
-  }).then((resp) => {
+  }).then(async (resp) => {
+    if (!resp.ok) {
+      resp.json().then((error) => {
+        redirectWithMessage("home.html", error.message);
+      });
+    }
     return resp.json();
   });
   console.debug(product);
@@ -71,6 +85,11 @@ async function initialize() {
   name.innerText = product.name;
   price.innerText = "$" + priceJSON.unit_amount / 100;
   desc.innerText = product.description;
+
+  // Show the form element.
+  let paymentForm = document
+    .getElementById("payment-form")
+    .removeAttribute("hidden");
 
   // Stop the loading animation.
   items.classList.remove("animate-pulse");
@@ -117,6 +136,20 @@ function showMessage(messageText) {
     messageContainer.classList.add("hidden");
     messageContainer.textContent = "";
   }, 4000);
+}
+
+// redirectWithMessage shows a message to the user, and redirects them via a button
+// to a new location.
+function redirectWithMessage(url, messageText, buttonText) {
+  let info = document.getElementById("cart-info");
+  info.innerHTML = `
+    <p class="text-center mb-1">${messageText}</p>
+    <a href="${url}" class="m-auto w-fit">
+      <button class="rounded-lg bg-[#0c69ad] px-6 py-1 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">
+        ${buttonText ? buttonText : "OK"}
+      </button>
+    </a>
+  `;
 }
 
 // Show a spinner on payment submission
