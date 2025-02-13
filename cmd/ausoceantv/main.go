@@ -227,22 +227,23 @@ func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
+		return logAndReturnError(c, fmt.Sprintf("error getting subscriber by email for: %s: %v", p.Email, err))
 	}
 
 	subscription, err := model.GetSubscription(ctx, svc.store, subscriber.ID, model.NoFeedID)
-	if err != nil {
-		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		return c.JSON(nil)
 	}
-
-	log.Infof("got subscription: %+v", subscription)
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("error getting subscription for id: %d: %v", subscriber.ID, err))
+	}
 
 	// Check that the current time is prior to the end date of the subscription.
 	// ie. the subscription hasn't expired and is still valid.
@@ -258,20 +259,14 @@ func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": fmt.Sprintf("error getting profile: %v", err),
-		})
+		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
-		log.Error("unable to get profile:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		log.Error("error retrieving subscriber:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal Server Error"})
+		return logAndReturnError(c, fmt.Sprintf("error retrieving subscriber: %v", err))
 	}
 
 	// Check if the subscriber was created more than a day ago.
@@ -284,10 +279,7 @@ func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
 	var demographicData map[string]interface{}
 	if subscriber.DemographicInfo != "" {
 		if err := json.Unmarshal([]byte(subscriber.DemographicInfo), &demographicData); err != nil {
-			log.Error("failed to parse demographic info JSON for subscriber", subscriber.ID, ":", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal Server Error",
-			})
+			return logAndReturnError(c, fmt.Sprintf("failed to parse demographic info JSON for subscriber %d: %v", subscriber.ID, err))
 		}
 
 		if userCategory, hasUserCategory := demographicData["user-category"]; hasUserCategory {
@@ -309,17 +301,15 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	// Authenticate the user and fetch their profile.
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, "user not authenticated")
+		return logAndReturnError(c, "user not authenticated", withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
-		log.Error("failed to get user profile:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Internal Server Error"})
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
 	// Fetch subscriber.
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		log.Error("failed to get subscriber:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to retrieve subscriber"})
+		return logAndReturnError(c, "subscriber not found")
 	}
 
 	// Read the JSON request body.
@@ -327,8 +317,7 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 
 	// Validate that body is not empty.
 	if len(body) == 0 {
-		log.Error("empty request body")
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "request body cannot be empty"})
+		return logAndReturnError(c, "empty request body")
 	}
 
 	// Encode demographic info as JSON and store it in Subscriber.
@@ -336,9 +325,43 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		log.Error("failed to update subscriber:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to update subscriber data"})
+		return logAndReturnError(c, "failed to update subscriber")
 	}
 
 	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
+}
+
+type loggingErrorOption func(c *fiber.Ctx, msg *string) error
+
+// withStatus sets the status of the response.
+func withStatus(status int) loggingErrorOption {
+	return func(c *fiber.Ctx, msg *string) error {
+		c.Status(status)
+		return nil
+	}
+}
+
+// withUserMessage updates the message that will be sent to the frontend,
+// this is intended for user readable messages.
+func withUserMessage(userMsg string) loggingErrorOption {
+	return func(c *fiber.Ctx, msg *string) error {
+		*msg = userMsg
+		return nil
+	}
+}
+
+// logAndReturnError logs the passed message as an error, and if no options are passed,
+// will return the same error to the frontend as a JSON formatted error string.
+//
+// The response code defaults to internal server error (500).
+func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
+	log.Error(message)
+	c.Status(fiber.StatusInternalServerError)
+	for i, opt := range opts {
+		err := opt(c, &message)
+		if err != nil {
+			log.Errorf("error applying opt[%d]: %v", i, err)
+		}
+	}
+	return c.JSON(fiber.Map{"message": message})
 }
