@@ -331,10 +331,10 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "request body cannot be empty"})
 	}
 
-	// Directly store the JSON in DemographicInfo.
+	// Encode demographic info as JSON and store it in Subscriber.
 	subscriber.DemographicInfo = string(body)
 
-	// Save updated subscriber data in Datastore.
+	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
 		log.Error("failed to update subscriber:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to update subscriber data"})
