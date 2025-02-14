@@ -306,37 +306,29 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
-	// Fetch the subscriber by email from the datastore.
+	// Fetch subscriber.
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
 		return logAndReturnError(c, "subscriber not found")
 	}
 
-	// Extract form values from request body.
-	city := c.FormValue("city")
-	postcode := c.FormValue("postcode")
-	userCategory := c.FormValue("user-category")
+	// Read the JSON request body.
+	body := c.Body()
 
-	// Build demographic info JSON.
-	demographicInfo := map[string]string{
-		"city":          city,
-		"postcode":      postcode,
-		"user-category": userCategory,
+	// Validate that body is not empty.
+	if len(body) == 0 {
+		return logAndReturnError(c, "empty request body")
 	}
 
 	// Encode demographic info as JSON and store it in Subscriber.
-	demographicJSON, err := json.Marshal(demographicInfo)
-	if err != nil {
-		return logAndReturnError(c, "failed to encode demographic info")
-	}
-	subscriber.DemographicInfo = string(demographicJSON)
+	subscriber.DemographicInfo = string(body)
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
 		return logAndReturnError(c, "failed to update subscriber")
 	}
 
-	return c.JSON(fiber.Map{"message": "demographic info successfully updated"})
+	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
 }
 
 type loggingErrorOption func(c *fiber.Ctx, msg *string) error

@@ -2,22 +2,24 @@ async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
   event.preventDefault();
 
-  const city = (document.querySelector("#city") as HTMLInputElement).value;
-  const postcode = (document.querySelector("#postcode") as HTMLInputElement).value;
+  const geocodeInput = (document.querySelector("#geocode") as HTMLInputElement).value;
   const userCategory = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
     const response = await fetch("/api/v1/survey", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ city, postcode, "user-category": userCategory }).toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        geocode: geocodeInput,
+        "user-category": userCategory,
+      }),
     });
 
     if (!response.ok) {
       const error = await response.json();
       throw response.statusText + ": " + error.message;
     } else {
-      window.location.href = "/watch.html"; // Redirect to home page.
+      window.location.href = "/watch.html";
     }
   } catch (error) {
     console.error("error submitting survey form:", error);
@@ -31,7 +33,7 @@ function initFormHandler(): void {
   if (form) {
     form.addEventListener("submit", handleFormSubmit);
   } else {
-    console.warn("form element not found!");
+    console.warn("form element not found");
   }
 }
 
@@ -40,17 +42,23 @@ document.addEventListener("DOMContentLoaded", initFormHandler);
 
 function initAutocomplete(): void {
   const input = document.getElementById("location") as HTMLInputElement;
-  const cityInput = document.getElementById("city") as HTMLInputElement;
-  const postcodeInput = document.getElementById("postcode") as HTMLInputElement;
+  const geocodeInput = document.getElementById("geocode") as HTMLInputElement;
 
-  if (!input) {
-    console.error("location input not found");
+  if (!input || !geocodeInput) {
+    console.error("location or geocode input not found");
     return;
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
     types: ["geocode"],
     componentRestrictions: { country: "AU" },
+  });
+
+  // Remove AU restriction after 5+ characters to allow global search.
+  input.addEventListener("input", () => {
+    if (input.value.length >= 5) {
+      autocomplete.setComponentRestrictions({ country: [] });
+    }
   });
 
   autocomplete.addListener("place_changed", () => {
@@ -61,21 +69,17 @@ function initAutocomplete(): void {
       return;
     }
 
-    let city = "";
-    let postcode = "";
+    const geocodeData: Record<string, string> = {};
 
     for (const component of place.address_components) {
-      if (component.types.includes("locality")) {
-        city = component.long_name;
-      }
-      if (component.types.includes("postal_code")) {
-        postcode = component.long_name;
+      const types = component.types;
+      for (const type of types) {
+        geocodeData[type] = component.long_name;
       }
     }
 
-    // Fill the hidden fields.
-    cityInput.value = city;
-    postcodeInput.value = postcode;
+    geocodeInput.value = JSON.stringify(geocodeData);
+    console.log("Geocode Data:", geocodeData);
   });
 }
 
