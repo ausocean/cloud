@@ -9,6 +9,7 @@
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
     <script type="module" src="src/web-components/free-banner.ts"></script>
+    <script type="module" src="src/web-components/aotv-footer.ts"></script>
     <script type="module" src="src/survey-check.ts"></script>
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
@@ -22,7 +23,7 @@
         <free-banner></free-banner>
 
         <!-- Main Content Section -->
-        <div class="flex items-center justify-center">
+        <div class="flex items-center justify-center pb-5">
           <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-4 text-center shadow-lg backdrop-blur-sm sm:mt-4 sm:rounded-2xl sm:p-20 md:max-w-6xl">
             <!-- Big Logo -->
             <div class="relative flex items-center justify-center">
@@ -65,6 +66,7 @@
           </div>
         </div>
       </div>
+      <custom-footer></custom-footer>
     </auth-wrapper>
   </body>
 </html>
