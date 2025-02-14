@@ -54,7 +54,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.4.3"
+	version       = "v0.4.4"
 )
 
 // service defines the properties of our web service.
@@ -340,7 +340,7 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	// Set the SubscriberID.
 	subscriberRegion.SubscriberID = subscriber.ID
 
-	// Create or update the SubscriberRegion entity using the new helper function.
+	// Create or update the SubscriberRegion.
 	if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
 		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
 	}

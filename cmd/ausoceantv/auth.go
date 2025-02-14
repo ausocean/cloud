@@ -72,6 +72,10 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		if err != nil {
 			return logAndReturnError(c, fmt.Sprintf("unable to create susbcriber %v: %v", subscriber, err))
 		}
+		_, err = svc.getCustomer(subscriber)
+		if err != nil {
+			return logAndReturnError(c, fmt.Sprintf("unable to create stripe customer: %v", err))
+		}
 	} else if err != nil {
 		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber by email: %v", err))
 	}
