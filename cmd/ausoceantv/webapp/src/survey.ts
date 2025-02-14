@@ -50,7 +50,7 @@ function initAutocomplete(): void {
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
-    types: ["geocode"],
+    types: ["(regions)"],
     componentRestrictions: { country: "AU" },
   });
 

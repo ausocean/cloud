@@ -320,6 +320,20 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, "empty request body")
 	}
 
+	// Parse the JSON body directly into SubscriberRegion.
+	subscriberRegion := &model.SubscriberRegion{}
+	if err := json.Unmarshal(body, subscriberRegion); err != nil {
+		return logAndReturnError(c, "failed to parse region data")
+	}
+
+	// Set the SubscriberID field.
+	subscriberRegion.SubscriberID = subscriber.ID
+
+	// Create the SubscriberRegion entity using the new helper function.
+	if err := model.CreateSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
+		return logAndReturnError(c, "failed to save subscriber region")
+	}
+
 	// Encode demographic info as JSON and store it in Subscriber.
 	subscriber.DemographicInfo = string(body)
 
