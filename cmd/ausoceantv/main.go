@@ -320,13 +320,24 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, "empty request body")
 	}
 
-	// Parse the JSON body directly into SubscriberRegion.
-	subscriberRegion := &model.SubscriberRegion{}
-	if err := json.Unmarshal(body, subscriberRegion); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to parse region data: %v", err))
+	// Define a helper struct that matches the incoming JSON structure.
+	var payload struct {
+		Region       string `json:"region"`
+		UserCategory string `json:"user-category"`
 	}
 
-	// Set the SubscriberID field.
+	// Unmarshal the main payload.
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+
+	// Unmarshal the stringified region into SubscriberRegion.
+	subscriberRegion := &model.SubscriberRegion{}
+	if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse region: %v", err))
+	}
+
+	// Set the SubscriberID.
 	subscriberRegion.SubscriberID = subscriber.ID
 
 	// Create or update the SubscriberRegion entity using the new helper function.
