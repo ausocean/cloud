@@ -323,23 +323,31 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	// Parse the JSON body directly into SubscriberRegion.
 	subscriberRegion := &model.SubscriberRegion{}
 	if err := json.Unmarshal(body, subscriberRegion); err != nil {
-		return logAndReturnError(c, "failed to parse region data")
+		return logAndReturnError(c, fmt.Sprintf("failed to parse region data: %v", err))
 	}
 
 	// Set the SubscriberID field.
 	subscriberRegion.SubscriberID = subscriber.ID
 
-	// Create the SubscriberRegion entity using the new helper function.
-	if err := model.CreateSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
-		return logAndReturnError(c, "failed to save subscriber region")
+	// Create or update the SubscriberRegion entity using the new helper function.
+	if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
 	}
 
-	// Encode demographic info as JSON and store it in Subscriber.
-	subscriber.DemographicInfo = string(body)
+	// Extract the user-category field from the JSON body and store it in Subscriber.
+	var surveyData map[string]interface{}
+	if err := json.Unmarshal(body, &surveyData); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+	if userCategory, ok := surveyData["user-category"].(string); ok {
+		subscriber.DemographicInfo = userCategory
+	} else {
+		subscriber.DemographicInfo = "unknown"
+	}
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		return logAndReturnError(c, "failed to update subscriber")
+		return logAndReturnError(c, fmt.Sprintf("failed to update subscriber: %v", err))
 	}
 
 	return c.JSON(fiber.Map{"message": "survey successfully submitted"})

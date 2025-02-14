@@ -84,3 +84,46 @@ func CreateSubscriberRegion(ctx context.Context, store datastore.Store, r *Subsc
 	}
 	return nil
 }
+
+// UpdateSubscriberRegion updates the SubscriberRegion matching sr.SubscriberID.
+func UpdateSubscriberRegion(ctx context.Context, store datastore.Store, r *SubscriberRegion) error {
+	key := store.IDKey(TypeSubscriberRegion, r.SubscriberID)
+	_, err := store.Put(ctx, key, r)
+	return err
+}
+
+// PutSubscriberRegion creates or updates the SubscriberRegion with the given SubscriberID.
+func PutSubscriberRegion(ctx context.Context, store datastore.Store, r *SubscriberRegion) error {
+	if r == nil {
+		return errors.New("SubscriberRegion is nil")
+	}
+
+	key := store.IDKey(TypeSubscriberRegion, r.SubscriberID)
+	_, err := store.Put(ctx, key, r)
+	if err != nil {
+		return fmt.Errorf("failed to put SubscriberRegion: %w", err)
+	}
+
+	return nil
+}
+
+// GetSubscriberRegion gets the SubscriberRegion with the given SubscriberID.
+func GetSubscriberRegion(ctx context.Context, store datastore.Store, subscriberID string) (*SubscriberRegion, error) {
+	q := store.NewQuery(TypeSubscriberRegion, false, "SubscriberID")
+	q.FilterField("SubscriberID", "=", subscriberID)
+	var regions []SubscriberRegion
+	_, err := store.GetAll(ctx, q, &regions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SubscriberRegion: %w", err)
+	}
+
+	if len(regions) == 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+
+	if len(regions) > 1 {
+		return nil, fmt.Errorf("duplicate SubscriberRegion entries found for SubscriberID: %s", subscriberID)
+	}
+
+	return &regions[0], nil
+}
