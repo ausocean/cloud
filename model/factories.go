@@ -101,6 +101,20 @@ func WaterTemperatureSensor() *SensorV2 {
 	)
 }
 
+// ESP32BatterySensor returns a Battery Voltage sensor for an ESP32 with
+// the given scale factor.
+func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
+	return sensorShim(
+		"Battery Voltage",
+		pinESP32BatteryVoltage,
+		nmea.DCVoltage,
+		funcScale,
+		unitVoltage,
+		formRound1,
+		Arg(scaleFactor),
+	)
+}
+
 // ESP32Power1Sensor returns a Power 1 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
