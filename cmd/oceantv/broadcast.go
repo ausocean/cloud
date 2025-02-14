@@ -129,6 +129,7 @@ type BroadcastConfig struct {
 	HardwareStateData        []byte        // Hardware states will be marshalled and their data stored here.
 	Account                  string        // The YouTube account email that this broadcast is associated with.
 	InFailure                bool          // True if the broadcast is in a failure state.
+	BatteryVoltagePin        string        // The pin that the battery voltage is read from.
 	RecoveringVoltage        bool          // True if the broadcast is currently recovering voltage.
 	RequiredStreamingVoltage float64       // The required battery voltage for the camera to stream.
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
