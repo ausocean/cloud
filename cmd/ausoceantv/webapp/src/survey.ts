@@ -2,21 +2,24 @@ async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
   event.preventDefault();
 
-  const city = (document.querySelector("#city") as HTMLSelectElement).value;
-  const interest = (document.querySelector("#user-category") as HTMLSelectElement).value;
+  const geocodeInput = (document.querySelector("#geocode") as HTMLInputElement).value;
+  const userCategory = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
     const response = await fetch("/api/v1/survey", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ city, "user-category": interest }).toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        geocode: geocodeInput,
+        "user-category": userCategory,
+      }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      alert(`Error: ${error.error}`);
+      throw response.statusText + ": " + error.message;
     } else {
-      window.location.href = "/watch.html"; // Redirect to home page.
+      window.location.href = "/watch.html";
     }
   } catch (error) {
     console.error("error submitting survey form:", error);
@@ -30,10 +33,54 @@ function initFormHandler(): void {
   if (form) {
     form.addEventListener("submit", handleFormSubmit);
   } else {
-    console.warn("form element not found!");
+    console.warn("form element not found");
   }
 }
 
 // Initialize the form submission handler when the document is ready.
 document.addEventListener("DOMContentLoaded", initFormHandler);
-  
+
+function initAutocomplete(): void {
+  const input = document.getElementById("location") as HTMLInputElement;
+  const geocodeInput = document.getElementById("geocode") as HTMLInputElement;
+
+  if (!input || !geocodeInput) {
+    console.error("location or geocode input not found");
+    return;
+  }
+
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    types: ["geocode"],
+    componentRestrictions: { country: "AU" },
+  });
+
+  // Remove AU restriction after 5+ characters to allow global search.
+  input.addEventListener("input", () => {
+    if (input.value.length >= 5) {
+      autocomplete.setComponentRestrictions({ country: [] });
+    }
+  });
+
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+
+    if (!place.address_components) {
+      console.warn("no address components found.");
+      return;
+    }
+
+    const geocodeData: Record<string, string> = {};
+
+    for (const component of place.address_components) {
+      const types = component.types;
+      for (const type of types) {
+        geocodeData[type] = component.long_name;
+      }
+    }
+
+    geocodeInput.value = JSON.stringify(geocodeData);
+    console.log("Geocode Data:", geocodeData);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initAutocomplete);

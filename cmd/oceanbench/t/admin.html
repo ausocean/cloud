@@ -9,6 +9,18 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript">
+      function init() {
+        document.getElementById("sitemenu").addEventListener("site-change", (event) => {
+          fetch("/api/set/site/" + event.detail.newSite).then((resp) => {
+            if (!resp.ok) {
+              alert("error switching sites");
+              return;
+            }
+            window.location.assign("/admin/site");
+          });
+        });
+      }
+
       function updateUser() {
         return copyFormValues("update_user", "users", {
           email: "input",
@@ -20,7 +32,7 @@
       }
     </script>
   </head>
-  <body>
+  <body onload="init()">
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
@@ -29,7 +41,7 @@
         </li>
         {{- end }}
       </nav-menu>
-      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+      <site-menu id="sitemenu" custom-handling {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
         {{ range .Users -}}
         <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
         {{- end }}

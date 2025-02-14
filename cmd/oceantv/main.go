@@ -46,7 +46,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.7.1"
+	version            = "v0.7.4"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -196,7 +196,7 @@ func setup(ctx context.Context) {
 	} else {
 		log.Printf("Running in App Engine mode")
 		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		if err != nil {
+		if err == nil {
 			mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
 		}
 	}

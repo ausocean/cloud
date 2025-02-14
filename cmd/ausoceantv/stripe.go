@@ -94,8 +94,7 @@ func (svc *service) handleStripeWebhook(c *fiber.Ctx) error {
 	event := stripe.Event{}
 
 	if err := json.Unmarshal(c.Body(), &event); err != nil {
-		log.Errorf("Failed to parse webhook body json: %w", err.Error())
-		return err
+		return logAndReturnError(c, fmt.Sprintf("failed to parse webhook body json: %v", err.Error()))
 	}
 
 	switch event.Type {
@@ -103,33 +102,30 @@ func (svc *service) handleStripeWebhook(c *fiber.Ctx) error {
 		var pi stripe.PaymentIntent
 		err := json.Unmarshal(event.Data.Raw, &pi)
 		if err != nil {
-			log.Errorf("Error parsing webhook JSON: %w", err)
-			return err
+			return logAndReturnError(c, fmt.Sprintf("error parsing webhook JSON: %v", err))
 		}
-		return svc.handleSuccessfulPaymentIntent(pi)
+		return svc.handleSuccessfulPaymentIntent(c, pi)
 	case stripe.EventTypeInvoicePaymentSucceeded:
 		var invoice stripe.Invoice
 		err := json.Unmarshal(event.Data.Raw, &invoice)
 		if err != nil {
-			log.Errorf("Error parsing webhook JSON: %w", err)
-			return err
+			return logAndReturnError(c, fmt.Sprintf("error parsing webhook JSON: %v", err))
 		}
-		return svc.handleInvoicePaymentSuccess(invoice)
+		return svc.handleInvoicePaymentSuccess(c, invoice)
 	default:
-		return errors.New("unsupported event type")
+		return logAndReturnError(c, "unsupported event type")
 	}
 }
 
-func (svc *service) handleSuccessfulPaymentIntent(pi stripe.PaymentIntent) error {
+func (svc *service) handleSuccessfulPaymentIntent(c *fiber.Ctx, pi stripe.PaymentIntent) error {
 	ctx := context.Background()
 	customer, err := svc.getCustomer(&model.Subscriber{PaymentInfo: pi.Customer.ID})
 	if err != nil {
-		return fmt.Errorf("error getting customer: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting customer: %v", err))
 	}
 	sub, err := model.GetSubscriberByEmail(ctx, svc.store, customer.Email)
 	if err != nil {
-		log.Errorf("failed to get subscriber for email: %s, err: %v", pi.Customer.Email, err)
-		return fmt.Errorf("failed to get subscriber for email: %s, err: %w", pi.Customer.Email, err)
+		return logAndReturnError(c, fmt.Sprintf("failed to get subscriber for email: %s, err: %v", pi.Customer.Email, err))
 	}
 
 	if pi.Invoice != nil {
@@ -144,19 +140,19 @@ func (svc *service) handleSuccessfulPaymentIntent(pi stripe.PaymentIntent) error
 	)
 }
 
-func (svc *service) handleInvoicePaymentSuccess(invoice stripe.Invoice) error {
+func (svc *service) handleInvoicePaymentSuccess(c *fiber.Ctx, invoice stripe.Invoice) error {
 	ctx := context.Background()
 	customer, err := svc.getCustomer(&model.Subscriber{PaymentInfo: invoice.Customer.ID})
 	if err != nil {
-		return fmt.Errorf("error getting customer: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting customer: %v", err))
 	}
 	subber, err := model.GetSubscriberByEmail(ctx, svc.store, customer.Email)
 	if err != nil {
-		return fmt.Errorf("failed to get subscriber for email: %s, err: %w", invoice.Customer.Email, err)
+		return logAndReturnError(c, fmt.Sprintf("failed to get subscriber for email: %s, err: %v", invoice.Customer.Email, err))
 	}
 	sub, err := subscription.Get(invoice.Subscription.ID, nil)
 	if err != nil {
-		return fmt.Errorf("error getting subscription from stripe: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting subscription from stripe: %v", err))
 	}
 
 	start := sub.CurrentPeriodStart
@@ -173,7 +169,7 @@ func (svc *service) handleInvoicePaymentSuccess(invoice stripe.Invoice) error {
 		)
 	}
 	if err != nil {
-		return fmt.Errorf("unable to get current subscription: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to get current subscription: %v", err))
 	}
 
 	curr.Start = time.Unix(start, 0)
@@ -188,33 +184,29 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
 		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
 	ctx := context.Background()
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		return fmt.Errorf("failed getting subscriber, try logging in again: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber, try logging in again: %v", err))
 	}
 
 	customer, err := svc.getCustomer(subscriber)
 	if err != nil {
-		return fmt.Errorf("error getting customer ID: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting customer ID: %v", err))
 	}
 
 	priceID := c.FormValue("priceID")
 	if priceID == "" {
-		err := c.SendStatus(fiber.StatusBadRequest)
-		if err != nil {
-			return fmt.Errorf("error sending status: %d, err: %w", fiber.StatusBadRequest, err)
-		}
-		return ErrNoProductSelected
+		return logAndReturnError(c, ErrNoProductSelected.Error(), withStatus(fiber.StatusBadRequest))
 	}
 
 	price, err := getPrice(priceID)
 	if err != nil {
-		return fmt.Errorf("error getting price: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting price: %v", err))
 	}
 
 	// If the price is recurring the selected product is a subscription and needs
@@ -256,8 +248,7 @@ func (svc *service) createPaymentIntent(c *fiber.Ctx, cid string, price *stripe.
 	// NOTE: DO NOT LOG PAYMENT INTENT.
 	pi, err = paymentintent.New(params)
 	if err != nil {
-		log.Errorf("error creating new Stripe payment intent: %v", err)
-		return fmt.Errorf("could not create payment intent: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error creating new Stripe payment intent: %v", err))
 	}
 
 	return c.JSON(clientSecretResponse{pi.ClientSecret})
@@ -278,7 +269,7 @@ func (svc *service) createSubscriptionIntent(c *fiber.Ctx, cid, pid string) erro
 	subParams.AddExpand("latest_invoice.payment_intent")
 	s, err := subscription.New(subParams)
 	if err != nil {
-		return fmt.Errorf("unable to create new stripe subscription: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to create new stripe subscription: %v", err))
 	}
 
 	return c.JSON(
@@ -366,26 +357,29 @@ func (svc *service) cancelSubscription(c *fiber.Ctx) error {
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
 		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		return fmt.Errorf("error getting subscriber by email for: %s: %w", p.Email, err)
+		return logAndReturnError(c, fmt.Sprintf("error getting subscriber by email for: %s: %v", p.Email, err))
 	}
 
 	sub, err := model.GetSubscription(ctx, svc.store, subscriber.ID, 0)
 	if err != nil {
-		return fmt.Errorf("error getting subscription for id: %d: %w", subscriber.ID, err)
+		return logAndReturnError(c, fmt.Sprintf("error getting subscription for id: %d: %v", subscriber.ID, err))
+	}
+
+	// Since the day pass is not a renewing subscription, we shouldn't need to cancel it with stripe.
+	if sub.Class != model.SubscriptionDay {
+		subParams := &stripe.SubscriptionParams{CancelAtPeriodEnd: stripe.Bool(true)}
+		_, err = subscription.Update(sub.StripeSubscriptionID, subParams)
+		if err != nil {
+			return logAndReturnError(c, fmt.Sprintf("failed to cancel subscription: %v", err))
+		}
 	}
 
 	sub.Renew = false
-
-	// TODO: Update the Stripe subscription to cancel at period end.
-	log.Panic("cannot cancel by stripe, unimplemented")
-	c.WriteString("failed to cancel subscription, please try again, or contact tv@ausocean.org")
-	c.Status(fiber.StatusInternalServerError)
-
 	return model.UpdateSubscription(ctx, svc.store, sub)
 }
 
@@ -398,10 +392,8 @@ func (svc *service) handleGetPrice(c *fiber.Ctx) error {
 
 	price, err := getPrice(pid)
 	if err != nil {
-		return fmt.Errorf("error getting price: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error getting price: %v", err))
 	}
-
-	log.Infof("price: %+v", price)
 
 	return c.JSON(price)
 }
@@ -416,7 +408,7 @@ func (svc *service) handleGetProduct(c *fiber.Ctx) error {
 	params := &stripe.ProductParams{}
 	product, err := product.Get(pid, params)
 	if err != nil {
-		return fmt.Errorf("error getting product for id: %s, err: %w", pid, err)
+		return logAndReturnError(c, fmt.Sprintf("error getting product for id: %s, err: %v", pid, err))
 	}
 
 	return c.JSON(product)

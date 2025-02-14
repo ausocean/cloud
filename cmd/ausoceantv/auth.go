@@ -60,7 +60,7 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		log.Warn(err)
 		return c.Redirect("/", fiber.StatusFound)
 	} else if err != nil {
-		return fmt.Errorf("error handling callback: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("error handling callback: %v", err))
 	}
 
 	// Create a new subscriber if one does not exist.
@@ -70,10 +70,14 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		subscriber := &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
 		err := model.CreateSubscriber(ctx, svc.store, subscriber)
 		if err != nil {
-			return fmt.Errorf("unable to create susbcriber %v: %w", subscriber, err)
+			return logAndReturnError(c, fmt.Sprintf("unable to create susbcriber %v: %v", subscriber, err))
+		}
+		_, err = svc.getCustomer(subscriber)
+		if err != nil {
+			return logAndReturnError(c, fmt.Sprintf("unable to create stripe customer: %v", err))
 		}
 	} else if err != nil {
-		return fmt.Errorf("failed getting subscriber by email: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber by email: %v", err))
 	}
 
 	return nil
@@ -83,13 +87,13 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 func (svc *service) profileHandler(c *fiber.Ctx) error {
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
-		return fmt.Errorf("unable to get profile: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 	bytes, err := json.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("unable to marshal profile: %w", err)
+		return logAndReturnError(c, fmt.Sprintf("unable to marshal profile: %v", err))
 	}
 	c.Write(bytes)
 	return nil
