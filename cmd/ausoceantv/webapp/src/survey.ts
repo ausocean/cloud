@@ -1,3 +1,5 @@
+/// <reference types="google.maps" />
+
 async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
   event.preventDefault();
