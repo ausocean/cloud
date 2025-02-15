@@ -345,16 +345,25 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
 	}
 
-	// Extract the user-category field from the JSON body and store it in Subscriber.
+	// Extract the user-category field from the JSON body and store it as JSON.
 	var surveyData map[string]interface{}
 	if err := json.Unmarshal(body, &surveyData); err != nil {
 		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
 	}
+
+	demographicInfo := make(map[string]string)
 	if userCategory, ok := surveyData["user-category"].(string); ok {
-		subscriber.DemographicInfo = userCategory
+		demographicInfo["user-category"] = userCategory
 	} else {
-		subscriber.DemographicInfo = "unknown"
+		demographicInfo["user-category"] = "unknown"
 	}
+	demographicJSON, err := json.Marshal(demographicInfo)
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to encode demographic info: %v", err))
+	}
+
+	// Store the JSON string in Subscriber
+	subscriber.DemographicInfo = string(demographicJSON)
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
