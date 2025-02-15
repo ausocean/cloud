@@ -368,6 +368,7 @@ func (s *hardwareStopping) transition() {
 func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 	switch s.substate.(type) {
 	case *hardwareShuttingDown:
+		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwareShuttingDown")
 		withTimeout := s.substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwareShutdownFailedEvent{"hardware shutdown timed out"})
@@ -379,8 +380,10 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			s.transition()
 			return
 		}
+		s.log("(hardwareStopping) camera is still reporting, waiting for shutdown to complete")
 
 	case *hardwarePoweringOff:
+		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwarePoweringOff")
 		withTimeout := s.substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwarePowerOffFailedEvent{"hardware power off timed out"})
@@ -391,7 +394,9 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			s.bus.publish(hardwareStoppedEvent{})
 			return
 		}
+		s.log("(hardwareStopping) camera is still reporting, waiting for power off to complete")
 	default:
+		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is not hardwareShuttingDown or hardwarePoweringOff, ignoring...")
 		// Do nothing.
 	}
 }
