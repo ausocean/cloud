@@ -344,6 +344,8 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		if sm.startIsDue(event) {
 			sm.ctx.bus.publish(startEvent{})
 			return
+		} else {
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), event.Time.Format("15:04"))
 		}
 	case *vidforwardPermanentTransitionLiveToSlate:
 		withTimeout := sm.currentState.(stateWithTimeout)
