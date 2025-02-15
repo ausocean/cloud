@@ -2,7 +2,7 @@ var advancedOpts;
 var adv = false;
 
 document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('time-zone').value = getTimezone();
+  formatTimezoneFromElement('time-zone');
   const startTimestamp = document.getElementById('start-timestamp').value;
   const endTimestamp = document.getElementById('end-timestamp').value;
   const sensorList = JSON.parse(document.getElementById('sensor-list').dataset.sensorList);
@@ -90,3 +90,56 @@ function toggleAdvanced(checked) {
 
   document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
 }
+
+// formatTimezoneFromElement gets the decimal timezone from the given element id and returns it as a string formatted +hh:mm.
+function formatTimezoneFromElement(elementId) {
+  try {
+    // Get the value from the input element.
+    var value = document.getElementById(elementId).value;
+    
+    // Log the input value.
+    console.log("Input value from element with ID '" + elementId + "': " + value);
+    
+    if (!value) {
+      console.error("No value found in element with ID: " + elementId);
+      return "";
+    }
+
+    // Parse the value as a floating point number.
+    var parsedValue = parseFloat(value);
+    if (isNaN(parsedValue)) {
+      console.error("Invalid value: '" + value + "' is not a valid number.");
+      return "";
+    }
+
+    var hours = Math.floor(parsedValue);
+    var minutes = Math.round((parsedValue - hours) * 60); // Convert decimal to minutes.
+
+    // Determine sign.
+    var sign = hours >= 0 ? "+" : "-";
+    
+    // Ensure hours and minutes are always two digits.
+    hours = Math.abs(hours);
+    if (hours < 10) {
+      hours = "0" + hours;
+    }
+    if (minutes < 10) {
+      minutes = "0" + minutes;
+    }
+
+    // Format the output string.
+    var output = sign + hours + ":" + minutes;
+
+    // Log the output value.
+    console.log("Formatted output value: " + output);
+
+    // Update the input element's value with the formatted output.
+    document.getElementById(elementId).value = output;
+
+    return output;
+  } catch (error) {
+    console.error("An unexpected error occurred: ", error);
+    return "";
+  }
+}
+
