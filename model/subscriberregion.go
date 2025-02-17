@@ -72,10 +72,11 @@ func CreateSubscriberRegion(ctx context.Context, store datastore.Store, r *Subsc
 		return errors.New("SubscriberRegion is nil")
 	}
 
-	// If the SubscriberRegion has an ID, use that.
+	// Check that SubscriberRegion has an ID.
 	if r.SubscriberID == 0 {
 		return fmt.Errorf("SubscriberRegion must have a non-zero SubscriberID")
 	}
+
 	// Since datastore uses kind and key to reference a particular entity, using the subscriberID as the SubscriberRegion key is fine.
 	key := store.IDKey(TypeSubscriberRegion, r.SubscriberID)
 	err := store.Create(ctx, key, r)
@@ -83,13 +84,6 @@ func CreateSubscriberRegion(ctx context.Context, store datastore.Store, r *Subsc
 		return fmt.Errorf("error creating SubscriberRegion: %w", err)
 	}
 	return nil
-}
-
-// UpdateSubscriberRegion updates the SubscriberRegion matching sr.SubscriberID.
-func UpdateSubscriberRegion(ctx context.Context, store datastore.Store, r *SubscriberRegion) error {
-	key := store.IDKey(TypeSubscriberRegion, r.SubscriberID)
-	_, err := store.Put(ctx, key, r)
-	return err
 }
 
 // PutSubscriberRegion creates or updates the SubscriberRegion with the given SubscriberID.
@@ -108,22 +102,17 @@ func PutSubscriberRegion(ctx context.Context, store datastore.Store, r *Subscrib
 }
 
 // GetSubscriberRegion gets the SubscriberRegion with the given SubscriberID.
-func GetSubscriberRegion(ctx context.Context, store datastore.Store, subscriberID string) (*SubscriberRegion, error) {
-	q := store.NewQuery(TypeSubscriberRegion, false, "SubscriberID")
-	q.FilterField("SubscriberID", "=", subscriberID)
-	var regions []SubscriberRegion
-	_, err := store.GetAll(ctx, q, &regions)
+func GetSubscriberRegion(ctx context.Context, store datastore.Store, subscriberID int64) (*SubscriberRegion, error) {
+	key := store.IDKey(TypeSubscriberRegion, subscriberID)
+	var region SubscriberRegion
+
+	err := store.Get(ctx, key, &region)
 	if err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to get SubscriberRegion: %w", err)
 	}
 
-	if len(regions) == 0 {
-		return nil, datastore.ErrNoSuchEntity
-	}
-
-	if len(regions) > 1 {
-		return nil, fmt.Errorf("duplicate SubscriberRegion entries found for SubscriberID: %s", subscriberID)
-	}
-
-	return &regions[0], nil
+	return &region, nil
 }

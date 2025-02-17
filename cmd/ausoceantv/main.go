@@ -355,7 +355,7 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	if userCategory, ok := surveyData["user-category"].(string); ok {
 		demographicInfo["user-category"] = userCategory
 	} else {
-		demographicInfo["user-category"] = "unknown"
+		demographicInfo["user-category"] = ""
 	}
 	demographicJSON, err := json.Marshal(demographicInfo)
 	if err != nil {
