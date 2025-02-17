@@ -778,7 +778,11 @@ func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error)
 	}
 
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
-	const batteryVoltagePin = "A0"
+	batteryVoltagePin := ctx.cfg.BatteryVoltagePin
+	if batteryVoltagePin == "" {
+		const defaultBatteryVoltagePin = "A4"
+		batteryVoltagePin = defaultBatteryVoltagePin
+	}
 	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
 	if err != nil {
 		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)

@@ -152,6 +152,7 @@ type BroadcastConfig struct {
 	HardwareStateData        []byte        // Hardware states will be marshalled and their data stored here.
 	Account                  string        // The YouTube account email that this broadcast is associated with.
 	InFailure                bool          // True if the broadcast is in a failure state.
+	BatteryVoltagePin        string        // The pin that the battery voltage is read from.
 	RecoveringVoltage        bool          // True if the broadcast is currently recovering voltage.
 	RequiredStreamingVoltage float64       // The required battery voltage for the camera to stream.
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
@@ -227,6 +228,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			InFailure:             r.FormValue("in-failure") == "in-failure",
 			RegisterOpenFish:      r.FormValue("register-openfish") == "register-openfish",
 			OpenFishCaptureSource: r.FormValue("openfish-capturesource"),
+			BatteryVoltagePin:     r.FormValue("battery-voltage-pin"),
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
@@ -234,6 +236,18 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			Resolution: []string{"1080p"},
 			Privacy:    []string{"unlisted", "private", "public"},
 		},
+	}
+
+	req.CurrentBroadcast.RequiredStreamingVoltage, err = strconv.ParseFloat(r.FormValue("required-streaming-voltage"), 64)
+	if err != nil {
+		reportError(w, r, req, "could not parse required streaming voltage: %v", err)
+		return
+	}
+
+	req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(r.FormValue("voltage-recovery-timeout"))
+	if err != nil {
+		reportError(w, r, req, "could not parse voltage recovery timeout: %v", err)
+		return
 	}
 
 	ctx := r.Context()

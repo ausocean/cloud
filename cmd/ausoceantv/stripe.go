@@ -182,31 +182,44 @@ func (svc *service) handleCreatePaymentIntent(c *fiber.Ctx) error {
 	// Check if a subscriber already exists.
 	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return fiber.NewError(fiber.StatusUnauthorized, fmt.Sprintf("error getting profile: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err),
+			withUserMessage("Authentication failed."),
+			withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err), withUserMessage("Authentication failed."))
 	}
 
 	ctx := context.Background()
 
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber, try logging in again: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber, try logging in again: %v", err), withUserMessage("Authentication failed."))
 	}
 
 	customer, err := svc.getCustomer(subscriber)
 	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("error getting customer ID: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("error getting customer ID: %v", err), withUserMessage("Authentication failed."))
+	}
+
+	log.Debug("%+v", subscriber)
+	sub, err := model.GetSubscription(ctx, svc.store, subscriber.ID, model.NoFeedID)
+	log.Debug(sub, err)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		// Do nothing.
+	} else if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to get subscription for subscriber (%d): %v", subscriber.ID, err))
+	} else if sub.Finish.After(time.Now()) {
+		return logAndReturnError(c, "customer already has current subscription", withUserMessage("You are already subscribed."))
 	}
 
 	priceID := c.FormValue("priceID")
 	if priceID == "" {
-		return logAndReturnError(c, ErrNoProductSelected.Error(), withStatus(fiber.StatusBadRequest))
+		return logAndReturnError(c, ErrNoProductSelected.Error(), withStatus(fiber.StatusBadRequest), withUserMessage("No plan selected."))
 	}
 
 	price, err := getPrice(priceID)
 	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("error getting price: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("error getting price: %v", err), withUserMessage("Invalid plan selected."))
 	}
 
 	// If the price is recurring the selected product is a subscription and needs
