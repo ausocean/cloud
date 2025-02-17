@@ -228,6 +228,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			InFailure:             r.FormValue("in-failure") == "in-failure",
 			RegisterOpenFish:      r.FormValue("register-openfish") == "register-openfish",
 			OpenFishCaptureSource: r.FormValue("openfish-capturesource"),
+			BatteryVoltagePin:     r.FormValue("battery-voltage-pin"),
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
@@ -235,6 +236,18 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			Resolution: []string{"1080p"},
 			Privacy:    []string{"unlisted", "private", "public"},
 		},
+	}
+
+	req.CurrentBroadcast.RequiredStreamingVoltage, err = strconv.ParseFloat(r.FormValue("required-streaming-voltage"), 64)
+	if err != nil {
+		reportError(w, r, req, "could not parse required streaming voltage: %v", err)
+		return
+	}
+
+	req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(r.FormValue("voltage-recovery-timeout"))
+	if err != nil {
+		reportError(w, r, req, "could not parse voltage recovery timeout: %v", err)
+		return
 	}
 
 	ctx := r.Context()
