@@ -68,6 +68,7 @@ type service struct {
 	lite        bool
 	storePath   string
 	auth        *gauth.UserAuth
+	prelaunch   bool
 }
 
 // svc is an instance of our service.
@@ -75,6 +76,8 @@ var svc *service = &service{}
 
 func registerAPIRoutes(app *fiber.App) {
 	v1 := app.Group("/api/v1")
+
+	v1.Get("/waitlist", svc.waitlistHandler)
 
 	// Authentication Routes.
 	v1.Group("/auth").
@@ -116,6 +119,11 @@ func main() {
 	v = os.Getenv("DEVELOPMENT")
 	if v != "" {
 		svc.development = true
+	}
+
+	v = os.Getenv("PRELAUNCH")
+	if v != "" {
+		svc.prelaunch = true
 	}
 
 	v = os.Getenv("LITE")

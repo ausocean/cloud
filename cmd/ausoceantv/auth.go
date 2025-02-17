@@ -63,6 +63,10 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		return logAndReturnError(c, fmt.Sprintf("error handling callback: %v", err))
 	}
 
+	if svc.prelaunch {
+		return nil
+	}
+
 	// Create a new subscriber if one does not exist.
 	ctx := context.Background()
 	_, err = model.GetSubscriberByEmail(ctx, svc.store, p.Email)
@@ -81,6 +85,44 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 	}
 
 	return nil
+}
+
+func (svc *service) waitlistHandler(c *fiber.Ctx) error {
+	if !svc.prelaunch {
+		return c.Redirect("/", fiber.StatusPermanentRedirect)
+	}
+
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
+		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
+	} else if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
+	}
+
+	ctx := context.Background()
+	wl, err := model.GetVariable(ctx, svc.store, 0, "aotv_waitlist")
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to get waitlist: %v", err))
+	}
+
+	wlMap := make(map[string]*gauth.Profile)
+	if err := json.Unmarshal([]byte(wl.Value), &wlMap); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to unmarshal waitlist: %v", err))
+	}
+
+	wlMap[p.Email] = p
+
+	wlBytes, err := json.Marshal(wlMap)
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to marshal waitlist: %v", err))
+	}
+
+	err = model.PutVariable(ctx, svc.store, 0, "aotv_waitlist", string(wlBytes))
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("unable to put waitlist variable: %v", err))
+	}
+
+	return c.Redirect("/waitlist.html", fiber.StatusFound)
 }
 
 // profileHandler handles requests to get the profile of the logged in user.
