@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AusOceanTV</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="src/web-components/authenticator.ts"></script>
+    <script type="module" src="src/web-components/share-link.ts"></script>
+  </head>
+  <body class="h-screen bg-black text-white">
+    <auth-wrapper>
+      <div class="relative flex h-screen w-full items-center justify-center overflow-hidden">
+        <!-- Background Video -->
+        <video class="absolute left-0 top-0 z-[-1] h-full w-full object-cover opacity-75" autoplay muted playsinline loop>
+          <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+
+        <!-- Foreground Content -->
+        <div class="z-10 max-w-full rounded-2xl bg-gradient-to-b from-neutral-50 to-neutral-50/80 px-4 py-12 text-center shadow-xl md:p-32">
+          <h1 class="mb-6 text-3xl font-extrabold tracking-tight text-[#0c69ad] sm:text-4xl md:text-6xl">Success</h1>
+          <p class="mb-8 text-lg text-gray-800 md:text-2xl">
+            You have successfully been added to the waiting list.
+            <br />
+            Refer your friends by sharing this link:
+          </p>
+          <share-link></share-link>
+        </div>
+      </div>
+    </auth-wrapper>
+  </body>
+</html>

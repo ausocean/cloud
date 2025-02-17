@@ -101,7 +101,9 @@ func (svc *service) waitlistHandler(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 	wl, err := model.GetVariable(ctx, svc.store, 0, "aotv_waitlist")
-	if err != nil {
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		wl = &model.Variable{Value: "{}"}
+	} else if err != nil {
 		return logAndReturnError(c, fmt.Sprintf("unable to get waitlist: %v", err))
 	}
 
