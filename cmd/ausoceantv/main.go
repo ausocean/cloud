@@ -30,6 +30,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -54,7 +55,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.4.5"
+	version       = "v0.4.6"
 )
 
 // service defines the properties of our web service.
@@ -306,37 +307,71 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
 
-	// Fetch the subscriber by email from the datastore.
+	// Fetch subscriber.
 	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
 	if err != nil {
 		return logAndReturnError(c, "subscriber not found")
 	}
 
-	// Extract form values from request body.
-	city := c.FormValue("city")
-	postcode := c.FormValue("postcode")
-	userCategory := c.FormValue("user-category")
+	// Read the JSON request body.
+	body := c.Body()
 
-	// Build demographic info JSON.
-	demographicInfo := map[string]string{
-		"city":          city,
-		"postcode":      postcode,
-		"user-category": userCategory,
+	// Validate that body is not empty.
+	if len(body) == 0 {
+		return logAndReturnError(c, "empty request body")
 	}
 
-	// Encode demographic info as JSON and store it in Subscriber.
+	// Define a helper struct that matches the incoming JSON structure.
+	var payload struct {
+		Region       string `json:"region"`
+		UserCategory string `json:"user-category"`
+	}
+
+	// Unmarshal the main payload.
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+
+	// Unmarshal the stringified region into SubscriberRegion.
+	subscriberRegion := &model.SubscriberRegion{}
+	if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse region: %v", err))
+	}
+
+	// Set the SubscriberID.
+	subscriberRegion.SubscriberID = subscriber.ID
+
+	// Create or update the SubscriberRegion.
+	if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
+	}
+
+	// Extract the user-category field from the JSON body and store it as JSON.
+	var surveyData map[string]interface{}
+	if err := json.Unmarshal(body, &surveyData); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+
+	demographicInfo := make(map[string]string)
+	if userCategory, ok := surveyData["user-category"].(string); ok {
+		demographicInfo["user-category"] = userCategory
+	} else {
+		demographicInfo["user-category"] = ""
+	}
 	demographicJSON, err := json.Marshal(demographicInfo)
 	if err != nil {
-		return logAndReturnError(c, "failed to encode demographic info")
+		return logAndReturnError(c, fmt.Sprintf("failed to encode demographic info: %v", err))
 	}
+
+	// Store the JSON string in Subscriber
 	subscriber.DemographicInfo = string(demographicJSON)
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		return logAndReturnError(c, "failed to update subscriber")
+		return logAndReturnError(c, fmt.Sprintf("failed to update subscriber: %v", err))
 	}
 
-	return c.JSON(fiber.Map{"message": "demographic info successfully updated"})
+	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
 }
 
 type loggingErrorOption func(c *fiber.Ctx, msg *string) error
@@ -358,13 +393,12 @@ func withUserMessage(userMsg string) loggingErrorOption {
 	}
 }
 
-// logAndReturnError logs the passed message as an error, and if no options are passed,
-// will return the same error to the frontend as a JSON formatted error string.
-//
-// The response code defaults to internal server error (500).
+// logAndReturnError logs the passed message as an error and returns an response to the client.
+// The response code defaults to internal server error (500) and the message defaults to the status text.
 func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
 	log.Error(message)
 	c.Status(fiber.StatusInternalServerError)
+	message = http.StatusText(c.Response().StatusCode())
 	for i, opt := range opts {
 		err := opt(c, &message)
 		if err != nil {

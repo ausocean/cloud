@@ -94,7 +94,10 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 			return
 		}
 	default:
-		// Do nothing.
+		// This is unexpected and probably means we haven't saved a substate properly.
+		// So perform a notify log and default to a sensible state.
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.substate)
+		s.enter()
 	}
 }
 
@@ -392,7 +395,10 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			return
 		}
 	default:
-		// Do nothing.
+		// This is unexpected and probably means we haven't saved a substate properly.
+		// So perform a notify log and default to a sensible state.
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.substate)
+		s.enter()
 	}
 }
 
@@ -778,7 +784,11 @@ func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error)
 	}
 
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
-	const batteryVoltagePin = "A0"
+	batteryVoltagePin := ctx.cfg.BatteryVoltagePin
+	if batteryVoltagePin == "" {
+		const defaultBatteryVoltagePin = "A4"
+		batteryVoltagePin = defaultBatteryVoltagePin
+	}
 	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
 	if err != nil {
 		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)

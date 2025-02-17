@@ -782,12 +782,13 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirstFail bool) func(err error) {
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
+		var e event
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
-				ctx.bus.publish(criticalFailureEvent{})
+				e = criticalFailureEvent{}
 				ctx.logAndNotify(broadcastGeneric, "broadcast start failure limit reached after %d attempts, entering broadcast failure state, error: %v)", _cfg.StartFailures, err)
 				_cfg.StartFailures = 0
 				return
@@ -795,11 +796,12 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 
 			// Less critical start failure event; this will give us another chance to broadcast
 			// if disableOnFirstFail is false.
-			ctx.bus.publish(startFailedEvent{})
+			e = startFailedEvent{}
 		}),
 			"could not update config after failed start",
 			ctx.log,
 		)
+		ctx.bus.publish(e)
 	}
 }
 
