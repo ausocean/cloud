@@ -9,8 +9,9 @@
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
     <script type="module" src="src/survey-check.ts"></script>
+    <script type="module" src="src/web-components/aotv-footer.ts"></script>
   </head>
-  <body class="h-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
+  <body class="h-min-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
     <auth-wrapper>
       <div id="page-column" class="flex h-full flex-col">
         <app-header></app-header>
@@ -36,6 +37,7 @@
           </div>
         </div>
       </div>
+      <custom-footer></custom-footer>
     </auth-wrapper>
     <script>
       // Hide loading overlay when iframe loads.
