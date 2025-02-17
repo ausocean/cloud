@@ -320,12 +320,54 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 		return logAndReturnError(c, "empty request body")
 	}
 
-	// Encode demographic info as JSON and store it in Subscriber.
-	subscriber.DemographicInfo = string(body)
+	// Define a helper struct that matches the incoming JSON structure.
+	var payload struct {
+		Region       string `json:"region"`
+		UserCategory string `json:"user-category"`
+	}
+
+	// Unmarshal the main payload.
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+
+	// Unmarshal the stringified region into SubscriberRegion.
+	subscriberRegion := &model.SubscriberRegion{}
+	if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse region: %v", err))
+	}
+
+	// Set the SubscriberID.
+	subscriberRegion.SubscriberID = subscriber.ID
+
+	// Create or update the SubscriberRegion.
+	if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
+	}
+
+	// Extract the user-category field from the JSON body and store it as JSON.
+	var surveyData map[string]interface{}
+	if err := json.Unmarshal(body, &surveyData); err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
+	}
+
+	demographicInfo := make(map[string]string)
+	if userCategory, ok := surveyData["user-category"].(string); ok {
+		demographicInfo["user-category"] = userCategory
+	} else {
+		demographicInfo["user-category"] = ""
+	}
+	demographicJSON, err := json.Marshal(demographicInfo)
+	if err != nil {
+		return logAndReturnError(c, fmt.Sprintf("failed to encode demographic info: %v", err))
+	}
+
+	// Store the JSON string in Subscriber
+	subscriber.DemographicInfo = string(demographicJSON)
 
 	// Save updated subscriber to datastore.
 	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		return logAndReturnError(c, "failed to update subscriber")
+		return logAndReturnError(c, fmt.Sprintf("failed to update subscriber: %v", err))
 	}
 
 	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
