@@ -6,7 +6,7 @@ import { TailwindElement } from "../shared/tailwind.element.ts";
 export class FreeBanner extends TailwindElement() {
   render() {
     return html`
-      <div id="promo-banner" class="fixed left-4 top-16 z-50 max-w-64 rounded-lg bg-blue-700 p-4 shadow-lg transition-transform md:top-24">
+      <div id="promo-banner" class="absolute left-4 top-16 z-50 max-w-64 rounded-lg bg-blue-700 p-4 shadow-lg transition-transform md:top-24">
         <p class="text-sm font-semibold text-white md:text-base">☀️ Free for a Limited Time!</p>
         <button class="mt-2 text-sm text-gray-300 hover:underline" @click="${this.toggleInfo}">Learn More</button>
 

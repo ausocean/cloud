@@ -11,13 +11,13 @@
     <script type="module" src="src/survey-check.ts"></script>
     <script type="module" src="src/web-components/aotv-footer.ts"></script>
   </head>
-  <body class="h-min-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
-    <auth-wrapper>
-      <div id="page-column" class="flex h-full flex-col">
+  <body class="flex min-h-screen flex-col bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
+    <auth-wrapper class="flex flex-1 flex-col">
+      <div id="page-column" class="flex flex-1 flex-col">
         <app-header></app-header>
-
+  
         <img src="src/assets/web-bg-1.jpg" alt="Background" class="fixed inset-0 z-[-1] h-full w-full object-cover opacity-30" />
-
+  
         <!-- Video Section -->
         <div class="flex flex-1 items-center justify-center p-6">
           <div class="w-full max-w-[1920px] rounded-2xl bg-black bg-opacity-80 p-4 shadow-lg md:p-24">
@@ -27,11 +27,11 @@
                 <div class="loader h-12 w-12 animate-spin rounded-full border-4 border-blue-300 border-t-transparent"></div>
                 <p class="mt-4 text-sm text-white">Loading Video...</p>
               </div>
-
+  
               <!-- YouTube Video Embed -->
               <iframe id="ytplayer" type="text/html" src="https://bench.cloudblue.org/live/RapidBayLivebyAusOcean?embed&mute&autoplay" frameborder="0" allowfullscreen class="absolute left-0 top-0 h-full w-full object-cover"></iframe>
             </div>
-
+  
             <!-- Video Description -->
             <p class="mt-4 text-center text-sm text-gray-300">Rapid Bay live via AusOceanTV.</p>
           </div>
@@ -39,6 +39,7 @@
       </div>
       <custom-footer></custom-footer>
     </auth-wrapper>
+  
     <script>
       // Hide loading overlay when iframe loads.
       document.addEventListener("DOMContentLoaded", function () {
@@ -49,5 +50,5 @@
         });
       });
     </script>
-  </body>
+  </body>  
 </html>
