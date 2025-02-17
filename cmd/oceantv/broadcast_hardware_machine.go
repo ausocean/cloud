@@ -94,7 +94,10 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 			return
 		}
 	default:
-		// Do nothing.
+		// This is unexpected and probably means we haven't saved a substate properly.
+		// So perform a notify log and default to a sensible state.
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.substate)
+		s.enter()
 	}
 }
 
@@ -392,7 +395,10 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			return
 		}
 	default:
-		// Do nothing.
+		// This is unexpected and probably means we haven't saved a substate properly.
+		// So perform a notify log and default to a sensible state.
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.substate)
+		s.enter()
 	}
 }
 
