@@ -36,7 +36,7 @@ func newableWithContext(new func(ctx *broadcastContext) any, args ...interface{}
 
 type hardwareRestarting struct {
 	stateWithTimeoutFields
-	substate state
+	Substate state
 }
 
 var _ = register(hardwareRestarting{})
@@ -53,36 +53,112 @@ func newHardwareRestarting(ctx *broadcastContext) *hardwareRestarting {
 	return &hardwareRestarting{newStateWithTimeoutFields(ctx), nil}
 }
 
+// For Marshaling/Unmarshaling.
+type hardwareRestartingStateWrapper struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+func (s *hardwareRestarting) MarshalJSON() ([]byte, error) {
+	substateType := ""
+	substateData := []byte("null")
+
+	if s.Substate != nil {
+		substateType = s.Substate.(registry.Named).Name()
+		data, err := json.Marshal(s.Substate)
+		if err != nil {
+			return nil, fmt.Errorf("could not marshal substate %s in hardwareRestarting: %w", substateType, err)
+		}
+		substateData = data
+	}
+
+	alias := struct {
+		StateWithTimeoutFields stateWithTimeoutFields         `json:",inline"`
+		Substate               hardwareRestartingStateWrapper `json:"substate"`
+	}{
+		StateWithTimeoutFields: s.stateWithTimeoutFields,
+		Substate: hardwareRestartingStateWrapper{
+			Type: substateType,
+			Data: substateData,
+		},
+	}
+
+	data, err := json.Marshal(alias)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal alias in hardwareRestarting: %w", err)
+	}
+
+	return data, nil
+}
+
+func (s *hardwareRestarting) UnmarshalJSON(data []byte) error {
+	if s.broadcastContext == nil {
+		return errors.New("hardwareRestarting broadcastContext is nil")
+	}
+
+	alias := struct {
+		StateWithTimeoutFields stateWithTimeoutFields         `json:",inline"`
+		Substate               hardwareRestartingStateWrapper `json:"substate"`
+	}{StateWithTimeoutFields: stateWithTimeoutFields{broadcastContext: s.broadcastContext}}
+
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return fmt.Errorf("could not unmarshal alias in hardwareRestarting: %w", err)
+	}
+
+	s.stateWithTimeoutFields = alias.StateWithTimeoutFields
+
+	// Unmarshal substate.
+	if alias.Substate.Type != "" {
+		substate, err := registry.Get(alias.Substate.Type, s.broadcastContext)
+		if err != nil {
+			return fmt.Errorf("could not get substate from registry for type %s in hardwareRestarting: %w", substate, err)
+		}
+
+		_substate, ok := substate.(state)
+		if !ok {
+			panic(fmt.Sprintf("could not assert substate that should be %s in hardwareRestarting", alias.Substate.Type))
+		}
+
+		if err := json.Unmarshal(alias.Substate.Data, _substate); err != nil {
+			return fmt.Errorf("could not unmarshal data for substate %s in hardwareRestarting: %w", alias.Substate.Type, err)
+		}
+
+		s.Substate = _substate
+	}
+
+	return nil
+}
+
 func (s *hardwareRestarting) enter() {
 	s.LastEntered = time.Now()
-	s.substate = newHardwareStopping(s.broadcastContext)
-	s.substate.enter()
+	s.Substate = newHardwareStopping(s.broadcastContext)
+	s.Substate.enter()
 }
 func (s *hardwareRestarting) exit() {}
 func (s *hardwareRestarting) transition() {
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareStopping:
 		s.log("(hardwareRestarting) transitioning from substate hardwareStopping to hardwareStarting")
-		s.substate.exit()
-		s.substate = newHardwareStarting(s.broadcastContext)
-		s.substate.enter()
+		s.Substate.exit()
+		s.Substate = newHardwareStarting(s.broadcastContext)
+		s.Substate.enter()
 	default:
 		panic("hardwareRestarting: unexpected transition")
 	}
 }
 
 func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareStopping:
-		withTimeout := s.substate.(stateWithTimeout)
+		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwareStopFailedEvent{"hardware stop timed out"})
 			return
 		}
 
-		s.substate.(*hardwareStopping).handleTimeEvent(t)
+		s.Substate.(*hardwareStopping).handleTimeEvent(t)
 	case *hardwareStarting:
-		withTimeout := s.substate.(stateWithTimeout)
+		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwareStartFailedEvent{"exceeded starting timeout during hardware restart"})
 			return
@@ -96,14 +172,14 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.substate)
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }
 
 func (s *hardwareRestarting) handleHardwareStoppedEvent(event hardwareStoppedEvent) {
 	s.log("handling hardware stopped event")
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareStopping:
 		s.transition()
 	default:
@@ -112,9 +188,9 @@ func (s *hardwareRestarting) handleHardwareStoppedEvent(event hardwareStoppedEve
 }
 
 func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareStopping:
-		s.substate.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
+		s.Substate.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
 	default:
 		// Ignore.
 	}
@@ -332,7 +408,7 @@ func (s *hardwarePoweringOff) exit() {}
 
 type hardwareStopping struct {
 	stateWithTimeoutFields
-	substate state
+	Substate state
 }
 
 var _ = register(hardwareStopping{})
@@ -348,30 +424,107 @@ func (s hardwareStopping) New(args ...interface{}) (any, error) {
 func newHardwareStopping(ctx *broadcastContext) *hardwareStopping {
 	return &hardwareStopping{newStateWithTimeoutFields(ctx), nil}
 }
+
+// For Marshaling/Unmarshaling.
+type hardwareStoppingStateWrapper struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+func (s *hardwareStopping) MarshalJSON() ([]byte, error) {
+	substateType := ""
+	substateData := []byte("null")
+
+	if s.Substate != nil {
+		substateType = s.Substate.(registry.Named).Name()
+		data, err := json.Marshal(s.Substate)
+		if err != nil {
+			return nil, fmt.Errorf("could not marshal substate %s in hardwareStopping: %w", substateType, err)
+		}
+		substateData = data
+	}
+
+	alias := struct {
+		StateWithTimeoutFields stateWithTimeoutFields       `json:",inline"`
+		Substate               hardwareStoppingStateWrapper `json:"substate"`
+	}{
+		StateWithTimeoutFields: s.stateWithTimeoutFields,
+		Substate: hardwareStoppingStateWrapper{
+			Type: substateType,
+			Data: substateData,
+		},
+	}
+
+	data, err := json.Marshal(alias)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal alias in hardwareStopping: %w", err)
+	}
+
+	return data, nil
+}
+
+func (s *hardwareStopping) UnmarshalJSON(data []byte) error {
+	if s.broadcastContext == nil {
+		return errors.New("hardwareStopping broadcastContext is nil")
+	}
+
+	alias := struct {
+		StateWithTimeoutFields stateWithTimeoutFields       `json:",inline"`
+		Substate               hardwareStoppingStateWrapper `json:"substate"`
+	}{StateWithTimeoutFields: stateWithTimeoutFields{broadcastContext: s.broadcastContext}}
+
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return fmt.Errorf("could not unmarshal data for alias in hardwareStopping: %w", err)
+	}
+
+	s.stateWithTimeoutFields = alias.StateWithTimeoutFields
+
+	// Unmarshal substate.
+	if alias.Substate.Type != "" {
+		substate, err := registry.Get(alias.Substate.Type, s.broadcastContext)
+		if err != nil {
+			return fmt.Errorf("could not get substate from registry for type %s in hardwareStopping: %w", substate, err)
+		}
+
+		_substate, ok := substate.(state)
+		if !ok {
+			panic(fmt.Sprintf("could not assert substate that should be %s in hardwareStopping", alias.Substate.Type))
+		}
+
+		if err := json.Unmarshal(alias.Substate.Data, _substate); err != nil {
+			return fmt.Errorf("could not unmarshal data for substate %s in hardwareStopping: %w", alias.Substate.Type, err)
+		}
+
+		s.Substate = _substate
+	}
+
+	return nil
+}
+
 func (s *hardwareStopping) enter() {
 	s.LastEntered = time.Now()
-	s.substate = newHardwareShuttingDown(s.broadcastContext)
-	s.substate.enter()
+	s.Substate = newHardwareShuttingDown(s.broadcastContext)
+	s.Substate.enter()
 }
 func (s *hardwareStopping) exit() {}
 
 func (s *hardwareStopping) transition() {
 	// This should only be called once.
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
 		s.log("(hardwareStopping) transitioning from substate hardwareShuttingDown to hardwarePoweringOff")
-		s.substate.exit()
-		s.substate = newHardwarePoweringOff(s.broadcastContext)
-		s.substate.enter()
+		s.Substate.exit()
+		s.Substate = newHardwarePoweringOff(s.broadcastContext)
+		s.Substate.enter()
 	default:
 		panic("hardwareStopping: unexpected transition")
 	}
 }
 
 func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
-		withTimeout := s.substate.(stateWithTimeout)
+		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwareShutdownFailedEvent{"hardware shutdown timed out"})
 			return
@@ -384,7 +537,7 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 		}
 
 	case *hardwarePoweringOff:
-		withTimeout := s.substate.(stateWithTimeout)
+		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
 			s.bus.publish(hardwarePowerOffFailedEvent{"hardware power off timed out"})
 			return
@@ -397,13 +550,13 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.substate)
+		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }
 
 func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
-	switch s.substate.(type) {
+	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
 		s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
 		s.transition()

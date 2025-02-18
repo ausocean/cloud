@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/notify"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetHardwareStateStorage(t *testing.T) {
@@ -661,4 +663,41 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHardwareRestartingMarshaling(t *testing.T) {
+	substate := &hardwareShuttingDown{
+		stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(&broadcastContext{}, time.Date(2025, 2, 17, 13, 45, 0, 0, time.UTC)),
+	}
+
+	original := &hardwareRestarting{
+		stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(&broadcastContext{}, time.Date(2025, 2, 17, 13, 50, 0, 0, time.UTC)),
+		Substate: &hardwareStopping{
+			stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(&broadcastContext{}, time.Date(2025, 2, 17, 13, 55, 0, 0, time.UTC)),
+			Substate:               substate, // Nested state
+		},
+	}
+
+	data, err := json.Marshal(original)
+	assert.NoError(t, err, "Failed to marshal JSON")
+
+	unmarshaled := newHardwareRestarting(minimalMockBroadcastContext(t))
+	err = json.Unmarshal(data, unmarshaled)
+	assert.NoError(t, err, "Failed to unmarshal JSON")
+
+	// Validate main struct fields.
+	assert.Equal(t, original.LastEntered, unmarshaled.LastEntered, "LastEntered mismatch")
+	assert.Equal(t, original.Timeout, unmarshaled.Timeout, "Timeout mismatch")
+
+	// Validate substate (hardwareStopping).
+	hwStopping, ok := unmarshaled.Substate.(*hardwareStopping)
+	assert.True(t, ok, "Substate type assertion for hardwareStopping failed")
+	assert.Equal(t, original.Substate.(*hardwareStopping).LastEntered, hwStopping.LastEntered, "hardwareStopping LastEntered mismatch")
+	assert.Equal(t, original.Substate.(*hardwareStopping).Timeout, hwStopping.Timeout, "hardwareStopping Timeout mismatch")
+
+	// Validate nested substate (hardwareStarting).
+	hwStarting, ok := hwStopping.Substate.(*hardwareShuttingDown)
+	assert.True(t, ok, "Nested substate type assertion for hardwareStarting failed")
+	assert.Equal(t, substate.LastEntered, hwStarting.LastEntered, "hardwareStarting LastEntered mismatch")
+	assert.Equal(t, substate.Timeout, hwStarting.Timeout, "hardwareStarting Timeout mismatch")
 }
