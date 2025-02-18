@@ -33,10 +33,7 @@
       {{ end }}
       <h1 class="container-md">Crons</h1>
       <div class="table border rounded p-4 container-md bg-white" id="crons">
-        {{ range $c := .Crons }}
-        <cron-settings id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" enabled="{{.Enabled}}" var="{{.Var}}"></cron-settings>
-        {{ end }}
-        <!-- <div class="tr">
+        <div style="display: grid; grid-template-columns: 8% 20% 8% 8% 20% 16% 10%; gap: 10px">
           <span class="td select"></span>
           <span class="td std">ID</span>
           <span class="td half">Time</span>
@@ -44,6 +41,12 @@
           <span class="td std">Variable</span>
           <span class="td std">Value</span>
           <span class="td half">Enabled</span>
+        </div>
+        {{ range $c := .Crons }}
+        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
+        {{ end }}
+        <!-- <div class="tr">
+
         </div>
         {{ range $c := .Crons }}
         <form class="tr" id="{{ .ID }}" enctype="multipart/form-data" action="/set/crons/edit" method="post" novalidate>

@@ -628,6 +628,8 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 		Actions:  []string{"set", "del", "call", "rpc", "email"},
 	}
 
+	log.Printf("crons: %+v", crons)
+
 	writeTemplate(w, r, "set/cron.html", &data, msg)
 }
 
@@ -662,7 +664,7 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 	task := r.FormValue("task")
 
 	if id == "" {
-		writeCrons(w, r, errInvalidID.Error())
+		writeError(w, errInvalidID)
 		return
 	}
 
@@ -685,28 +687,29 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not get site: %v", err))
+		writeError(w, fmt.Errorf("could not get site: %v", err))
 		return
 	}
 
 	c := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
 	err = c.ParseTime(ct, site.Timezone)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not parse time: %v", err))
+		writeError(w, fmt.Errorf("could not parse time: %v", err))
 		return
 	}
 
+	log.Printf("cron: %v", c)
 	err = model.PutCron(ctx, settingsStore, &c)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not put cron in datastore: %v", err))
+		writeError(w, fmt.Errorf("could not put cron in datastore: %v", err))
 		return
 	}
 
 	err = cronScheduler.Set(&c)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not schedule cron: %v", err))
+		writeError(w, fmt.Errorf("could not schedule cron: %v", err))
 		return
 	}
 
-	writeCrons(w, r, "")
+	return
 }

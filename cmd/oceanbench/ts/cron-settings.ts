@@ -42,14 +42,16 @@ export class CronSettings extends LitElement {
   @property({ type: Boolean, attribute: "enabled" }) Enabled = false;
 
   @state() buttonText = "Save";
+  @state() dropdownOption = "";
 
   siteVars: SiteVar[] = [];
   devMap: Map<string, SiteDevice> = new Map();
 
   static styles = css`
     .row {
-      display: flex;
-      flex-direction: row;
+        width: 100%;
+      display: inline-grid;
+      grid-template-columns: 8% 20% 8% 8% 20% 16% 10%;
       gap: 10px;
     }
 
@@ -67,6 +69,11 @@ export class CronSettings extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    this.getVars();
+    this.getDevices();
+  }
+
+  getVars() {
     fetch("/api/get/vars/site")
       .then(async (resp) => {
         if (resp.ok) {
@@ -81,7 +88,9 @@ export class CronSettings extends LitElement {
       .catch((err) => {
         console.error(err);
       });
+  }
 
+  getDevices() {
     fetch("/api/get/devices/site")
       .then(async (resp) => {
         if (resp.ok) {
@@ -102,8 +111,8 @@ export class CronSettings extends LitElement {
     return html`
       <div class="row">
         <button @click="${this.submitCron}">${this.buttonText}</button>
-        <input type="text" value="${this.ID}" />
-        <input type="text" value="${this.Time}" />
+        <input @change="${this.updateID}" type="text" value="${this.ID}" />
+        <input @change="${this.updateTime}" type="text" value="${this.Time}" />
         <select @input="${this.updateAction}">
           <option ?selected="${this.Action == "set"}">set</option>
           <option ?selected="${this.Action == "del"}">del</option>
@@ -112,10 +121,43 @@ export class CronSettings extends LitElement {
           <option ?selected="${this.Action == "email"}">email</option>
         </select>
         ${this.varDropdown()}
-        <input type="text" value="${this.Value}" />
-        <input type="checkbox" ?checked=${this.Enabled} />
+        <input @change="${this.updateValue}" type="text" value="${this.Value}" />
+        <input @change="${this.updateEnabled}" type="checkbox" ?checked=${this.Enabled} style="max-height: 16px;" />
       </div>
     `;
+  }
+
+  submitCron() {
+    let formData = new FormData();
+    formData.append("ci", this.ID);
+    formData.append("ct", this.Time);
+    formData.append("ca", this.Action);
+    formData.append("cv", this.Variable);
+    formData.append("cd", this.Value);
+    formData.append("ce", this.Enabled ? "true" : "");
+
+    console.log("submitting:", formData);
+
+    fetch("/set/crons/edit", { method: "POST", body: formData })
+      .then((resp) => {
+        if (resp.ok) {
+          this.buttonText = "Saved!";
+          this.requestUpdate();
+          setTimeout(() => {
+            this.buttonText = "Save";
+            this.requestUpdate();
+          }, 1000);
+        }
+      })
+      .catch((err) => {
+        console.log("Got error:", err);
+      });
+  }
+
+  updateID(e: Event) {
+    let idInput = e.target as HTMLInputElement;
+    this.ID = idInput.value;
+    this.requestUpdate();
   }
 
   updateAction(e: Event) {
@@ -124,17 +166,37 @@ export class CronSettings extends LitElement {
     this.requestUpdate();
   }
 
+  updateTime(e: Event) {
+    let timeInput = e.target as HTMLInputElement;
+    this.Time = timeInput.value;
+    this.requestUpdate();
+  }
+
+  updateValue(e: Event) {
+    let valueInput = e.target as HTMLInputElement;
+    this.Value = valueInput.value;
+    this.requestUpdate();
+  }
+
+  updateEnabled(e: Event) {
+    let enabledInput = e.target as HTMLInputElement;
+    this.Enabled = enabledInput.checked;
+    this.requestUpdate();
+  }
+
   varDropdown() {
     switch (this.Action) {
       case "rpc":
         console.log("variable:", this.Variable);
         return html`
-          <select @change="${this.checkEndpoint}">
-            <option value="other">other</option>
-            <option value="https://oceantv.appspot.com/checkbroadcasts" ?selected="${this.Variable == prodEndpoint}">Production</option>
-            <option value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts" ?selected="${this.Variable == devEndpoint}">Testing (Dev)</option>
-          </select>
-          <input type="text" id="other-input" ?hidden="${this.Variable === prodEndpoint || this.Variable === devEndpoint}" value="${this.Variable}" />
+          <div>
+            <select @change="${this.updateEndpoint}" style="width: 100%">
+              <option value="other">other</option>
+              <option value="https://oceantv.appspot.com/checkbroadcasts" ?selected="${this.Variable == prodEndpoint}">Production</option>
+              <option value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts" ?selected="${this.Variable == devEndpoint}">Testing (Dev)</option>
+            </select>
+            <input @change="${this.updateEndpoint}" type="text" id="endpoint-input" value="${this.Variable}" />
+          </div>
         `;
       case "set":
         if (this.devMap.size == 0 || this.siteVars.length == 0) {
@@ -144,7 +206,8 @@ export class CronSettings extends LitElement {
         }
         console.log("devmap:", this.devMap);
         return html`
-          <select>
+          <select @change="${this.updateVariable}">
+            <option value="">-- Select a Variable --</option>
             ${this.siteVars.map((v) => {
               let parts = v.Name.split(".");
               let dev = this.devMap.get(parts[0]);
@@ -162,12 +225,22 @@ export class CronSettings extends LitElement {
     }
   }
 
-  checkEndpoint(e: Event) {
+  updateEndpoint(e: Event) {
     const select = e.target as HTMLSelectElement;
     this.Variable = select.value;
     if (this.Variable === "other") {
-      this.Variable = (this.shadowRoot?.querySelector("#other-input") as HTMLInputElement).value;
+      let input = this.shadowRoot?.querySelector("#other-input") as HTMLInputElement;
+      if (!input) {
+        return;
+      }
+      this.Variable = input.value;
     }
+    this.requestUpdate();
+  }
+
+  updateVariable(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    this.Variable = select.value;
     this.requestUpdate();
   }
 }
