@@ -9,6 +9,7 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript" src="/s/cron.js"></script>
+    <script type="module" src="/s/lit/cron-settings.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -32,7 +33,10 @@
       {{ end }}
       <h1 class="container-md">Crons</h1>
       <div class="table border rounded p-4 container-md bg-white" id="crons">
-        <div class="tr">
+        {{ range $c := .Crons }}
+        <cron-settings id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" enabled="{{.Enabled}}" var="{{.Var}}"></cron-settings>
+        {{ end }}
+        <!-- <div class="tr">
           <span class="td select"></span>
           <span class="td std">ID</span>
           <span class="td half">Time</span>
@@ -81,7 +85,7 @@
           <span class="td std"><input type="text" name="cd" class="std" /></span>
           <span class="td half"><input type="checkbox" name="ce" /></span>
           <input type="hidden" name="task" value="Add" />
-        </form>
+        </form> -->
       </div>
     </section>
     {{ .Footer }}
