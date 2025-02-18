@@ -907,10 +907,9 @@ type revidCameraClient struct{}
 
 func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
-	const batteryVoltagePin = "A0"
-	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
+	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, ctx.cfg.BatteryVoltagePin)
 	if err != nil {
-		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)
+		return 0, fmt.Errorf("could not get battery voltage sensor (%s.%s): %v", model.MacDecode(ctx.cfg.ControllerMAC), ctx.cfg.BatteryVoltagePin, err)
 	}
 
 	// Get current battery voltage.

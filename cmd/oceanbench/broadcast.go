@@ -238,16 +238,26 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	req.CurrentBroadcast.RequiredStreamingVoltage, err = strconv.ParseFloat(r.FormValue("required-streaming-voltage"), 64)
-	if err != nil {
-		reportError(w, r, req, "could not parse required streaming voltage: %v", err)
-		return
+	streamVoltage := r.FormValue("required-streaming-voltage")
+	if streamVoltage == "" {
+		req.CurrentBroadcast.RequiredStreamingVoltage = 0
+	} else {
+		req.CurrentBroadcast.RequiredStreamingVoltage, err = strconv.ParseFloat(streamVoltage, 64)
+		if err != nil {
+			reportError(w, r, req, "could not parse required streaming voltage: %v", err)
+			return
+		}
 	}
 
-	req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(r.FormValue("voltage-recovery-timeout"))
-	if err != nil {
-		reportError(w, r, req, "could not parse voltage recovery timeout: %v", err)
-		return
+	voltageTimeout := r.FormValue("voltage-recovery-timeout")
+	if voltageTimeout == "" {
+		req.CurrentBroadcast.VoltageRecoveryTimeout = 0
+	} else {
+		req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(r.FormValue("voltage-recovery-timeout"))
+		if err != nil {
+			reportError(w, r, req, "could not parse voltage recovery timeout: %v", err)
+			return
+		}
 	}
 
 	ctx := r.Context()
