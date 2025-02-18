@@ -13,7 +13,7 @@
     <script type="module" src="src/survey-check.ts"></script>
   </head>
   <body class="flex min-h-screen flex-col overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
-    <auth-wrapper class="relative flex flex-1 flex-col w-full">
+    <auth-wrapper class="relative flex w-full flex-1 flex-col">
       <div id="page-column" class="flex flex-1 flex-col">
         <video class="fixed inset-0 left-0 top-0 z-[-1] h-full w-full object-cover opacity-30" autoplay muted playsinline loop>
           <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
@@ -21,22 +21,22 @@
         </video>
         <app-header></app-header>
         <free-banner></free-banner>
-  
+
         <!-- Main Content Section -->
         <div class="flex flex-1 items-center justify-center pb-5">
-          <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-4 text-center shadow-lg backdrop-blur-sm sm:mt-4 sm:rounded-2xl sm:p-20 md:max-w-6xl">
+          <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-opacity-80 bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-4 text-center shadow-lg backdrop-blur-sm mt-20 sm:mt-2 sm:rounded-xl sm:p-6 md:max-w-4xl md:bg-opacity-90 md:p-12 lg:max-w-5xl lg:p-16 xl:max-w-6xl xl:p-20">
             <!-- Big Logo -->
             <div class="relative flex items-center justify-center">
               <div class="absolute z-[-1] h-64 w-64 rounded-full bg-gradient-to-b from-neutral-50 via-neutral-50 to-transparent blur-xl md:h-96 md:w-96 md:blur-2xl"></div>
               <img src="src/assets/blue_logo.png" class="logo w-44 pb-8 pt-20 drop-shadow-2xl md:w-72 md:py-16" alt="AusOcean logo" />
             </div>
-  
+
             <h1 class="mb-6 whitespace-nowrap text-3xl font-extrabold tracking-tight text-[#0c69ad] sm:text-4xl md:text-6xl">
               Welcome to
               <span class="text-[#0c69ad]">AusOceanTV</span>
             </h1>
             <p class="mb-8 max-w-xl text-lg text-gray-800">Explore live underwater streams from South Australia.</p>
-  
+
             <!-- Stream List -->
             <div class="w-full max-w-4xl space-y-6">
               <a href="watch.html" class="flex w-full items-center justify-between rounded-xl bg-[#0c69ad] px-8 py-6 text-left shadow-md transition-all hover:shadow-lg hover:brightness-125">
@@ -46,7 +46,7 @@
                 </div>
                 <img src="https://img.youtube.com/vi/0RyxgSm0mPc/maxresdefault.jpg" alt="YouTube Thumbnail" class="ml-4 h-32 w-32 rounded-lg object-cover" />
               </a>
-  
+
               <div class="block w-full rounded-xl bg-[#0c69ad] px-8 py-6 text-left shadow-md">
                 <h2 class="text-2xl font-bold text-white">
                   Port Noarlunga
@@ -54,7 +54,7 @@
                 </h2>
                 <p class="text-gray-200">Stay tuned for more underwater streams.</p>
               </div>
-  
+
               <div class="block w-full rounded-xl bg-[#0c69ad] px-8 py-6 text-left shadow-md">
                 <h2 class="text-2xl font-bold text-white">
                   Edithburgh
@@ -69,5 +69,4 @@
       <custom-footer class="mt-auto"></custom-footer>
     </auth-wrapper>
   </body>
-  
 </html>
