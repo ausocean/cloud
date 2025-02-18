@@ -102,8 +102,10 @@ func (svc *service) waitlistHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	wl, err := model.GetVariable(ctx, svc.store, 0, "aotv_waitlist")
 	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		log.Debugf("no waitlist found, creating new one")
 		wl = &model.Variable{Value: "{}"}
 	} else if err != nil {
+		log.Debugf("unable to get waitlist: %v", err)
 		return logAndReturnError(c, fmt.Sprintf("unable to get waitlist: %v", err))
 	}
 
@@ -113,12 +115,14 @@ func (svc *service) waitlistHandler(c *fiber.Ctx) error {
 	}
 
 	wlMap[p.Email] = p
+	log.Debugf("waitlist: %+v", wlMap)
 
 	wlBytes, err := json.Marshal(wlMap)
 	if err != nil {
 		return logAndReturnError(c, fmt.Sprintf("unable to marshal waitlist: %v", err))
 	}
 
+	log.Debugf("waitlist: %s", string(wlBytes))
 	err = model.PutVariable(ctx, svc.store, 0, "aotv_waitlist", string(wlBytes))
 	if err != nil {
 		return logAndReturnError(c, fmt.Sprintf("unable to put waitlist variable: %v", err))

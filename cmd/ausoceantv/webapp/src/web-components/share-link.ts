@@ -29,7 +29,7 @@ export class ShareLink extends TailwindElement() {
       ${copyMsg}
       <div @click="${this.Share}" class="m-auto flex w-3/4 cursor-pointer items-center overflow-hidden whitespace-nowrap rounded bg-[#0c69ad] md:w-1/2">
         <div class="bg-[#108eea] p-5 py-2"><i class="fas fa-copy"></i></div>
-        <div class="text-l h-full w-full cursor-pointer bg-inherit text-center font-semibold">https://www.ausocean.tv</div>
+        <div class="text-l h-full w-full cursor-pointer bg-inherit text-center font-semibold">ausocean.tv</div>
       </div>
     `;
   }
@@ -38,14 +38,14 @@ export class ShareLink extends TailwindElement() {
     const shareData = {
       title: "AusOcean TV",
       text: "Check out AusOceanTV for live underwater video streams:",
-      url: "https://www.ausocean.tv",
+      url: "ausocean.tv",
     };
 
     if (navigator.share && navigator.canShare(shareData)) {
       navigator.share(shareData).then(() => (this.copied = true));
     } else {
       navigator.clipboard
-        .writeText("https://www.ausocean.tv")
+        .writeText("ausocean.tv")
         .then(() => {
           this.copied = true;
         })
