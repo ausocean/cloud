@@ -9,6 +9,7 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript" src="/s/cron.js"></script>
+    <script type="module" src="/s/lit/cron-settings.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -32,7 +33,7 @@
       {{ end }}
       <h1 class="container-md">Crons</h1>
       <div class="table border rounded p-4 container-md bg-white" id="crons">
-        <div class="tr">
+        <div style="display: grid; grid-template-columns: 8% 20% 8% 8% 20% 16% 10%; gap: 10px">
           <span class="td select"></span>
           <span class="td std">ID</span>
           <span class="td half">Time</span>
@@ -42,46 +43,9 @@
           <span class="td half">Enabled</span>
         </div>
         {{ range $c := .Crons }}
-        <form class="tr" id="{{ .ID }}" enctype="multipart/form-data" action="/set/crons/edit" method="post" novalidate>
-          <span class="td select"><img src="/s/delete.png" onclick="deleteCron('{{ .ID }}');" /></span>
-          <span class="td std"><input type="text" name="ci" class="" value="{{ .ID }}" readonly /></span>
-          <span class="td half"><input type="text" name="ct" value="{{ .FormatTime $.Timezone }}" class="half" onchange="updateCron(this);" /></span>
-          <span class="td half">
-            <select name="ca" class="half" onchange="updateCron(this);">
-              {{ range $.Actions }}
-              <option value="{{ . }}" {{ if eq . $c.Action }}selected{{ end }}>{{ . }}</option>
-              {{ end }}
-            </select>
-          </span>
-          <span class="td std">
-            <select type="text" name="cv" class="std" onchange="updateCron(this);">
-              <option selected value="{{ .Var }}"></option>
-            </select>
-          </span>
-          <span class="td std"><input type="text" name="cd" value="{{ .Data }}" class="std" onchange="updateCron(this);" /></span>
-          <span class="td half"><input type="checkbox" name="ce" {{ if .Enabled }}checked{{ end }} onchange="updateCron(this);" /></span>
-        </form>
+        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
         {{ end }}
-        <form class="tr" id="_newcron" enctype="multipart/form-data" action="/set/crons/edit" method="post" novalidate>
-          <span class="td select"><img src="/s/add.png" onclick="addCron();" /></span>
-          <span class="td std"><input type="text" name="ci" class="std" /></span>
-          <span class="td half"><input type="text" name="ct" class="half" /></span>
-          <span class="td half">
-            <select name="ca" class="half">
-              {{ range $.Actions }}
-              <option value="{{ . }}">{{ . }}</option>
-              {{ end }}
-            </select>
-          </span>
-          <span class="td std">
-            <select id="var-select" type="text" name="cv" class="std">
-              <option>-- Select Var --</option>
-            </select>
-          </span>
-          <span class="td std"><input type="text" name="cd" class="std" /></span>
-          <span class="td half"><input type="checkbox" name="ce" /></span>
-          <input type="hidden" name="task" value="Add" />
-        </form>
+        <cron-settings class="w-100" new-cron></cron-settings>
       </div>
     </section>
     {{ .Footer }}

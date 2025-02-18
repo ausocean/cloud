@@ -49,5 +49,21 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/cron-settings.ts',
+    output: {
+      file: 's/lit/cron-settings.js',
+      format: 'iife',
+      name: 'cronSettings',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      resolve(),
+      typescript()
+    ]
   }
 ];
