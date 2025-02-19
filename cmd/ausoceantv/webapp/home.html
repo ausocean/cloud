@@ -11,6 +11,7 @@
     <script type="module" src="src/web-components/free-banner.ts"></script>
     <script type="module" src="src/web-components/aotv-footer.ts"></script>
     <script type="module" src="src/survey-check.ts"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
   </head>
   <body class="h-screen overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
     <auth-wrapper>
@@ -31,9 +32,12 @@
               <img src="src/assets/blue_logo.png" class="logo w-44 pb-8 pt-20 drop-shadow-2xl md:w-72 md:py-16" alt="AusOcean logo" />
             </div>
 
-            <h1 class="mb-6 whitespace-nowrap text-3xl font-extrabold tracking-tight text-[#0c69ad] sm:text-4xl md:text-6xl">
+            <h1 class="mb-6 whitespace-nowrap text-3xl text-[#0c69ad] sm:text-4xl md:text-6xl" style="font-family: 'Ubuntu', sans-serif;">
               Welcome to
-              <img src="src/assets/logo_text.png" alt="AusOceanTV" class="inline-block h-14 sm:h-16 md:h-20" />
+              <span class="font-extrabold inline-block relative tracking-tight" style="font-family: 'Ubuntu', sans-serif;">AusOcean</span>
+              <span class="font-extrabold inline-block relative left-[-0.26em] top-[0.07em] tracking-wider" style="font-family: 'Kalam', cursive;">
+                TV
+              </span>
             </h1>
             <p class="mb-8 max-w-xl text-lg text-gray-800">Explore live underwater streams from South Australia.</p>
 

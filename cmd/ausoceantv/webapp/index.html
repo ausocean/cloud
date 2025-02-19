@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
   </head>
   <body class="h-screen bg-black text-white">
     <auth-wrapper>
@@ -22,9 +23,12 @@
           <div class="relative flex items-center justify-center">
             <img src="src/assets/blue_logo.png" class="logo mx-auto mb-10 w-40 py-1 md:w-72" alt="AusOcean logo" />
           </div>
-          <h1 class="mb-6 text-3xl font-extrabold tracking-tight text-[#0c69ad] sm:text-4xl md:text-6xl">
+          <h1 class="mb-6 whitespace-nowrap text-3xl text-[#0c69ad] sm:text-4xl md:text-6xl" style="font-family: 'Ubuntu', sans-serif;">
             Welcome to
-            <img src="src/assets/logo_text.png" alt="AusOceanTV" class="inline-block h-14 sm:h-16 md:h-20" />
+            <span class="font-extrabold inline-block relative tracking-tight" style="font-family: 'Ubuntu', sans-serif;">AusOcean</span>
+            <span class="font-extrabold inline-block relative left-[-0.26em] top-[0.07em] tracking-wider" style="font-family: 'Kalam', cursive;">
+              TV
+            </span>
           </h1>
           <p class="mb-8 text-lg text-gray-800 md:text-2xl">Experience the wonders of Australia's oceans in real time.</p>
           <a href="/api/v1/auth/login?redirect=/home.html">
