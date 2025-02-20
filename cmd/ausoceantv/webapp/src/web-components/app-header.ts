@@ -19,14 +19,14 @@ export class AppHeader extends TailwindElement() {
     return html`
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
       <div class="sticky top-0 z-10 flex items-center justify-between bg-neutral-50 px-4 py-2 shadow-lg">
-        <a href="home.html" class="flex items-center justify-center">
+        <a href="/home.html" class="flex items-center justify-center">
           <img src="${blueLogo}" class="w-12 pt-1 md:w-20" alt="AusOcean logo" />
         </a>
         <div class="flex items-center space-x-6">
-          <a href="home.html" title="Home" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
+          <a href="/home.html" title="Home" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
             <i class="fas fa-home"></i>
           </a>
-          <a href="profile.html" title="Profile" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
+          <a href="/profile.html" title="Profile" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
             <i class="fas fa-user"></i>
           </a>
           <a href="/api/v1/auth/logout" title="Logout" class="text-2xl text-[#0c69ad] transition-all hover:text-[#1f617a]">
