@@ -22,9 +22,9 @@
       gtag("config", "G-WX123FCR61");
     </script>
   </head>
-  <body class="h-min-screen bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
-    <auth-wrapper>
-      <div id="page-column" class="flex h-full flex-col">
+  <body class="flex min-h-screen flex-col bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
+    <auth-wrapper class="flex flex-1 flex-col">
+      <div id="page-column" class="flex flex-1 flex-col">
         <app-header></app-header>
 
         <img src="src/assets/web-bg-1.jpg" alt="Background" class="fixed inset-0 z-[-1] h-full w-full object-cover opacity-30" />
@@ -50,6 +50,7 @@
       </div>
       <custom-footer></custom-footer>
     </auth-wrapper>
+
     <script>
       // Hide loading overlay when iframe loads.
       document.addEventListener("DOMContentLoaded", function () {
