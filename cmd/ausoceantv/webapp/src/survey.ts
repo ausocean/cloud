@@ -19,11 +19,23 @@ async function handleFormSubmit(event: Event): Promise<void> {
 
     if (!response.ok) {
       const error = await response.json();
-      throw response.statusText + ": " + error.message;
+      console.error("error submitting survey form:", response.statusText + ": " + error.error);
+      if (error["user-message"] != "") {
+        alert(error["user-message"]);
+        return;
+      }
+      alert("An unexpected error occurred. Please contact us or try again later.");
+      throw error.message + "\n" + response.statusText + ": " + error.error;
     } else {
       window.location.href = "/watch.html";
     }
   } catch (error) {
+    let parts = (error as string).split("\n");
+    if (parts.length > 1) {
+      console.error("error submitting survey form:", parts[1]);
+      alert(parts[0]);
+      return;
+    }
     console.error("error submitting survey form:", error);
     alert("An unexpected error occurred. Please contact us or try again later.");
   }
