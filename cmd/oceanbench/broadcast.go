@@ -221,6 +221,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			ControllerMAC:         model.MacEncode(r.FormValue("controller-mac")),
 			OnActions:             r.FormValue("on-actions"),
 			OffActions:            r.FormValue("off-actions"),
+			ShutdownActions:       r.FormValue("shutdown-actions"),
 			SendMsg:               r.FormValue("report-sensor") == "Chat",
 			UsingVidforward:       r.FormValue("use-vidforward") == "using-vidforward",
 			CheckingHealth:        r.FormValue("check-health") == "checking-health",
