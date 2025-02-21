@@ -55,7 +55,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.5.6"
+	version       = "v0.5.7"
 )
 
 // service defines the properties of our web service.
@@ -333,17 +333,23 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	}
 
 	// Unmarshal the stringified region into SubscriberRegion.
-	subscriberRegion := &model.SubscriberRegion{}
-	if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to parse region: %v", err))
+	if payload.Region != "" {
+		subscriberRegion := &model.SubscriberRegion{}
+		if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
+			log.Errorf("failed to parse non-nil region: %v", err)
+		}
+
+		// Set the SubscriberID.
+		subscriberRegion.SubscriberID = subscriber.ID
+
+		// Create or update the SubscriberRegion.
+		if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
+			return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
+		}
 	}
 
-	// Set the SubscriberID.
-	subscriberRegion.SubscriberID = subscriber.ID
-
-	// Create or update the SubscriberRegion.
-	if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
+	if payload.UserCategory == "" {
+		return logAndReturnError(c, "user-category field is empty", withUserMessage("Please select a user category."), withStatus(fiber.StatusBadRequest))
 	}
 
 	// Extract the user-category field from the JSON body and store it as JSON.
@@ -374,11 +380,11 @@ func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
 }
 
-type loggingErrorOption func(c *fiber.Ctx, msg *string) error
+type loggingErrorOption func(c *fiber.Ctx, m map[string]string) error
 
 // withStatus sets the status of the response.
 func withStatus(status int) loggingErrorOption {
-	return func(c *fiber.Ctx, msg *string) error {
+	return func(c *fiber.Ctx, m map[string]string) error {
 		c.Status(status)
 		return nil
 	}
@@ -387,8 +393,8 @@ func withStatus(status int) loggingErrorOption {
 // withUserMessage updates the message that will be sent to the frontend,
 // this is intended for user readable messages.
 func withUserMessage(userMsg string) loggingErrorOption {
-	return func(c *fiber.Ctx, msg *string) error {
-		*msg = userMsg
+	return func(c *fiber.Ctx, m map[string]string) error {
+		m["user-message"] = userMsg
 		return nil
 	}
 }
@@ -398,12 +404,14 @@ func withUserMessage(userMsg string) loggingErrorOption {
 func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
 	log.Error(message)
 	c.Status(fiber.StatusInternalServerError)
-	message = http.StatusText(c.Response().StatusCode())
+	kv := make(map[string]string)
+	kv["message"] = http.StatusText(c.Response().StatusCode())
+	kv["error"] = message
 	for i, opt := range opts {
-		err := opt(c, &message)
+		err := opt(c, kv)
 		if err != nil {
 			log.Errorf("error applying opt[%d]: %v", i, err)
 		}
 	}
-	return c.JSON(fiber.Map{"message": message})
+	return c.JSON(kv)
 }
