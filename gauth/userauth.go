@@ -218,7 +218,7 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 	}
 
 	// NB: Offline access is required to obtain a refresh token.
-	url := ua.cfg.AuthCodeURL(sessID, oauth2.ApprovalForce, oauth2.AccessTypeOffline)
+	url := ua.cfg.AuthCodeURL(sessID, oauth2.AccessTypeOffline)
 	return h.Redirect(url, http.StatusFound)
 }
 
