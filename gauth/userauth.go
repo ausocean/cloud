@@ -42,7 +42,6 @@ import (
 	"net/url"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/google/uuid"
@@ -94,7 +93,7 @@ type UserAuth struct {
 	ProjectID string                // GAE project ID.
 	ClientID  string                // Oauth2 client ID.
 	SessionID string                // Default OAuth2 session ID.
-	MaxAge    time.Duration         // OAuth2 max age.
+	MaxAge    int                   // OAuth2 max age in seconds.
 	cfg       *oauth2.Config        // OAuth2 configuration.
 	NetStore  *sessions.CookieStore // Session state (only used for net/http implementations)
 }
@@ -277,6 +276,10 @@ func (ua *UserAuth) CallbackHandler(h backend.Handler) (*Profile, error) {
 	sess, err := h.LoadSession(ua.SessionID)
 	if err != nil {
 		return nil, fmt.Errorf("could not create session %s: %w", ua.SessionID, err)
+	}
+	err = sess.SetMaxAge(ua.MaxAge)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set session MaxAge: %w", err)
 	}
 
 	clt := oauth2.NewClient(ctx, ua.cfg.TokenSource(ctx, tok))
