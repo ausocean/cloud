@@ -448,7 +448,7 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		// Try id token instead.
 		err = sess.Get(idTokenSessionKey, &idTok)
 		if err != nil {
-			return nil, err
+			return nil, TokenNotFound
 		}
 	}
 

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <script src="https://accounts.google.com/gsi/client" async></script>
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-WX123FCR61"></script>
@@ -22,6 +23,7 @@
     </script>
   </head>
   <body class="h-screen bg-black text-white">
+    <div id="g_id_onload" data-client_id="1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com" data-context="signin" data-login_uri="http://localhost:5173/api/v1/auth/googlelogin" data-auto_select="true" data-itp_support="true"></div>
     <auth-wrapper>
       <!-- Background Video -->
       <video class="fixed left-0 top-0 z-[-1] h-screen w-full object-cover opacity-75" autoplay muted playsinline loop>
@@ -45,10 +47,8 @@
             <button class="rounded-lg bg-[#0c69ad] px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Sign Up</button>
           </a>
           <p class="mt-4 text-lg text-gray-800">
-            Already signed up? 
-            <a href="/api/v1/auth/login?redirect=/home.html" class="text-[#0c69ad] hover:underline">
-              Log in
-            </a>
+            Already signed up?
+            <a href="/api/v1/auth/login?redirect=/home.html" class="text-[#0c69ad] hover:underline">Log in</a>
           </p>
         </div>
         <a href="#more-info" class="mt-10 text-center text-4xl">⌄</a>
