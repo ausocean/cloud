@@ -100,3 +100,9 @@ func (svc *service) profileHandler(c *fiber.Ctx) error {
 	c.Write(bytes)
 	return nil
 }
+
+func (svc *service) googleLoginHandler(c *fiber.Ctx) error {
+	_, err := svc.auth.GoogleLoginHandler(backend.NewFiberHandler(c))
+	c.Redirect("/home.html", fiber.StatusFound)
+	return err
+}

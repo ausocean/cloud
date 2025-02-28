@@ -32,6 +32,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -81,7 +83,8 @@ func registerAPIRoutes(app *fiber.App) {
 		Get("/login", svc.loginHandler).
 		Get("/logout", svc.logoutHandler).
 		Get("oauth2callback", svc.callbackHandler).
-		Get("profile", svc.profileHandler)
+		Get("profile", svc.profileHandler).
+		Post("/googlelogin", svc.googleLoginHandler)
 
 	v1.Get("version", svc.versionHandler)
 
@@ -143,7 +146,8 @@ func main() {
 		log.Panicf("unable to get sessionKey secret: %v", err)
 	}
 	app.Use(encryptcookie.New(encryptcookie.Config{
-		Key: key,
+		Key:    key,
+		Except: []string{"g_csrf_token", "g_state", "_ga", "_ga_WX123FCR61", "__stripe_mid"},
 	}))
 
 	// Perform one-time setup or bail.
@@ -402,7 +406,16 @@ func withUserMessage(userMsg string) loggingErrorOption {
 // logAndReturnError logs the passed message as an error and returns an response to the client.
 // The response code defaults to internal server error (500) and the message defaults to the status text.
 func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
-	log.Error(message)
+	// Get caller information (skip=1 to get the caller of this function)
+	_, file, line, ok := runtime.Caller(1)
+	if ok {
+		// Extract just the filename without the full path
+		fileName := filepath.Base(file)
+		log.Errorf("[%s:%d] %s", fileName, line, message)
+	} else {
+		// Fallback if caller info can't be determined
+		log.Error(message)
+	}
 	c.Status(fiber.StatusInternalServerError)
 	kv := make(map[string]string)
 	kv["message"] = http.StatusText(c.Response().StatusCode())

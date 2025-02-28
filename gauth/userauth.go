@@ -48,12 +48,14 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/idtoken"
 	"google.golang.org/api/people/v1"
 )
 
 const (
 	// Keys used for default OAuth session.
 	oauthTokenSessionKey = "oauth_token"
+	idTokenSessionKey    = "id_token"
 	profileKey           = "google_profile"
 
 	// Key used in the OAuth flow session to store the URL to
@@ -304,6 +306,66 @@ func (ua *UserAuth) CallbackHandler(h backend.Handler) (*Profile, error) {
 	return profile, h.Redirect(redirectURL, http.StatusFound)
 }
 
+func (ua *UserAuth) GoogleLoginHandler(h backend.Handler) (*Profile, error) {
+
+	cookieToken := h.Cookie("g_csrf_token")
+	requestToken := h.FormValue("g_csrf_token")
+
+	if cookieToken != requestToken {
+		return nil, errors.New("mismatch in cookie, and body tokens")
+	}
+
+	idToken := h.FormValue("credential")
+
+	// Verify token.
+	ctx := context.Background()
+	validator, err := idtoken.NewValidator(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get new idtoken validator: %w", err)
+	}
+
+	payload, err := validator.Validate(ctx, idToken, "")
+	if err != nil {
+		return nil, fmt.Errorf("unable to validate id token: %v", err)
+	}
+
+	sess, err := h.LoadSession(ua.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("could not create session %s: %w", ua.SessionID, err)
+	}
+	err = sess.SetMaxAge(ua.MaxAge)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set session MaxAge: %w", err)
+	}
+
+	p := &Profile{}
+	var ok bool
+	if p.GivenName, ok = payload.Claims["given_name"].(string); !ok {
+		return nil, errors.New("cannot assert given name to string")
+	}
+	if p.FamilyName, ok = payload.Claims["family_name"].(string); !ok {
+		return nil, errors.New("cannot assert family name to string")
+	}
+	if p.Email, ok = payload.Claims["email"].(string); !ok {
+		return nil, errors.New("cannot assert email to string")
+	}
+
+	err = sess.Set(idTokenSessionKey, struct{ IDToken string }{IDToken: idToken})
+	if err != nil {
+		return nil, fmt.Errorf("unable to set token session key: %w", err)
+	}
+	err = sess.Set(profileKey, p)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set profile key: %w", err)
+	}
+	err = h.SaveSession(sess)
+	if err != nil {
+		return nil, fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
+	}
+
+	return p, nil
+}
+
 // fetchProfile retrieves profile info for the logged-in user, i.e.,
 // the user associated with the client's OAuth token, via the Google
 // People API, which must be enabled for the App Engine project.
@@ -380,9 +442,14 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 	}
 
 	tok := &oauth2.Token{}
+	idTok := &struct{ IDToken string }{}
 	err = sess.Get(oauthTokenSessionKey, &tok)
 	if err != nil {
-		return nil, TokenNotFound
+		// Try id token instead.
+		err = sess.Get(idTokenSessionKey, &idTok)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	profile := &Profile{}
@@ -390,29 +457,49 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 	if err != nil {
 		return nil, ProfileNotFound
 	}
-	if tok.Valid() {
-		return profile, nil
-	}
-
-	// Issue a new client request to refresh the OAuth token.
 	ctx := h.Context()
-	src := ua.cfg.TokenSource(ctx, tok)
-	newTok, err := src.Token()
-	if err != nil {
-		return nil, fmt.Errorf("could not get refreshed token: %w", err)
-	}
-	clt := ua.cfg.Client(ctx, newTok)
-	data := profile.Data // Save optional data.
-	profile, err = fetchProfile(clt)
-	if err != nil {
-		return nil, fmt.Errorf("fetch profile error: %w", err)
+
+	// Using Oauth2 Tokens.
+	if *tok != (oauth2.Token{}) {
+		if tok.Valid() {
+			return profile, nil
+		}
+
+		// Issue a new client request to refresh the OAuth token.
+		src := ua.cfg.TokenSource(ctx, tok)
+		newTok, err := src.Token()
+		if err != nil {
+			return nil, fmt.Errorf("could not get refreshed token: %w", err)
+		}
+		clt := ua.cfg.Client(ctx, newTok)
+		data := profile.Data // Save optional data.
+		profile, err = fetchProfile(clt)
+		if err != nil {
+			return nil, fmt.Errorf("fetch profile error: %w", err)
+		}
+
+		profile.Data = data // Restore optional data.
+		err = sess.Set(oauthTokenSessionKey, newTok)
+		if err != nil {
+			return nil, fmt.Errorf("unable to set token session key: %w", err)
+		}
+	} else {
+		validator, err := idtoken.NewValidator(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get new validator: %w", err)
+		}
+
+		_, err = validator.Validate(ctx, idTok.IDToken, "")
+		if err != nil {
+			return nil, fmt.Errorf("unable to validate idtoken: %w", err)
+		}
+
+		err = sess.Set(idTokenSessionKey, idTok)
+		if err != nil {
+			return nil, fmt.Errorf("unable to set token session key: %w", err)
+		}
 	}
 
-	profile.Data = data // Restore optional data.
-	err = sess.Set(oauthTokenSessionKey, newTok)
-	if err != nil {
-		return nil, fmt.Errorf("unable to set token session key: %w", err)
-	}
 	err = sess.Set(profileKey, profile)
 	if err != nil {
 		return nil, fmt.Errorf("unable to set profile key: %w", err)
