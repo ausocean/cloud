@@ -156,7 +156,7 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="camera-mac" class="w-25 text-end">Camera:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
-                <select name="camera-mac" class="form-select w-50">
+                <select id="camera-select" name="camera-mac" class="form-select w-50">
                   {{if not .CurrentBroadcast.CameraMac}}
                   <option>Select</option>
                   {{end}} {{range .Cameras}}
@@ -175,7 +175,7 @@
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="controller-mac" class="w-25 text-end">Controller:</label>
-              <select name="controller-mac" class="form-select w-50">
+              <select id="controller-select" name="controller-mac" class="form-select w-50">
                 {{if not .CurrentBroadcast.ControllerMAC}}
                 <option>Select</option>
                 {{end}} {{range .Controllers}}
@@ -185,15 +185,15 @@
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="on-actions" class="w-25 text-end">On Actions:</label>
-              <input type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions" />
+              <input id="on-actions" type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="shutdown-actions" class="w-25 text-end">Shutdown Actions:</label>
-              <input type="input" name="shutdown-actions" class="form-control w-50" value="{{.CurrentBroadcast.ShutdownActions}}" class="actions" />
+              <input id="shutdown-actions" type="input" name="shutdown-actions" class="form-control w-50" value="{{.CurrentBroadcast.ShutdownActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="off-actions" class="w-25 text-end">Off Actions:</label>
-              <input type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions" />
+              <input id="off-actions" type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="rtmp-key-var" class="w-25 text-end">RTMP URL Variable:</label>

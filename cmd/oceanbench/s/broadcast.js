@@ -1,6 +1,9 @@
 var advancedOpts;
 var adv = false;
 
+let camSelect, conSelect
+let prevCamOn, prevCamShutdown, prevCamOff, prevConOn, prevConOff
+
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('time-zone').value = getTimezone();
   const startTimestamp = document.getElementById('start-timestamp').value;
@@ -40,7 +43,58 @@ document.addEventListener('DOMContentLoaded', function() {
   for (opt of advancedOpts) {
     adv ? document.getElementById("adv-options-toggle").checked = true : opt.style.display = "none";
   }
+
+  camSelect = document.getElementById("camera-select")
+  conSelect = document.getElementById("controller-select")
+  conSelect.addEventListener("change", updateActions);
+  camSelect.addEventListener("change", updateActions);
 });
+
+function updateActions(e) {
+  let onActs = document.getElementById("on-actions")
+  let shutdownActs = document.getElementById("shutdown-actions")
+  let offActs = document.getElementById("off-actions")
+
+  let con = conSelect.options[conSelect.selectedIndex].value
+  let cam = camSelect.options[camSelect.selectedIndex].value
+
+  console.log(con)
+  console.log(cam)
+
+  let conOn = con.toLowerCase().replaceAll(":", "") + ".Power2=true"
+  let conOff = con.toLowerCase().replaceAll(":", "") + ".Power2=false"
+  let camOn = cam.toLowerCase().replaceAll(":", "") + ".mode=normal"
+  let camShutdown = cam.toLowerCase().replaceAll(":", "") + ".mode=shutdown"
+  let camOff = cam.toLowerCase().replaceAll(":", "") + ".mode=paused"
+
+  if (prevConOn != null && con != null) {
+      onActs.value.replaceAll(prevConOn, conOn)
+      prevConOn = conOn
+      offActs.value.replaceAll(prevConOff, conOff)
+      prevConOff = conOff
+  } else if (con != null) {
+      onActs.value += conOn
+      prevConOn = conOn
+      offActs.value += conOff
+      prevConOff = conOff
+  }
+  if (prevCamOn != null && cam != "") {
+    onActs.value.replaceAll(prevCamOn, camOn)
+    prevCamOn = camOn
+    shutdownActs.value.replaceAll(prevCamShutdown, camShutdown)
+    prevCamShutdown = camShutdown
+    offActs.value.replaceAll(prevCamOff, camOff)
+    prevCamOff = camOff
+  } else if (con != "") {
+    onActs.value += camOn
+    prevCamOn = camOn
+    shutdownActs.value += camShutdown
+    prevCamShutdown = camShutdown
+    offActs.value += camOff
+    prevCamOff = camOff
+  }
+
+}
 
 function handleSiteChange(event) {
     // Make a request to change site.
