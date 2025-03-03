@@ -247,6 +247,10 @@
               </div>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="battery-voltage-pin" class="advanced w-25 text-end">Battery Voltage Pin:</label>
+              <input class="advanced w-50 form-control" type="input" name="battery-voltage-pin" value="{{.CurrentBroadcast.BatteryVoltagePin}}" />
+            </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
               <label for="required-streaming-voltage" class="advanced w-25 text-end">Required Streaming Voltage:</label>
               <input class="advanced w-50 form-control" type="input" name="required-streaming-voltage" value="{{.CurrentBroadcast.RequiredStreamingVoltage}}" />
             </div>

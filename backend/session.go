@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gorilla/sessions"
@@ -35,9 +34,9 @@ import (
 // Session defines an interface for a session to keep track of user
 // authenticated sessions.
 type Session interface {
-	// SetMaxAge sets the Max Age of the session, after which the session is
+	// SetMaxAge sets the Max Age of the session in seconds, after which the session is
 	// no longer valid.
-	SetMaxAge(age time.Duration) error
+	SetMaxAge(age int) error
 
 	// Set sets a key value store in the session.
 	Set(key string, value any) error
@@ -80,9 +79,9 @@ func NewFiberSession(id, value string) (*FiberSession, error) {
 }
 
 // SetMaxAge implements the SetMaxAge method of the Session interface by setting
-// the maximum age of the cookie.
-func (s *FiberSession) SetMaxAge(age time.Duration) error {
-	s.cookie.MaxAge = int(age.Seconds())
+// the maximum age of the cookie in seconds.
+func (s *FiberSession) SetMaxAge(age int) error {
+	s.cookie.MaxAge = age
 	return nil
 }
 
@@ -127,8 +126,8 @@ func NewGorillaSession(session *sessions.Session) *GorillaSession {
 
 // SetMaxAge implements the SetMaxAge method of the Session interface by setting
 // the maximum age of the cookie.
-func (s *GorillaSession) SetMaxAge(maxAge time.Duration) error {
-	s.session.Options.MaxAge = int(maxAge.Seconds())
+func (s *GorillaSession) SetMaxAge(maxAge int) error {
+	s.session.Options.MaxAge = maxAge
 	return nil
 }
 

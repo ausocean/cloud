@@ -1,8 +1,10 @@
+/// <reference types="google.maps" />
+
 async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
   event.preventDefault();
 
-  const geocodeInput = (document.querySelector("#geocode") as HTMLInputElement).value;
+  const regionInput = (document.querySelector("#region") as HTMLInputElement).value;
   const userCategory = (document.querySelector("#user-category") as HTMLSelectElement).value;
 
   try {
@@ -10,18 +12,30 @@ async function handleFormSubmit(event: Event): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        geocode: geocodeInput,
+        region: regionInput,
         "user-category": userCategory,
       }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw response.statusText + ": " + error.message;
+      console.error("error submitting survey form:", response.statusText + ": " + error.error);
+      if (error["user-message"] != "") {
+        alert(error["user-message"]);
+        return;
+      }
+      alert("An unexpected error occurred. Please contact us or try again later.");
+      throw error.message + "\n" + response.statusText + ": " + error.error;
     } else {
       window.location.href = "/watch.html";
     }
   } catch (error) {
+    let parts = (error as string).split("\n");
+    if (parts.length > 1) {
+      console.error("error submitting survey form:", parts[1]);
+      alert(parts[0]);
+      return;
+    }
     console.error("error submitting survey form:", error);
     alert("An unexpected error occurred. Please contact us or try again later.");
   }
@@ -42,15 +56,15 @@ document.addEventListener("DOMContentLoaded", initFormHandler);
 
 function initAutocomplete(): void {
   const input = document.getElementById("location") as HTMLInputElement;
-  const geocodeInput = document.getElementById("geocode") as HTMLInputElement;
+  const regionInput = document.getElementById("region") as HTMLInputElement;
 
-  if (!input || !geocodeInput) {
-    console.error("location or geocode input not found");
+  if (!input || !regionInput) {
+    console.error("location or region input not found");
     return;
   }
 
   const autocomplete = new google.maps.places.Autocomplete(input, {
-    types: ["geocode"],
+    types: ["(regions)"],
     componentRestrictions: { country: "AU" },
   });
 
@@ -69,17 +83,17 @@ function initAutocomplete(): void {
       return;
     }
 
-    const geocodeData: Record<string, string> = {};
+    const regionData: Record<string, string> = {};
 
     for (const component of place.address_components) {
       const types = component.types;
       for (const type of types) {
-        geocodeData[type] = component.long_name;
+        regionData[type] = component.long_name;
       }
     }
 
-    geocodeInput.value = JSON.stringify(geocodeData);
-    console.log("Geocode Data:", geocodeData);
+    regionInput.value = JSON.stringify(regionData);
+    console.log("Region Data:", regionData);
   });
 }
 

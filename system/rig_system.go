@@ -133,6 +133,7 @@ func WithRigSystemDefaults() func(any) error {
 			model.AirTemperatureSensor(),
 			model.HumiditySensor(),
 			model.WaterTemperatureSensor(),
+			model.ESP32BatterySensor(defaultVoltageScaleFactor),
 			model.ESP32Power1Sensor(defaultVoltageScaleFactor),
 			model.ESP32Power2Sensor(defaultVoltageScaleFactor),
 			model.ESP32Power3Sensor(defaultVoltageScaleFactor),

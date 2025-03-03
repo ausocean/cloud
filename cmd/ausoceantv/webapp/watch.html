@@ -9,11 +9,25 @@
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
     <script type="module" src="src/survey-check.ts"></script>
+    <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WX123FCR61"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-WX123FCR61");
+    </script>
   </head>
-  <body class="h-screen bg-neutral-50 text-white">
-    <auth-wrapper>
-      <div id="page-column" class="flex h-full flex-col">
+  <body class="flex min-h-screen flex-col bg-gradient-to-b from-sky-600 via-blue-900 to-black text-white">
+    <auth-wrapper class="flex flex-1 flex-col">
+      <div id="page-column" class="flex flex-1 flex-col">
         <app-header></app-header>
+
+        <img src="src/assets/web-bg-1.jpg" alt="Background" class="fixed inset-0 z-[-1] h-full w-full object-cover opacity-30" />
 
         <!-- Video Section -->
         <div class="flex flex-1 items-center justify-center p-6">
@@ -34,7 +48,9 @@
           </div>
         </div>
       </div>
+      <custom-footer></custom-footer>
     </auth-wrapper>
+
     <script>
       // Hide loading overlay when iframe loads.
       document.addEventListener("DOMContentLoaded", function () {
