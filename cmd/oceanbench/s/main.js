@@ -131,6 +131,32 @@ function copyFormValues(dstID, srcContainerID, fields) {
   return false;
 }
 
+// getTimezone returns the current timezone as string formatted +hh:mm.
+function getTimezone() {
+  var dt = new Date();
+  var tz = dt.getTimezoneOffset();
+  var ss;
+  if (tz < 0) {
+    ss = "+";
+  } else {
+    ss = "-";
+  }
+  tz = Math.abs(tz);
+  var hh = Math.floor(tz / 60);
+  var mm = tz % 60;
+  if (hh < 10) {
+    ss += "0" + hh.toString();
+  } else {
+    ss += hh.toString();
+  }
+  if (mm < 10) {
+    ss += ":0" + mm.toString();
+  } else {
+    ss += ":" + mm.toString();
+  }
+  return ss;
+}
+
 // tzFormatUTCOffset formats a timezone offset number as a +/-hh:mm string.
 function tzFormatUTCOffset(tz) {
   if (tz == "0") {
