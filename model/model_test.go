@@ -27,6 +27,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -41,6 +42,7 @@ import (
 	"github.com/ausocean/av/container/mts/meta"
 	"github.com/ausocean/av/container/mts/psi"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -1488,5 +1490,77 @@ func benchmarkSite(b *testing.B) {
 		if err != nil {
 			b.Fatalf("could not get site: %v", err)
 		}
+	}
+}
+
+func TestFeed(t *testing.T) {
+	const (
+		testFeedName   = "Test Feed"
+		testFeedArea   = "Fleurieu Peninsula"
+		testFeedClass  = "Video"
+		testFeedSource = "https://youtube.com/watch?v=1234567890"
+	)
+
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, "file", "vidgrind", "")
+	if err != nil {
+		t.Fatalf("could not get store: %v", err)
+	}
+
+	// Clear any existing feeds.
+	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
+	store.Delete(ctx, store.IDKey(typeFeed, testFeedID+1))
+
+	feed := &Feed{ID: testFeedID, Name: testFeedName, Area: testFeedArea, Class: testFeedClass, Source: testFeedSource, Created: time.Now().UTC().Truncate(0)}
+	err = CreateFeed(ctx, store, feed)
+	if err != nil {
+		t.Errorf("could not create feed: %v", err)
+	}
+
+	feed2, err := GetFeed(ctx, store, testFeedID)
+	if err != nil {
+		t.Errorf("could not get feed: %v", err)
+	}
+
+	assert.Equal(t, feed, feed2, "Got different feed than put, got: \n%+v, wanted \n%+v", feed2, feed)
+
+	feed.Name = "Updated Feed Name"
+	feed, err = UpdateFeed(ctx, store, feed)
+	if err != nil {
+		t.Errorf("could not update feed: %v", err)
+	}
+
+	feed3, err := GetFeed(ctx, store, testFeedID)
+	if err != nil {
+		t.Errorf("could not get feed: %v", err)
+	}
+
+	assert.Equal(t, feed, feed3, "Got different feed than put, got: \n%+v, wanted \n%+v", feed3, feed)
+
+	newFeed := &Feed{ID: testFeedID + 1, Name: "New Feed", Created: time.Now().UTC().Truncate(0)}
+	err = CreateFeed(ctx, store, newFeed)
+	if err != nil {
+		t.Errorf("could not create new feed: %v", err)
+	}
+
+	feeds, err := GetAllFeeds(ctx, store)
+	if err != nil {
+		t.Errorf("could not get all feeds: %v", err)
+	}
+
+	assert.Equal(t, []Feed{*feed, *newFeed}, feeds, "Got different feeds than put, got: \n%+v, wanted \n%+v", feeds, []Feed{*feed, *newFeed})
+
+	err = DeleteFeed(ctx, store, testFeedID)
+	if err != nil {
+		t.Errorf("could not delete feed: %v", err)
+	}
+
+	feed4, err := GetFeed(ctx, store, testFeedID)
+	if !errors.Is(err, datastore.ErrNoSuchEntity) {
+		t.Errorf("expected ErrNoSuchEntity, got %v", err)
+	}
+
+	if feed4 != nil {
+		t.Errorf("expected nil, got %v", feed4)
 	}
 }

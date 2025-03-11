@@ -22,6 +22,8 @@ LICENSE
 package model
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/ausocean/openfish/datastore"
@@ -39,7 +41,7 @@ type Feed struct {
 	Class   string    // Feed class, e.g., “Video” or “Data”.
 	Source  string    // Feed source URL, e.g., a YouTube URL, or a URL to an AusOcean data stream (such as weather data).
 	Params  string    // Optional params to be applied to the source.
-	Bundle  []string  // Feed IDs of other feeds bundled with this feed, or nil.
+	Bundle  []int64   // Feed IDs of other feeds bundled with this feed, or nil.
 	Created time.Time // Time the feed entity was created.
 }
 
@@ -62,4 +64,58 @@ func (f *Feed) Copy(dst datastore.Entity) (datastore.Entity, error) {
 // GetCache returns nil, indicating no caching.
 func (f *Feed) GetCache() datastore.Cache {
 	return nil
+}
+
+// GetFeed retrieves a Feed entity from the datastore by its ID.
+func GetFeed(ctx context.Context, store datastore.Store, id int64) (*Feed, error) {
+	key := store.IDKey(typeFeed, id)
+
+	feed := &Feed{}
+	err := store.Get(ctx, key, feed)
+	if err != nil {
+		return nil, fmt.Errorf("error getting feed by ID (%d): %w", id, err)
+	}
+
+	return feed, nil
+}
+
+// GetAllFeeds retrieves all Feed entities from the datastore.
+func GetAllFeeds(ctx context.Context, store datastore.Store) ([]Feed, error) {
+	q := store.NewQuery(typeFeed, false, "ID")
+	feeds := []Feed{}
+	_, err := store.GetAll(ctx, q, &feeds)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all feeds: %w", err)
+	}
+
+	return feeds, nil
+}
+
+// CreateFeed creates a feed, or returns an error if a feed with the given ID exists.
+func CreateFeed(ctx context.Context, store datastore.Store, feed *Feed) error {
+	key := store.IDKey(typeFeed, feed.ID)
+	return store.Create(ctx, key, feed)
+}
+
+// UpdateFeed updates a feed, or returns an error if the feed does not exist.
+func UpdateFeed(ctx context.Context, store datastore.Store, feed *Feed) (*Feed, error) {
+	key := store.IDKey(typeFeed, feed.ID)
+	updated := &Feed{}
+	err := store.Update(ctx, key, func(e datastore.Entity) {
+		_feed := e.(*Feed)
+		_feed.ID = feed.ID
+		_feed.Name = feed.Name
+		_feed.Area = feed.Area
+		_feed.Class = feed.Class
+		_feed.Source = feed.Source
+		_feed.Params = feed.Params
+		_feed.Bundle = feed.Bundle
+	}, updated)
+	return updated, err
+}
+
+// DeleteFeed deletes a feed, or returns an error if the feed does not exist.
+func DeleteFeed(ctx context.Context, store datastore.Store, id int64) error {
+	key := store.IDKey(typeFeed, id)
+	return store.Delete(ctx, key)
 }
