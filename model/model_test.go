@@ -1458,6 +1458,94 @@ func testFeed(t *testing.T, kind string) {
 	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
 }
 
+func TestSubFeed(t *testing.T) {
+	const (
+		testSubFeedID     = 1234567890
+		testSubFeedFeedID = 9876543210
+		testSubFeedSource = "https://youtube.com/watch?v=1234567890"
+	)
+
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, "file", "vidgrind", "")
+	if err != nil {
+		t.Fatalf("could not get store: %v", err)
+	}
+
+	// Clear any existing subfeeds.
+	store.Delete(ctx, store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", testSubFeedFeedID, testSubFeedID)))
+	store.Delete(ctx, store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", testSubFeedFeedID, testSubFeedID+1)))
+
+	startTime := time.Now().UTC().Truncate(0)
+	finishTime := startTime.Add(1 * time.Hour)
+
+	subfeed := &SubFeed{
+		ID:     testSubFeedID,
+		FeedID: testSubFeedFeedID,
+		Source: testSubFeedSource,
+		Active: true,
+		Start:  startTime,
+		Finish: finishTime,
+	}
+	err = CreateSubFeed(ctx, store, subfeed)
+	if err != nil {
+		t.Errorf("could not create subfeed: %v", err)
+	}
+
+	subfeed2, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	if err != nil {
+		t.Errorf("could not get subfeed: %v", err)
+	}
+
+	assert.Equal(t, subfeed, subfeed2, "Got different subfeed than put, got: \n%+v, wanted \n%+v", subfeed2, subfeed)
+
+	subfeed.Source = "https://youtube.com/watch?v=0987654321"
+	subfeed, err = UpdateSubFeed(ctx, store, subfeed)
+	if err != nil {
+		t.Errorf("could not update subfeed: %v", err)
+	}
+
+	subfeed3, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	if err != nil {
+		t.Errorf("could not get subfeed: %v", err)
+	}
+
+	assert.Equal(t, subfeed, subfeed3, "Got different subfeed than put, got: \n%+v, wanted \n%+v", subfeed3, subfeed)
+
+	newSubfeed := &SubFeed{
+		ID:     testSubFeedID + 1,
+		FeedID: testSubFeedFeedID,
+		Source: "https://youtube.com/watch?v=1122334455",
+		Active: true,
+		Start:  startTime,
+		Finish: finishTime,
+	}
+	err = CreateSubFeed(ctx, store, newSubfeed)
+	if err != nil {
+		t.Errorf("could not create new subfeed: %v", err)
+	}
+
+	subfeeds, err := GetSubFeedsByFeed(ctx, store, testSubFeedFeedID)
+	if err != nil {
+		t.Errorf("could not get all subfeeds: %v", err)
+	}
+
+	assert.Equal(t, []SubFeed{*subfeed, *newSubfeed}, subfeeds, "Got different subfeeds than put, got: \n%+v, wanted \n%+v", subfeeds, []SubFeed{*subfeed, *newSubfeed})
+
+	err = DeleteSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	if err != nil {
+		t.Errorf("could not delete subfeed: %v", err)
+	}
+
+	subfeed4, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	if !errors.Is(err, datastore.ErrNoSuchEntity) {
+		t.Errorf("expected ErrNoSuchEntity, got %v", err)
+	}
+
+	if subfeed4 != nil {
+		t.Errorf("expected nil, got %v", subfeed4)
+	}
+}
+
 // Benchmarks follow.
 // These are executed by running "go test -bench=."
 
