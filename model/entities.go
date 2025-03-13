@@ -46,6 +46,7 @@ func RegisterEntities() {
 	datastore.RegisterEntity(typeUser, func() datastore.Entity { return new(User) })
 	datastore.RegisterEntity(typeVariable, func() datastore.Entity { return new(Variable) })
 	datastore.RegisterEntity(typeFeed, func() datastore.Entity { return new(Feed) })
+	datastore.RegisterEntity(typeSubFeed, func() datastore.Entity { return new(SubFeed) })
 	datastore.RegisterEntity(typeSubscriber, func() datastore.Entity { return new(Subscriber) })
 	datastore.RegisterEntity(typeSubscription, func() datastore.Entity { return new(Subscription) })
 	datastore.RegisterEntity(TypeSubscriberRegion, func() datastore.Entity { return new(SubscriberRegion) })
