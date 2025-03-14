@@ -10,8 +10,6 @@ interface Task {
 }
 
 let tasks: any[] = [];
-let originalTasks: any[] = [];
-let modifiedTasks: Set<string> = new Set(); // Track modified task IDs
 
 // Color mapping for priority
 function getPriorityColor(priority: string): string {
@@ -36,20 +34,11 @@ let offsetX = 0; // Used for panning
 let isDragging = false;
 let dragStartX = 0;
 let nowX = 0;
-
-// Get today's date timestamp
-const now = new Date().getTime();
-
-// Convert date to X position
-function dateToX(date: string, p: p5): number {
-    let dateObj = new Date(date);
-    return p.map(dateObj.getTime(), timelineStart, timelineEnd, startX, p.width - startX);
-}
+let redraw = false;
 
 // p5.js sketch
 const sketch = (p: p5) => {
     p.setup = async () => {
-        p.noLoop();
         await fetchGanttData();
         const canvasHeight = Math.max(p.windowHeight * 0.8, tasks.length * ySpacing + 100);
         const canvas = p.createCanvas(p.windowWidth * 0.9, canvasHeight);
@@ -60,10 +49,34 @@ const sketch = (p: p5) => {
     
         timelineStart = Math.min(...tasks.map(t => new Date(t.start).getTime()));
         timelineEnd = Math.max(...tasks.map(t => new Date(t.end).getTime()));
-        p.redraw();
+        redraw = true;
+        p.frameRate(30);
     };
     
     p.draw = () => {
+        document.body.style.cursor = "default"; // Reset cursor on each frame
+        tasks.forEach((task, i) => {
+            let xStart = dateToX(task.start, p) + offsetX;
+            let xEnd = dateToX(task.end, p) + offsetX;
+            let y = i * ySpacing + 50;
+
+            let edgePadding = 5; // Hover detection range
+            let withinYBounds = p.mouseY >= y && p.mouseY <= y + barHeight;
+            if (withinYBounds && (
+                (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding) ||
+                (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding)
+            )) {
+                document.body.style.cursor = "ew-resize";
+            }
+        });
+        if (!isDragging && !redraw) {
+            return;
+        }
+
+        console.log("drawing timeline...");
+        p.clear(); // Clears previous frame
+        p.textAlign(p.CENTER);
+        p.textSize(12);
         p.background(255);
     
         // Draw the timeline axis
@@ -115,8 +128,28 @@ const sketch = (p: p5) => {
             p.strokeWeight(1);
             p.line(x, 50, x, p.height - 10);
         }
-    
-        document.body.style.cursor = "default"; // Reset cursor on each frame
+
+        // Draw colour behind tasks for task owner.
+        let currentOwner = "";
+        tasks.forEach((task, index) => {
+            let yPos = index * ySpacing + 55;
+            let backgroundColor = ownerColors[task.owner] || ownerColors["Other"];
+
+            // Draw background color for each row.
+            p.fill(backgroundColor);
+            p.noStroke();
+            p.rect(0, yPos - 5, p.width, ySpacing);
+
+            // Only draw Owner name when it changes (first occurrence).
+            if (task.owner !== currentOwner) {
+                currentOwner = task.owner;
+                let firstName = currentOwner.split(" ")[0];
+                p.fill(50); // Darker text color.
+                p.textSize(14);
+                p.textAlign(p.LEFT);
+                p.text(firstName, 5, yPos + barHeight / 2); // Left-aligned.
+            }
+        });
 
         tasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p) + offsetX;
@@ -130,19 +163,8 @@ const sketch = (p: p5) => {
             p.textAlign(p.LEFT, p.CENTER);
             p.textSize(14);
             p.text(task.name, xStart + 5, y + barHeight / 2);
-
-            let edgePadding = 5; // Hover detection range
-            let withinYBounds = p.mouseY >= y && p.mouseY <= y + barHeight;
-
-            if (withinYBounds && (
-                (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding) ||
-                (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding)
-            )) {
-                document.body.style.cursor = "ew-resize";
-            }
         });
     
-        // Fix: Ensure "Now" is correctly mapped in `dateToX()`
         let nowTime = new Date().getTime();
         nowX = p.map(nowTime, timelineStart, timelineEnd, startX, p.width - startX) + offsetX;
     
@@ -157,36 +179,85 @@ const sketch = (p: p5) => {
         p.textSize(14);
         p.textAlign(p.CENTER);
         p.text("Now", nowX, 20);
+
+        redraw = false;
+    };
+    
+    // Enable panning with mouse drag
+    p.mousePressed = () => {
+        if (p.mouseY <= dateAreaHeight) {
+            isDragging = true;
+            dragStartX = p.mouseX - offsetX;
+        }
+    };
+    p.mousePressed = () => {
+        isDragging = true;
+        dragStartX = p.mouseX - offsetX;
+    
+        selectedTask = null;
+        draggingEdge = null;
+    
+        tasks.forEach((task) => {
+            let xStart = dateToX(task.start, p) + offsetX;
+            let xEnd = dateToX(task.end, p) + offsetX;
+            let y = tasks.indexOf(task) * ySpacing + 50; // Get task's Y position
+            let edgePadding = 5;
+    
+            if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+                draggingEdge = "start";
+                selectedTask = task;
+            } else if (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+                draggingEdge = "end";
+                selectedTask = task;
+            }
+        });
     };
     
 
-    // Enable panning with mouse drag
-    p.mousePressed = () => {
-        isDragging = true;
-        p.loop();
-        dragStartX = p.mouseX - offsetX;
-    };
-
     p.mouseReleased = () => {
         isDragging = false;
-        p.noLoop();
     };
 
+    let draggingEdge: "start" | "end" | null = null;
+    let selectedTask: any = null;
+    let dateAreaHeight = 50; // Adjust as needed
+
     p.mouseDragged = () => {
-        if (isDragging) {
-            offsetX = p.mouseX - dragStartX;
+        if (isDragging && p.mouseY <= dateAreaHeight) {
+            offsetX = p.mouseX - dragStartX; // Pan the timeline.
+        }
+    
+        if (!isDragging || !selectedTask) return;
+    
+        let newDate = xToDate(p.mouseX - offsetX, p);
+        if (draggingEdge === "start") {
+            selectedTask.start = newDate;
+        } else if (draggingEdge === "end") {
+            selectedTask.end = newDate;
         }
     };
 };
 
 new p5(sketch);
 
+// Convert date to X position
+function dateToX(date: string, p: p5): number {
+    let dateObj = new Date(date);
+    return p.map(dateObj.getTime(), timelineStart, timelineEnd, startX, p.width - startX);
+}
+
+function xToDate(x: number, p: p5): string {
+    let timeRange = timelineEnd - timelineStart;
+    let dateMillis = timelineStart + (x / p.width) * timeRange;
+    return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
+}
+
 async function fetchGanttData() {
     try {
         console.log("🔄 Fetching Gantt data from API...");
 
         const response = await fetch("http://localhost:8080/timeline");
-        console.log("✅ API Response Received:", response);
+        console.log("API Response Received:", response);
 
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -220,10 +291,9 @@ async function fetchGanttData() {
                     start: startDate,
                     end: endDate,
                     priority: row.Priority || "P5",
+                    owner: row.Owner || "Other",
                 };
         });
-
-        originalTasks = JSON.parse(JSON.stringify(tasks)); // Deep copy to track changes.
 
         console.log("🛠️ Processed Tasks:", tasks);
 
@@ -251,6 +321,16 @@ function parseDate(dateString: string): string {
     return ""; // Return empty if the format is incorrect
 }
 
+const ownerColors: Record<string, string> = {
+    "David Sutton": "rgba(255, 220, 220, 0.3)", // Light Red
+    "Saxon Nelson-Milton": "rgba(220, 255, 220, 0.3)", // Light Green
+    "Breeze del West": "rgba(220, 220, 255, 0.3)", // Light Blue
+    "Trek Hopton": "rgba(255, 255, 220, 0.3)", // Light Yellow
+    "Scott Barnard": "rgba(255, 220, 255, 0.3)", // Light Pink
+    "Other": "rgba(240, 240, 240, 0.3)" // Default Gray
+};
+
+
 function getCategoryEmoji(category: string): string {
     const categoryMap: Record<string, string> = {
         "Rig": "🛰️",
@@ -267,3 +347,25 @@ function getCategoryEmoji(category: string): string {
 
     return categoryMap[category] || "⚙️"; // Default to "Other" emoji if no match
 }
+
+document.getElementById("submit-changes")!.addEventListener("click", async () => {
+    console.log("📤 Sending update request...", tasks);
+
+    try {
+        const response = await fetch("http://localhost:8080/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tasks }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text(); // ✅ Read full error message
+            throw new Error(`Failed to update tasks: ${errorText}`);
+        }
+
+        console.log("✅ Changes submitted successfully!");
+
+    } catch (error) {
+        console.error("❌ Error submitting changes:", error);
+    }
+});
