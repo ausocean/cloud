@@ -39,7 +39,7 @@ import (
 // Spreadsheet details
 const (
 	spreadsheetID = "1nWk8oX4qBApaPcvBmz4VeTieU2Q2cK_qD71nW8LHAsc" // Replace with your actual spreadsheet ID
-	readRange     = "Sheet1!A2:L"                                  // Adjust based on your sheet layout
+	readRange     = "Sheet1!A2:M"                                  // Adjust based on your sheet layout
 )
 
 // AuthGSheetsRead is a wrapper for the google oauth2 credentials from JSON method.
@@ -74,7 +74,7 @@ func ReadSpreadsheet(ctx context.Context, credentials *google.Credentials, sprea
 
 // Convert spreadsheet data into structured JSON
 func parseRoadmapData(data [][]interface{}) []map[string]string {
-	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Start", "End", "Dependants", "Actual Start", "Actual End"}
+	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Start", "End", "Milestone Type", "Dependants", "Actual Start", "Actual End"}
 	var tasks []map[string]string
 
 	for _, row := range data {

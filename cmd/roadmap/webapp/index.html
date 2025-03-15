@@ -8,13 +8,24 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="/main.ts"></script>
   </head>
-  <body class="p-4 bg-gray-100 flex flex-col">
-    <h1 class="text-3xl font-bold my-4 text-center">AusOcean Tech Roadmap</h1>
-    <div id="canvas-container" class="w-full h-[90vh] overflow-y-auto relative">
-      <!-- p5.js will create and insert the canvas here -->
-    </div>
-    <button id="submit-changes" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Submit Changes</button>
+  <body class="p-4 bg-gray-100 flex flex-col h-screen">
+    <h1 class="text-3xl font-bold my-2 text-center">AusOcean Tech Roadmap</h1>
 
+    <!-- Centered zoom slider -->
+    <div class="flex justify-center">
+        <input id="zoom-slider" type="range" min="0.2" max="5" step="0.01" value="1" class="w-96 h-3 my-2">
+    </div>
+
+    <!-- Full-height container for canvas -->
+    <div id="canvas-container" class="flex-grow w-full overflow-auto relative">
+      <!-- p5.js will insert the canvas here -->
+    </div>
+
+    <!-- Submit button at the bottom -->
+    <div class="flex justify-center mt-2">
+        <button id="submit-changes" class="px-4 py-2 bg-blue-500 text-white rounded">Submit Changes</button>
+    </div>
 </body>
+
 
 </html>

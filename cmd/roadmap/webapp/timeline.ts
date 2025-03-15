@@ -1,48 +1,34 @@
+import { time } from "console";
 import p5 from "p5";
 
-// Task data structure
-interface Task {
-    id: string;
-    name: string;
-    start: string;
-    end: string;
-    priority: string;
-}
-
 let tasks: any[] = [];
-
-// Color mapping for priority
-function getPriorityColor(priority: string): string {
-    switch (priority) {
-        case "P0": return "#f87171";  // Lighter Red
-        case "P1": return "#fb923c";  // Lighter Orange
-        case "P2": return "#facc15";  // Lighter Yellow
-        case "P3": return "#4ade80";  // Lighter Green
-        case "P4": return "#93c5fd";  // Lighter Blue
-        case "P5": return "#bfdbfe";  // Very Light Blue
-        default: return "#f3f4f6";    // Lighter Gray
-    }
-}
-
 
 let timelineStart: number;
 let timelineEnd: number;
 let startX = 100; // Left margin
 let barHeight = 30;
-let ySpacing = 35;
+let yBoxSpacing = 35;
 let offsetX = 0; // Used for panning
 let isDragging = false;
 let dragStartX = 0;
 let nowX = 0;
 let redraw = false;
+let zoomLevel = 1; // Default zoom level
+let timelineTop = 0; // Updated in draw
 
 // p5.js sketch
 const sketch = (p: p5) => {
     p.setup = async () => {
         await fetchGanttData();
-        const canvasHeight = Math.max(p.windowHeight * 0.8, tasks.length * ySpacing + 100);
+        const canvasHeight = Math.max(p.windowHeight * 0.8, tasks.length * yBoxSpacing + 300);
         const canvas = p.createCanvas(p.windowWidth * 0.9, canvasHeight);
         canvas.parent("canvas-container");
+
+        let zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement;
+        zoomSlider.addEventListener("input", () => {
+            zoomLevel = parseFloat(zoomSlider.value);
+        });
+
         p.textFont("Arial");
 
         console.log("🚀 Initializing Gantt Chart...");
@@ -54,11 +40,39 @@ const sketch = (p: p5) => {
     };
     
     p.draw = () => {
+        // ---------------- MILESTONE LABEL SPACE CALC ----------------
+        let milestonePositions: number[] = [];
+        let maxStackedLabels = 1; // Track max number of stacked labels
+        let mileStoneBoxHeight = 20;
+        tasks.forEach(task => {
+            if (task.milestone) {
+                let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
+                let yOffset = 20; // Default top margin
+
+                let stackCount = 1;
+                milestonePositions.forEach(prevX => {
+                    if (Math.abs(x - prevX) < p.textWidth(task.name) * 2) { // If too close, stack it
+                        stackCount++;
+                        yOffset += 20;
+                    }
+                });
+
+                milestonePositions.push(x);
+                maxStackedLabels = Math.max(maxStackedLabels, stackCount); // Track the highest stack
+            }
+        });
+        let milestoneSpaceHeight = maxStackedLabels * mileStoneBoxHeight;
+        let monthTextSize = 14;
+        let dayNumberSize = 12;
+        let headerPadding = 10;
+        timelineTop = monthTextSize + dayNumberSize + milestoneSpaceHeight + headerPadding;
+
+        // ---------------- HOVER CURSOR CALC ----------------
         document.body.style.cursor = "default"; // Reset cursor on each frame
         tasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p) + offsetX;
             let xEnd = dateToX(task.end, p) + offsetX;
-            let y = i * ySpacing + 50;
+            let y = i * yBoxSpacing + timelineTop;
 
             let edgePadding = 5; // Hover detection range
             let withinYBounds = p.mouseY >= y && p.mouseY <= y + barHeight;
@@ -75,70 +89,93 @@ const sketch = (p: p5) => {
 
         console.log("drawing timeline...");
         p.clear(); // Clears previous frame
-        p.textAlign(p.CENTER);
+        p.textAlign(p.CENTER, p.BOTTOM);
         p.textSize(12);
         p.background(255);
-    
-        // Draw the timeline axis
+
+        // ---------------- TIMELINE HEADER ----------------
         p.strokeWeight(1);
         p.stroke(180);
-        p.line(startX + offsetX, 50, p.width - startX + offsetX, 50); // Shifted down for two rows
+        p.line(startX + offsetX, timelineTop, p.width - startX + offsetX, timelineTop);
 
         // Date rendering setup
         let interval = 1 * 24 * 60 * 60 * 1000; // 1 day in milliseconds
         p.textSize(12);
         p.textAlign(p.CENTER);
         p.fill(50);
-        let lastMonthYear = "";
-
+        let lastRenderedDayX = -Infinity; // Track last rendered day position
+        let minNumberSpacing = 15; // Minimum spacing to avoid overlap
+        let lastMonthX = startX + offsetX;
+        let lastMonth: number | null = null;
+        let isGrey = false; // Toggle for alternating colors
         for (let t = timelineStart; t <= timelineEnd; t += interval) {
             let date = new Date(t);
-            let x = dateToX(date.toISOString().split("T")[0], p) + offsetX;
+            let x = dateToX(date.toISOString().split("T")[0], p) + offsetX * zoomLevel;
+            let month: number = date.getMonth();
 
             let day = date.getDate();
             let monthYear = date.toLocaleString("default", { month: "long", year: "numeric" });
 
-            // Draw Month + Year only when it changes.
-            if (monthYear !== lastMonthYear) {
+            // ---------------- MONTH + YEAR ----------------
+            if (month !== lastMonth) {
                 p.fill(0);
                 p.strokeWeight(0);
                 p.textSize(14);
-                p.text(monthYear, x + 15, 15); // Positioned higher
-                lastMonthYear = monthYear;
+                p.text(monthYear, x + 15, monthTextSize + 2);
+                if (lastMonth !== null) { // Skip first iteration
+                    p.stroke(150);
+                    p.strokeWeight(1);
+                    p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
+                    isGrey = !isGrey; // Toggle color for next month
+                }
+                
+                // Track new month's start position
+                lastMonthX = x;
+                lastMonth = month;
             }
 
-            // Draw the day number.
-            p.fill(0);
-            p.strokeWeight(0);
-            p.textSize(12);
-            p.text(day, x, 35); // Below Month/Year.
+            // ---------------- DAY NUMBER ----------------
+            if (x - lastRenderedDayX >= minNumberSpacing) { // Ensure minimum spacing
+                p.fill(0);
+                p.strokeWeight(0);
+                p.textSize(dayNumberSize);
+                p.text(day, x, monthTextSize + dayNumberSize + milestoneSpaceHeight + 8);
+                lastRenderedDayX = x; // Update last rendered position
+            }
 
+            // ---------------- WEEKEND SHADING ----------------
             let isWeekend = date.getDay() === 0 || date.getDay() === 6;
-
             if (isWeekend) {
                 p.fill(248, 248, 248);
                 p.noStroke();
-                let nextX = dateToX(new Date(t + interval).toISOString().split("T")[0], p) + offsetX;
+                let nextX = dateToX(new Date(t + interval).toISOString().split("T")[0], p) + offsetX * zoomLevel;
                 let width = nextX - x;
-                p.rect(x, 50, width, p.height - 60);
+                p.rect(x, timelineTop, width, p.height - 60);
             }
 
-            // Draw subtle daily grid lines.
+            // ---------------- DAILY VERTICAL LINES ----------------
             p.stroke(220);
             p.strokeWeight(1);
-            p.line(x, 50, x, p.height - 10);
+            p.line(x, timelineTop, x, p.height - 10);
         }
 
-        // Draw colour behind tasks for task owner.
+        // ---------------- FINAL MONTH LINE ----------------
+        if (lastMonth !== null) {
+            p.stroke(150);
+            p.strokeWeight(1);
+            p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
+        }
+
+        // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
         let currentOwner = "";
         tasks.forEach((task, index) => {
-            let yPos = index * ySpacing + 55;
+            let yPos = index * yBoxSpacing + timelineTop + 5;
             let backgroundColor = ownerColors[task.owner] || ownerColors["Other"];
 
             // Draw background color for each row.
             p.fill(backgroundColor);
             p.noStroke();
-            p.rect(0, yPos - 5, p.width, ySpacing);
+            p.rect(0, yPos - 5, p.width, yBoxSpacing);
 
             // Only draw Owner name when it changes (first occurrence).
             if (task.owner !== currentOwner) {
@@ -151,10 +188,49 @@ const sketch = (p: p5) => {
             }
         });
 
+        // ---------------- VERTICAL MILESTONE LINES AND TITLES ----------------
+        milestonePositions = [];
+        p.strokeWeight(2);
+        tasks.forEach(task => {
+            if (task.milestone) {
+                let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
+
+                // Check for overlap and adjust Y position
+                let yOffset = 20; // Default Y position for labels
+                milestonePositions.forEach(prevX => {
+                    if (Math.abs(x - prevX) < p.textWidth(task.name) * 2) { // If too close, push down
+                        yOffset += 20;
+                    }
+                });
+
+                p.stroke(150, 0, 255);
+                p.line(x, yOffset, x, p.height - 10); // Draw milestone line
+
+                milestonePositions.push(x); // Track used positions
+    
+                let boxColor = hexToP5Color(getPriorityColor(task.priority), 0.8, p);
+                let boxWidth = p.textWidth(task.name) + 10;
+    
+                // Draw milestone label
+                p.fill(boxColor,);
+                p.textAlign(p.LEFT);
+                let xOffset = 0;
+                if(task.milestone === task.end){
+                    p.textAlign(p.RIGHT);
+                    xOffset = -boxWidth;
+                }
+                p.rect(x + xOffset, yOffset - mileStoneBoxHeight + monthTextSize, boxWidth, mileStoneBoxHeight, 3); // Rounded corners
+                p.fill(0);
+                p.noStroke();
+                p.text(task.name, x + (xOffset < 0 ? -5 : 5), yOffset + monthTextSize - 2);
+            }
+        });
+
+        // ---------------- TASK BOXES ----------------
         tasks.forEach((task, i) => {
-            let xStart = dateToX(task.start, p) + offsetX;
-            let xEnd = dateToX(task.end, p) + offsetX;
-            let y = i * ySpacing + 50;
+            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
+            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
+            let y = i * yBoxSpacing + timelineTop;
 
             p.fill(getPriorityColor(task.priority));
             p.rect(xStart, y, xEnd - xStart, barHeight, 5);
@@ -165,20 +241,25 @@ const sketch = (p: p5) => {
             p.text(task.name, xStart + 5, y + barHeight / 2);
         });
     
-        let nowTime = new Date().getTime();
-        nowX = p.map(nowTime, timelineStart, timelineEnd, startX, p.width - startX) + offsetX;
-    
+        // ---------------- NOW LINE ----------------
+        let nowTime = new Date();
+        nowX = dateToX(nowTime.toISOString().split("T")[0], p) + offsetX * zoomLevel;
+
         // Now line.
         p.stroke(255, 0, 0);
-        p.strokeWeight(1);
-        p.line(nowX, 30, nowX, p.height - 60);
+        p.strokeWeight(2);
+        p.line(nowX, timelineTop - dayNumberSize - headerPadding, nowX, p.height - 10);
         
         // Now label.
+        let boxWidth = p.textWidth("Now") + 10;
+        let boxHeight = 18;
+        p.fill(255);
+        p.rect(nowX - boxWidth / 2, timelineTop - dayNumberSize - boxHeight - headerPadding, boxWidth, boxHeight, 3); // Rounded corners
         p.fill(255, 0, 0);
         p.strokeWeight(0);
         p.textSize(14);
         p.textAlign(p.CENTER);
-        p.text("Now", nowX, 20);
+        p.text("Now", nowX, timelineTop - boxHeight - headerPadding - 2);
 
         redraw = false;
     };
@@ -200,7 +281,7 @@ const sketch = (p: p5) => {
         tasks.forEach((task) => {
             let xStart = dateToX(task.start, p) + offsetX;
             let xEnd = dateToX(task.end, p) + offsetX;
-            let y = tasks.indexOf(task) * ySpacing + 50; // Get task's Y position
+            let y = tasks.indexOf(task) * yBoxSpacing + timelineTop;
             let edgePadding = 5;
     
             if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
@@ -223,8 +304,15 @@ const sketch = (p: p5) => {
     let dateAreaHeight = 50; // Adjust as needed
 
     p.mouseDragged = () => {
-        if (isDragging && p.mouseY <= dateAreaHeight) {
-            offsetX = p.mouseX - dragStartX; // Pan the timeline.
+        let canvasWidth = p.width;
+        let canvasHeight = p.height;
+
+        // Only allow panning if the mouse is within the canvas
+        let withinCanvas = p.mouseX >= 0 && p.mouseX <= canvasWidth && p.mouseY >= 0 && p.mouseY <= canvasHeight;
+        let withinDateArea = p.mouseY <= dateAreaHeight;
+
+        if (isDragging && withinCanvas && withinDateArea) {
+            offsetX = p.mouseX - dragStartX; // Pan only if inside canvas
         }
     
         if (!isDragging || !selectedTask) return;
@@ -241,15 +329,27 @@ const sketch = (p: p5) => {
 new p5(sketch);
 
 // Convert date to X position
-function dateToX(date: string, p: p5): number {
-    let dateObj = new Date(date);
-    return p.map(dateObj.getTime(), timelineStart, timelineEnd, startX, p.width - startX);
+// function dateToX(date: string, p: p5): number {
+//     let dateObj = new Date(date);
+//     return p.map(dateObj.getTime(), timelineStart, timelineEnd, startX, p.width - startX);
+// }
+
+function dateToX(dateStr: string, p: p5): number {
+    let dateMillis = new Date(dateStr).getTime();
+    let progress = (dateMillis - timelineStart) / (timelineEnd - timelineStart);
+    return (startX + progress * (p.width - startX)) * zoomLevel;
 }
 
 function xToDate(x: number, p: p5): string {
     let timeRange = timelineEnd - timelineStart;
     let dateMillis = timelineStart + (x / p.width) * timeRange;
     return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
+}
+
+function hexToP5Color(hex: string, alpha: number, p: p5) {
+    let col = p.color(hex); // Convert hex to p5 color
+    col.setAlpha(alpha * 255); // p5.js alpha is 0-255, so multiply by 255
+    return col;
 }
 
 async function fetchGanttData() {
@@ -292,6 +392,8 @@ async function fetchGanttData() {
                     end: endDate,
                     priority: row.Priority || "P5",
                     owner: row.Owner || "Other",
+                    milestone: row["Milestone Type"] === "Start Date" ? startDate :
+                           row["Milestone Type"] === "End Date" ? endDate : null // ✅ Store milestone date if exists
                 };
         });
 
@@ -330,6 +432,18 @@ const ownerColors: Record<string, string> = {
     "Other": "rgba(240, 240, 240, 0.3)" // Default Gray
 };
 
+// Color mapping for priority
+function getPriorityColor(priority: string): string {
+    switch (priority) {
+        case "P0": return "#f87171";  // Lighter Red
+        case "P1": return "#fb923c";  // Lighter Orange
+        case "P2": return "#facc15";  // Lighter Yellow
+        case "P3": return "#4ade80";  // Lighter Green
+        case "P4": return "#93c5fd";  // Lighter Blue
+        case "P5": return "#bfdbfe";  // Very Light Blue
+        default: return "#f3f4f6";    // Lighter Gray
+    }
+}
 
 function getCategoryEmoji(category: string): string {
     const categoryMap: Record<string, string> = {
