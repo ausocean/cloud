@@ -28,6 +28,13 @@ const sketch = (p: p5) => {
         let fourMonthsMillis = 4 * 30 * 24 * 60 * 60 * 1000; // Approx 4 months in ms
         zoomLevel = (canvasWidth - startX) / ((fourMonthsMillis / (timelineEnd - timelineStart)) * (canvasWidth - startX));
 
+        // Compute the "Now" position and set initial offset
+        let nowTime = new Date().getTime();
+        let nowX = dateToX(new Date(nowTime).toISOString().split("T")[0], p);
+        
+        // Ensure "Now" starts slightly to the right of the starting position
+        offsetX = startX - nowX + 150; // Adjust 150px to give some left padding
+
         let zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement;
         zoomSlider.value = zoomLevel.toFixed(2);
         zoomSlider.addEventListener("input", () => {
@@ -329,8 +336,8 @@ const sketch = (p: p5) => {
         let withinDateArea = p.mouseY <= dateAreaHeight;
 
         if (isDragging && withinCanvas && withinDateArea) {
-            offsetX += (p.mouseX - dragStartX) / zoomLevel; // ✅ Adjust panning to be zoom-aware
-            dragStartX = p.mouseX; // ✅ Reset drag start to prevent cumulative drift
+            offsetX += (p.mouseX - dragStartX) / zoomLevel; // Adjust panning to be zoom-aware
+            dragStartX = p.mouseX; // Reset drag start to prevent cumulative drift
         }
     
         if (!isDragging || !selectedTask) return;
@@ -355,13 +362,13 @@ function dateToX(dateStr: string, p: p5): number {
 function xToDate(x: number, p: p5): string {
     let timeRange = timelineEnd - timelineStart;
 
-    // ✅ Adjust X position for offset & zoom
+    // Adjust X position for offset & zoom
     let adjustedX = (x - startX - offsetX) / zoomLevel;
 
-    // ✅ Ensure proper mapping of X position to time range
+    // Ensure proper mapping of X position to time range
     let dateMillis = timelineStart + (adjustedX / (p.width - startX)) * timeRange;
 
-    // ✅ Prevent invalid dates due to out-of-bounds values
+    // Prevent invalid dates due to out-of-bounds values
     dateMillis = Math.max(timelineStart, Math.min(dateMillis, timelineEnd));
 
     return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
