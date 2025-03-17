@@ -298,7 +298,9 @@ const sketch = (p: p5) => {
     p.mousePressed = () => {
         dateAreaHeight = timelineTop;
         isDragging = true;
-        dragStartX = p.mouseX - offsetX;
+
+        // Just store the current mouse position directly
+        dragStartX = p.mouseX;
     
         selectedTask = null;
         draggingEdge = null;
@@ -317,7 +319,7 @@ const sketch = (p: p5) => {
                 selectedTask = task;
             }
         });
-    };
+    };    
 
     p.mouseReleased = () => {
         isDragging = false;
@@ -330,14 +332,16 @@ const sketch = (p: p5) => {
     p.mouseDragged = () => {
         let canvasWidth = p.width;
         let canvasHeight = p.height;
-
-        // Only allow panning if the mouse is within the canvas
+    
         let withinCanvas = p.mouseX >= 0 && p.mouseX <= canvasWidth && p.mouseY >= 0 && p.mouseY <= canvasHeight;
         let withinDateArea = p.mouseY <= dateAreaHeight;
-
+    
         if (isDragging && withinCanvas && withinDateArea) {
-            offsetX += (p.mouseX - dragStartX) / zoomLevel; // Adjust panning to be zoom-aware
-            dragStartX = p.mouseX; // Reset drag start to prevent cumulative drift
+            // Calculate the movement since the last frame
+            let movement = p.mouseX - p.pmouseX;
+            
+            // Update offsetX by adding the movement
+            offsetX += movement;
         }
     
         if (!isDragging || !selectedTask) return;
@@ -348,7 +352,7 @@ const sketch = (p: p5) => {
         } else if (draggingEdge === "end") {
             selectedTask.end = newDate;
         }
-    };
+    };    
 };
 
 new p5(sketch);
