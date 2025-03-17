@@ -192,7 +192,6 @@ const sketch = (p: p5) => {
         }
 
         // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
-        let currentOwner = "";
         tasks.forEach((task, index) => {
             let yPos = index * yBoxSpacing + timelineTop + 5;
             let backgroundColor = ownerColors[task.owner] || ownerColors["Other"];
@@ -201,16 +200,6 @@ const sketch = (p: p5) => {
             p.fill(backgroundColor);
             p.noStroke();
             p.rect(0, yPos - 5, p.width, yBoxSpacing);
-
-            // Only draw Owner name when it changes (first occurrence).
-            if (task.owner !== currentOwner) {
-                currentOwner = task.owner;
-                let firstName = currentOwner.split(" ")[0];
-                p.fill(50); // Darker text color.
-                p.textSize(14);
-                p.textAlign(p.LEFT);
-                p.text(firstName, 5, yPos + barHeight / 2); // Left-aligned.
-            }
         });
 
         // ---------------- VERTICAL MILESTONE LINES AND TITLES ----------------
@@ -290,6 +279,27 @@ const sketch = (p: p5) => {
         p.textSize(14);
         p.textAlign(p.CENTER);
         p.text("Now", nowX, timelineTop - boxHeight - headerPadding - 2);
+
+        // ---------------- LABEL FOR OWNER ----------------
+        let currentOwner = "";
+        tasks.forEach((task, index) => {
+            // Only draw Owner name when it changes (first occurrence).
+            let yPos = index * yBoxSpacing + timelineTop + 5;
+            if (task.owner !== currentOwner) {
+                currentOwner = task.owner;
+                let firstName = currentOwner.split(" ")[0];
+                let textWidth = p.textWidth(firstName);
+                let padding = 6; // Extra padding around text
+                let boxHeight = 18; // Box height
+                p.fill(255); // White background
+                p.noStroke();
+                p.rect(5 - padding / 2, yPos + barHeight / 2 - boxHeight / 2, textWidth + padding, boxHeight, 3); // Rounded corners
+                p.fill(50); // Darker text color.
+                p.textSize(14);
+                p.textAlign(p.LEFT);
+                p.text(firstName, 5, yPos + barHeight / 2); // Left-aligned.
+            }
+        });
 
         redraw = false;
     };
