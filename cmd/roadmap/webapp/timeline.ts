@@ -47,7 +47,7 @@ const sketch = (p: p5) => {
 
         tasks.forEach(task => {
             if (task.milestone) {
-                let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
+                let x = dateToX(task.milestone, p);
                 let boxWidth = p.textWidth(task.name) + 10;
                 let alignRight = task.milestone === task.end;
 
@@ -82,8 +82,8 @@ const sketch = (p: p5) => {
         // ---------------- HOVER CURSOR CALC ----------------
         document.body.style.cursor = "default"; // Reset cursor on each frame
         tasks.forEach((task, i) => {
-            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
-            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
+            let xStart = dateToX(task.start, p);
+            let xEnd = dateToX(task.end, p);
             let y = i * yBoxSpacing + timelineTop;
 
             let edgePadding = 5; // Hover detection range
@@ -117,12 +117,12 @@ const sketch = (p: p5) => {
         p.fill(50);
         let lastRenderedDayX = -Infinity; // Track last rendered day position
         let minNumberSpacing = 15; // Minimum spacing to avoid overlap
-        let lastMonthX = startX + offsetX;
+        let lastMonthX = dateToX(new Date(timelineStart).toISOString().split("T")[0], p);
         let lastMonth: number | null = null;
         let isGrey = false; // Toggle for alternating colors
         for (let t = timelineStart; t <= timelineEnd; t += interval) {
             let date = new Date(t);
-            let x = dateToX(date.toISOString().split("T")[0], p) + offsetX * zoomLevel;
+            let x = dateToX(date.toISOString().split("T")[0], p);
             let month: number = date.getMonth();
 
             let day = date.getDate();
@@ -160,7 +160,7 @@ const sketch = (p: p5) => {
             if (isWeekend) {
                 p.fill(248, 248, 248);
                 p.noStroke();
-                let nextX = dateToX(new Date(t + interval).toISOString().split("T")[0], p) + offsetX * zoomLevel;
+                let nextX = dateToX(new Date(t + interval).toISOString().split("T")[0], p);
                 let width = nextX - x;
                 p.rect(x, timelineTop, width, p.height - 60);
             }
@@ -206,7 +206,7 @@ const sketch = (p: p5) => {
         p.strokeWeight(2);
         tasks.forEach(task => {
             if (task.milestone) {
-                let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
+                let x = dateToX(task.milestone, p);
 
                 let boxColor = hexToP5Color(getPriorityColor(task.priority), 0.8, p);
                 let boxWidth = p.textWidth(task.name) + 10;
@@ -245,8 +245,8 @@ const sketch = (p: p5) => {
         
         // ---------------- TASK BOXES ----------------
         tasks.forEach((task, i) => {
-            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
-            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
+            let xStart = dateToX(task.start, p);
+            let xEnd = dateToX(task.end, p);
             let y = i * yBoxSpacing + timelineTop;
 
             p.fill(getPriorityColor(task.priority));
@@ -260,7 +260,7 @@ const sketch = (p: p5) => {
     
         // ---------------- NOW LINE ----------------
         let nowTime = new Date();
-        nowX = dateToX(nowTime.toISOString().split("T")[0], p) + offsetX * zoomLevel;
+        nowX = dateToX(nowTime.toISOString().split("T")[0], p);
 
         // Now line.
         p.stroke(255, 0, 0);
@@ -291,8 +291,8 @@ const sketch = (p: p5) => {
         draggingEdge = null;
     
         tasks.forEach((task) => {
-            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
-            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
+            let xStart = dateToX(task.start, p);
+            let xEnd = dateToX(task.end, p);
             let y = tasks.indexOf(task) * yBoxSpacing + timelineTop;
             let edgePadding = 5;
     
@@ -343,22 +343,23 @@ new p5(sketch);
 function dateToX(dateStr: string, p: p5): number {
     let dateMillis = new Date(dateStr).getTime();
     let progress = (dateMillis - timelineStart) / (timelineEnd - timelineStart);
-    return (startX + progress * (p.width - startX)) * zoomLevel;
+    return startX + (progress * (p.width - startX) * zoomLevel) + offsetX;
 }
 
 function xToDate(x: number, p: p5): string {
     let timeRange = timelineEnd - timelineStart;
-    
-    // Adjust X position based on offset & zoom
+
+    // ✅ Adjust X position for offset & zoom
     let adjustedX = (x - startX - offsetX) / zoomLevel;
-    
-    // Ensure the X position is mapped correctly
-    // let dateMillis = timelineStart + (adjustedX / (p.width - startX)) * timeRange;
-    let dateMillis = timelineStart + (adjustedX / ((p.width - startX) / zoomLevel)) * timeRange;
-    
+
+    // ✅ Ensure proper mapping of X position to time range
+    let dateMillis = timelineStart + (adjustedX / (p.width - startX)) * timeRange;
+
+    // ✅ Prevent invalid dates due to out-of-bounds values
+    dateMillis = Math.max(timelineStart, Math.min(dateMillis, timelineEnd));
+
     return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
 }
-
 
 function hexToP5Color(hex: string, alpha: number, p: p5) {
     let col = p.color(hex); // Convert hex to p5 color
