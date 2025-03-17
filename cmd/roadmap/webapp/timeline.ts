@@ -20,13 +20,19 @@ let timelineTop = 0; // Updated in draw
 const sketch = (p: p5) => {
     p.setup = async () => {
         await fetchGanttData();
+        const canvasWidth = p.windowWidth * 0.9;
         const canvasHeight = Math.max(p.windowHeight * 0.8, tasks.length * yBoxSpacing + 300);
-        const canvas = p.createCanvas(p.windowWidth * 0.9, canvasHeight);
+        const canvas = p.createCanvas(canvasWidth, canvasHeight);
         canvas.parent("canvas-container");
 
+        let fourMonthsMillis = 4 * 30 * 24 * 60 * 60 * 1000; // Approx 4 months in ms
+        zoomLevel = (canvasWidth - startX) / ((fourMonthsMillis / (timelineEnd - timelineStart)) * (canvasWidth - startX));
+
         let zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement;
+        zoomSlider.value = zoomLevel.toFixed(2);
         zoomSlider.addEventListener("input", () => {
             zoomLevel = parseFloat(zoomSlider.value);
+            p.redraw();
         });
 
         p.textFont("Arial");
