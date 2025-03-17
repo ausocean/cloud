@@ -74,7 +74,7 @@ func ReadSpreadsheet(ctx context.Context, credentials *google.Credentials, sprea
 
 // Convert spreadsheet data into structured JSON
 func parseRoadmapData(data [][]interface{}) []map[string]string {
-	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Start", "End", "Milestone Type", "Dependants", "Actual Start", "Actual End"}
+	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Start", "End", "Milestone Type", "Dependencies", "Actual Start", "Actual End"}
 	var tasks []map[string]string
 
 	for _, row := range data {
@@ -199,7 +199,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// ✅ Batch update all modified tasks
+	// Batch update all modified tasks
 	err = batchUpdateGoogleSheet(srv, updates)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Batch update failed: %v", err), http.StatusInternalServerError)

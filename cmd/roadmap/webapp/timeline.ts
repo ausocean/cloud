@@ -245,6 +245,21 @@ const sketch = (p: p5) => {
             }
         });
         
+        tasks.forEach((task, i) => {
+            let xStart = dateToX(task.start, p);
+            let y = i * yBoxSpacing + timelineTop;
+            // ---------------- DRAW DEPENDENCY ARROWS ----------------
+            task.dependencies.forEach(depID => {
+                let dependencyTask = tasks.find(t => t.id === depID);
+                if (dependencyTask) {
+                    let xDepEnd = dateToX(dependencyTask.end, p); // ✅ Now pointing **to** dependency's end
+                    let yDep = tasks.indexOf(dependencyTask) * yBoxSpacing + timelineTop;
+        
+                    drawArrow(p, xStart, y + barHeight / 2, xDepEnd, yDep + barHeight / 2);
+                }
+            });
+        });
+
         // ---------------- TASK BOXES ----------------
         tasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p);
@@ -253,6 +268,16 @@ const sketch = (p: p5) => {
 
             p.fill(getPriorityColor(task.priority));
             p.rect(xStart, y, xEnd - xStart, barHeight, 5);
+
+
+            let textWidth = p.textWidth(task.name);
+            let padding = 6;  // Extra space around text
+            let boxHeight = 18; // Background height
+
+            p.fill(255, 150); // White background
+            p.noStroke();
+            p.rect(xStart + 5 - padding / 2, y + barHeight / 2 - boxHeight / 2, textWidth + padding, boxHeight, 3); // Rounded corners
+
             p.fill(0);
             p.strokeWeight(0);
             p.textAlign(p.LEFT, p.CENTER);
@@ -275,7 +300,7 @@ const sketch = (p: p5) => {
         p.fill(255);
         p.rect(nowX - boxWidth / 2, timelineTop - dayNumberSize - boxHeight - headerPadding, boxWidth, boxHeight, 3); // Rounded corners
         p.fill(255, 0, 0);
-        p.strokeWeight(0);
+        p.noStroke();
         p.textSize(14);
         p.textAlign(p.CENTER);
         p.text("Now", nowX, timelineTop - boxHeight - headerPadding - 2);
@@ -292,8 +317,10 @@ const sketch = (p: p5) => {
                 let padding = 6; // Extra padding around text
                 let boxHeight = 18; // Box height
                 p.fill(255); // White background
-                p.noStroke();
+                p.stroke(50);
                 p.rect(5 - padding / 2, yPos + barHeight / 2 - boxHeight / 2, textWidth + padding, boxHeight, 3); // Rounded corners
+
+                p.noStroke();
                 p.fill(50); // Darker text color.
                 p.textSize(14);
                 p.textAlign(p.LEFT);
@@ -394,6 +421,32 @@ function hexToP5Color(hex: string, alpha: number, p: p5) {
     return col;
 }
 
+function drawArrow(p: p5, x1: number, y1: number, x2: number, y2: number) {
+    p.stroke(100);
+    p.strokeWeight(2);
+    p.noFill();
+
+    let midX = (x1 + x2) / 2;
+    let midY = (y1 + y2) / 2;
+
+    // Draw a curved line (Bezier)
+    p.beginShape();
+    p.vertex(x2, y2); // Swapped start & end
+    p.bezierVertex(midX, y2, midX, y1, x1, y1); // Flipped Bezier direction
+    p.endShape();
+
+    // Move the arrowhead to `x1, y1` (flipped direction)
+    let arrowSize = 6;
+    let angle = Math.atan2(y1 - y2, x1 - x2); // Flip angle calculation
+    p.fill(100);
+    p.noStroke();
+    p.triangle(
+        x1, y1, // Arrowhead now correctly at the **start** of the line
+        x1 - arrowSize * Math.cos(angle + Math.PI / 6), y1 - arrowSize * Math.sin(angle + Math.PI / 6),
+        x1 - arrowSize * Math.cos(angle - Math.PI / 6), y1 - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+}
+
 async function fetchGanttData() {
     try {
         console.log("🔄 Fetching Gantt data from API...");
@@ -435,7 +488,8 @@ async function fetchGanttData() {
                     priority: row.Priority || "P5",
                     owner: row.Owner || "Other",
                     milestone: row["Milestone Type"] === "Start Date" ? startDate :
-                           row["Milestone Type"] === "End Date" ? endDate : null // ✅ Store milestone date if exists
+                           row["Milestone Type"] === "End Date" ? endDate : null,
+                    dependencies: row.Dependencies ? row.Dependencies.split(",").map(dep => dep.trim()) : []
                 };
         });
 
@@ -515,11 +569,11 @@ document.getElementById("submit-changes")!.addEventListener("click", async () =>
         });
 
         if (!response.ok) {
-            const errorText = await response.text(); // ✅ Read full error message
+            const errorText = await response.text();
             throw new Error(`Failed to update tasks: ${errorText}`);
         }
 
-        console.log("✅ Changes submitted successfully!");
+        console.log("Changes submitted successfully!");
 
     } catch (error) {
         console.error("❌ Error submitting changes:", error);
