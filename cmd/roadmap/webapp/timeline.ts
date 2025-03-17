@@ -41,27 +41,39 @@ const sketch = (p: p5) => {
     
     p.draw = () => {
         // ---------------- MILESTONE LABEL SPACE CALC ----------------
-        let milestonePositions: number[] = [];
-        let maxStackedLabels = 1; // Track max number of stacked labels
+        let milestoneLevels: { xStart: number; xEnd: number; yLevel: number }[] = [];
         let mileStoneBoxHeight = 20;
+        let maxYLevel = 20; // Default top margin
+
         tasks.forEach(task => {
             if (task.milestone) {
                 let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
-                let yOffset = 20; // Default top margin
+                let boxWidth = p.textWidth(task.name) + 10;
+                let alignRight = task.milestone === task.end;
 
-                let stackCount = 1;
-                milestonePositions.forEach(prevX => {
-                    if (Math.abs(x - prevX) < p.textWidth(task.name) * 2) { // If too close, stack it
-                        stackCount++;
-                        yOffset += 20;
+                // Determine xStart and xEnd based on alignment
+                let xStart = alignRight ? x - boxWidth : x;
+                let xEnd = alignRight ? x : x + boxWidth;
+
+                // Find the lowest available level that doesn’t overlap
+                let yOffset = 20; // Start at top position
+                for (const level of milestoneLevels) {
+                    if (!(xEnd < level.xStart || xStart > level.xEnd)) {
+                        yOffset = level.yLevel + mileStoneBoxHeight; // Move down if overlapping
                     }
-                });
+                }
 
-                milestonePositions.push(x);
-                maxStackedLabels = Math.max(maxStackedLabels, stackCount); // Track the highest stack
+                // Track max vertical space required
+                maxYLevel = Math.max(maxYLevel, yOffset);
+
+                // Store this label's occupied space
+                milestoneLevels.push({ xStart, xEnd, yLevel: yOffset });
             }
         });
-        let milestoneSpaceHeight = maxStackedLabels * mileStoneBoxHeight;
+
+        // Compute final milestone space height
+        let milestoneSpaceHeight = maxYLevel;
+
         let monthTextSize = 14;
         let dayNumberSize = 12;
         let headerPadding = 10;
@@ -70,8 +82,8 @@ const sketch = (p: p5) => {
         // ---------------- HOVER CURSOR CALC ----------------
         document.body.style.cursor = "default"; // Reset cursor on each frame
         tasks.forEach((task, i) => {
-            let xStart = dateToX(task.start, p) + offsetX;
-            let xEnd = dateToX(task.end, p) + offsetX;
+            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
+            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
             let y = i * yBoxSpacing + timelineTop;
 
             let edgePadding = 5; // Hover detection range
@@ -189,43 +201,48 @@ const sketch = (p: p5) => {
         });
 
         // ---------------- VERTICAL MILESTONE LINES AND TITLES ----------------
-        milestonePositions = [];
+        milestoneLevels = [];
+
         p.strokeWeight(2);
         tasks.forEach(task => {
             if (task.milestone) {
                 let x = dateToX(task.milestone, p) + offsetX * zoomLevel;
 
-                // Check for overlap and adjust Y position
-                let yOffset = 20; // Default Y position for labels
-                milestonePositions.forEach(prevX => {
-                    if (Math.abs(x - prevX) < p.textWidth(task.name) * 2) { // If too close, push down
-                        yOffset += 20;
-                    }
-                });
-
-                p.stroke(150, 0, 255);
-                p.line(x, yOffset, x, p.height - 10); // Draw milestone line
-
-                milestonePositions.push(x); // Track used positions
-    
                 let boxColor = hexToP5Color(getPriorityColor(task.priority), 0.8, p);
                 let boxWidth = p.textWidth(task.name) + 10;
-    
-                // Draw milestone label
-                p.fill(boxColor,);
-                p.textAlign(p.LEFT);
-                let xOffset = 0;
-                if(task.milestone === task.end){
-                    p.textAlign(p.RIGHT);
-                    xOffset = -boxWidth;
+                let alignRight = task.milestone === task.end;
+
+                // Determine xStart and xEnd based on alignment
+                let xStart = alignRight ? x - boxWidth : x;
+                let xEnd = alignRight ? x : x + boxWidth;
+
+                // Find the lowest available level that doesn’t overlap
+                let yOffset = 20; // Start at top position
+                for (const level of milestoneLevels) {
+                    if (!(xEnd < level.xStart || xStart > level.xEnd)) {
+                        yOffset = level.yLevel + 20; // Move down if overlapping
+                    }
                 }
-                p.rect(x + xOffset, yOffset - mileStoneBoxHeight + monthTextSize, boxWidth, mileStoneBoxHeight, 3); // Rounded corners
+
+                // Store this label's occupied space
+                milestoneLevels.push({ xStart, xEnd, yLevel: yOffset });
+
+                // Draw milestone line
+                p.stroke(150, 0, 255);
+                p.line(x, yOffset, x, p.height - 10);
+
+                // Draw milestone label
+                p.fill(boxColor);
+                p.rect(xStart, yOffset - mileStoneBoxHeight + monthTextSize, boxWidth, mileStoneBoxHeight, 3); // Rounded corners
+
+                // Correct text alignment inside the box
                 p.fill(0);
                 p.noStroke();
-                p.text(task.name, x + (xOffset < 0 ? -5 : 5), yOffset + monthTextSize - 2);
+                p.textAlign(alignRight ? p.RIGHT : p.LEFT);
+                p.text(task.name, alignRight ? x - 5 : x + 5, yOffset + monthTextSize - 2);
             }
         });
-
+        
         // ---------------- TASK BOXES ----------------
         tasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
@@ -266,12 +283,7 @@ const sketch = (p: p5) => {
     
     // Enable panning with mouse drag
     p.mousePressed = () => {
-        if (p.mouseY <= dateAreaHeight) {
-            isDragging = true;
-            dragStartX = p.mouseX - offsetX;
-        }
-    };
-    p.mousePressed = () => {
+        dateAreaHeight = timelineTop;
         isDragging = true;
         dragStartX = p.mouseX - offsetX;
     
@@ -279,8 +291,8 @@ const sketch = (p: p5) => {
         draggingEdge = null;
     
         tasks.forEach((task) => {
-            let xStart = dateToX(task.start, p) + offsetX;
-            let xEnd = dateToX(task.end, p) + offsetX;
+            let xStart = dateToX(task.start, p) + offsetX * zoomLevel;
+            let xEnd = dateToX(task.end, p) + offsetX * zoomLevel;
             let y = tasks.indexOf(task) * yBoxSpacing + timelineTop;
             let edgePadding = 5;
     
@@ -293,7 +305,6 @@ const sketch = (p: p5) => {
             }
         });
     };
-    
 
     p.mouseReleased = () => {
         isDragging = false;
@@ -312,12 +323,13 @@ const sketch = (p: p5) => {
         let withinDateArea = p.mouseY <= dateAreaHeight;
 
         if (isDragging && withinCanvas && withinDateArea) {
-            offsetX = p.mouseX - dragStartX; // Pan only if inside canvas
+            offsetX += (p.mouseX - dragStartX) / zoomLevel; // ✅ Adjust panning to be zoom-aware
+            dragStartX = p.mouseX; // ✅ Reset drag start to prevent cumulative drift
         }
     
         if (!isDragging || !selectedTask) return;
     
-        let newDate = xToDate(p.mouseX - offsetX, p);
+        let newDate = xToDate(p.mouseX, p);
         if (draggingEdge === "start") {
             selectedTask.start = newDate;
         } else if (draggingEdge === "end") {
@@ -328,12 +340,6 @@ const sketch = (p: p5) => {
 
 new p5(sketch);
 
-// Convert date to X position
-// function dateToX(date: string, p: p5): number {
-//     let dateObj = new Date(date);
-//     return p.map(dateObj.getTime(), timelineStart, timelineEnd, startX, p.width - startX);
-// }
-
 function dateToX(dateStr: string, p: p5): number {
     let dateMillis = new Date(dateStr).getTime();
     let progress = (dateMillis - timelineStart) / (timelineEnd - timelineStart);
@@ -342,9 +348,17 @@ function dateToX(dateStr: string, p: p5): number {
 
 function xToDate(x: number, p: p5): string {
     let timeRange = timelineEnd - timelineStart;
-    let dateMillis = timelineStart + (x / p.width) * timeRange;
+    
+    // Adjust X position based on offset & zoom
+    let adjustedX = (x - startX - offsetX) / zoomLevel;
+    
+    // Ensure the X position is mapped correctly
+    // let dateMillis = timelineStart + (adjustedX / (p.width - startX)) * timeRange;
+    let dateMillis = timelineStart + (adjustedX / ((p.width - startX) / zoomLevel)) * timeRange;
+    
     return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
 }
+
 
 function hexToP5Color(hex: string, alpha: number, p: p5) {
     let col = p.color(hex); // Convert hex to p5 color
