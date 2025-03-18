@@ -24,6 +24,8 @@ package model
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ausocean/openfish/datastore"
@@ -114,8 +116,39 @@ func UpdateFeed(ctx context.Context, store datastore.Store, feed *Feed) (*Feed, 
 	return updated, err
 }
 
+// SetFeedSource updates the source of a Feed for the given FeedID with the provided source.
+func SetFeedSource(ctx context.Context, store datastore.Store, fid int64, source string) error {
+	key := store.IDKey(typeFeed, fid)
+	return store.Update(ctx, key, func(e datastore.Entity) {
+		feed := e.(*Feed)
+		feed.Source = source
+	}, &Feed{})
+}
+
 // DeleteFeed deletes a feed, or returns an error if the feed does not exist.
 func DeleteFeed(ctx context.Context, store datastore.Store, id int64) error {
 	key := store.IDKey(typeFeed, id)
 	return store.Delete(ctx, key)
+}
+
+// Constants for feed source types.
+const (
+	SourceAusOcean = iota
+	SourceSubFeed
+	SourceYouTube
+	SourceUnknown
+)
+
+// SourceType returns the type of the feed's source.
+func (f *Feed) SourceType() int {
+	if strings.Contains(f.Source, "cloudblue") {
+		return SourceAusOcean
+	}
+	if strings.Contains(f.Source, "youtube") {
+		return SourceYouTube
+	}
+	if _, err := strconv.ParseInt(f.Source, 10, 64); err == nil {
+		return SourceSubFeed
+	}
+	return SourceUnknown
 }
