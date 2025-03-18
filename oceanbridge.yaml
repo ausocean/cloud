@@ -1,0 +1,24 @@
+runtime: go121
+
+env_variables:
+  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
+  AUSOCEANTV_SECRETS: gs://ausocean/AusOceanTV-secrets.txt
+  # OAUTH2_CALLBACK: https://ausocean.tv/api/v1/auth/oauth2callback
+  OAUTH2_CALLBACK: https://dev-dot-vidgrind.ts.r.appspot.com/api/v1/auth/oauth2callback
+
+main: ./cmd/roadmap
+
+handlers:
+  - url: /api/.*
+    script: auto
+    secure: always
+
+  # Serve index.html as /
+  - url: /
+    static_files: cmd/roadmap/webapp/dist/index.html
+    upload: cmd/roadmap/webapp/dist/index.html
+
+  # Serve all files in dist.
+  - url: /
+    static_dir: cmd/roadmap/webapp/dist

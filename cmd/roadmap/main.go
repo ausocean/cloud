@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"golang.org/x/oauth2/google"
@@ -257,8 +258,12 @@ func batchUpdateGoogleSheet(srv *sheets.Service, updates []*sheets.ValueRange) e
 }
 
 func main() {
-	http.HandleFunc("/timeline", timelineHandler)
-	http.HandleFunc("/update", updateHandler)
-	fmt.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default to 8080 if running locally
+	}
+	http.HandleFunc("/api/timeline", timelineHandler)
+	http.HandleFunc("/api/update", updateHandler)
+	fmt.Println("Server running on port:", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

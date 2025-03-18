@@ -20,5 +20,5 @@ export interface GanttTask {
     end: string;
     progress: number;
     dependencies: string;
-    priority: string; // ✅ Add priority field
+    priority: string;
 }

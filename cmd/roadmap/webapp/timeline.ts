@@ -1,4 +1,3 @@
-import { time } from "console";
 import p5 from "p5";
 
 let tasks: any[] = [];
@@ -395,7 +394,15 @@ const sketch = (p: p5) => {
 new p5(sketch);
 
 function dateToX(dateStr: string, p: p5): number {
-    let dateMillis = new Date(dateStr).getTime();
+    if (!dateStr) return startX; // Prevents crashes
+
+    let dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) {
+        console.error(`❌ Invalid date detected: ${dateStr}`);
+        return startX; // Prevents drawing errors
+    }
+
+    let dateMillis = dateObj.getTime();
     let progress = (dateMillis - timelineStart) / (timelineEnd - timelineStart);
     return startX + (progress * (p.width - startX) * zoomLevel) + offsetX;
 }
@@ -447,11 +454,13 @@ function drawArrow(p: p5, x1: number, y1: number, x2: number, y2: number) {
     );
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
 async function fetchGanttData() {
     try {
         console.log("🔄 Fetching Gantt data from API...");
 
-        const response = await fetch("http://localhost:8080/timeline");
+        const response = await fetch(`${API_BASE_URL}/api/timeline`);
         console.log("API Response Received:", response);
 
         if (!response.ok) {
@@ -562,7 +571,7 @@ document.getElementById("submit-changes")!.addEventListener("click", async () =>
     console.log("📤 Sending update request...", tasks);
 
     try {
-        const response = await fetch("http://localhost:8080/update", {
+        const response = await fetch(`${API_BASE_URL}/api/update`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tasks }),
