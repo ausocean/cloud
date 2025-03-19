@@ -46,7 +46,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.7.9"
+	version            = "v0.8.1"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -305,7 +305,70 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the broadcast manager to save the broadcast.
 	// We can provide a nil BroadcastService given that Save
 	// won't need this.
-	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, nil)
+	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, func(_cfg *Cfg) {
+		// Update only the fields that can be updated via the UI.
+		// NOTE: This needs to be kept in sync with the UI. To aid this, the fields
+		// have been updated in the same order which they're currently being updated on oceanbench.
+
+		// Values parsed initially from the form submission.
+		_cfg.SKey = cfg.SKey
+		_cfg.Name = cfg.Name
+		_cfg.ID = cfg.ID
+		_cfg.StreamName = cfg.StreamName
+		_cfg.Description = cfg.Description
+		_cfg.LivePrivacy = cfg.LivePrivacy
+		_cfg.PostLivePrivacy = cfg.PostLivePrivacy
+		_cfg.Resolution = cfg.Resolution
+		_cfg.StartTimestamp = cfg.StartTimestamp
+		_cfg.EndTimestamp = cfg.EndTimestamp
+		_cfg.RTMPVar = cfg.RTMPVar
+		_cfg.RTMPKey = cfg.RTMPKey
+		_cfg.VidforwardHost = cfg.VidforwardHost
+		_cfg.CameraMac = cfg.CameraMac
+		_cfg.ControllerMAC = cfg.ControllerMAC
+		_cfg.OnActions = cfg.OnActions
+		_cfg.OffActions = cfg.OffActions
+		_cfg.ShutdownActions = cfg.ShutdownActions
+		_cfg.SendMsg = cfg.SendMsg
+		_cfg.UsingVidforward = cfg.UsingVidforward
+		_cfg.CheckingHealth = cfg.CheckingHealth
+		_cfg.Enabled = cfg.Enabled
+		_cfg.InFailure = cfg.InFailure
+		_cfg.RegisterOpenFish = cfg.RegisterOpenFish
+		_cfg.OpenFishCaptureSource = cfg.OpenFishCaptureSource
+		_cfg.BatteryVoltagePin = cfg.BatteryVoltagePin
+
+		// Values that are parsed into floats from their form values.
+		_cfg.RequiredStreamingVoltage = cfg.RequiredStreamingVoltage
+		_cfg.VoltageRecoveryTimeout = cfg.VoltageRecoveryTimeout
+
+		// Calculated based on the Start and End timestamps.
+		_cfg.Start = cfg.Start
+		_cfg.End = cfg.End
+
+		// Only updated if coming out of failure.
+		if cfg.HardwareState == "hardwareOff" {
+			_cfg.HardwareState = cfg.HardwareState
+		}
+
+		// Either stays the same or is updated via a authentication pipeline.
+		_cfg.Account = cfg.Account
+
+		// Currently not updated via the UI.
+		// Active
+		// Slate
+		// Issues
+		// SensorList
+		// AttemptingToStart
+		// Events
+		// Unhealthy
+		// BroadcastState
+		// StartFailures
+		// Transitioning
+		// StateData
+		// HardwareStateData
+		// RecoveringVoltage
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
