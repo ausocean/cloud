@@ -164,3 +164,11 @@ func GetSubscriber(ctx context.Context, store datastore.Store, id int64) (*Subsc
 
 	return &subs[0], err
 }
+
+// GetAllSubscribers returns all subscribers.
+func GetAllSubscribers(ctx context.Context, store datastore.Store) ([]Subscriber, error) {
+	q := store.NewQuery(typeSubscriber, false)
+	var subs []Subscriber
+	_, err := store.GetAll(ctx, q, &subs)
+	return subs, err
+}
