@@ -39,7 +39,7 @@ import (
 )
 
 // getText handles text data requests. The text data and mime type are returned.
-func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, string, error) {
+func getText(r *http.Request, mid int64, ts []int64) ([]byte, string, error) {
 	// Download text data.
 	media, err := model.GetText(r.Context(), mediaStore, mid, ts)
 	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {

@@ -459,7 +459,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		name = split[0] + "." + split[0]
 
 	case 'T':
-		content, mime, err = getText(r, mid, ts, ky)
+		content, mime, err = getText(r, mid, ts)
 		if err != nil {
 			writeError(w, fmt.Errorf("could not get text: %w", err))
 			return

@@ -57,9 +57,9 @@ async function initLogs(params) {
     })
     .filter((l) => compareLevels(l, params.lv));
 
-  // 100 logs per page.
-  for (let i = 0; i < logs.length / 100; i++) {
-    page.push(logs.slice(i * 100, (i + 1) * 100));
+  // 1000 logs per page.
+  for (let i = 0; i < logs.length / 1000; i++) {
+    page.push(logs.slice(i * 1000, (i + 1) * 1000));
   }
 
   // Render page.
@@ -82,8 +82,7 @@ function prevPage() {
 
 function showLogs() {
   // Show page numbers and result numbers.
-  document.querySelector("#page-num").innerHTML =
-    `Page ${n + 1} of ${page.length} pages`;
+  document.querySelector("#page-num").innerHTML = `Page ${n + 1} of ${page.length} pages`;
   document.querySelector("#result-num").innerHTML = logs.length;
 
   // Show table.
@@ -101,14 +100,27 @@ function showLogs() {
       extraInfo += `${key}: ${log[key]}, `;
     }
 
+    // Parse the original time string
+    const originalTime = new Date(log.time); // Automatically handles the timezone offset in the original time string.
+
+    // Format the time for Adelaide timezone
+    const formattedTime = new Intl.DateTimeFormat("en-AU", {
+      timeStyle: "short", // Example: 2:40 PM
+      dateStyle: "short", // Example: 21/03/2025
+      timeZone: "Australia/Adelaide", // Adelaide timezone
+    }).format(originalTime);
+
+    // Set up the tooltip by using the title attribute (show unformatted time on hover)
+    const timeWithTooltip = `<span title="${log.time}">${formattedTime}</span>`;
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="pad-5 center">${log.level}</td>
-      <td class="pad-5">${log.time}</td>
-      <td class="pad-5">${log.caller}</td>
-      <td class="pad-5">${log.message}</td>
-      <td class="pad-5 scrollable">${extraInfo}</td>
-    `;
+    <td class="pad-5 center">${log.level}</td>
+    <td class="pad-5">${timeWithTooltip}</td>
+    <td class="pad-5">${log.caller}</td>
+    <td class="pad-5">${log.message}</td>
+    <td class="pad-5 scrollable">${extraInfo}</td>
+  `;
     tr.classList += `level-${log.level}`;
     tbody.append(tr);
   }
