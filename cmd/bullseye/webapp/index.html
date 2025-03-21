@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/src/assets/favicon2.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AusOceanTV | Welcome</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="src/web-components/authenticator.ts"></script>
+    <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WX123FCR61"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-WX123FCR61");
+    </script>
+  </head>
+  <body class="h-screen bg-black text-white">
+    <auth-wrapper>
+      <!-- Background Video -->
+      <video class="fixed left-0 top-0 z-[-1] h-screen w-full object-cover opacity-75" autoplay muted playsinline loop>
+        <source src="src/assets/web-fish-5MB.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div class="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden">
+        <!-- Foreground Content -->
+        <div class="z-10 max-w-full rounded-2xl bg-gradient-to-b from-neutral-50 to-neutral-50/80 px-4 py-12 text-center shadow-xl md:p-32">
+          <div class="relative flex items-center justify-center">
+            <img src="src/assets/blue_logo.png" class="logo mx-auto mb-10 w-40 py-1 md:w-72" alt="AusOcean logo" />
+          </div>
+          <h1 class="mb-6 whitespace-nowrap text-3xl text-[#0c69ad] sm:text-4xl md:text-6xl" style="font-family: &quot;Ubuntu&quot;, sans-serif">
+            Welcome to
+            <span class="relative inline-block font-extrabold tracking-tight" style="font-family: &quot;Ubuntu&quot;, sans-serif">AusOcean</span>
+            <span class="relative left-[-0.24em] top-[0.07em] inline-block rotate-[-7deg] font-extrabold tracking-wider" style="font-family: &quot;Kalam&quot;, cursive">T</span>
+            <span class="relative left-[-0.52em] top-[0.07em] inline-block font-extrabold tracking-wider" style="font-family: &quot;Kalam&quot;, cursive">V</span>
+          </h1>
+          <p class="mb-8 text-lg text-gray-800 md:text-2xl">Experience the wonders of Australia's oceans in real time.</p>
+          <a href="/api/v1/auth/login?redirect=/home.html">
+            <button class="rounded-lg bg-[#0c69ad] px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Sign Up</button>
+          </a>
+          <p class="mt-4 text-lg text-gray-800">
+            Already signed up? 
+            <a href="/api/v1/auth/login?redirect=/home.html" class="text-[#0c69ad] hover:underline">
+              Log in
+            </a>
+          </p>
+        </div>
+        <a href="#more-info" class="mt-10 text-center text-4xl">⌄</a>
+      </div>
+
+      <!-- More Info -->
+      <div id="more-info" class="z-10 h-fit w-full bg-white md:p-16">
+        <div class="m-auto grid max-w-5xl grid-cols-1 items-center gap-y-5 p-5 md:grid-cols-3 md:gap-x-10 md:gap-y-20 md:p-0">
+          <img src="src/assets/magpie_perch.JPG" class="rounded" />
+          <div class="col-span-2">
+            <h2 class="mb-2 text-2xl font-extrabold tracking-tight text-[#0c69ad] sm:text-3xl md:text-5xl">What is AusOceanTV?</h2>
+            <p class="text-md text-justify text-gray-800 md:text-lg">AusOceanTV is a live streaming platform that brings the beauty of Australia's oceans to your screen. Our underwater cameras capture marine life in real time, offering a unique window into the underwater world. Beyond streaming, the video data we collect will help us gain insights to better understand and protect the ocean. Stay tuned as we add more locations.</p>
+          </div>
+          <div class="col-span-2">
+            <h2 class="mb-2 text-2xl font-extrabold tracking-tight text-[#0c69ad] sm:text-3xl md:text-5xl">Underwater Cameras</h2>
+            <p class="text-md text-justify text-gray-800 md:text-lg">AusOceanTV utilises custom underwater cameras which are designed, tested, and built by the AusOcean team. Our cameras are engineered specifically for continuous underwater streaming, bringing the highest quality footage live to AusOceanTV.</p>
+          </div>
+          <img src="src/assets/ki_cam.JPG" class="rounded" />
+        </div>
+      </div>
+      <div class="m-auto justify-center bg-[url(/src/assets/rapidbay_cam.JPG)] bg-cover bg-center bg-no-repeat py-16">
+        <div class="m-auto mb-8 flex w-2/3 flex-col gap-5 rounded-sm bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-16 text-center text-2xl font-bold text-gray-800 shadow-xl md:text-4xl">
+          Ready to Dive In?
+          <a href="/api/v1/auth/login?redirect=/home.html"><button class="rounded-lg bg-[#0c69ad] px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Sign Up</button></a>
+        </div>
+      </div>
+      <custom-footer></custom-footer>
+    </auth-wrapper>
+  </body>
+</html>
