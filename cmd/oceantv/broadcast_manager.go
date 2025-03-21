@@ -30,6 +30,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -187,7 +188,46 @@ func (m *OceanBroadcastManager) StartBroadcast(
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
 func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error {
-	return stopBroadcast(ctx, cfg, store, svc, m.log)
+	m.log("stopping broadcast")
+
+	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	if err != nil {
+		return fmt.Errorf("could not get broadcast status: %w", err)
+	}
+
+	if status != broadcast.StatusComplete && status != "" {
+		err := svc.CompleteBroadcast(ctx, cfg.ID)
+		if err != nil {
+			return fmt.Errorf("could not complete broadcast: %w", err)
+		}
+
+		if cfg.RegisterOpenFish {
+			// Register stream with openfish so we can annotate the video.
+			cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
+			if err != nil {
+				return fmt.Errorf("bad capturesource ID: %w", err)
+			}
+			err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
+			if err != nil {
+				return fmt.Errorf("register stream with openfish error: %w", err)
+			}
+		}
+	}
+
+	cfg.Active = false
+	err = saveBroadcast(ctx, cfg, store, m.log)
+	if err != nil {
+		return fmt.Errorf("save broadcast error: %w", err)
+	}
+
+	// Change privacy to post live privacy.
+	// This will also set the privacy of the video after the broadcast has ended.
+	err = svc.SetBroadcastPrivacy(ctx, cfg.ID, cfg.PostLivePrivacy)
+	if err != nil {
+		return fmt.Errorf("could not update broadcast privacy: %w", err)
+	}
+
+	return nil
 }
 
 // Save performs broadcast configuration update operations.

@@ -38,7 +38,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
@@ -387,54 +386,6 @@ retry:
 			goto retry
 		}
 		return fmt.Errorf("could not do http request: %w, resp: %v", err, resp)
-	}
-
-	return nil
-}
-
-// stopBroadcast performs all necessary operations to stop a broadcast.
-// We first check if the status of the broadcast is complete (it shouldn't be
-// in healthy operation) and if it is not, change to complete.
-// Then we change the broadcast configuration Active field to false, save this
-// and stop all external streaming hardware.
-func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService, log func(string, ...interface{})) error {
-	log("stopping")
-
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
-	if err != nil {
-		return fmt.Errorf("could not get broadcast status: %w", err)
-	}
-
-	if status != broadcast.StatusComplete && status != "" {
-		err := svc.CompleteBroadcast(ctx, cfg.ID)
-		if err != nil {
-			return fmt.Errorf("could not complete broadcast: %w", err)
-		}
-
-		if cfg.RegisterOpenFish {
-			// Register stream with openfish so we can annotate the video.
-			cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
-			if err != nil {
-				return fmt.Errorf("bad capturesource ID: %w", err)
-			}
-			err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
-			if err != nil {
-				return fmt.Errorf("register stream with openfish error: %w", err)
-			}
-		}
-	}
-
-	cfg.Active = false
-	err = saveBroadcast(ctx, cfg, store, log)
-	if err != nil {
-		return fmt.Errorf("save broadcast error: %w", err)
-	}
-
-	// Change privacy to post live privacy.
-	// This will also set the privacy of the video after the broadcast has ended.
-	err = svc.SetBroadcastPrivacy(ctx, cfg.ID, cfg.PostLivePrivacy)
-	if err != nil {
-		return fmt.Errorf("could not update broadcast privacy: %w", err)
 	}
 
 	return nil
