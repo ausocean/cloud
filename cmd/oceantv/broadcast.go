@@ -346,8 +346,7 @@ func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...inte
 }
 
 // saveBroadcast saves a broadcast configuration to the datastore with the
-// variable name as the broadcast name and if the broadcast uses vidforward
-// we update the vidforward configuration with a control request.
+// variable name as the broadcast name.
 func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, log func(string, ...interface{})) error {
 	d, err := json.Marshal(cfg)
 	if err != nil {
