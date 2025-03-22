@@ -345,23 +345,6 @@ func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...inte
 	return nil
 }
 
-// saveBroadcast saves a broadcast configuration to the datastore with the
-// variable name as the broadcast name.
-func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, log func(string, ...interface{})) error {
-	d, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
-	}
-
-	log("saving, cfg: %s", provideConfig(cfg))
-	err = model.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
-	if err != nil {
-		return fmt.Errorf("could not put broadcast data in store: %w", err)
-	}
-
-	return nil
-}
-
 func performRequestWithRetries(dest string, data any, maxRetries int, log func(string, ...interface{})) error {
 	var retries int
 retry:
