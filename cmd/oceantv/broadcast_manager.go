@@ -214,10 +214,9 @@ func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, sv
 		}
 	}
 
-	cfg.Active = false
-	err = saveBroadcast(ctx, cfg, store, m.log)
+	err = m.Save(ctx, func(_cfg *Cfg) { _cfg.Active = false })
 	if err != nil {
-		return fmt.Errorf("save broadcast error: %w", err)
+		return fmt.Errorf("could not save broadcast config, to update Active state: %w", err)
 	}
 
 	// Change privacy to post live privacy.
