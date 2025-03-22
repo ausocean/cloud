@@ -406,13 +406,15 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		_cfg.Enabled = true
 	}
 
-	_, err = broadcastByName(cfg.SKey, secondaryName)
+	secondary, err := broadcastByName(cfg.SKey, secondaryName)
 	switch {
 	// Broadcast not found, so we need to create it.
 	case errors.Is(err, ErrBroadcastNotFound{}):
 		secondaryCfg := *cfg
 		populateFields(&secondaryCfg)
-		err = saveBroadcast(ctx, &secondaryCfg, store, m.log)
+
+		// Create a temporary OceanBroadcastManager for the secondary broadcast and create it (no update func required).
+		err = newOceanBroadcastManager(nil, &secondaryCfg, store, m.log).Save(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
 		}
@@ -421,7 +423,8 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 	// Broadcast found so we need to update it with a transaction.
 	default:
-		err = m.Save(nil, populateFields)
+		// Create a temporary OceanBroadcastManager for the secondary broadcast and update it.
+		err = newOceanBroadcastManager(nil, secondary, store, m.log).Save(ctx, populateFields)
 		if err != nil {
 			return fmt.Errorf("could not update secondary broadcast: %w", err)
 		}
