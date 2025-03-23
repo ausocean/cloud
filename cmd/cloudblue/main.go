@@ -26,15 +26,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -52,22 +50,23 @@ import (
 
 // Project constants.
 const (
-	projectID     = "cloudblue"
-	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
+	projectID     = "oceanbench"
+	oauthClientID = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
 	version       = "v0.5.7"
 )
 
 // service defines the properties of our web service.
 type service struct {
-	setupMutex  sync.Mutex
-	store       datastore.Store
-	debug       bool
-	standalone  bool
-	development bool
-	lite        bool
-	storePath   string
-	auth        *gauth.UserAuth
+	setupMutex    sync.Mutex
+	mediaStore    datastore.Store
+	settingsStore datastore.Store
+	debug         bool
+	standalone    bool
+	development   bool
+	lite          bool
+	storePath     string
+	auth          *gauth.UserAuth
 }
 
 // svc is an instance of our service.
@@ -84,10 +83,6 @@ func registerAPIRoutes(app *fiber.App) {
 		Get("profile", svc.profileHandler)
 
 	v1.Get("version", svc.versionHandler)
-
-	v1.Group("/survey").
-		Get("/check", svc.checkSurveyHandler).
-		Post("/", svc.handleSurveyFormSubmission)
 }
 
 func main() {
@@ -125,16 +120,22 @@ func main() {
 	// Encrypt cookies.
 	// NOTE: This must be done before any middleware which uses cookies.
 	ctx := context.Background()
-	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	keyBytes, err := gauth.GetHexSecret(ctx, projectID, "sessionKey")
 	if err != nil {
 		log.Panicf("unable to get sessionKey secret: %v", err)
 	}
+	if len(keyBytes) != 16 && len(keyBytes) != 24 && len(keyBytes) != 32 {
+		log.Panicf("sessionKey has invalid length %d", len(keyBytes))
+	}
 	app.Use(encryptcookie.New(encryptcookie.Config{
-		Key: key,
+		Key: base64.StdEncoding.EncodeToString(keyBytes),
 	}))
 
 	// Perform one-time setup or bail.
 	svc.setup(ctx)
+
+	auth := &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	auth.Init(backend.NewNetHandler(nil, nil, nil))
 
 	// Recover from panics.
 	app.Use(recover.New())
@@ -169,11 +170,6 @@ func main() {
 	log.Fatal(app.Listen(listenOn))
 }
 
-// preFlightOK returns a statusOK message to preflight messages.
-func (svc *service) preFlightOK(c *fiber.Ctx) error {
-	return c.SendStatus(fiber.StatusOK)
-}
-
 // versionHandler handles requests for the ausoceantv API.
 func (svc *service) versionHandler(ctx *fiber.Ctx) error {
 	ctx.WriteString(projectID + " " + version)
@@ -189,7 +185,7 @@ func (svc *service) setup(ctx context.Context) {
 	svc.setupMutex.Lock()
 	defer svc.setupMutex.Unlock()
 
-	if svc.store != nil {
+	if svc.mediaStore != nil {
 		return
 	}
 
@@ -197,7 +193,7 @@ func (svc *service) setup(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	svc.store = dsclient.Get()
+	svc.mediaStore = dsclient.Get()
 	model.RegisterEntities()
 	log.Info("set up datastore")
 
@@ -205,162 +201,6 @@ func (svc *service) setup(ctx context.Context) {
 	log.Info("Initializing OAuth2")
 	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
 	svc.auth.Init(backend.NewFiberHandler(nil))
-}
-
-func (svc *service) getSubscriptionHandler(c *fiber.Ctx) error {
-	ctx := context.Background()
-	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
-	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
-	} else if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
-	}
-
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
-	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("error getting subscriber by email for: %s: %v", p.Email, err))
-	}
-
-	subscription, err := model.GetSubscription(ctx, svc.store, subscriber.ID, model.NoFeedID)
-	if errors.Is(err, datastore.ErrNoSuchEntity) {
-		return c.JSON(nil)
-	}
-	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("error getting subscription for id: %d: %v", subscriber.ID, err))
-	}
-
-	// Check that the current time is prior to the end date of the subscription.
-	// ie. the subscription hasn't expired and is still valid.
-	if subscription.Finish.Before(time.Now()) {
-		return c.JSON(nil)
-	}
-
-	return c.JSON(subscription)
-}
-
-// checkSurveyHandler checks if a revisiting subscriber has completed the survey. If not redirects them to the survey page.
-func (svc *service) checkSurveyHandler(c *fiber.Ctx) error {
-	ctx := context.Background()
-	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
-	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
-	} else if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
-	}
-
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
-	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("error retrieving subscriber: %v", err))
-	}
-
-	// Check if the subscriber was created more than a day ago.
-	if time.Since(subscriber.Created) < 24*time.Hour {
-		log.Debug("subscriber is new, no survey redirect needed")
-		return c.JSON(fiber.Map{"redirect": ""})
-	}
-
-	// Parse DemographicInfo and check if "user-category" is present and non-empty.
-	var demographicData map[string]interface{}
-	if subscriber.DemographicInfo != "" {
-		if err := json.Unmarshal([]byte(subscriber.DemographicInfo), &demographicData); err != nil {
-			return logAndReturnError(c, fmt.Sprintf("failed to parse demographic info JSON for subscriber %d: %v", subscriber.ID, err))
-		}
-
-		if userCategory, hasUserCategory := demographicData["user-category"]; hasUserCategory {
-			if str, ok := userCategory.(string); ok && str != "" {
-				log.Debug("subscriber has valid user-category field, no survey redirect needed")
-				return c.JSON(fiber.Map{"redirect": ""})
-			}
-		}
-	}
-
-	// Redirect to survey if no user-category field is found.
-	log.Debug("user-category field doesn't exist or is empty, redirecting to survey")
-	return c.JSON(fiber.Map{"redirect": "/survey.html"})
-}
-
-func (s *service) handleSurveyFormSubmission(c *fiber.Ctx) error {
-	ctx := context.Background()
-
-	// Authenticate the user and fetch their profile.
-	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
-	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
-		return logAndReturnError(c, "user not authenticated", withStatus(fiber.StatusUnauthorized))
-	} else if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
-	}
-
-	// Fetch subscriber.
-	subscriber, err := model.GetSubscriberByEmail(ctx, svc.store, p.Email)
-	if err != nil {
-		return logAndReturnError(c, "subscriber not found")
-	}
-
-	// Read the JSON request body.
-	body := c.Body()
-
-	// Validate that body is not empty.
-	if len(body) == 0 {
-		return logAndReturnError(c, "empty request body")
-	}
-
-	// Define a helper struct that matches the incoming JSON structure.
-	var payload struct {
-		Region       string `json:"region"`
-		UserCategory string `json:"user-category"`
-	}
-
-	// Unmarshal the main payload.
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
-	}
-
-	// Unmarshal the stringified region into SubscriberRegion.
-	if payload.Region != "" {
-		subscriberRegion := &model.SubscriberRegion{}
-		if err := json.Unmarshal([]byte(payload.Region), subscriberRegion); err != nil {
-			log.Errorf("failed to parse non-nil region: %v", err)
-		}
-
-		// Set the SubscriberID.
-		subscriberRegion.SubscriberID = subscriber.ID
-
-		// Create or update the SubscriberRegion.
-		if err := model.PutSubscriberRegion(ctx, s.store, subscriberRegion); err != nil {
-			return logAndReturnError(c, fmt.Sprintf("failed to save subscriber region: %v", err))
-		}
-	}
-
-	if payload.UserCategory == "" {
-		return logAndReturnError(c, "user-category field is empty", withUserMessage("Please select a user category."), withStatus(fiber.StatusBadRequest))
-	}
-
-	// Extract the user-category field from the JSON body and store it as JSON.
-	var surveyData map[string]interface{}
-	if err := json.Unmarshal(body, &surveyData); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to parse survey data: %v", err))
-	}
-
-	demographicInfo := make(map[string]string)
-	if userCategory, ok := surveyData["user-category"].(string); ok {
-		demographicInfo["user-category"] = userCategory
-	} else {
-		demographicInfo["user-category"] = ""
-	}
-	demographicJSON, err := json.Marshal(demographicInfo)
-	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to encode demographic info: %v", err))
-	}
-
-	// Store the JSON string in Subscriber
-	subscriber.DemographicInfo = string(demographicJSON)
-
-	// Save updated subscriber to datastore.
-	if err := model.UpdateSubscriber(ctx, s.store, subscriber); err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed to update subscriber: %v", err))
-	}
-
-	return c.JSON(fiber.Map{"message": "survey successfully submitted"})
 }
 
 type loggingErrorOption func(c *fiber.Ctx, m map[string]string) error
@@ -385,6 +225,7 @@ func withUserMessage(userMsg string) loggingErrorOption {
 // logAndReturnError logs the passed message as an error and returns an response to the client.
 // The response code defaults to internal server error (500) and the message defaults to the status text.
 func logAndReturnError(c *fiber.Ctx, message string, opts ...loggingErrorOption) error {
+	fmt.Println(message)
 	log.Error(message)
 	c.Status(fiber.StatusInternalServerError)
 	kv := make(map[string]string)

@@ -10,7 +10,7 @@ export class customFooter extends TailwindElement() {
         <div class="m-auto grid max-w-5xl grid-cols-2 gap-y-5 text-sm">
           <ul class="mx-auto">
             <li class="font-semibold">Contact</li>
-            <li><a class="opacity-65" href="mailto:tv@ausocean.org">&emsp;tv@ausocean.org</a></li>
+            <li><a class="opacity-65" href="mailto:info@ausocean.org">&emsp;info@ausocean.org</a></li>
             <li class="font-semibold">Socials</li>
             <li><a class="opacity-65" href="https://www.facebook.com/ausocean">&emsp;Facebook</a></li>
             <li><a class="opacity-65" href="https://www.instagram.com/ausocean/">&emsp;Instagram</a></li>

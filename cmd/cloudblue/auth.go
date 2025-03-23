@@ -25,18 +25,15 @@ LICENSE
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
-	"cloud.google.com/go/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
-	"github.com/ausocean/cloud/model"
 )
 
 // loginHandler handles login requests, and starts the oauth2 login flow.
@@ -55,7 +52,7 @@ func (svc *service) logoutHandler(c *fiber.Ctx) error {
 
 // callbackHandler handles callbacks from google's oauth2 flow.
 func (svc *service) callbackHandler(c *fiber.Ctx) error {
-	p, err := svc.auth.CallbackHandler(backend.NewFiberHandler(c))
+	_, err := svc.auth.CallbackHandler(backend.NewFiberHandler(c))
 	if errors.Is(err, &gauth.ErrOauth2RedirectError{}) {
 		log.Warn(err)
 		return c.Redirect("/", fiber.StatusFound)
@@ -63,34 +60,55 @@ func (svc *service) callbackHandler(c *fiber.Ctx) error {
 		return logAndReturnError(c, fmt.Sprintf("error handling callback: %v", err))
 	}
 
-	// Create a new subscriber if one does not exist.
-	ctx := context.Background()
-	_, err = model.GetSubscriberByEmail(ctx, svc.store, p.Email)
-	if errors.Is(err, datastore.ErrNoSuchEntity) {
-		subscriber := &model.Subscriber{GivenName: p.GivenName, FamilyName: p.FamilyName, Email: p.Email}
-		err := model.CreateSubscriber(ctx, svc.store, subscriber)
-		if err != nil {
-			return logAndReturnError(c, fmt.Sprintf("unable to create susbcriber %v: %v", subscriber, err))
-		}
-	} else if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("failed getting subscriber by email: %v", err))
-	}
+	// Here is where we would create a general user but since we only create users for sites, we don't need to do anything here.
 
 	return nil
 }
 
+type profile struct {
+	Role string
+	gauth.Profile
+}
+
 // profileHandler handles requests to get the profile of the logged in user.
 func (svc *service) profileHandler(c *fiber.Ctx) error {
-	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	gauthProfile, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if errors.Is(err, gauth.SessionNotFound) || errors.Is(err, gauth.TokenNotFound) {
 		return logAndReturnError(c, fmt.Sprintf("error getting profile: %v", err), withStatus(fiber.StatusUnauthorized))
 	} else if err != nil {
 		return logAndReturnError(c, fmt.Sprintf("unable to get profile: %v", err))
 	}
-	bytes, err := json.Marshal(p)
+
+	p := &profile{"", *gauthProfile}
+	p.Role, err = getRole(p.Email)
 	if err != nil {
-		return logAndReturnError(c, fmt.Sprintf("unable to marshal profile: %v", err))
+		return logAndReturnError(c, fmt.Sprintf("unable to get role: %v", err))
 	}
-	c.Write(bytes)
+
+	c.JSON(p)
 	return nil
+}
+
+var errInvalidEmail = errors.New("invalid email")
+
+// Possible roles that a user can be.
+const (
+	admin = iota
+	user
+)
+
+var roles = []string{"admin", "user"}
+
+func getRole(email string) (string, error) {
+	// Give Admin role to users with ausocean emails.
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return "", errInvalidEmail
+	}
+
+	if parts[1] == "ausocean.org" {
+		return roles[admin], nil
+	}
+
+	return roles[user], nil
 }

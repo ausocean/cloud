@@ -199,6 +199,7 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 	}
 
 	sessID := uuid.New().String()
+	log.Printf("Creating session cookie with ID: %s", sessID)
 	oauthFlowSession, err := h.LoadSession(sessID)
 	if err != nil {
 		return fmt.Errorf("could not create session %s: %w", sessID, err)
