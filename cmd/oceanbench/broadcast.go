@@ -390,16 +390,23 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		msg = "broadcast saved successfully"
 
 		// Ensure that the CheckBroadcast cron exists.
-		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
-		err = model.PutCron(context.Background(), settingsStore, c)
-		if err != nil {
-			reportError(w, r, req, "warning: failed to verify checkbroadcasts cron: %v", err)
-			return
-		}
+		const broadcastCheckCronID = "Broadcast Check"
+		_, err = model.GetCron(ctx, settingsStore, cfg.SKey, broadcastCheckCronID)
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
+			c := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
+			err = model.PutCron(context.Background(), settingsStore, c)
+			if err != nil {
+				reportError(w, r, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
+				return
+			}
 
-		err = cronScheduler.Set(c)
-		if err != nil {
-			reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
+			err = cronScheduler.Set(c)
+			if err != nil {
+				reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
+				return
+			}
+		} else if err != nil {
+			reportError(w, r, req, "unexpected error when checking for the broadcast check cron: %v", err)
 			return
 		}
 
