@@ -7,15 +7,13 @@
     <title>CloudBlue | Welcome</title>
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
-    <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <script type="module" src="src/web-components/custom-footer.ts"></script>
   </head>
   <body class="h-screen bg-black text-white">
     <auth-wrapper>
       <div class="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden">
         <!-- Background image -->
-        <img src="src/assets/web-bg-1.jpg"
-             class="absolute inset-0 h-full w-full object-cover z-[-1]"
-             alt="Background"/>
+        <img src="src/assets/web-bg-1.jpg" class="absolute inset-0 z-[-1] h-full w-full object-cover" alt="Background" />
         <!-- Foreground Content -->
         <div class="z-10 max-w-full rounded-2xl bg-gradient-to-b from-neutral-50 to-neutral-50/80 px-4 py-12 text-center shadow-xl md:p-32">
           <div class="relative flex items-center justify-center">
@@ -30,10 +28,8 @@
             <button class="rounded-lg bg-[#0c69ad] px-6 py-3 text-lg font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110">Sign Up</button>
           </a>
           <p class="mt-4 text-lg text-gray-800">
-            Already signed up? 
-            <a href="/api/v1/auth/login?redirect=/home.html" class="text-[#0c69ad] hover:underline">
-              Log in
-            </a>
+            Already signed up?
+            <a href="/api/v1/auth/login?redirect=/home.html" class="text-[#0c69ad] hover:underline">Log in</a>
           </p>
         </div>
       </div>

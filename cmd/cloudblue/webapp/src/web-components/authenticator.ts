@@ -25,9 +25,7 @@ export class Authenticator extends TailwindElement() {
 
     console.log("required Perms:", this.reqPerms);
 
-    await fetch("/api/v1/auth/profile", {
-      credentials: "include"
-    })
+    await fetch("/api/v1/auth/profile")
       .then(async (resp) => {
         if (!resp.ok) {
           const error = await resp.json();
@@ -40,9 +38,6 @@ export class Authenticator extends TailwindElement() {
         this.user.name = resp.GivenName + " " + resp.FamilyName;
         this.user.email = resp.Email;
         this.user.role = resp.Role;
-        console.log("User loaded:", this.user);
-        console.log("Required perms:", this.reqPerms);
-        console.log("User has permission:", hasPermission(this.user, this.reqPerms));
 
         if (!hasPermission(this.user, this.reqPerms)) {
           throw new Error("Insufficient permissions");

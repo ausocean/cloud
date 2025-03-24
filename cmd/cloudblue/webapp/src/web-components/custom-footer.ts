@@ -20,7 +20,7 @@ export class customFooter extends TailwindElement() {
             <li><a class="opacity-65" href="policies/privacy.html">&emsp;Privacy Policy</a></li>
             <li><a class="opacity-65" href="policies/terms-of-service.html">&emsp;Terms of Service</a></li>
           </ul>
-          <p class="col-span-2 text-center text-sm">© 2025 AusOcean. All rights reserved.</p>
+          <p class="col-span-2 text-center text-sm">© 2019-2025 AusOcean. All rights reserved.</p>
         </div>
       </footer>
     `;

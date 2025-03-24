@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="src/web-components/authenticator.ts"></script>
     <script type="module" src="src/web-components/app-header.ts"></script>
-    <script type="module" src="src/web-components/aotv-footer.ts"></script>
+    <script type="module" src="src/web-components/welcome-message.ts"></script>
+    <script type="module" src="src/web-components/custom-footer.ts"></script>
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
   </head>
   <body class="flex min-h-screen flex-col overscroll-none bg-gradient-to-b from-sky-600 via-blue-900 to-black bg-fixed text-white">
@@ -18,10 +19,9 @@
 
         <!-- Main Content Section -->
         <div class="flex flex-1 items-center justify-center pb-5">
-          <div class="z-9 flex max-w-full flex-1 flex-col items-center justify-center bg-opacity-80 bg-gradient-to-b from-neutral-50 to-neutral-50/80 p-4 text-center shadow-lg backdrop-blur-sm mt-20 sm:mt-2 sm:rounded-xl sm:p-6 md:max-w-4xl md:bg-opacity-90 md:p-12 lg:max-w-5xl lg:p-16 xl:max-w-6xl xl:p-20">
+          <div class="z-9 mt-20 flex max-w-full flex-1 flex-col items-center justify-center bg-white p-4 text-center shadow-lg backdrop-blur-sm sm:mt-2 sm:rounded-xl sm:p-6 md:max-w-4xl md:bg-opacity-90 md:p-12 lg:max-w-5xl lg:p-16 xl:max-w-6xl xl:p-20">
             <!-- Big Logo -->
             <div class="relative flex items-center justify-center">
-              <div class="absolute z-[-1] h-64 w-64 rounded-full bg-gradient-to-b from-neutral-50 via-neutral-50 to-transparent blur-xl md:h-96 md:w-96 md:blur-2xl"></div>
               <img src="src/assets/ausocean_logo.png" class="logo w-44 pb-8 pt-20 drop-shadow-2xl md:w-72 md:py-16" alt="AusOcean logo" />
             </div>
 
@@ -30,8 +30,7 @@
               <span class="relative inline-block font-extrabold tracking-tight" style="font-family: &quot;Ubuntu&quot;, sans-serif">CloudBlue</span>
             </h1>
             <p class="mb-8 max-w-xl text-lg text-gray-800">Explore our marine data in real time with our cloud connected network of marine technology.</p>
-
-            </div>
+            <welcome-message class="text-black"></welcome-message>
           </div>
         </div>
       </div>
