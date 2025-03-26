@@ -1,8 +1,7 @@
 {
-    "id": "notification-001",
-    "title": "Abnormal Camera Angle",
-    "message": "The Rapid Bay camera is currently streaming an abnormal angle due to diver interference. We'll be restoring it shortly. Thank you for your patience.",
-    "expiresAt": "2025-04-30T23:59:00Z",
-    "version": "v1"
+  "id": "notification-001",
+  "title": "Abnormal Camera Angle",
+  "message": "The Rapid Bay camera is currently streaming an abnormal angle due to diver interference. We'll be restoring it shortly. Thank you for your patience.",
+  "expiresAt": "2025-04-30T23:59:00Z",
+  "version": "v1"
 }
-  
