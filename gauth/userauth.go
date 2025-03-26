@@ -219,8 +219,22 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 		return fmt.Errorf("could not save session %s: %w", sessID, err)
 	}
 
+	// Check for refresh token in the user's main session.
+	mainSession, _ := h.LoadSession(ua.SessionID)
+	tok := &oauth2.Token{}
+	hasRefreshToken := false
+	if err := mainSession.Get(oauthTokenSessionKey, &tok); err == nil && tok != nil && tok.RefreshToken != "" {
+		hasRefreshToken = true
+	}
+
+	// Build auth URL
+	opts := []oauth2.AuthCodeOption{oauth2.AccessTypeOffline}
+	if !hasRefreshToken {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", "consent"))
+	}
+
 	// NB: Offline access is required to obtain a refresh token.
-	url := ua.cfg.AuthCodeURL(sessID, oauth2.AccessTypeOffline)
+	url := ua.cfg.AuthCodeURL(sessID, opts...)
 	return h.Redirect(url, http.StatusFound)
 }
 
