@@ -227,7 +227,7 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 		hasRefreshToken = true
 	}
 
-	// Build auth URL
+	// Build auth URL.
 	opts := []oauth2.AuthCodeOption{oauth2.AccessTypeOffline}
 	if !hasRefreshToken {
 		opts = append(opts, oauth2.SetAuthURLParam("prompt", "consent"))
