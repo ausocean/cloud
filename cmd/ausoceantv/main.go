@@ -1,6 +1,8 @@
 /*
 AUTHORS
   Alan Noble <alan@ausocean.org>
+  David Sutton <david@ausocean.org>
+  Trek Hopton <trek@ausocean.org>
 
 LICENSE
   Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
@@ -55,7 +57,7 @@ const (
 	projectID     = "ausoceantv"
 	oauthClientID = "1005382600755-7st09cc91eqcqveviinitqo091dtcmf0.apps.googleusercontent.com"
 	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
-	version       = "v0.5.7"
+	version       = "v0.5.8"
 )
 
 // service defines the properties of our web service.
