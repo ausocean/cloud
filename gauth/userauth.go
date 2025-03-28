@@ -220,11 +220,13 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 	}
 
 	// Check for refresh token in the user's main session.
-	mainSession, _ := h.LoadSession(ua.SessionID)
-	tok := &oauth2.Token{}
 	hasRefreshToken := false
-	if err := mainSession.Get(oauthTokenSessionKey, &tok); err == nil && tok != nil && tok.RefreshToken != "" {
-		hasRefreshToken = true
+	mainSession, err := h.LoadSession(ua.SessionID)
+	if err == nil {
+		tok := &oauth2.Token{}
+		if err := mainSession.Get(oauthTokenSessionKey, &tok); err == nil && tok != nil && tok.RefreshToken != "" {
+			hasRefreshToken = true
+		}
 	}
 
 	// Build auth URL.
