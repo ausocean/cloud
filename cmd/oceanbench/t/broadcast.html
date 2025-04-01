@@ -156,7 +156,7 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="camera-mac" class="w-25 text-end">Camera:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
-                <select name="camera-mac" class="form-select w-50">
+                <select id="camera-select" name="camera-mac" class="form-select w-50">
                   {{if not .CurrentBroadcast.CameraMac}}
                   <option>Select</option>
                   {{end}} {{range .Cameras}}
@@ -166,7 +166,7 @@
                 <div class="d-flex gap-3 flex-row">
                   {{range .Settings.Resolution}}
                   <div>
-                    <input type="radio" name="resolution" value="{{.}}" {{if eq . $.CurrentBroadcast.Resolution}}checked{{end}} />
+                    <input type="radio" name="resolution" value="{{.}}" checked />
                     {{.}}
                   </div>
                   {{end}}
@@ -175,29 +175,32 @@
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="controller-mac" class="w-25 text-end">Controller:</label>
-              <select name="controller-mac" class="form-select w-50">
-                {{if not .CurrentBroadcast.ControllerMAC}}
-                <option>Select</option>
-                {{end}} {{range .Controllers}}
-                <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
-                {{ end }}
-              </select>
+              <div class="w-50 d-flex align-items-center justify-content-between">
+                <select id="controller-select" name="controller-mac" class="form-select w-50">
+                  {{if not .CurrentBroadcast.ControllerMAC}}
+                  <option>Select</option>
+                  {{end}} {{range .Controllers}}
+                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
+                  {{ end }}
+                </select>
+                <button type="button" onclick="generateActions()" class="btn btn-primary">Generate Actions</button>
+              </div>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="on-actions" class="w-25 text-end">On Actions:</label>
-              <input type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions" />
+              <input id="on-actions" type="input" name="on-actions" class="form-control w-50" value="{{.CurrentBroadcast.OnActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="shutdown-actions" class="w-25 text-end">Shutdown Actions:</label>
-              <input type="input" name="shutdown-actions" class="form-control w-50" value="{{.CurrentBroadcast.ShutdownActions}}" class="actions" />
+              <input id="shutdown-actions" type="input" name="shutdown-actions" class="form-control w-50" value="{{.CurrentBroadcast.ShutdownActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="off-actions" class="w-25 text-end">Off Actions:</label>
-              <input type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions" />
+              <input id="off-actions" type="input" name="off-actions" class="form-control w-50" value="{{.CurrentBroadcast.OffActions}}" class="actions" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="rtmp-key-var" class="w-25 text-end">RTMP URL Variable:</label>
-              <input type="input" name="rtmp-key-var" class="w-50 form-control" value="{{.CurrentBroadcast.RTMPVar}}" />
+              <input id="rtmp-var" type="input" name="rtmp-key-var" class="w-50 form-control" value="{{.CurrentBroadcast.RTMPVar}}" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label class="advanced w-25 text-end">RTMP Key:</label>
