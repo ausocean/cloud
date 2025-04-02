@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
 )
@@ -138,9 +139,9 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 // cancellation the last time we ticked, and then publish a time event
 // to advanced the state machines again.
 func (bs *broadcastSystem) tick() error {
-	// Don't do anything if not enabled.
+	// If not enabled make sure we're in the idle state and have no broadcasts still in progress.
 	if !bs.ctx.cfg.Enabled {
-		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
+		// Make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
 		try(
 			bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 				_cfg.AttemptingToStart = false
@@ -150,7 +151,25 @@ func (bs *broadcastSystem) tick() error {
 			"could not update config with callback",
 			log.Printf,
 		)
-		bs.log("not enabled, not doing anything")
+
+		// If there's a broadcast ID, set to complete if live and then clear it.
+		if bs.ctx.cfg.ID != "" {
+			status, err := bs.ctx.svc.BroadcastStatus(context.Background(), bs.ctx.cfg.ID)
+			if err != nil {
+				bs.log("could not get broadcast status: %v", err)
+			} else {
+				if status == broadcast.StatusLive {
+					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.ID)
+					if err != nil {
+						bs.ctx.logAndNotify(broadcastService, "could not complete broadcast, please check this manually: %v", err)
+					}
+				}
+			}
+			try(bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.ID = "" }), "could not clear broadcast ID", bs.log)
+		}
+
+		bs.log("broadcast not enabled, not doing anything")
+
 		return nil
 	}
 
