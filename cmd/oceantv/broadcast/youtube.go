@@ -55,6 +55,7 @@ import (
 const (
 	StatusComplete = "complete"
 	StatusRevoked  = "revoked"
+	StatusLive     = "live"
 )
 
 // Misc constants.
