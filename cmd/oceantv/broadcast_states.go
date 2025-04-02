@@ -44,6 +44,7 @@ const (
 	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
 	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
 	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
+	broadcastService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
 )
 
 var errNoGlobalNotifier = errors.New("global notifier is nil")
