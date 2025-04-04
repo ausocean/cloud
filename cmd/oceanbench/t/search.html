@@ -175,6 +175,7 @@
                 {{ range .Device.InputList }}
                 <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
                 {{ end }}
+                <option value="throughput" {{ if eq $.Pn "throughput"}}selected{{end}}>throughput</option>
               </select>
             </div>
             {{ end }}
@@ -236,7 +237,7 @@
               <option value="fatal" {{if eq .Lv $fatal}}selected{{- end}}>Fatal only</option>
             </select>
           </div>
-          {{- else if (or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X')) -}}
+          {{- else if (or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') (eq .Pn "throughput")) -}}
           <div class="d-flex flex-column">
             <div class="d-flex align-items-center mb-2">
               <label>Resolution:</label>
