@@ -562,7 +562,12 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
 	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
-		s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
+		// Don't notify if there were no shutdown actions.
+		if errors.Is(event, errNoShutdownActions) {
+			s.log("no shutdowns to perform, transitioning to powering off")
+		} else {
+			s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
+		}
 		s.transition()
 	default:
 		// Ignore.
