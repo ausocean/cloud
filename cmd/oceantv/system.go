@@ -14,10 +14,11 @@ import (
 
 // broadcastSystem represents a video broadcasting control system.
 type broadcastSystem struct {
-	ctx *broadcastContext
-	sm  *broadcastStateMachine
-	hsm *hardwareStateMachine
-	log func(string, ...interface{})
+	ctx          *broadcastContext
+	sm           *broadcastStateMachine
+	hsm          *hardwareStateMachine
+	log          func(string, ...interface{})
+	stateHandler func(state)
 }
 
 type broadcastSystemOption func(*broadcastSystem) error
@@ -62,6 +63,33 @@ func withEventBus(bus eventBus) broadcastSystemOption {
 func withNotifier(n notify.Notifier) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.notifier = n
+		return nil
+	}
+}
+
+// withEventHandlers allows you to provide a set of handlers that will be called
+// when an event is published to the event bus.
+// This is useful if you wish to notify external systems of events e.g.
+// add a webhook to notify a remote system of an event.
+func withEventHandlers(h ...handler) broadcastSystemOption {
+	return func(bs *broadcastSystem) error {
+		for _, h_ := range h {
+			bs.ctx.bus.subscribe(h_)
+		}
+		return nil
+	}
+}
+
+// withStateHandler allows you to provide a set of handlers that will be called once
+// a state has been transitioned into. The new state is provided as an argument
+// to the handler.
+// This is useful if you wish to notify external systems of state changes e.g.
+// add a webhook to notify a remote system of a state change.
+func withStateHandlers(h ...func(state)) broadcastSystemOption {
+	return func(bs *broadcastSystem) error {
+		for _, h_ := range h {
+			bs.sm.registerStateHandler(h_)
+		}
 		return nil
 	}
 }
@@ -121,7 +149,7 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 	hsm := newHardwareStateMachine(broadcastContext)
 	bus.subscribe(hsm.handleEvent)
 
-	sys := &broadcastSystem{broadcastContext, sm, hsm, log}
+	sys := &broadcastSystem{broadcastContext, sm, hsm, log, nil}
 
 	// Apply any options to the system.
 	for _, opt := range options {

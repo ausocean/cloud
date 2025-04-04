@@ -22,6 +22,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -46,7 +47,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.8.6"
+	version            = "v0.9.0"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -58,7 +59,6 @@ var (
 	debug      bool
 	standalone bool
 	notifier   notify.Notifier
-	ofsvc      openfish.OpenfishService
 	cronSecret []byte
 	storePath  string
 )
@@ -111,13 +111,110 @@ func main() {
 		),
 	)
 
+	otv, err := newOceanTVService(
+		withEventHooks(
+			func(e event, cfg *Cfg) {
+				// Only continue if we have a finished event.
+				if _, ok := e.(finishedEvent); !ok {
+					return
+				}
+
+				if !cfg.RegisterOpenFish {
+					return
+				}
+
+				// Register stream with openfish so we can annotate the video.
+				cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
+				if err != nil {
+					log.Printf("could not parse OpenFish capture source: %v", err)
+					return
+				}
+
+				ofsvc, err := openfish.New()
+				if err != nil {
+					log.Printf("could not setup openfish service: %v", err)
+					return
+				}
+
+				err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
+				if err != nil {
+					log.Printf("could not register stream with OpenFish: %v", err)
+					return
+				}
+			},
+		),
+		withStateHooks(
+			func(s state, cfg *Cfg) {
+
+				// We're deactivating this webhook for the time being until it's been
+				// properly configured.
+				// Remove return to re-enable.
+				log.Println("AusOceanTV webhook disabled")
+				return
+
+				// Only continue if we have a directLive state.
+				// NOTE this can be removed if we wish to webhook for all states.
+				if _, ok := s.(*directLive); !ok {
+					return
+				}
+
+				data := struct {
+					ID    string `json:"id"`
+					State string `json:"state"`
+				}{
+					ID:    cfg.Name,
+					State: stateToString(s),
+				}
+				const ausoceanTVWebHookDest = "https://www.ausocean.org/ausocean-tv/tvwebhook"
+				err := sendWebhook(ausoceanTVWebHookDest, data)
+				if err != nil {
+					log.Printf("could not send AusOceanTV webhook: %v", err)
+					return
+				}
+			},
+		),
+	)
+	if err != nil {
+		log.Fatalf("could not create oceanTV service: %v", err)
+	}
+
 	mux.HandleFunc("/_ah/warmup", warmupHandler)
 	mux.HandleFunc("/broadcast/", broadcastHandler)
-	mux.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
+	mux.HandleFunc("/checkbroadcasts", otv.checkBroadcastsHandler)
 	mux.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
+}
+
+func sendWebhook(url string, data interface{}) error {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer func(b io.ReadCloser) {
+		if err := b.Close(); err != nil {
+			log.Printf("failed to close webhook response body: %v", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusCreated {
+		return nil
+	}
+
+	return fmt.Errorf("webhook request failed with status: %s", resp.Status)
 }
 
 func sendPanicNotification(publicKey, privateKey, msg string) error {
@@ -224,11 +321,6 @@ func setup(ctx context.Context) {
 	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
-	}
-
-	ofsvc, err = openfish.New()
-	if err != nil {
-		log.Fatalf("could not setup openfish service: %v", err)
 	}
 }
 

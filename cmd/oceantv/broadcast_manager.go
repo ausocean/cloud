@@ -30,7 +30,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -199,18 +198,6 @@ func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, sv
 		err := svc.CompleteBroadcast(ctx, cfg.ID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
-		}
-
-		if cfg.RegisterOpenFish {
-			// Register stream with openfish so we can annotate the video.
-			cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
-			if err != nil {
-				return fmt.Errorf("bad capturesource ID: %w", err)
-			}
-			err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
-			if err != nil {
-				return fmt.Errorf("register stream with openfish error: %w", err)
-			}
 		}
 	}
 

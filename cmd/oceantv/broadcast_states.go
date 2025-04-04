@@ -358,7 +358,12 @@ func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive 
 	return &vidforwardSecondaryLive{broadcastContext: ctx}
 }
 func (s *vidforwardSecondaryLive) exit() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
+	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	if err != nil {
+		s.log("could not stop broadcast on exit: %v", err)
+		return
+	}
+	s.bus.publish(finishedEvent{})
 }
 
 type vidforwardSecondaryLiveUnhealthy struct {
@@ -478,7 +483,12 @@ type directIdle struct {
 
 func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{broadcastContext: ctx} }
 func (s *directIdle) enter() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct idle entry", s.log)
+	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	if err != nil {
+		s.log("could not stop broadcast on entry: %v", err)
+	} else {
+		s.bus.publish(finishedEvent{})
+	}
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 
@@ -491,7 +501,12 @@ func newDirectFailure(ctx *broadcastContext) *directFailure {
 	return &directFailure{broadcastContext: ctx}
 }
 func (s *directFailure) enter() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct failure entry", s.log)
+	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	if err != nil {
+		s.log("could not stop broadcast on entry: %v", err)
+	} else {
+		s.bus.publish(finishedEvent{})
+	}
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 

@@ -39,7 +39,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "vidforwardSecondaryLive with time after End",
 			initialState:   newVidforwardSecondaryLive(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -50,7 +50,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLive with time after End",
 			initialState:   newDirectLive(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -83,7 +83,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLiveUnhealthy with time after End",
 			initialState:   newDirectLiveUnhealthy(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -394,7 +394,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "vidforwardSecondaryLive before start",
 			initialState:   newVidforwardSecondaryLive(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -405,7 +405,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLive before start",
 			initialState:   newDirectLive(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -438,7 +438,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLiveUnhealthy before start",
 			initialState:   newDirectLiveUnhealthy(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -525,7 +525,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directStarting timed out",
 			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(11 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg:            &BroadcastConfig{},
 		},
@@ -1376,6 +1376,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				startEvent{},
 				hardwareStartRequestEvent{},
 				invalidConfigurationEvent{},
+				finishedEvent{},
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs: []string{
@@ -1611,7 +1612,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 						hardwareStartRequestEvent{},
 						lowVoltageEvent{},
 					}, timeEvents(241)...), // Time events to account for charging time.
-				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}}...,
+				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1642,7 +1643,9 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				hardwareStartRequestEvent{},
 				controllerFailureEvent{},
 				criticalFailureEvent{},
+				finishedEvent{},
 				hardwareStopRequestEvent{},
+				finishedEvent{},
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs:   []string{},
