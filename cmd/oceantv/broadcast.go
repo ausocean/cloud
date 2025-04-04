@@ -168,9 +168,44 @@ func (c *BroadcastConfig) parseStartEnd() error {
 	return nil
 }
 
+type oceanTVService struct {
+	eventHooks []eventHook
+	stateHooks []stateHook
+}
+
+type oceanTVOption func(*oceanTVService) error
+
+type eventHook func(event, *Cfg)
+type stateHook func(state, *Cfg)
+
+func withEventHooks(hooks ...eventHook) oceanTVOption {
+	return func(s *oceanTVService) error {
+		s.eventHooks = hooks
+		return nil
+	}
+}
+
+func withStateHooks(hooks ...stateHook) oceanTVOption {
+	return func(s *oceanTVService) error {
+		s.stateHooks = hooks
+		return nil
+	}
+}
+
+func newOceanTVService(opts ...oceanTVOption) (*oceanTVService, error) {
+	otv := &oceanTVService{}
+	for i, opt := range opts {
+		err := opt(otv)
+		if err != nil {
+			return nil, fmt.Errorf("could not apply option (%d) to oceanTV service: %w", i, err)
+		}
+	}
+	return otv, nil
+}
+
 // checkBroadcastsHandler checks the broadcasts for a single site.
 // It is designed to be invoked via OceanCron rpc requests, not cron.yaml.
-func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
 	ctx := r.Context()
@@ -195,7 +230,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("checking broadcasts for site %d", skey)
-	err = checkBroadcastsForSites(ctx, []model.Site{*site})
+	err = checkBroadcastsForSites(ctx, []model.Site{*site}, s.eventHooks, s.stateHooks)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %v", skey, err))
 		return
@@ -204,7 +239,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
+func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks []eventHook, stateHooks []stateHook) error {
 	var cfgVars []model.Variable
 	for _, s := range sites {
 		vars, err := model.GetVariablesBySite(ctx, store, s.Skey, broadcastScope)
@@ -231,7 +266,7 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
 	}
 
 	for i := range cfgs {
-		err := performChecks(ctx, &cfgs[i], store)
+		err := performChecks(ctx, &cfgs[i], store, eventHooks, stateHooks)
 		if err != nil {
 			return fmt.Errorf("could not perform checks for broadcast: %s, ID: %s: %w", cfgs[i].Name, cfgs[i].ID, err)
 		}
@@ -248,13 +283,34 @@ func performChecksInternalThroughStateMachine(
 	cfg *BroadcastConfig,
 	timeNow func() time.Time,
 	store datastore.Store,
+	eventHooks []eventHook,
+	stateHooks []stateHook,
 ) error {
 	// We'll use this context to determine if anything happens after the handler
 	// has returned (we might need to store states for next time).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sys, err := newBroadcastSystem(ctx, store, cfg, log.Println)
+	// Construct the event handlers from the hooks.
+	// We have to do this because event handlers are not on a per config basic like
+	// the hooks are, so we use a closure to capture the config.
+	var eventHandlers []handler
+	for _, hook := range eventHooks {
+		eventHandlers = append(eventHandlers, func(e event) error {
+			hook(e, cfg)
+			return nil
+		})
+	}
+
+	// Similarly, we construct the state handlers from the hooks.
+	var stateHandlers []func(state)
+	for _, hook := range stateHooks {
+		stateHandlers = append(stateHandlers, func(s state) {
+			hook(s, cfg)
+		})
+	}
+
+	sys, err := newBroadcastSystem(ctx, store, cfg, log.Println, withEventHandlers(eventHandlers...), withStateHandlers(stateHandlers...))
 	if err != nil {
 		return fmt.Errorf("could not create broadcast system: %w", err)
 	}
@@ -270,12 +326,14 @@ func performChecksInternalThroughStateMachine(
 // performChecks wraps performChecksInternal and provides implementations of the
 // broadcast operations. These broadcast implementations are built around the
 // broadcast package, which employs the YouTube Live API.
-func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
+func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, eventHooks []eventHook, stateHooks []stateHook) error {
 	return performChecksInternalThroughStateMachine(
 		ctx,
 		cfg,
 		func() time.Time { return time.Now() },
 		store,
+		eventHooks,
+		stateHooks,
 	)
 }
 
