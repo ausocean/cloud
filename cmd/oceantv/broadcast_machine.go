@@ -12,6 +12,15 @@ import (
 type broadcastStateMachine struct {
 	currentState state
 	ctx          *broadcastContext
+	stateHandler func(state)
+}
+
+func (sm *broadcastStateMachine) registerStateHandler(handler func(state)) {
+	prev := sm.stateHandler
+	sm.stateHandler = func(s state) {
+		prev(s)
+		handler(s)
+	}
 }
 
 func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, error) {
@@ -40,7 +49,7 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 		return nil, fmt.Errorf("could not update config start and end times in transaction: %w", err)
 	}
 
-	sm := &broadcastStateMachine{currentState: broadcastCfgToState(ctx), ctx: ctx}
+	sm := &broadcastStateMachine{currentState: broadcastCfgToState(ctx), ctx: ctx, stateHandler: func(s state) {}}
 	sm.log("got broadcast state machine; initial state: %s, start: %v, end: %v, cfg: %v", stateToString(sm.currentState), ctx.cfg.Start, ctx.cfg.End, provideConfig(ctx.cfg))
 	return sm, nil
 }
@@ -527,6 +536,7 @@ func (sm *broadcastStateMachine) transition(newState state) {
 	sm.currentState.exit()
 	sm.currentState = newState
 	sm.currentState.enter()
+	sm.stateHandler(newState)
 }
 
 func (sm *broadcastStateMachine) unexpectedEvent(event event, state state) {
