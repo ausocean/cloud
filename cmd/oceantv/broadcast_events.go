@@ -34,6 +34,12 @@ var _ = registerEvent(finishEvent{})
 
 func (e finishEvent) String() string { return "finishEvent" }
 
+type finishedEvent struct{}
+
+var _ = registerEvent(finishedEvent{})
+
+func (e finishedEvent) String() string { return "finishedEvent" }
+
 type startEvent struct{}
 
 var _ = registerEvent(startEvent{})
