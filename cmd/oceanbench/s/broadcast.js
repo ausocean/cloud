@@ -1,8 +1,8 @@
 var advancedOpts;
 var adv = false;
 
-let camSelect, conSelect;
-let prevCamOn, prevCamShutdown, prevCamOff, prevConOn, prevConOff, prevURL;
+let camSelect, controllerSelect;
+let prevCamOn, prevCamShutdown, prevCamOff, prevControllerOn, prevControllerOff, prevURL;
 
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("time-zone").value = getTimezone();
@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   camSelect = document.getElementById("camera-select");
-  conSelect = document.getElementById("controller-select");
+  controllerSelect = document.getElementById("controller-select");
 });
 
 function generateActions(e) {
@@ -52,30 +52,26 @@ function generateActions(e) {
   let offActs = document.getElementById("off-actions");
   let rtmpVar = document.getElementById("rtmp-var");
 
-  let con = conSelect.options[conSelect.selectedIndex].value;
+  let controller = controllerSelect.options[controllerSelect.selectedIndex].value;
   let cam = camSelect.options[camSelect.selectedIndex].value;
 
-  console.log("controller:", con);
-  console.log("camera:", cam);
-
-  let conOn = con.toLowerCase().replaceAll(":", "") + ".Power2=true";
-  let conOff = con.toLowerCase().replaceAll(":", "") + ".Power2=false";
+  let controllerOn = controller.toLowerCase().replaceAll(":", "") + ".Power2=true";
+  let controllerOff = controller.toLowerCase().replaceAll(":", "") + ".Power2=false";
   let camOn = cam.toLowerCase().replaceAll(":", "") + ".mode=normal";
   let camShutdown = cam.toLowerCase().replaceAll(":", "") + ".mode=shutdown";
   let camOff = cam.toLowerCase().replaceAll(":", "") + ".mode=paused";
   let url = cam.toLowerCase().replaceAll(":", "") + ".RTMPURL";
 
-  if (prevConOn != null && con != "Select") {
-    console.log("previous con");
-    onActs.value.replaceAll(prevConOn, conOn);
-    prevConOn = conOn;
-    offActs.value.replaceAll(prevConOff, conOff);
-    prevConOff = conOff;
-  } else if (con != "Select") {
-    onActs.value += conOn + ",";
-    prevConOn = conOn;
-    offActs.value += conOff + ",";
-    prevConOff = conOff;
+  if (prevControllerOn != null && controller != "Select") {
+    onActs.value.replaceAll(prevControllerOn, controllerOn);
+    prevControllerOn = controllerOn;
+    offActs.value.replaceAll(prevControllerOff, controllerOff);
+    prevControllerOff = controllerOff;
+  } else if (controller != "Select") {
+    onActs.value += controllerOn + ",";
+    prevControllerOn = controllerOn;
+    offActs.value += controllerOff + ",";
+    prevControllerOff = controllerOff;
   }
   if (prevCamOn != null && cam != "Select") {
     onActs.value.replaceAll(prevCamOn, camOn);
