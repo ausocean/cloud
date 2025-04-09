@@ -47,51 +47,61 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function generateActions(e) {
-  let onActs = document.getElementById("on-actions");
-  let shutdownActs = document.getElementById("shutdown-actions");
-  let offActs = document.getElementById("off-actions");
-  let rtmpVar = document.getElementById("rtmp-var");
+  const onActs = document.getElementById("on-actions");
+  const shutdownActs = document.getElementById("shutdown-actions");
+  const offActs = document.getElementById("off-actions");
+  const rtmpVar = document.getElementById("rtmp-var");
 
-  let controller = controllerSelect.options[controllerSelect.selectedIndex].value;
-  let cam = camSelect.options[camSelect.selectedIndex].value;
+  const controller = getSelectedValue(controllerSelect);
+  const cam = getSelectedValue(camSelect);
 
-  let controllerOn = controller.toLowerCase().replaceAll(":", "") + ".Power2=true";
-  let controllerOff = controller.toLowerCase().replaceAll(":", "") + ".Power2=false";
-  let camOn = cam.toLowerCase().replaceAll(":", "") + ".mode=normal";
-  let camShutdown = cam.toLowerCase().replaceAll(":", "") + ".mode=shutdown";
-  let camOff = cam.toLowerCase().replaceAll(":", "") + ".mode=paused";
-  let url = cam.toLowerCase().replaceAll(":", "") + ".RTMPURL";
+  const controllerSelected = controller !== "Select";
+  const camSelected = cam !== "Select";
 
-  if (prevControllerOn != null && controller != "Select") {
-    onActs.value.replaceAll(prevControllerOn, controllerOn);
-    prevControllerOn = controllerOn;
-    offActs.value.replaceAll(prevControllerOff, controllerOff);
-    prevControllerOff = controllerOff;
-  } else if (controller != "Select") {
-    onActs.value += controllerOn + ",";
-    prevControllerOn = controllerOn;
-    offActs.value += controllerOff + ",";
-    prevControllerOff = controllerOff;
+  // If nothing is selected, just clear everything
+  if (!controllerSelected && !camSelected) {
+    console.log("Nothing selected. Clearing all action fields.");
+    onActs.value = "";
+    shutdownActs.value = "";
+    offActs.value = "";
+    rtmpVar.value = "";
+    return;
   }
-  if (prevCamOn != null && cam != "Select") {
-    onActs.value.replaceAll(prevCamOn, camOn);
-    prevCamOn = camOn;
-    shutdownActs.value.replaceAll(prevCamShutdown, camShutdown);
-    prevCamShutdown = camShutdown;
-    offActs.value.replaceAll(prevCamOff, camOff);
-    prevCamOff = camOff;
-    rtmpVar.value.replaceAll(prevURL, url);
-    prevURL = url;
-  } else if (cam != "Select") {
-    onActs.value += camOn + ",";
-    prevCamOn = camOn;
-    shutdownActs.value += camShutdown + ",";
-    prevCamShutdown = camShutdown;
-    offActs.value += camOff + ",";
-    prevCamOff = camOff;
-    rtmpVar.value += url;
-    prevURL = url;
+
+  let onActions = [];
+  let shutdownActions = [];
+  let offActions = [];
+
+  if (controllerSelected) {
+    const controllerBase = macToID(controller);
+    onActions.push(`${controllerBase}.Power2=true`);
+    offActions.push(`${controllerBase}.Power2=false`);
+    console.log(`Generated controller actions for ${controller} → ${controllerBase}`);
   }
+
+  if (camSelected) {
+    const camBase = macToID(cam);
+    onActions.push(`${camBase}.mode=normal`);
+    shutdownActions.push(`${camBase}.mode=shutdown`);
+    offActions.push(`${camBase}.mode=paused`);
+    rtmpVar.value = `${camBase}.RTMPURL`;
+    console.log(`Generated camera actions for ${cam} → ${camBase}`);
+  } else {
+    rtmpVar.value = "";
+  }
+
+  // Join all values with commas and update the fields
+  onActs.value = onActions.join(",");
+  shutdownActs.value = shutdownActions.join(",");
+  offActs.value = offActions.join(",");
+}
+
+function getSelectedValue(selectElement) {
+  return selectElement.options[selectElement.selectedIndex].value;
+}
+
+function macToID(mac) {
+  return mac.toLowerCase().replaceAll(":", "");
 }
 
 function handleSiteChange(event) {

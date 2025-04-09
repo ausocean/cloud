@@ -157,12 +157,14 @@
               <label for="camera-mac" class="w-25 text-end">Camera:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
                 <select id="camera-select" name="camera-mac" class="form-select w-50">
-                  {{if not .CurrentBroadcast.CameraMac}}
-                  <option>Select</option>
-                  {{end}} {{range .Cameras}}
-                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
-                  {{ end }}
-                </select>
+                  <option {{if eq .CurrentBroadcast.CameraMac 0}}selected{{end}}>Select</option>
+                  {{range .Cameras}}
+                    <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>
+                      {{.Name}}
+                    </option>
+                  {{end}}
+                </select>                
+                
                 <div class="d-flex gap-3 flex-row">
                   {{range .Settings.Resolution}}
                   <div>
@@ -177,12 +179,13 @@
               <label for="controller-mac" class="w-25 text-end">Controller:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
                 <select id="controller-select" name="controller-mac" class="form-select w-50">
-                  {{if not .CurrentBroadcast.ControllerMAC}}
-                  <option>Select</option>
-                  {{end}} {{range .Controllers}}
-                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC }}selected{{end}}>{{.Name}}</option>
-                  {{ end }}
-                </select>
+                  <option {{if eq .CurrentBroadcast.ControllerMAC 0}}selected{{end}}>Select</option>
+                  {{range .Controllers}}
+                    <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC}}selected{{end}}>
+                      {{.Name}}
+                    </option>
+                  {{end}}
+                </select>                
                 <button type="button" onclick="generateActions()" class="btn btn-primary">Generate Actions</button>
               </div>
             </div>
