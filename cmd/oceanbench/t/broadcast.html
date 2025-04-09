@@ -156,7 +156,7 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="camera-mac" class="w-25 text-end">Camera:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
-                <select id="camera-select" name="camera-mac" class="form-select w-50">
+                <select id="camera-select" name="camera-mac" class="form-select h-auto w-50">
                   <option {{if eq .CurrentBroadcast.CameraMac 0}}selected{{end}}>Select</option>
                   {{range .Cameras}}
                     <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>
@@ -178,7 +178,7 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="controller-mac" class="w-25 text-end">Controller:</label>
               <div class="w-50 d-flex align-items-center justify-content-between">
-                <select id="controller-select" name="controller-mac" class="form-select w-50">
+                <select id="controller-select" name="controller-mac" class="form-select h-auto w-50">
                   <option {{if eq .CurrentBroadcast.ControllerMAC 0}}selected{{end}}>Select</option>
                   {{range .Controllers}}
                     <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC}}selected{{end}}>
