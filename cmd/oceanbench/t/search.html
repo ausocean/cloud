@@ -175,6 +175,7 @@
                 {{ range .Device.InputList }}
                 <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
                 {{ end }}
+                <option value="throughput" {{ if eq $.Pn "throughput"}}selected{{end}}>throughput</option>
               </select>
             </div>
             {{ end }}
@@ -261,7 +262,7 @@
           </div>
           {{ if or (or (eq .PinType 'V') (eq .PinType 'T')) (eq .PinType 'S') -}}
           <button class="btn btn-primary" onclick="searchQuery(this.form)">Search</button>
-          {{ end -}} {{ if or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') -}}
+          {{ end -}} {{ if or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') (eq .Pn "throughput") -}}
           <div class="d-flex gap-2 align-items-center">
             <button class="btn btn-primary" onclick="exportQuery(this.form)">Export</button>
             <p class="p-0">OR</p>
