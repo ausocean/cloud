@@ -81,9 +81,9 @@ function generateActions(e) {
 
   if (camSelected) {
     const camBase = macToID(cam);
-    onActions.push(`${camBase}.mode=normal`);
-    shutdownActions.push(`${camBase}.mode=shutdown`);
-    offActions.push(`${camBase}.mode=paused`);
+    onActions.push(`${camBase}.mode=Normal`);
+    shutdownActions.push(`${camBase}.mode=Shutdown`);
+    offActions.push(`${camBase}.mode=Paused`);
     rtmpVar.value = `${camBase}.RTMPURL`;
     console.log(`Generated camera actions for ${cam} → ${camBase}`);
   } else {
