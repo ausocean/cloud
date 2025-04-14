@@ -1471,11 +1471,9 @@ func TestSubFeed(t *testing.T) {
 		t.Fatalf("could not get store: %v", err)
 	}
 
-	// Clear any existing subfeeds.
-	store.Delete(ctx, store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", testSubFeedFeedID, testSubFeedID)))
-	store.Delete(ctx, store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", testSubFeedFeedID, testSubFeedID+1)))
-
 	startTime := time.Now().UTC().Truncate(0)
+
+	// Add an arbitrary amount of time to differentiate start and finish.
 	finishTime := startTime.Add(1 * time.Hour)
 
 	subfeed := &SubFeed{
@@ -1544,6 +1542,14 @@ func TestSubFeed(t *testing.T) {
 	if subfeed4 != nil {
 		t.Errorf("expected nil, got %v", subfeed4)
 	}
+
+	// Cleanup.
+	t.Cleanup(func() {
+		err := os.RemoveAll("vidgrind")
+		if err != nil {
+			panic(err)
+		}
+	})
 }
 
 // Benchmarks follow.
