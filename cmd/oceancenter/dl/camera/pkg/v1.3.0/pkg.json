@@ -1,0 +1,22 @@
+{
+  "device": "camera",
+  "description": "Software release for AusOcean Camera.",
+  "version": "v1.3.0",
+  "components": [
+    {
+      "name": "rv",
+      "shared": true,
+      "version": "v1.8.0",
+      "executable": true,
+      "dir": "/opt/ausocean/bin",
+      "checksum": "790616b233c524468ff576986a04aee1"
+    },
+    {
+      "name": "license.txt",
+      "shared": true,
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/doc",
+      "checksum": "33510d84aed050b008d72cba9e6e5ea5"
+    }
+  ]
+}
