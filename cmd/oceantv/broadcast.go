@@ -373,9 +373,19 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...int
 	return nil
 }
 
+// errNoShutdownActions represents no shutdown actions being registered for the broadcast.
 var errNoShutdownActions = errors.New("no shutdown actions provided")
 
+// warnSkipShutdown is a pseudo-error which represents that shutdown was skipped.
+var warnSkipShutdown = errors.New("shutdown set to skip")
+
+// SkipAction is the placeholder used to represent that the action step should be skipped.
+const SkipAction = "skip"
+
 func extShutdown(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+	if cfg.ShutdownActions == SkipAction {
+		return warnSkipShutdown
+	}
 	if cfg.ShutdownActions == "" {
 		return errNoShutdownActions
 	}
