@@ -1386,6 +1386,37 @@ func testSubscriber(t *testing.T, kind string) {
 	if !reflect.DeepEqual(s1, s2) {
 		t.Errorf("Got different subscriber than updated (by ID), got: \n%+v, wanted \n%+v", s2, s1)
 	}
+
+	// Create an additional subscriber.
+	s3 := &Subscriber{1098765432, "", "second@example.com", "Second", "User", nil, "", "", time.Now().Round(time.Second).UTC()}
+	err = CreateSubscriber(ctx, store, s3)
+	if err != nil {
+		t.Errorf("CreateSubscriber (second) failed with error: %v", err)
+	}
+
+	// Test GetAllSubscribers.
+	subscribers, err := GetAllSubscribers(ctx, store)
+	if err != nil {
+		t.Errorf("GetAllSubscribers failed with error: %v", err)
+	}
+
+	var found1, found2 bool
+	for _, sub := range subscribers {
+		if reflect.DeepEqual(sub, *s1) {
+			found1 = true
+		}
+		if reflect.DeepEqual(sub, *s3) {
+			found2 = true
+		}
+	}
+
+	if !found1 {
+		t.Errorf("GetAllSubscribers did not return the first subscriber: %+v", s1)
+	}
+	if !found2 {
+		t.Errorf("GetAllSubscribers did not return the second subscriber: %+v", s3)
+	}
+
 }
 
 // testSubscriber tests Subscription methods.
