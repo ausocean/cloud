@@ -58,11 +58,12 @@ var _ = registerEvent(startFailedEvent{})
 
 func (e startFailedEvent) String() string { return "startFailedEvent" }
 
-type criticalFailureEvent struct{}
+type criticalFailureEvent struct{ string }
 
 var _ = registerEvent(criticalFailureEvent{})
 
 func (e criticalFailureEvent) String() string { return "criticalFailureEvent" }
+func (e criticalFailureEvent) Error() string  { return e.string }
 
 type healthCheckDueEvent struct{}
 
