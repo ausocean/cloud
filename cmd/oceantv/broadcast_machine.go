@@ -169,13 +169,6 @@ func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueE
 }
 
 func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidConfigurationEvent) {
-	sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
-	try(
-		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
-		"could not disable broadcast after invalid configuration",
-		sm.logAndNotifySoftware,
-	)
-
 	switch sm.currentState.(type) {
 	case
 		*vidforwardPermanentStarting,
@@ -187,12 +180,28 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		*vidforwardPermanentTransitionSlateToLive,
 		*vidforwardPermanentFailure:
 
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 
 	case
 		*vidforwardSecondaryStarting,
 		*vidforwardSecondaryLive,
 		*vidforwardSecondaryLiveUnhealthy:
+
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
 
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 
@@ -201,7 +210,7 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		*directLive,
 		*directLiveUnhealthy:
 
-		sm.transition(newDirectIdle(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -246,7 +255,7 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 	sm.log("handling hardware start failed event")
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("hardware start failed"))
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(event)
 	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
 		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
@@ -305,19 +314,16 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 	return nil
 }
 
-var errControllerFailure = errors.New("controller not reporting")
-
 func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFailureEvent) error {
 	sm.log("handling controller failure event")
 	switch sm.currentState.(type) {
 	case *directStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
-		sm.transition(newDirectIdle(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 	case *vidforwardPermanentStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case *vidforwardSecondaryStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	default:
 		// Do nothing.
