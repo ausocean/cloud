@@ -620,7 +620,12 @@ func TestHardwareStopAndRestart(t *testing.T) {
 				}
 
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current state: %s, wanted state: %s",
+						maxTicks,
+						stateToString(sys.hsm.currentState),
+						stateToString(tt.finalHardwareState),
+					)
 					return
 				}
 
