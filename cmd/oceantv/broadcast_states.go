@@ -38,7 +38,7 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 }
 
 const (
-	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown.
+	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown or un-categorized.
 	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
 	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
 	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
@@ -818,15 +818,14 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
-				e = criticalFailureEvent{"exceeded broadcast start failure limit"}
-				ctx.logAndNotify(broadcastGeneric, "broadcast start failure limit reached after %d attempts, entering broadcast failure state, error: %v)", _cfg.StartFailures, err)
+				e = criticalFailureEvent{fmt.Errorf("exceeded broadcast start failure limit: %w", err)}
 				_cfg.StartFailures = 0
 				return
 			}
 
 			// Less critical start failure event; this will give us another chance to broadcast
 			// if disableOnFirstFail is false.
-			e = startFailedEvent{}
+			e = startFailedEvent{fmt.Errorf("failed to start broadcast: %w", err)}
 		}),
 			"could not update config after failed start",
 			ctx.log,

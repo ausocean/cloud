@@ -1370,7 +1370,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				c.CameraMac = 0
 			},
 			initialState: &directIdle{},
-			finalState:   &directIdle{},
+			finalState:   &directFailure{},
 			expectedEvents: []event{
 				timeEvent{},
 				startEvent{},
@@ -1380,13 +1380,12 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs: []string{
-				"(hardware sm) camera is not set in configuration",
-				"got invalid configuration event, disabling broadcast: camera mac is empty",
+				"(invalidConfigurationEvent) camera mac is empty",
 			},
 			expectedNotify: map[int64]map[notify.Kind][]string{
 				testSiteKey: {
 					broadcastConfiguration: []string{
-						"(name: , id: ) got invalid configuration event, disabling broadcast: camera mac is empty",
+						"(name: , id: ) error event: (invalidConfigurationEvent) camera mac is empty",
 					},
 				},
 			},
@@ -1420,7 +1419,6 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			logRecorder := newLogRecorder(t)
 
 			ctx, _ := context.WithCancel(context.Background())
-			const hardwareHealthy = true
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
@@ -1455,7 +1453,12 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			const maxTicks = 10
 			for tick := 0; true; tick++ {
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current state: %s, wanted state: %s",
+						maxTicks,
+						stateToString(sys.sm.currentState),
+						stateToString(tt.finalState),
+					)
 					return
 				}
 				err = sys.tick()
@@ -1631,7 +1634,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				c.ControllerMAC = 1
 			},
 			initialBroadcastState: &directIdle{},
-			finalBroadcastState:   &directIdle{},
+			finalBroadcastState:   &directFailure{},
 			finalHardwareState:    &hardwareFailure{},
 			hardwareMan:           newDummyHardwareManager(withHardwareFault()),
 			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
@@ -1642,9 +1645,6 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				startEvent{},
 				hardwareStartRequestEvent{},
 				controllerFailureEvent{},
-				criticalFailureEvent{},
-				finishedEvent{},
-				hardwareStopRequestEvent{},
 				finishedEvent{},
 				hardwareStopRequestEvent{},
 			},
@@ -1810,7 +1810,14 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				}
 
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current broadcast state: %s, wanted broadcast state: %s, current hardware state: %s, wanted hardware state: %s",
+						maxTicks,
+						stateToString(sys.sm.currentState),
+						stateToString(tt.finalBroadcastState),
+						stateToString(sys.hsm.currentState),
+						stateToString(tt.finalHardwareState),
+					)
 					return
 				}
 

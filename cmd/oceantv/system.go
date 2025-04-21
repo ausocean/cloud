@@ -53,9 +53,10 @@ func withHardwareManager(hm hardwareManager) broadcastSystemOption {
 
 func withEventBus(bus eventBus) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
+		for _, h := range bs.ctx.bus.(*basicEventBus).handlers {
+			bus.subscribe(h)
+		}
 		bs.ctx.bus = bus
-		bus.subscribe(bs.sm.handleEvent)
-		bus.subscribe(bs.hsm.handleEvent)
 		return nil
 	}
 }
@@ -123,9 +124,10 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 	// to the config and then load them next time we perform checks.
 	storeEventsAfterCtx := func(event event) {
 		log("storing event after cancel: %s", event.String())
+		eventData := marshalEvent(event)
 		try(
 			man.Save(nil, func(_cfg *BroadcastConfig) {
-				_cfg.Events = append(_cfg.Events, event.String())
+				_cfg.Events = append(_cfg.Events, string(eventData))
 			}),
 			"could not update config with callback",
 			log,
@@ -136,6 +138,14 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 
 	// This context will be used by the state machines for access to our bits and bobs.
 	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, logOutput, nil}
+
+	// Subscribe event handler that notifies on events that implement errorEvent.
+	bus.subscribe(func(event event) error {
+		if errEvent, ok := event.(errorEvent); ok {
+			broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
+		}
+		return nil
+	})
 
 	// The broadcast state machine will be responsible for higher level broadcast control.
 	sm, err := getBroadcastStateMachine(broadcastContext)
@@ -201,10 +211,10 @@ func (bs *broadcastSystem) tick() error {
 		return nil
 	}
 
-	for _, event := range bs.ctx.cfg.Events {
-		e := stringToEvent(event)
-		bs.log("publishing stored event: %s", e.String())
-		bs.ctx.bus.publish(e)
+	for _, eventData := range bs.ctx.cfg.Events {
+		event := unmarshalEvent(eventData)
+		bs.log("publishing stored event: %s", event.String())
+		bs.ctx.bus.publish(event)
 	}
 
 	// Remove stored events we just published from the config.
