@@ -1338,53 +1338,96 @@ func testCron(t *testing.T, kind string) {
 // testSubscriber tests Subscriber methods.
 func testSubscriber(t *testing.T, kind string) {
 	ctx := context.Background()
+
+	// Define test subscriber IDs and emails.
+	sub1ID := int64(testSubscriberID)
+	sub1Email := testUserEmail
+
+	sub2ID := int64(1098765432)
+	sub2Email := "second@example.com"
+
+	sub1Key := fmt.Sprintf("%d.%s", sub1ID, sub1Email)
+	sub2Key := fmt.Sprintf("%d.%s", sub2ID, sub2Email)
+
+	// Create test subscriber objects.
+	s1a := &Subscriber{sub1ID, "", sub1Email, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
+	s2 := &Subscriber{sub2ID, "", sub2Email, "Second", "User", nil, "", "", time.Now().Round(time.Second).UTC()}
+
+	// Create a new store instance.
 	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
 	if err != nil {
 		t.Fatalf("could not create new store: %v", err)
 	}
 
-	// Since we will create a new subscriber, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.IDKey(typeSubscriber, testSubscriberID))
+	// Delete any existing test subscriber entries before starting.
+	for _, key := range []string{sub1Key, sub2Key} {
+		err := store.Delete(ctx, store.NameKey(typeSubscriber, key))
+		if err != nil && err != datastore.ErrNoSuchEntity && !os.IsNotExist(err) {
+			t.Fatalf("failed to delete test subscriber key %q: %v", key, err)
+		}
+	}
 
-	// Remove the monotonic time element from the Created field.
-	s1 := &Subscriber{testSubscriberID, "", testUserEmail, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
+	// Create and verify subscriber 1.
+	if err := CreateSubscriber(ctx, store, s1a); err != nil {
+		t.Errorf("CreateSubscriber failed: %v", err)
+	}
 
-	err = CreateSubscriber(ctx, store, s1)
+	s1b, err := GetSubscriber(ctx, store, s1a.ID)
 	if err != nil {
-		t.Errorf("CreateSubscriber failed with error: %v", err)
+		t.Errorf("GetSubscriber failed: %v", err)
+	}
+	if !reflect.DeepEqual(s1a, s1b) {
+		t.Errorf("Subscriber mismatch (by ID). Got:\n%+v\nWanted:\n%+v", s1b, s1a)
 	}
 
-	s2, err := GetSubscriber(ctx, store, s1.ID)
+	s1b, err = GetSubscriberByEmail(ctx, store, sub1Email)
 	if err != nil {
-		t.Errorf("GetSubscriber failed with error: %v", err)
+		t.Errorf("GetSubscriberByEmail failed: %v", err)
+	}
+	if !reflect.DeepEqual(s1a, s1b) {
+		t.Errorf("Subscriber mismatch (by Email). Got:\n%+v\nWanted:\n%+v", s1b, s1a)
 	}
 
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than created (by ID), got: \n%+v, wanted \n%+v", s2, s1)
+	// Update and verify subscriber 1.
+	s1a.FamilyName = "New-Name"
+	if err := UpdateSubscriber(ctx, store, s1a); err != nil {
+		t.Errorf("UpdateSubscriber failed: %v", err)
 	}
 
-	s2, err = GetSubscriberByEmail(ctx, store, testUserEmail)
+	s1b, err = GetSubscriber(ctx, store, s1a.ID)
 	if err != nil {
-		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+		t.Errorf("GetSubscriber failed after update: %v", err)
+	}
+	if !reflect.DeepEqual(s1a, s1b) {
+		t.Errorf("Subscriber mismatch after update. Got:\n%+v\nWanted:\n%+v", s1b, s1a)
 	}
 
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than created (by Email), got: \n%+v, wanted \n%+v", s2, s1)
+	// Create and verify subscriber 2.
+	if err := CreateSubscriber(ctx, store, s2); err != nil {
+		t.Errorf("CreateSubscriber (second) failed: %v", err)
 	}
 
-	s1.FamilyName = "New-Name"
-	err = UpdateSubscriber(ctx, store, s1)
+	// Fetch all subscribers and check that both are present.
+	subscribers, err := GetAllSubscribers(ctx, store)
 	if err != nil {
-		t.Errorf("UpdateSubscriber failed with error: %v", err)
+		t.Errorf("GetAllSubscribers failed: %v", err)
 	}
 
-	s2, err = GetSubscriber(ctx, store, testSubscriberID)
-	if err != nil {
-		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+	var found1, found2 bool
+	for _, sub := range subscribers {
+		if reflect.DeepEqual(sub, *s1a) {
+			found1 = true
+		}
+		if reflect.DeepEqual(sub, *s2) {
+			found2 = true
+		}
 	}
 
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than updated (by ID), got: \n%+v, wanted \n%+v", s2, s1)
+	if !found1 {
+		t.Errorf("GetAllSubscribers did not return the first subscriber: %+v", s1a)
+	}
+	if !found2 {
+		t.Errorf("GetAllSubscribers did not return the second subscriber: %+v", s2)
 	}
 }
 
