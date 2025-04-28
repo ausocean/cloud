@@ -1,6 +1,7 @@
 import p5 from "p5";
 
 let tasks: any[] = [];
+let visibleTasks: any[] = [];
 
 let timelineStart: number;
 let timelineEnd: number;
@@ -20,8 +21,30 @@ let toolTipTask: any = null;
 const sketch = (p: p5) => {
     p.setup = async () => {
         await fetchGanttData();
+        visibleTasks = [...tasks];
+
+        const checkbox = document.getElementById("hide-past-tasks") as HTMLInputElement;
+
+        function updateVisibleTasks() {
+            const now = new Date().toISOString().split("T")[0];
+
+            if (checkbox.checked) {
+                visibleTasks = tasks.filter(task => {
+                    return !task.end || task.end >= now;
+                });
+            } else {
+                visibleTasks = [...tasks];
+            }
+
+            redraw = true;
+        }
+
+        checkbox.addEventListener("change", () => {
+            updateVisibleTasks();
+        });
+
         const canvasWidth = p.windowWidth * 0.9;
-        const canvasHeight = Math.max(p.windowHeight * 0.8, tasks.length * yBoxSpacing + 300);
+        const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300);
         const canvas = p.createCanvas(canvasWidth, canvasHeight);
         canvas.parent("canvas-container");
 
@@ -46,8 +69,8 @@ const sketch = (p: p5) => {
 
         console.log("🚀 Initializing Gantt Chart...");
     
-        timelineStart = Math.min(...tasks.map(t => new Date(t.start).getTime()));
-        timelineEnd = Math.max(...tasks.map(t => new Date(t.end).getTime()));
+        timelineStart = Math.min(...visibleTasks.map(t => new Date(t.start).getTime()));
+        timelineEnd = Math.max(...visibleTasks.map(t => new Date(t.end).getTime()));
         redraw = true;
         p.frameRate(30);
     };
@@ -58,7 +81,7 @@ const sketch = (p: p5) => {
         let mileStoneBoxHeight = 20;
         let maxYLevel = 20; // Default top margin
 
-        tasks.forEach(task => {
+        visibleTasks.forEach(task => {
             if (task.milestone) {
                 let x = dateToX(task.milestone, p);
                 let boxWidth = p.textWidth(task.name) + 10;
@@ -96,7 +119,7 @@ const sketch = (p: p5) => {
         document.body.style.cursor = "default"; // Reset cursor on each frame
         let isHovering = false;
         let showToolTip = false;
-        tasks.forEach((task, i) => {
+        visibleTasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p);
             let xEnd = dateToX(task.end, p);
             let y = i * yBoxSpacing + timelineTop;
@@ -214,7 +237,7 @@ const sketch = (p: p5) => {
         }
 
         // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
-        tasks.forEach((task, index) => {
+        visibleTasks.forEach((task, index) => {
             let yPos = index * yBoxSpacing + timelineTop + 5;
             let backgroundColor = ownerColors[task.owner] || ownerColors["Other"];
 
@@ -228,7 +251,7 @@ const sketch = (p: p5) => {
         milestoneLevels = [];
 
         p.strokeWeight(2);
-        tasks.forEach(task => {
+        visibleTasks.forEach(task => {
             if (task.milestone) {
                 let x = dateToX(task.milestone, p);
 
@@ -267,15 +290,15 @@ const sketch = (p: p5) => {
             }
         });
         
-        tasks.forEach((task, i) => {
+        visibleTasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p);
             let y = i * yBoxSpacing + timelineTop;
             // ---------------- DRAW DEPENDENCY ARROWS ----------------
             task.dependencies.forEach(depID => {
-                let dependencyTask = tasks.find(t => t.id === depID);
+                let dependencyTask = visibleTasks.find(t => t.id === depID);
                 if (dependencyTask) {
                     let xDepEnd = dateToX(dependencyTask.end, p); // Pointing to dependency's end
-                    let yDep = tasks.indexOf(dependencyTask) * yBoxSpacing + timelineTop;
+                    let yDep = visibleTasks.indexOf(dependencyTask) * yBoxSpacing + timelineTop;
         
                     drawArrow(p, xStart, y + barHeight / 2, xDepEnd, yDep + barHeight / 2);
                 }
@@ -283,7 +306,7 @@ const sketch = (p: p5) => {
         });
 
         // ---------------- TASK BOXES ----------------
-        tasks.forEach((task, i) => {
+        visibleTasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p);
             let xEnd = dateToX(task.end, p);
             let y = i * yBoxSpacing + timelineTop;
@@ -329,7 +352,7 @@ const sketch = (p: p5) => {
 
         // ---------------- LABEL FOR OWNER ----------------
         let currentOwner = "";
-        tasks.forEach((task, index) => {
+        visibleTasks.forEach((task, index) => {
             // Only draw Owner name when it changes (first occurrence).
             let yPos = index * yBoxSpacing + timelineTop + 5;
             if (task.owner !== currentOwner) {
@@ -351,7 +374,7 @@ const sketch = (p: p5) => {
         });
 
         // ---------------- TASK TOOL TIP ----------------
-        tasks.forEach((task, i) => {
+        visibleTasks.forEach((task, i) => {
             if (showToolTip && toolTipTask === task) {
                 drawTooltip(p, task, p.mouseX, p.mouseY);
             }
@@ -369,10 +392,10 @@ const sketch = (p: p5) => {
         selectedTask = null;
         draggingEdge = null;
     
-        tasks.forEach((task) => {
+        visibleTasks.forEach((task) => {
             let xStart = dateToX(task.start, p);
             let xEnd = dateToX(task.end, p);
-            let y = tasks.indexOf(task) * yBoxSpacing + timelineTop;
+            let y = visibleTasks.indexOf(task) * yBoxSpacing + timelineTop;
             let edgePadding = 5;
     
             if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
