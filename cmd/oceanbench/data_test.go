@@ -67,30 +67,42 @@ func TestPutScalars(t *testing.T) {
 	ctx := context.Background()
 	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
 	if err != nil {
-		t.Errorf("NewStore failed with error: %v", err)
+		t.Fatalf("NewStore failed with error: %v", err)
 	}
 
-	// Skip if data is already present.
 	id := model.ToSID(mac, pin)
-	scalars, err := model.GetScalars(ctx, store, id, []int64{datastore.EpochStart, datastore.EpochStart + minutesInDay*60})
+
+	// Clean up any existing scalars before starting.
+	err = model.DeleteScalars(ctx, store, id)
 	if err != nil {
-		t.Errorf("GetScalars failed with error: %v", err)
+		t.Fatalf("DeleteScalars before test failed with error: %v", err)
 	}
-	if len(scalars) > 0 && len(scalars) < minutesInDay {
-		t.Skipf("Skipping TestPutScalars. Partial scalar data found (%d/%d). Clean up required.", len(scalars), minutesInDay)
-	}
-	if len(scalars) == minutesInDay {
-		t.Skip("Skipping TestPutScalars, scalar data already exists.")
-	}
+
+	// Schedule a clean up after the test ends.
+	t.Cleanup(func() {
+		err := model.DeleteScalars(ctx, store, id)
+		if err != nil {
+			t.Errorf("cleanup: DeleteScalars failed with error: %v", err)
+		}
+	})
 
 	ts := int64(datastore.EpochStart)
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
 	for i := 0; i < minutesInDay; i++ {
-		err := model.PutScalar(ctx, store, &model.Scalar{ID: id, Timestamp: ts, Value: float64(samples[i])})
+		err := model.PutScalar(ctx, store, &model.Scalar{
+			ID:        id,
+			Timestamp: ts,
+			Value:     float64(samples[i]),
+		})
 		if err != nil {
 			t.Errorf("PutScalar failed with error: %v", err)
 		}
 		ts += 60
+
+		// Print progress every 10%.
+		if i%(minutesInDay/10) == 0 {
+			t.Logf("put %d/%d scalars", i, minutesInDay)
+		}
 	}
 }
 
@@ -107,6 +119,43 @@ func TestGetScalars(t *testing.T) {
 	}
 
 	id := model.ToSID(mac, pin)
+
+	t.Log("deleting existing scalars before test")
+	err = model.DeleteScalars(ctx, store, id)
+	if err != nil {
+		t.Fatalf("DeleteScalars before test failed with error: %v", err)
+	}
+
+	// Schedule a clean up after the test finishes.
+	t.Cleanup(func() {
+		t.Log("cleaning up scalars after test")
+		err := model.DeleteScalars(ctx, store, id)
+		if err != nil {
+			t.Errorf("DeleteScalars after test failed with error: %v", err)
+		}
+	})
+
+	t.Log("inserting fresh scalars for test")
+	ts := int64(datastore.EpochStart)
+	samples := sampleSinusoid(amplitude, offset, minutesInDay)
+	for i := 0; i < minutesInDay; i++ {
+		err := model.PutScalar(ctx, store, &model.Scalar{
+			ID:        id,
+			Timestamp: ts,
+			Value:     float64(samples[i]),
+		})
+		if err != nil {
+			t.Fatalf("PutScalar failed with error: %v", err)
+		}
+		ts += 60
+
+		// Print progress every 10%.
+		if i%(minutesInDay/10) == 0 {
+			t.Logf("put %d/%d scalars", i, minutesInDay)
+		}
+	}
+
+	t.Log("fetching scalars from datastore")
 	scalars, err := model.GetScalars(ctx, store, id, []int64{datastore.EpochStart, datastore.EpochStart + minutesInDay*60})
 	if err != nil {
 		t.Fatalf("GetScalars failed with error: %v", err)
@@ -115,8 +164,8 @@ func TestGetScalars(t *testing.T) {
 		t.Fatalf("Expected %d scalars, got %d", minutesInDay, len(scalars))
 	}
 
-	samples := sampleSinusoid(amplitude, offset, minutesInDay)
-	ts := int64(datastore.EpochStart)
+	t.Log("verifying retrieved scalar values")
+	ts = int64(datastore.EpochStart)
 	for i := 0; i < minutesInDay; i++ {
 		if int64(scalars[i].Value) != samples[i] {
 			t.Errorf("#%d: expected %d, got %f", i, samples[i], scalars[i].Value)
@@ -125,53 +174,92 @@ func TestGetScalars(t *testing.T) {
 	}
 }
 
-// TestFestScalars tests fetching scalars via Ocean Bench's /data endpoint.
+// TestFetchScalars tests fetching scalars via Ocean Bench's /data endpoint.
 func TestFetchScalars(t *testing.T) {
-	t.Log("TestFetchScalars")
 	if os.Getenv("VIDGRIND_CREDENTIALS") == "" {
-		t.Skipf("VIDGRIND_CREDENTIALS missing")
+		t.Skipf("VIDGRIND_CREDENTIALS missing.")
 	}
 
-	// Create a request.
+	ctx := context.Background()
+	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
+	if err != nil {
+		t.Fatalf("NewStore failed with error: %v", err)
+	}
+
+	id := model.ToSID(mac, pin)
+
+	t.Log("deleting existing scalars before test.")
+	err = model.DeleteScalars(ctx, store, id)
+	if err != nil {
+		t.Fatalf("DeleteScalars before test failed with error: %v", err)
+	}
+
+	t.Cleanup(func() {
+		t.Log("cleaning up scalars after test.")
+		err := model.DeleteScalars(ctx, store, id)
+		if err != nil {
+			t.Errorf("DeleteScalars after test failed with error: %v", err)
+		}
+	})
+
+	t.Log("inserting fresh scalars for test.")
+	ts := int64(datastore.EpochStart)
+	samples := sampleSinusoid(amplitude, offset, minutesInDay)
+	for i := 0; i < minutesInDay; i++ {
+		err := model.PutScalar(ctx, store, &model.Scalar{
+			ID:        id,
+			Timestamp: ts,
+			Value:     float64(samples[i]),
+		})
+		if err != nil {
+			t.Fatalf("PutScalar failed with error: %v", err)
+		}
+		ts += 60
+
+		if i%(minutesInDay/10) == 0 {
+			t.Logf("inserted %d/%d scalars", i, minutesInDay)
+		}
+	}
+
+	t.Log("creating request to /data endpoint")
 	q := fmt.Sprintf("/data/%d?ma=%s&pn=%s&ds=%d&df=%d&do=csv&tz=0", siteKey, mac, pin, datastore.EpochStart, datastore.EpochStart+minutesInDay*60)
 	req, err := http.NewRequest("GET", q, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a new Recorder to record the response.
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(dataHandler)
 
-	// Invoke the request.
+	t.Log("invoking handler")
 	handler.ServeHTTP(rr, req)
 
-	// Check the response status code is OK.
 	status := rr.Code
 	if status != http.StatusOK {
 		t.Errorf("dataHandler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	// Check the response body is as expected.
+	t.Log("parsing response CSV")
 	reader := csv.NewReader(rr.Body)
 	data, err := reader.ReadAll()
 	if err != nil {
-		t.Errorf("Error parsing CSV: %v", err)
+		t.Errorf("error parsing CSV: %v", err)
 		return
 	}
+
 	if len(data) != minutesInDay {
-		t.Errorf("Expected %d CSV tuples, got %d", minutesInDay*60, len(data))
+		t.Errorf("expected %d CSV tuples, got %d", minutesInDay, len(data))
 	}
 
-	samples := sampleSinusoid(amplitude, offset, minutesInDay)
-	ts := int64(datastore.EpochStart)
+	t.Log("verifying CSV content")
+	ts = int64(datastore.EpochStart)
 	for i := 0; i < minutesInDay; i++ {
 		d, err := time.Parse(dateFmt, data[i][0])
 		if err != nil {
 			t.Errorf("#%d: error parsing date: %v", i, err)
 		}
 		if d.Unix() != ts {
-			t.Errorf("#%d: expected timestamp of %d, got %d", i, samples[i], d.Unix())
+			t.Errorf("#%d: expected timestamp of %d, got %d", i, ts, d.Unix())
 		}
 		v, err := strconv.ParseInt(data[i][1], 10, 64)
 		if err != nil {
