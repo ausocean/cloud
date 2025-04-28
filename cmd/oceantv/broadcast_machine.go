@@ -235,7 +235,7 @@ func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailur
 		// will subsequently be in a failure state.
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	case *directStarting:
-		sm.transition(newDirectFailure(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}

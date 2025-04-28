@@ -493,12 +493,13 @@ func (s *directIdle) enter() {
 }
 
 type directFailure struct {
+	err error
 	stateFields
 	*broadcastContext `json: "-"`
 }
 
-func newDirectFailure(ctx *broadcastContext) *directFailure {
-	return &directFailure{broadcastContext: ctx}
+func newDirectFailure(ctx *broadcastContext, err error) *directFailure {
+	return &directFailure{broadcastContext: ctx, err: err}
 }
 func (s *directFailure) enter() {
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
@@ -508,6 +509,19 @@ func (s *directFailure) enter() {
 		s.bus.publish(finishedEvent{})
 	}
 	s.bus.publish(hardwareStopRequestEvent{})
+}
+
+func (s *directFailure) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct{ Err string }{Err: s.err.Error()})
+}
+
+func (s *directFailure) UnmarshalJSON(data []byte) error {
+	aux := struct{ Err string }{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	s.err = errors.New(aux.Err)
+	return nil
 }
 
 func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
@@ -738,7 +752,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 	case !vid && !slate && !unhealthy && starting && !isSecondary && !inFailure:
 		newState = newDirectStarting(ctx)
 	case !vid && !slate && !unhealthy && !starting && !isSecondary && inFailure:
-		newState = newDirectFailure(ctx)
+		newState = newDirectFailure(ctx, nil)
 	default:
 		panic(fmt.Sprintf("unknown state for broadcast, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", vid, active, slate, unhealthy, starting, isSecondary, transitioning))
 	}
@@ -804,7 +818,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
-				e = criticalFailureEvent{}
+				e = criticalFailureEvent{"exceeded broadcast start failure limit"}
 				ctx.logAndNotify(broadcastGeneric, "broadcast start failure limit reached after %d attempts, entering broadcast failure state, error: %v)", _cfg.StartFailures, err)
 				_cfg.StartFailures = 0
 				return

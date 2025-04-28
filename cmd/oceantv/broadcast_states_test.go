@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -309,6 +310,11 @@ func TestBroadcastCfgToState(t *testing.T) {
 			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
 			want: newDirectStarting(ctx),
 		},
+		{
+			name: "Direct Failure",
+			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
+			want: newDirectFailure(ctx, nil),
+		},
 	}
 
 	for _, tt := range tests {
@@ -446,6 +452,13 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 			s:    &directIdle{broadcastContext: ctx},
 			equal: func(a, b state) bool {
 				return true
+			},
+		},
+		{
+			desc: "directFailure",
+			s:    &directFailure{broadcastContext: ctx, err: errors.New("test error")},
+			equal: func(a, b state) bool {
+				return a.(*directFailure).err.Error() == b.(*directFailure).err.Error()
 			},
 		},
 	}
