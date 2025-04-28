@@ -103,14 +103,21 @@ const sketch = (p: p5) => {
 
             let edgePadding = 5; // Hover detection range
             let withinYBounds = p.mouseY >= y && p.mouseY <= y + barHeight;
-            if (withinYBounds && (
-                (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding) ||
-                (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding)
-            )) {
-                document.body.style.cursor = "ew-resize";
+            if (withinYBounds) {
+                if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding) {
+                    document.body.style.cursor = "ew-resize"; // Left edge
+                } else if (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding) {
+                    document.body.style.cursor = "ew-resize"; // Right edge
+                } else if (p.mouseX > xStart + edgePadding && p.mouseX < xEnd - edgePadding) {
+                    if (isDragging && draggingEdge === "middle") {
+                        document.body.style.cursor = "grabbing";
+                    } else {
+                        document.body.style.cursor = "grab"; // Middle of task
+                    }
+                }
             }
 
-            // Detect mouse hover
+            // Detect mouse hover for tool tip
             isHovering = p.mouseX >= xStart && p.mouseX <= xEnd && p.mouseY >= y && p.mouseY <= y + barHeight;
             if (isHovering) {
                 toolTipTask = task;
@@ -357,8 +364,6 @@ const sketch = (p: p5) => {
     p.mousePressed = () => {
         dateAreaHeight = timelineTop;
         isDragging = true;
-
-        // Just store the current mouse position directly
         dragStartX = p.mouseX;
     
         selectedTask = null;
@@ -376,17 +381,22 @@ const sketch = (p: p5) => {
             } else if (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
                 draggingEdge = "end";
                 selectedTask = task;
+            } else if (p.mouseX > xStart + edgePadding && p.mouseX < xEnd - edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+                draggingEdge = "middle";
+                selectedTask = task;
             }
         });
     };    
 
     p.mouseReleased = () => {
         isDragging = false;
+        accumulatedDeltaMillis = 0;
     };
 
-    let draggingEdge: "start" | "end" | null = null;
+    let draggingEdge: "start" | "end" | "middle" | null = null;
     let selectedTask: any = null;
     let dateAreaHeight = 50; // Adjust as needed
+    let accumulatedDeltaMillis = 0;
 
     p.mouseDragged = () => {
         let canvasWidth = p.width;
@@ -410,8 +420,30 @@ const sketch = (p: p5) => {
             selectedTask.start = newDate;
         } else if (draggingEdge === "end") {
             selectedTask.end = newDate;
-        }
-    };    
+        } else if (draggingEdge === "middle") {
+            let deltaPixels = p.mouseX - p.pmouseX;
+            let timeRange = timelineEnd - timelineStart;
+            let millisPerPixel = timeRange / ((p.width - startX) * zoomLevel);
+            let deltaMillis = deltaPixels * millisPerPixel;
+        
+            accumulatedDeltaMillis += deltaMillis; // ✅ Accumulate movement
+        
+            const oneDayMillis = 24 * 60 * 60 * 1000;
+        
+            // ✅ Only if we have moved a full day (or more)
+            if (Math.abs(accumulatedDeltaMillis) >= oneDayMillis) {
+                const dayChange = Math.round(accumulatedDeltaMillis / oneDayMillis);
+        
+                let startMillis = new Date(selectedTask.start).getTime() + dayChange * oneDayMillis;
+                let endMillis = new Date(selectedTask.end).getTime() + dayChange * oneDayMillis;
+        
+                selectedTask.start = new Date(startMillis).toISOString().split("T")[0];
+                selectedTask.end = new Date(endMillis).toISOString().split("T")[0];
+        
+                accumulatedDeltaMillis -= dayChange * oneDayMillis; // ✅ Remove committed movement
+            }
+        }        
+    };
 };
 
 new p5(sketch);
