@@ -14,6 +14,7 @@ let nowX = 0;
 let redraw = false;
 let zoomLevel = 1; // Default zoom level
 let timelineTop = 0; // Updated in draw
+let toolTipTask: any = null;
 
 // p5.js sketch
 const sketch = (p: p5) => {
@@ -91,8 +92,10 @@ const sketch = (p: p5) => {
         let headerPadding = 10;
         timelineTop = monthTextSize + dayNumberSize + milestoneSpaceHeight + headerPadding;
 
-        // ---------------- HOVER CURSOR CALC ----------------
+        // ---------------- HOVER CURSOR + TOOLTIP DETECTION ----------------
         document.body.style.cursor = "default"; // Reset cursor on each frame
+        let isHovering = false;
+        let showToolTip = false;
         tasks.forEach((task, i) => {
             let xStart = dateToX(task.start, p);
             let xEnd = dateToX(task.end, p);
@@ -106,7 +109,20 @@ const sketch = (p: p5) => {
             )) {
                 document.body.style.cursor = "ew-resize";
             }
+
+            // Detect mouse hover
+            isHovering = p.mouseX >= xStart && p.mouseX <= xEnd && p.mouseY >= y && p.mouseY <= y + barHeight;
+            if (isHovering) {
+                toolTipTask = task;
+                redraw = true;
+                showToolTip = true;
+            }
         });
+        // If the tool tip task is set (from the previous draw) but we no longer need to show it, draw once again with no tooltip.
+        if (!showToolTip && toolTipTask !== null) {
+            redraw = true;
+            toolTipTask = null;
+        }
         if (!isDragging && !redraw) {
             return;
         }
@@ -251,7 +267,7 @@ const sketch = (p: p5) => {
             task.dependencies.forEach(depID => {
                 let dependencyTask = tasks.find(t => t.id === depID);
                 if (dependencyTask) {
-                    let xDepEnd = dateToX(dependencyTask.end, p); // ✅ Now pointing **to** dependency's end
+                    let xDepEnd = dateToX(dependencyTask.end, p); // Pointing to dependency's end
                     let yDep = tasks.indexOf(dependencyTask) * yBoxSpacing + timelineTop;
         
                     drawArrow(p, xStart, y + barHeight / 2, xDepEnd, yDep + barHeight / 2);
@@ -324,6 +340,13 @@ const sketch = (p: p5) => {
                 p.textSize(14);
                 p.textAlign(p.LEFT);
                 p.text(firstName, 5, yPos + barHeight / 2); // Left-aligned.
+            }
+        });
+
+        // ---------------- TASK TOOL TIP ----------------
+        tasks.forEach((task, i) => {
+            if (showToolTip && toolTipTask === task) {
+                drawTooltip(p, task, p.mouseX, p.mouseY);
             }
         });
 
@@ -454,6 +477,48 @@ function drawArrow(p: p5, x1: number, y1: number, x2: number, y2: number) {
     );
 }
 
+function drawTooltip(p: p5, task: any, x: number, y: number) {
+    const padding = 8;
+    const title = task.name || "(No Title)";
+    const description = task.description || "(No Description)";
+    const category = task.category || "";
+
+    // Set text properties
+    p.textSize(14);
+    p.textAlign(p.LEFT, p.TOP);
+
+    const titleWidth = p.textWidth(title);
+    p.textSize(12);
+    const descWidth = p.textWidth(description);
+    const categoryWidth = p.textWidth(category);
+
+    const boxWidth = Math.max(titleWidth, descWidth, categoryWidth) + padding * 2;
+    const boxHeight = 65; // Adjusted height to fit 3 lines (title, description, category)
+
+    // Keep tooltip inside canvas
+    if (x + boxWidth > p.width) {
+        x = p.width - boxWidth - 10;
+    }
+    if (y + boxHeight > p.height) {
+        y = p.height - boxHeight - 10;
+    }
+
+    // Draw background box
+    p.fill(255);
+    p.stroke(0);
+    p.strokeWeight(1);
+    p.rect(x, y, boxWidth, boxHeight, 5); // Rounded corners
+
+    // Draw text
+    p.noStroke();
+    p.fill(0);
+    p.textSize(14);
+    p.text(title, x + padding, y + padding);
+    p.textSize(12);
+    p.text(description, x + padding, y + padding + 20);
+    p.text(`Category: ${category}`, x + padding, y + padding + 38); // ✅ Category line
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 async function fetchGanttData() {
@@ -491,7 +556,9 @@ async function fetchGanttData() {
 
                 return {
                     id: row.ID,
+                    category: row.Category,
                     name: `${categoryEmoji} ${row.Title}`, // Prepend emoji to task name.
+                    description: row.Description || "",
                     start: startDate,
                     end: endDate,
                     priority: row.Priority || "P5",
