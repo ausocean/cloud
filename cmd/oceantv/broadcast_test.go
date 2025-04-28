@@ -27,6 +27,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -440,13 +441,12 @@ func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
 }
 func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
 	if h.checkMAC && mac == 0 {
-		log("camera is not set in configuration")
-		publish(invalidConfigurationEvent{"camera mac is empty"})
+		publish(invalidConfigurationEvent{errors.New("camera mac is empty")})
 		return
 	}
 	up, err := h.isUp(ctx, model.MacDecode(mac))
 	if err != nil {
-		publish(invalidConfigurationEvent{fmt.Sprintf("could not get device: %v", err)})
+		publish(invalidConfigurationEvent{fmt.Errorf("could not get device: %w", err)})
 		return
 	}
 

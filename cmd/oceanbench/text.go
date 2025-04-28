@@ -45,6 +45,9 @@ func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, strin
 	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		return nil, "", fmt.Errorf("could not get text from datastore: %w", err)
 	}
+	if len(media) == 0 {
+		return nil, "", fmt.Errorf("no text media found for mid=%d", mid)
+	}
 
 	mime := media[0].Type
 	return joinText(media), mime, nil
