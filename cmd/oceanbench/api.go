@@ -219,7 +219,7 @@ func getUserSitesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build permission map
+	// Build permission map.
 	userMap := make(map[int64]int64)
 	for _, u := range users {
 		userMap[u.Skey] = u.Perm
@@ -510,16 +510,35 @@ func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// getPathValue extracts a segment from the URL path at the given index.
-// Returns an error if the path is too short or the index is out of bounds.
+// getPathValue extracts a segment from the URL path at the given zero-based index.
+// The URL path is split using "/" as the delimiter.
+// Because leading slashes in the path produce an empty first element (""), the parts array
+// will have an empty string at index 0.
 //
-// Example: /api/get/site/123 → getPathValue(r, 4) == "123"
+// For example, for the URL "/api/get/site/123", splitting on "/" produces:
+//
+//	["", "api", "get", "site", "123"]
+//
+// Therefore, index 4 corresponds to "123".
+//
+// Returns an error if the path does not have enough parts, or if the extracted part is empty.
 func getPathValue(r *http.Request, index int) (string, error) {
 	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) <= index {
-		return "", fmt.Errorf("invalid URL path: expected at least %d parts, got %d", index+1, len(parts))
+
+	if index < 0 {
+		return "", fmt.Errorf("invalid index %d: must be non-negative", index)
 	}
-	return parts[index], nil
+
+	if len(parts) <= index {
+		return "", fmt.Errorf("invalid URL path %q: expected at least %d segments, got %d", r.URL.Path, index+1, len(parts))
+	}
+
+	val := parts[index]
+	if val == "" {
+		return "", fmt.Errorf("empty path value at index %d in URL %q", index, r.URL.Path)
+	}
+
+	return val, nil
 }
 
 // requireProfile ensures the request is from an authenticated user.

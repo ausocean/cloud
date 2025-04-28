@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.31.4"
+	version     = "v0.31.5"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -241,7 +241,7 @@ func main() {
 	http.HandleFunc("/throughputs", throughputsHandler)
 	http.HandleFunc("/", indexHandler)
 
-	// Setup routes for the API, ie. /api reuqests.
+	// Setup routes for the API, ie. /api requests.
 	setupAPIRoutes()
 
 	if standalone {
