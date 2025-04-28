@@ -272,6 +272,10 @@
               <label for="openfish-capturesource" class="advanced w-25 text-end">OpenFish Capture Source:</label>
               <input class="advanced w-50 form-control" type="input" name="openfish-capturesource" value="{{.CurrentBroadcast.OpenFishCaptureSource}}" />
             </div>
+            <div class="d-flex align-items-center gap-1 mb-1">
+              <label for="notify-suppress-rules" class="advanced w-25 text-end">Notification Suppression Rules:</label>
+              <input class="advanced w-50 form-control" type="input" name="notify-suppress-rules" value="{{.CurrentBroadcast.NotifySuppressRules}}" />
+            </div>
           </fieldset>
           <input type="hidden" name="broadcast-id" value="{{.CurrentBroadcast.ID}}" />
           <input type="hidden" name="active" value="{{.CurrentBroadcast.Active}}" />

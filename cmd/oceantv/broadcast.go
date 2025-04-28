@@ -134,6 +134,7 @@ type BroadcastConfig struct {
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
 	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string        // The capture source to register the stream to.
+	NotifySuppressRules      string        // Suppression rules for notifications.
 }
 
 func (b *BroadcastConfig) PrettyHardwareStateData() string {
