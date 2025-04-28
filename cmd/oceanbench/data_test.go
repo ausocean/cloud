@@ -76,8 +76,11 @@ func TestPutScalars(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetScalars failed with error: %v", err)
 	}
+	if len(scalars) > 0 && len(scalars) < minutesInDay {
+		t.Skipf("Skipping TestPutScalars. Partial scalar data found (%d/%d). Clean up required.", len(scalars), minutesInDay)
+	}
 	if len(scalars) == minutesInDay {
-		t.Skip("Skipping TestPutScalars")
+		t.Skip("Skipping TestPutScalars, scalar data already exists.")
 	}
 
 	ts := int64(datastore.EpochStart)
@@ -100,16 +103,16 @@ func TestGetScalars(t *testing.T) {
 	ctx := context.Background()
 	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
 	if err != nil {
-		t.Errorf("NewStore failed with error: %v", err)
+		t.Fatalf("NewStore failed with error: %v", err)
 	}
 
 	id := model.ToSID(mac, pin)
 	scalars, err := model.GetScalars(ctx, store, id, []int64{datastore.EpochStart, datastore.EpochStart + minutesInDay*60})
 	if err != nil {
-		t.Errorf("GetScalars failed with error: %v", err)
+		t.Fatalf("GetScalars failed with error: %v", err)
 	}
 	if len(scalars) != minutesInDay {
-		t.Errorf("Expected %d scalars, got %d", minutesInDay*60, len(scalars))
+		t.Fatalf("Expected %d scalars, got %d", minutesInDay, len(scalars))
 	}
 
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
