@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
@@ -140,10 +142,49 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, logOutput, nil}
 
 	// Subscribe event handler that notifies on events that implement errorEvent.
+	// Suppress if they satisfy the notification suppression rules.
 	bus.subscribe(func(event event) error {
-		if errEvent, ok := event.(errorEvent); ok {
-			broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
+		if _, ok := event.(errorEvent); !ok {
+			return nil
 		}
+
+		errEvent := event.(errorEvent)
+
+		// Unmarshal the notification suppression rules from the broadcast configuration.
+		// It is of format:
+		// {
+		//  "SuppressKinds": ["broadcast-kind1" , "broadcast-kind2"],
+		// 	"SuppressContaining": ["shutdown failed", "failed to start"]
+		// }
+		suppressionRules := &struct {
+			SuppressKinds      []string
+			SuppressContaining []string
+		}{}
+
+		// Completely empty string indicates no suppression rules.
+		if cfg.NotifySuppressRules != "" {
+			err := json.Unmarshal([]byte(cfg.NotifySuppressRules), suppressionRules)
+			if err != nil {
+				broadcastContext.logAndNotify(errEvent.Kind(), "could not unmarshal notification suppression rules: %v", err)
+				return nil
+			}
+		}
+
+		for _, kind := range suppressionRules.SuppressKinds {
+			if notify.Kind(kind) == errEvent.Kind() {
+				broadcastContext.log("error event: %s", errEvent.Error())
+				return nil
+			}
+		}
+
+		for _, cont := range suppressionRules.SuppressContaining {
+			if strings.Contains(errEvent.Error(), cont) {
+				broadcastContext.log("error event: %s", errEvent.Error())
+				return nil
+			}
+		}
+
+		broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
 		return nil
 	})
 

@@ -47,7 +47,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.9.3"
+	version            = "v0.10.0"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -429,6 +429,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		_cfg.RegisterOpenFish = cfg.RegisterOpenFish
 		_cfg.OpenFishCaptureSource = cfg.OpenFishCaptureSource
 		_cfg.BatteryVoltagePin = cfg.BatteryVoltagePin
+		_cfg.NotifySuppressRules = cfg.NotifySuppressRules
 
 		// Values that are parsed into floats from their form values.
 		_cfg.RequiredStreamingVoltage = cfg.RequiredStreamingVoltage
