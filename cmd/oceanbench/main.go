@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.31.4"
+	version     = "v0.31.5"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -219,7 +219,6 @@ func main() {
 	http.HandleFunc("/set/crons/edit", editCronsHandler)
 	http.HandleFunc("/set/crons/", setCronsHandler)
 	http.HandleFunc("/get", getHandler)
-	http.HandleFunc("/api/", apiHandler)
 	http.HandleFunc("/test/", testHandler)
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/logout", logoutHandler)
@@ -241,6 +240,9 @@ func main() {
 	http.HandleFunc("/data/", dataHandler)
 	http.HandleFunc("/throughputs", throughputsHandler)
 	http.HandleFunc("/", indexHandler)
+
+	// Setup routes for the API, ie. /api requests.
+	setupAPIRoutes()
 
 	if standalone {
 		// Location and GPS only apply in standalone mode.

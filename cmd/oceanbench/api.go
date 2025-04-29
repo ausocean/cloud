@@ -4,6 +4,7 @@ DESCRIPTION
 
 AUTHORS
   Alan Noble <alan@ausocean.org>
+  Trek Hopton <trek@ausocean.org>
 
 LICENSE
   Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean)
@@ -46,311 +47,512 @@ type minimalSite struct {
 	Public     bool
 }
 
-// apiHandler handles API requests which take the form:
+// setupAPIRoutes registers all HTTP handlers for API endpoints.
 //
-//	/api/operation/property/value
-func apiHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	p, err := getProfile(w, r)
+// API requests follow the form:
+//
+//	/api/<operation>/<property>[/<value>]
+//
+// Where:
+//   - <operation> is one of: get, set, test
+//   - <property> depends on the operation (e.g., "site", "devices", "upload")
+//   - <value> may be a numeric ID, string key, or omitted for some routes
+//
+// Example routes:
+//
+//	/api/get/site/123            → Get site by key
+//	/api/get/devices/site        → Get devices for the current profile’s site
+//	/api/get/profile/data        → Get current user’s profile data
+//	/api/set/site/123:MySite     → Set profile site data
+//
+// Only some endpoints require authentication. These checks are handled per handler.
+func setupAPIRoutes() {
+	http.HandleFunc("/api/get/site/", wrapAPI(getSiteHandler))
+	http.HandleFunc("/api/get/devices/site", wrapAPI(getDevicesForSiteHandler))
+	http.HandleFunc("/api/get/sites/all", wrapAPI(getAllSitesHandler))
+	http.HandleFunc("/api/get/sites/public", wrapAPI(getPublicSitesHandler))
+	http.HandleFunc("/api/get/sites/user", wrapAPI(getUserSitesHandler))
+	http.HandleFunc("/api/get/profile/data", wrapAPI(getProfileDataHandler))
+	http.HandleFunc("/api/get/vars/site", wrapAPI(getVarsForSiteHandler))
 
+	http.HandleFunc("/api/set/site/", wrapAPI(setSiteHandler))
+
+	http.HandleFunc("/api/test/upload/", wrapAPI(testUploadHandler))
+	http.HandleFunc("/api/test/download/", wrapAPI(testDownloadHandler))
+
+	// TODO: change these to the form /api/get/scalar and /api/set/scalar.
+	http.HandleFunc("/api/scalar/put/", wrapAPI(scalarPutHandler))
+	http.HandleFunc("/api/scalar/get/", wrapAPI(scalarGetHandler))
+}
+
+// wrapAPI does things that are common for all api requests, such as log the request.
+func wrapAPI(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logRequest(r)
+		handler(w, r)
+	}
+}
+
+func getSiteHandler(w http.ResponseWriter, r *http.Request) {
+	// Require authentication.
+	if requireProfile(w, r) == nil {
+		return
+	}
+
+	// Get site key from URL path.
+	val, err := getPathValue(r, 4)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	skey, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "could not parse site key: %v", err)
+		return
+	}
+
+	site, err := model.GetSite(r.Context(), settingsStore, skey)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not get site with site key: %d: %v", skey, err)
+		return
+	}
+
+	enc := site.Encode()
+	fmt.Fprint(w, string(enc))
+}
+
+func getDevicesForSiteHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	parts := strings.Split(p.Data, ":")
+	if len(parts) != 2 {
+		writeHttpError(w, http.StatusBadRequest, "no site data in profile")
+		return
+	}
+	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
+		return
+	}
+
+	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+		return
+	}
+	if user.Perm&model.ReadPermission == 0 {
+		writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
+		return
+	}
+
+	devices, err := model.GetDevicesBySite(r.Context(), settingsStore, skey)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
+		return
+	}
+
+	data, err := json.Marshal(devices)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to marshal devices: %v", err)
+		return
+	}
+	w.Write(data)
+}
+
+func getAllSitesHandler(w http.ResponseWriter, r *http.Request) {
+	// Require authentication.
+	if requireProfile(w, r) == nil {
+		return
+	}
+
+	sites, err := model.GetAllSites(r.Context(), settingsStore)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
+		return
+	}
+
+	var s []string
+	for _, site := range sites {
+		s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
+	}
+
+	output := "{" + strings.Join(s, ",") + "}"
+	fmt.Fprint(w, output)
+}
+
+func getPublicSitesHandler(w http.ResponseWriter, r *http.Request) {
+	// Require authentication.
+	if requireProfile(w, r) == nil {
+		return
+	}
+
+	sites, err := model.GetAllSites(r.Context(), settingsStore)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not get public sites: %v", err)
+		return
+	}
+
+	var s []string
+	for _, site := range sites {
+		if site.Public {
+			s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
+		}
+	}
+
+	output := "{" + strings.Join(s, ",") + "}"
+	fmt.Fprint(w, output)
+}
+
+func getUserSitesHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	users, sites, err := model.GetUserSites(r.Context(), settingsStore, p.Email)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
+		return
+	}
+
+	// Build permission map.
+	userMap := make(map[int64]int64)
+	for _, u := range users {
+		userMap[u.Skey] = u.Perm
+	}
+
+	var userSites []minimalSite
+	for _, site := range sites {
+		userSites = append(userSites, minimalSite{
+			Skey:   site.Skey,
+			Perm:   userMap[site.Skey],
+			Name:   site.Name,
+			Public: site.Public,
+		})
+	}
+
+	data, err := json.Marshal(userSites)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to marshal user sites")
+		return
+	}
+	w.Write(data)
+}
+
+func getProfileDataHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	fmt.Fprint(w, p.Data)
+}
+
+func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	// Get site key from profile data.
+	parts := strings.Split(p.Data, ":")
+	if len(parts) != 2 {
+		writeHttpError(w, http.StatusUnauthorized, "no site data in profile")
+		return
+	}
+	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
+		return
+	}
+
+	// Check for read permission.
+	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+		return
+	}
+	if user.Perm&model.ReadPermission == 0 {
+		writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
+		return
+	}
+
+	// Get variables for the site.
+	siteVars, err := model.GetVariablesBySite(r.Context(), settingsStore, skey, "")
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
+		return
+	}
+
+	// Filter to only include device-specific variables (not global or hidden).
+	var filtered []model.Variable
+	for _, v := range siteVars {
+		if strings.HasPrefix(v.Name, "_") {
+			continue
+		}
+		parts := strings.Split(v.Name, ".")
+		if len(parts) != 2 {
+			continue
+		}
+		if model.IsMacAddress(parts[0]) {
+			filtered = append(filtered, v)
+		}
+	}
+
+	data, err := json.Marshal(filtered)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
+		return
+	}
+	w.Write(data)
+}
+
+// setSiteHandler handles API requests to update the user's current site selection.
+//
+// Expected path format:
+//
+//	/api/set/site/<sitekey>:<sitename>
+//
+// Example:
+//
+//	/api/set/site/123:MySite
+//
+// This stores the selected site information (key and name) in the user's profile data.
+// The value is passed unchanged to putProfileData, which performs the actual update.
+func setSiteHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	// Get site data from path.
+	val, err := getPathValue(r, 4) // /api/set/site/<sitekey>:<sitename>
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Validate format: <sitekey>:<sitename>
+	parts := strings.SplitN(val, ":", 2)
+	if len(parts) != 2 {
+		writeHttpError(w, http.StatusBadRequest, "invalid site data, wanted: <sitekey>:<sitename>")
+		return
+	}
+
+	// Validate site key.
+	if _, err := strconv.ParseInt(parts[0], 10, 64); err != nil {
+		writeHttpError(w, http.StatusBadRequest, "could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)
+		return
+	}
+
+	// Update profile.
+	if err := putProfileData(w, r, val); err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not update profile data with site data: %v", err)
+		return
+	}
+
+	fmt.Fprint(w, "OK")
+}
+
+// testUploadHandler handles test upload requests.
+// Reads exactly <value> bytes from the request body and responds "OK".
+// Used for testing upload throughput or validation.
+func testUploadHandler(w http.ResponseWriter, r *http.Request) {
+	// Get byte count from path.
+	val, err := getPathValue(r, 4) // /api/test/upload/<value>
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	n, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "could not parse value from /api/test/upload/<value>: %v", err)
+		return
+	}
+
+	body := make([]byte, n)
+	_, err = io.ReadFull(r.Body, body)
+	if err != nil {
+		writeError(w, errInvalidBody)
+		return
+	}
+
+	fmt.Fprint(w, "OK")
+}
+
+// testDownloadHandler handles test download requests.
+//
+// Expected path format:
+//
+//	/api/test/download/<n>[/<chunk>]
+//
+// Responds with <n> bytes of random data, optionally sent in chunks of size <chunk>.
+// Used for testing download speed and behavior.
+func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	req := strings.Split(r.URL.Path, "/")
 	if len(req) < 5 {
 		writeHttpError(w, http.StatusBadRequest, "invalid length of url path")
 		return
 	}
 
-	var (
-		op   = req[2]
-		prop = req[3]
-		val  = req[4]
-	)
-	switch op {
-	case "get":
-		if err != nil {
-			if err != gauth.TokenNotFound {
-				log.Printf("authentication error: %v", err)
-			}
-			writeHttpError(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
-			return
-		}
-
-		switch prop {
-		case "site":
-			skey, err := strconv.ParseInt(val, 10, 64)
-			if err != nil {
-				writeHttpError(w, http.StatusBadRequest, "could not parse site key from url: %v", err)
-				return
-			}
-			site, err := model.GetSite(ctx, settingsStore, skey)
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not get site with site key: %v: %v", strconv.Itoa(int(skey)), err)
-				return
-			}
-			enc := site.Encode()
-			fmt.Fprint(w, string(enc))
-			return
-
-		case "devices":
-			switch val {
-			case "site":
-				// Check that the user has at least read access.
-				if len(strings.Split(p.Data, ":")) != 2 {
-					writeHttpError(w, http.StatusBadRequest, "no site data in profile")
-					return
-				}
-				skey, err := strconv.ParseInt(strings.Split(p.Data, ":")[0], 10, 64)
-				if err != nil {
-					writeHttpError(w, http.StatusBadRequest, "invalid site data in profile data: %s", p.Data)
-					return
-				}
-				user, err := model.GetUser(ctx, settingsStore, skey, p.Email)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
-					return
-				}
-				if user.Perm&model.ReadPermission == 0 {
-					writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
-					return
-				}
-
-				devs, err := model.GetDevicesBySite(ctx, settingsStore, skey)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
-					return
-				}
-				data, err := json.Marshal(devs)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to marshal devs into json: %v", err)
-					return
-				}
-				w.Write(data)
-				return
-			}
-
-		case "sites":
-			if val == "user" {
-			}
-			sites, err := model.GetAllSites(ctx, settingsStore)
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
-				return
-			}
-			var s []string
-			switch val {
-			case "all":
-				for _, site := range sites {
-					s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
-				}
-			case "public":
-				for _, site := range sites {
-					if site.Public {
-						s = append(s, strconv.Itoa(int(site.Skey))+":\""+site.Name+"\"")
-					}
-				}
-			case "user":
-				users, sites, err := model.GetUserSites(ctx, settingsStore, p.Email)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
-					return
-				}
-				userMap := make(map[int64]int64)
-				for _, u := range users {
-					userMap[u.Skey] = u.Perm
-				}
-				var userSites []minimalSite
-				for _, site := range sites {
-					userSites = append(userSites, minimalSite{site.Skey, userMap[site.Skey], site.Name, site.Public})
-				}
-				b, err := json.Marshal(userSites)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to marshal user sites")
-					return
-				}
-				w.Write(b)
-				return
-			}
-			output := "{" + strings.Join(s, ",") + "}"
-			fmt.Fprint(w, output)
-			return
-
-		case "profile":
-			switch val {
-			case "data":
-				fmt.Fprint(w, p.Data)
-				return
-			}
-
-		case "vars":
-			switch val {
-			case "site":
-				// Check that the user has at least read access.
-				if len(strings.Split(p.Data, ":")) != 2 {
-					writeHttpError(w, http.StatusUnauthorized, "no site data in profile")
-					return
-				}
-				skey, err := strconv.ParseInt(strings.Split(p.Data, ":")[0], 10, 64)
-				if err != nil {
-					writeHttpError(w, http.StatusBadRequest, "invalid site data in profile data: %s", p.Data)
-					return
-				}
-				user, err := model.GetUser(ctx, settingsStore, skey, p.Email)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
-					return
-				}
-				if user.Perm&model.ReadPermission == 0 {
-					writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
-					return
-				}
-
-				siteVars, err := model.GetVariablesBySite(ctx, settingsStore, skey, "")
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
-					return
-				}
-
-				// Only get device variables (not global or hidden).
-				var vars []model.Variable
-				for _, v := range siteVars {
-					if strings.HasPrefix(v.Name, "_") {
-						continue
-					}
-					s := strings.Split(v.Name, ".")
-					if len(s) != 2 {
-						continue
-					}
-					if model.IsMacAddress(s[0]) {
-						vars = append(vars, v)
-					}
-
-				}
-
-				data, err := json.Marshal(vars)
-				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
-					return
-				}
-				w.Write(data)
-				return
-			}
-		}
-
-	case "set":
-		if err != nil {
-			if err != gauth.TokenNotFound {
-				log.Printf("authentication error: %v", err)
-			}
-			writeHttpError(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
-			return
-		}
-
-		switch prop {
-		case "site":
-			p := strings.SplitN(val, ":", 2)
-			if len(p) != 2 {
-				writeHttpError(w, http.StatusBadRequest, "invalid site data, wanted: <sitekey>:<sitename>")
-				return
-			}
-			_, err := strconv.ParseInt(p[0], 10, 64)
-			if err != nil {
-				writeHttpError(w, http.StatusBadRequest, "could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)
-				return
-			}
-			err = putProfileData(w, r, val)
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not update profile data with site data: %v", err)
-				return
-			}
-			fmt.Fprint(w, "OK")
-			return
-		}
-
-	case "test":
-		// Authorization is not currently required for test operations.
-		n, err := strconv.ParseInt(val, 10, 64)
-		if err != nil {
-			writeHttpError(w, http.StatusBadRequest, "could not parse value from /api/test/<prop>/<value> : %v", err)
-			return
-		}
-		body := make([]byte, n)
-
-		// Chunk size is optional.
-		chunk := n
-		if len(req) == 6 {
-			chunk, err = strconv.ParseInt(req[5], 10, 64)
-			if err != nil {
-				writeHttpError(w, http.StatusBadRequest, "could not parse chunk size from url: %v", err)
-				return
-			}
-		}
-
-		switch prop {
-		case "upload":
-			// Receive n bytes from the client.
-			_, err = io.ReadFull(r.Body, body)
-			if err != nil {
-				writeError(w, errInvalidBody)
-				return
-			}
-			fmt.Fprint(w, "OK")
-			return
-
-		case "download":
-			// Send n bytes to the client.
-			h := w.Header()
-			h.Add("Content-Type", "application/octet-stream")
-			h.Add("Content-Disposition", "attachment; filename=\""+val+"\"")
-			rand.Read(body)
-			var i int64
-			for i = 0; i < n; i += chunk {
-				w.Write(body[i : i+chunk])
-			}
-			return
-		}
-
-	case "scalar":
-		// Authorization is not currently required for scalar operations.
-		args, err := splitNumbers(val)
-		if err != nil {
-			writeHttpError(w, http.StatusInternalServerError, "invalid arg: %v", err)
-			return
-		}
-		if len(args) != 3 {
-			writeHttpError(w, http.StatusInternalServerError, "invalid number of args")
-			return
-		}
-
-		var resp []byte
-		switch prop {
-		case "put":
-			err := model.PutScalar(ctx, mediaStore, &model.Scalar{ID: args[0], Timestamp: args[1], Value: float64(args[2])})
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not put scalar: %v", err)
-				return
-			}
-		case "get":
-			scalars, err := model.GetScalars(ctx, mediaStore, args[0], []int64{args[1], args[2]})
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "could not get scalar: %v", err)
-				return
-			}
-			resp, err = json.Marshal(scalars)
-			if err != nil {
-				writeHttpError(w, http.StatusInternalServerError, "error marshaling scalars: %v", err)
-				return
-			}
-		default:
-			writeHttpError(w, http.StatusBadRequest, "invalid scalar request: %s", prop)
-			return
-		}
-
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Write(resp)
+	n, err := strconv.ParseInt(req[4], 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "could not parse value from /api/test/download/<n>: %v", err)
 		return
 	}
 
-	writeHttpError(w, http.StatusBadRequest, "invalid url path, expected /get{/site, /sites}, /set/site, /test{/upload, /download}, or /health/site, got: /%v/%v", req[2], req[3])
+	chunk := n // Default: whole payload in one write
+	if len(req) == 6 {
+		chunk, err = strconv.ParseInt(req[5], 10, 64)
+		if err != nil {
+			writeHttpError(w, http.StatusBadRequest, "could not parse chunk size from url: %v", err)
+			return
+		}
+	}
+
+	body := make([]byte, n)
+	_, err = rand.Read(body)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not generate random data: %v", err)
+		return
+	}
+
+	h := w.Header()
+	h.Add("Content-Type", "application/octet-stream")
+	h.Add("Content-Disposition", "attachment; filename=\""+req[4]+"\"")
+
+	var i int64
+	for i = 0; i < n; i += chunk {
+		end := i + chunk
+		if end > n {
+			end = n
+		}
+		w.Write(body[i:end])
+	}
+}
+
+// scalarPutHandler handles scalar data ingestion.
+//
+// Expected path format:
+//
+//	/api/scalar/put/<id>,<timestamp>,<value>
+//
+// Parses and stores a single scalar. No authentication required.
+func scalarPutHandler(w http.ResponseWriter, r *http.Request) {
+	val, err := getPathValue(r, 4) // /api/scalar/put/<id>,<timestamp>,<value>
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	args, err := splitNumbers(val)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "invalid arg: %v", err)
+		return
+	}
+	if len(args) != 3 {
+		writeHttpError(w, http.StatusInternalServerError, "invalid number of args")
+		return
+	}
+
+	err = model.PutScalar(r.Context(), mediaStore, &model.Scalar{
+		ID:        args[0],
+		Timestamp: args[1],
+		Value:     float64(args[2]),
+	})
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not put scalar: %v", err)
+		return
+	}
+}
+
+// scalarGetHandler handles scalar data retrieval.
+//
+// Expected path format:
+//
+//	/api/scalar/get/<id>,<start>,<end>
+//
+// Returns a JSON-encoded array of scalars for the given ID and time range.
+// No authentication required.
+func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
+	val, err := getPathValue(r, 4) // /api/scalar/get/<id>,<start>,<end>
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	args, err := splitNumbers(val)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "invalid arg: %v", err)
+		return
+	}
+	if len(args) != 3 {
+		writeHttpError(w, http.StatusInternalServerError, "invalid number of args")
+		return
+	}
+
+	scalars, err := model.GetScalars(r.Context(), mediaStore, args[0], []int64{args[1], args[2]})
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "could not get scalar: %v", err)
+		return
+	}
+
+	data, err := json.Marshal(scalars)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "error marshaling scalars: %v", err)
+		return
+	}
+	w.Write(data)
+}
+
+// getPathValue extracts a segment from the URL path at the given zero-based index.
+// The URL path is split using "/" as the delimiter.
+// Because leading slashes in the path produce an empty first element (""), the parts array
+// will have an empty string at index 0.
+//
+// For example, for the URL "/api/get/site/123", splitting on "/" produces:
+//
+//	["", "api", "get", "site", "123"]
+//
+// Therefore, index 4 corresponds to "123".
+//
+// Returns an error if the path does not have enough parts, or if the extracted part is empty.
+func getPathValue(r *http.Request, index int) (string, error) {
+	parts := strings.Split(r.URL.Path, "/")
+
+	if index < 0 {
+		return "", fmt.Errorf("invalid index %d: must be non-negative", index)
+	}
+
+	if len(parts) <= index {
+		return "", fmt.Errorf("invalid URL path %q: expected at least %d segments, got %d", r.URL.Path, index+1, len(parts))
+	}
+
+	val := parts[index]
+	if val == "" {
+		return "", fmt.Errorf("empty path value at index %d in URL %q", index, r.URL.Path)
+	}
+
+	return val, nil
+}
+
+// requireProfile ensures the request is from an authenticated user.
+// It returns the profile or writes an error and returns nil if auth fails.
+func requireProfile(w http.ResponseWriter, r *http.Request) *gauth.Profile {
+	p, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		writeHttpError(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
+		return nil
+	}
+	return p
 }
 
 // splitNumbers splits a comma-separated string of numbers, ignoring the decimal part.
