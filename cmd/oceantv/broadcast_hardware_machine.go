@@ -359,6 +359,12 @@ func (e hardwareShutdownFailedEvent) New(args ...any) (any, error) {
 	}
 	return hardwareShutdownFailedEvent{err}, nil
 }
+func (e hardwareShutdownFailedEvent) Is(target error) bool {
+	if targetEvent, ok := target.(hardwareShutdownFailedEvent); ok {
+		return errors.Is(e.error, targetEvent.error)
+	}
+	return errors.Is(e.error, target)
+}
 
 // Kind implements the errorEvent interface.
 func (e hardwareShutdownFailedEvent) Kind() notify.Kind {
@@ -616,7 +622,7 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 		// We want to get notified for failures and misconfigured configs, and log
 		// when shutdown is skipped.
 		if errors.Is(event, warnSkipShutdown) {
-			s.log("skipping shutdown: %v:", event.Error)
+			s.log("skipping shutdown: %v", event.Error())
 		} else if errors.Is(event, errNoShutdownActions) {
 			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())
 		} else {
