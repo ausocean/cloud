@@ -75,6 +75,14 @@ func (e startFailedEvent) Error() string {
 	return "(" + e.String() + ") " + e.error.Error()
 }
 
+func (e startFailedEvent) New(args ...any) (any, error) {
+	var err error = nil
+	if len(args) != 0 {
+		err = args[0].(error)
+	}
+	return startFailedEvent{err}, nil
+}
+
 // Kind implements the errorEvent interface.
 func (e startFailedEvent) Kind() notify.Kind {
 	if errEvent, ok := e.error.(errorEvent); ok {
