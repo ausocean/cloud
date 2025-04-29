@@ -51,6 +51,7 @@ type Subscriber struct {
 	DemographicInfo string    // Optional demographic info about the subscriber, e.g., their postcode.
 	PaymentInfo     string    // Info required to use a payments platform. (Stripe Customer ID)
 	Created         time.Time // Time the subscriber entity was created.
+	LastSeen        time.Time // Time the subscriber was last seen.
 }
 
 // Copy copies a Subscriber to dst, or returns a copy of the Subscriber when dst is nil.
@@ -88,6 +89,7 @@ func CreateSubscriber(ctx context.Context, store datastore.Store, s *Subscriber)
 	}
 
 	s.Created = time.Now()
+	s.LastSeen = time.Now()
 
 	// Otherwise generate and use a unique ID.
 	q := store.NewQuery(typeSubscriber, true, "ID", "Email")
@@ -171,4 +173,18 @@ func GetAllSubscribers(ctx context.Context, store datastore.Store) ([]Subscriber
 	var subs []Subscriber
 	_, err := store.GetAll(ctx, q, &subs)
 	return subs, err
+}
+
+// UpdateSubscriberLastSeen updates the last seen field for a given subscriber.
+func UpdateSubscriberLastSeen(ctx context.Context, store datastore.Store, id int64, email string) error {
+	key := store.NameKey(typeSubscriber, fmt.Sprintf("%d.%s", id, email))
+
+	sub := &Subscriber{}
+	return store.Update(ctx, key, func(e datastore.Entity) {
+		s, ok := e.(*Subscriber)
+		if !ok {
+			return
+		}
+		s.LastSeen = time.Now()
+	}, sub)
 }

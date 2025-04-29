@@ -1350,8 +1350,9 @@ func testSubscriber(t *testing.T, kind string) {
 	sub2Key := fmt.Sprintf("%d.%s", sub2ID, sub2Email)
 
 	// Create test subscriber objects.
-	s1a := &Subscriber{sub1ID, "", sub1Email, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
-	s2 := &Subscriber{sub2ID, "", sub2Email, "Second", "User", nil, "", "", time.Now().Round(time.Second).UTC()}
+	createdTime := time.Now().Round(time.Second).UTC()
+	s1a := &Subscriber{sub1ID, "", sub1Email, "first", "last", nil, "", "", createdTime, createdTime}
+	s2 := &Subscriber{sub2ID, "", sub2Email, "Second", "User", nil, "", "", createdTime, createdTime}
 
 	// Create a new store instance.
 	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
@@ -1428,6 +1429,21 @@ func testSubscriber(t *testing.T, kind string) {
 	}
 	if !found2 {
 		t.Errorf("GetAllSubscribers did not return the second subscriber: %+v", s2)
+	}
+
+	// Update the last seen time for the first subscriber
+	err = UpdateSubscriberLastSeen(ctx, store, sub1ID, sub1Email)
+	if err != nil {
+		t.Errorf("UpdateSubscriberLastSeen failed: %v", err)
+	}
+
+	// Check that the last seen time was updated
+	sub, err := GetSubscriber(ctx, store, sub1ID)
+	if err != nil {
+		t.Errorf("GetSubscriber failed: %v", err)
+	}
+	if sub.LastSeen.Before(createdTime) {
+		t.Errorf("GetSubscriber returned incorrect last seen time: %v", sub.LastSeen)
 	}
 }
 
