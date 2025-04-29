@@ -634,6 +634,16 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 	}
 }
 
+func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch s.Substate.(type) {
+	case *hardwarePoweringOff:
+		s.logAndNotify(broadcastHardware, "power off failed during hardware stop: %v", event.Error())
+		s.bus.publish(hardwareStopFailedEvent{})
+	default:
+		// Ignore.
+	}
+}
+
 func (s *hardwareStopping) cameraIsReporting() bool {
 	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
@@ -757,6 +767,8 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareResetRequestEvent(event.(hardwareResetRequestEvent))
 	case hardwareShutdownFailedEvent:
 		sm.handleHardwareShutdownFailedEvent(event.(hardwareShutdownFailedEvent))
+	case hardwarePowerOffFailedEvent:
+		sm.handleHardwarePowerOffFailedEvent(event.(hardwarePowerOffFailedEvent))
 	case hardwareStoppedEvent:
 		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
 	case hardwareStartRequestEvent:
@@ -835,6 +847,19 @@ func (sm *hardwareStateMachine) handleHardwareShutdownFailedEvent(event hardware
 		sm.currentState.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
 	case *hardwareRestarting:
 		sm.currentState.(*hardwareRestarting).handleHardwareShutdownFailedEvent(event)
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+}
+
+func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	sm.log("handling hardware power off failed event")
+	switch sm.currentState.(type) {
+	case *hardwareStopping:
+		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(event)
+	case *hardwareRestarting:
+		// Since we are restarting, the hardwareRestarting state will handle the timeouts by entering
+		// failure mode already, so we don't need to do anything here.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
