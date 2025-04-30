@@ -212,7 +212,7 @@ func (bs *broadcastSystem) tick() error {
 	}
 
 	for _, eventData := range bs.ctx.cfg.Events {
-		event := unmarshalEvent(eventData)
+		event := unmarshalEvent([]byte(eventData))
 		bs.log("publishing stored event: %s", event.String())
 		bs.ctx.bus.publish(event)
 	}

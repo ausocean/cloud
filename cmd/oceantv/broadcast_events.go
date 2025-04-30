@@ -20,6 +20,7 @@ type errorEvent interface {
 	error
 	registry.Newable
 	Kind() notify.Kind
+	Unwrap() error
 }
 
 // registerEvent registers an event in the registry.
@@ -96,6 +97,15 @@ func (e startFailedEvent) Kind() notify.Kind {
 	return broadcastGeneric
 }
 
+func (e startFailedEvent) Unwrap() error { return e.error }
+
+func (e startFailedEvent) Is(target error) bool {
+	if _, ok := target.(startFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
+}
+
 // criticalFailureEvent is really a non recoverable start failure event.
 type criticalFailureEvent struct{ error }
 
@@ -127,6 +137,15 @@ func (e criticalFailureEvent) Kind() notify.Kind {
 	}
 
 	return broadcastGeneric
+}
+
+func (e criticalFailureEvent) Unwrap() error { return e.error }
+
+func (e criticalFailureEvent) Is(target error) bool {
+	if _, ok := target.(criticalFailureEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
 }
 
 type healthCheckDueEvent struct{}
@@ -207,6 +226,15 @@ func (e hardwareStartFailedEvent) Kind() notify.Kind {
 	return broadcastHardware
 }
 
+func (e hardwareStartFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwareStartFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwareStartFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
+}
+
 type hardwareStopFailedEvent struct{ error }
 
 var _ = registerEvent(hardwareStopFailedEvent{})
@@ -235,6 +263,15 @@ func (e hardwareStopFailedEvent) Kind() notify.Kind {
 	}
 
 	return broadcastHardware
+}
+
+func (e hardwareStopFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwareStopFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwareStartFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
 }
 
 type hardwareStartedEvent struct{}
@@ -273,6 +310,15 @@ func (e controllerFailureEvent) Kind() notify.Kind {
 	}
 
 	return broadcastHardware
+}
+
+func (e controllerFailureEvent) Unwrap() error { return e.error }
+
+func (e controllerFailureEvent) Is(target error) bool {
+	if _, ok := target.(controllerFailureEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
 }
 
 type slateResetRequested struct{}
@@ -315,6 +361,15 @@ func (e invalidConfigurationEvent) Kind() notify.Kind {
 	}
 
 	return broadcastConfiguration
+}
+
+func (e invalidConfigurationEvent) Unwrap() error { return e.error }
+
+func (e invalidConfigurationEvent) Is(target error) bool {
+	if _, ok := target.(invalidConfigurationEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
 }
 
 type lowVoltageEvent struct{}
@@ -398,50 +453,90 @@ func stringToEvent(name string, args ...interface{}) event {
 	return e.(event)
 }
 
-func marshalEvent(event event) []byte {
-	alias := struct {
-		Name string
-		Err  string
-	}{Name: event.String()}
-
-	if errEvent, ok := event.(error); ok {
-		// Trim event name from error string, this format is expected.
-		after, found := strings.CutPrefix(errEvent.Error(), "("+event.String()+") ")
-		if !found {
-			panic(fmt.Sprintf("event Error() does not have correct format, want: (<event name>) <error message>, got: %s", errEvent.Error()))
-		}
-
-		alias.Err = after
-	}
-
-	eventData, err := json.Marshal(alias)
-	if err != nil {
-		panic(fmt.Sprintf("could not marshal event: %v", err))
-	}
-
-	return eventData
+type serializedEvent struct {
+	Type    string           `json:"type"`
+	Message string           `json:"message,omitempty"`
+	Cause   *serializedEvent `json:"cause,omitempty"`
 }
 
-func unmarshalEvent(eventData string) event {
-	alias := struct {
-		Name string
-		Err  error
-	}{}
+func encodeSerializedEvent(v any) *serializedEvent {
+	if v == nil {
+		return nil
+	}
 
-	err := json.Unmarshal([]byte(eventData), &alias)
+	switch e := v.(type) {
+	case errorEvent:
+		return &serializedEvent{
+			Type:    e.String(),
+			Message: e.Error(), // Optional, useful for logging/debugging
+			Cause:   encodeSerializedEvent(e.Unwrap())}
+
+	case event:
+		// Non-error event — no cause
+		return &serializedEvent{
+			Type: e.String(),
+		}
+
+	case error:
+		// Standard error — possibly wrapped
+		return &serializedEvent{
+			Type:    "generic",
+			Message: e.Error(),
+			Cause:   encodeSerializedEvent(errors.Unwrap(e)), // recurse
+		}
+
+	default:
+		panic(fmt.Errorf("unsupported event type: %T", v))
+	}
+}
+
+func unmarshalEvent(data []byte) event {
+	ser := &serializedEvent{}
+	if err := json.Unmarshal(data, ser); err != nil {
+		panic(fmt.Errorf("could not unmarshal event: %w", err))
+	}
+	return decodeSerializedEvent(ser).(event)
+}
+
+// This is to help us deal with the fact that after marshalling and unmarshalling
+// errors.Is does not work as we would like. This is because for a basic error from
+// errors.New() all that is checked through errors.Is is that the pointer is the same.
+// So after unmarshalling we get a new pointer and errors.Is will not work.
+// This is a workaround to make it work for the generic case. We just consider the
+// error to be a match if the string is the same. This is not ideal but it is better than
+// nothing.
+type lenientComparisonError struct{ string }
+
+func (e lenientComparisonError) Error() string        { return e.string }
+func (e lenientComparisonError) Is(target error) bool { return e.Error() == target.Error() }
+
+func decodeSerializedEvent(ev *serializedEvent) any {
+	if ev == nil {
+		return nil
+	}
+
+	if ev.Type == "generic" {
+		if ev.Cause != nil {
+			decoded := decodeSerializedEvent(ev.Cause).(error)
+			return fmt.Errorf("%s%w", strings.ReplaceAll(ev.Message, decoded.Error(), ""), decoded)
+		}
+		return lenientComparisonError{ev.Message}
+	}
+
+	if ev.Cause != nil {
+		return stringToEvent(ev.Type, decodeSerializedEvent(ev.Cause))
+	}
+	return stringToEvent(ev.Type)
+}
+
+func marshalEvent(e event) []byte {
+	ser := encodeSerializedEvent(e)
+	if ser == nil {
+		panic("trying to marshal nil event")
+	}
+	data, err := json.Marshal(ser)
 	if err != nil {
-		panic(fmt.Sprintf("could not unmarshal event: %v", err))
+		panic(fmt.Errorf("could not marshal event: %w", err))
 	}
-
-	event := stringToEvent(alias.Name, alias.Err)
-
-	if _, ok := event.(error); alias.Err != nil && !ok {
-		panic(fmt.Sprintf("have error data for event: %s, but event is not an error: %T", alias.Name, event))
-	}
-
-	if _, ok := event.(registry.Newable); alias.Err != nil && !ok {
-		panic("have error data for event but can't New with data because not Newable")
-	}
-
-	return event
+	return data
 }

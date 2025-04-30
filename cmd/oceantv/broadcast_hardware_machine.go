@@ -373,6 +373,15 @@ func (e hardwareShutdownFailedEvent) Kind() notify.Kind {
 	return broadcastHardware
 }
 
+func (e hardwareShutdownFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwareShutdownFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwareShutdownFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
+}
+
 type hardwareShutdownEvent struct{}
 
 var _ = registerEvent(hardwareShutdownEvent{})
@@ -432,6 +441,15 @@ func (e hardwarePowerOffFailedEvent) Kind() notify.Kind {
 	}
 
 	return broadcastHardware
+}
+
+func (e hardwarePowerOffFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwarePowerOffFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwarePowerOffFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
 }
 
 type hardwarePoweringOff struct {
