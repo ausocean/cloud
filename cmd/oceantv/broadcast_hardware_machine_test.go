@@ -433,6 +433,165 @@ func newHardwareOnlySystem(ctx context.Context, store Store, cfg *BroadcastConfi
 	return sys, nil
 }
 
+// TestHardwareStop tests the hardware state machine handling of stopping a camera.
+func TestHardwareStop(t *testing.T) {
+	const testSiteKey = 7845764367
+
+	_ = func(n int) []event {
+		var events []event
+		for i := 0; i < n; i++ {
+			events = append(events, timeEvent{})
+		}
+		return events
+	}
+
+	tests := []struct {
+		desc                string
+		cfg                 func(*BroadcastConfig)
+		finalBroadcastState state
+		initialEvent        event
+		hardwareMan         hardwareManager
+		newBroadcastMan     func(*testing.T, *BroadcastConfig) BroadcastManager
+
+		// Leave unset to use default max ticks.
+		// Some tests may require more ticks to reach the final state.
+		requiredTicks int
+
+		expectedEvents []event
+		expectedLogs   []string
+		expectedNotify map[int64]map[notify.Kind][]string
+	}{
+		{
+			desc: "normal hardware stop, with off actions",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOn"
+				c.ControllerMAC = 1
+				c.CameraMac = 2
+				c.ShutdownActions = SkipAction
+			},
+			finalBroadcastState: &hardwareFailure{},
+			initialEvent:        hardwareStopRequestEvent{},
+			hardwareMan:         newDummyHardwareManager(withInitialCameraState(true), withAlwaysReportingCamera()),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			expectedEvents: []event{
+				hardwareStopRequestEvent{},
+				hardwareShutdownFailedEvent{},
+				timeEvent{},
+				timeEvent{},
+				timeEvent{},
+				timeEvent{},
+				timeEvent{},
+				timeEvent{},
+				hardwarePowerOffFailedEvent{},
+				hardwareStopFailedEvent{},
+			},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			logRecorder := newLogRecorder(t)
+
+			ctx, _ := context.WithCancel(context.Background())
+
+			// Apply broadcast config modifications
+			// and update the broadcast state based on the initial state.
+			cfg := &BroadcastConfig{}
+			tt.cfg(cfg)
+
+			// Use a monkey patch to replace time.Now() with our own time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := time.Now()
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
+			sys, err := newHardwareOnlySystem(
+				ctx,
+				newDummyStore(),
+				cfg,
+				logRecorder.log,
+				hardwareSys.withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				hardwareSys.withBroadcastManager(tt.newBroadcastMan(t, cfg)),
+				hardwareSys.withHardwareManager(tt.hardwareMan),
+				hardwareSys.withNotifier(newMockNotifier()),
+			)
+			if err != nil {
+				t.Fatalf("failed to create broadcast system: %v", err)
+			}
+
+			if tt.initialEvent != nil {
+				sys.ctx.bus.publish(tt.initialEvent)
+			}
+
+			// Tick until we reach the final state. It's expected this occurs within
+			// reasonable time otherwise we have a problem.
+			const defaultMaxTicks = 10
+			for tick := 0; true; tick++ {
+				// Test test case overwrite the default max ticks.
+				maxTicks := defaultMaxTicks
+				if tt.requiredTicks > 0 {
+					maxTicks = tt.requiredTicks
+				}
+
+				if tick > maxTicks {
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current state: %s, wanted state: %s",
+						maxTicks,
+						stateToString(sys.hsm.currentState),
+						stateToString(tt.finalBroadcastState),
+					)
+					return
+				}
+
+				// We've replaced time.Now() with the monkey patch, but it means we need to
+				// manually advance time before ticking the broadcast system.
+				testTime = testTime.Add(1 * time.Minute)
+
+				err = sys.tick()
+				if err != nil {
+					t.Errorf("failed to tick broadcast system: %v", err)
+					return
+				}
+				if stateToString(sys.hsm.currentState) == stateToString(tt.finalBroadcastState) {
+					break
+				}
+			}
+
+			// Check the events that we got.
+			err = sys.ctx.bus.(*mockEventBus).checkEvents(tt.expectedEvents)
+			if err != nil {
+				t.Errorf("unexpected events: %v", err)
+			}
+
+			// Check the logs that we got.
+			err = logRecorder.checkLogs(tt.expectedLogs)
+			if err != nil {
+				t.Errorf("unexpected logs: %v", err)
+			}
+
+			// Check we got expected notifications.
+			err = sys.ctx.notifier.(*mockNotifier).checkNotifications(tt.expectedNotify)
+			if err != nil {
+				t.Errorf("unexpected notifications: %v", err)
+			}
+
+			// Also check if we ended up with the correct broadcast hardware machine state.
+			if stateToString(sys.hsm.currentState) != stateToString(tt.finalBroadcastState) {
+				t.Errorf("unexpected state after handling started event: got %v, want %v",
+					stateToString(sys.hsm.currentState), stateToString(tt.finalBroadcastState))
+			}
+		})
+	}
+}
+
 // TestHardwareStopAndRestart tests the hardware state machine handling of stop and reset
 // requests when shutdown actions are available and not available.
 func TestHardwareStopAndRestart(t *testing.T) {

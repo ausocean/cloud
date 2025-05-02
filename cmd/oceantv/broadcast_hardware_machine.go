@@ -359,6 +359,12 @@ func (e hardwareShutdownFailedEvent) New(args ...any) (any, error) {
 	}
 	return hardwareShutdownFailedEvent{err}, nil
 }
+func (e hardwareShutdownFailedEvent) Is(target error) bool {
+	if targetEvent, ok := target.(hardwareShutdownFailedEvent); ok {
+		return errors.Is(e.error, targetEvent.error)
+	}
+	return errors.Is(e.error, target)
+}
 
 // Kind implements the errorEvent interface.
 func (e hardwareShutdownFailedEvent) Kind() notify.Kind {
@@ -634,13 +640,23 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 		// We want to get notified for failures and misconfigured configs, and log
 		// when shutdown is skipped.
 		if errors.Is(event, warnSkipShutdown) {
-			s.log("skipping shutdown: %v:", event.Error)
+			s.log("skipping shutdown: %v", event.Error())
 		} else if errors.Is(event, errNoShutdownActions) {
 			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())
 		} else {
 			s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
 		}
 		s.transition()
+	default:
+		// Ignore.
+	}
+}
+
+func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch s.Substate.(type) {
+	case *hardwarePoweringOff:
+		s.logAndNotify(broadcastHardware, "power off failed during hardware stop: %v", event.Error())
+		s.bus.publish(hardwareStopFailedEvent{})
 	default:
 		// Ignore.
 	}
@@ -769,6 +785,8 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareResetRequestEvent(event.(hardwareResetRequestEvent))
 	case hardwareShutdownFailedEvent:
 		sm.handleHardwareShutdownFailedEvent(event.(hardwareShutdownFailedEvent))
+	case hardwarePowerOffFailedEvent:
+		sm.handleHardwarePowerOffFailedEvent(event.(hardwarePowerOffFailedEvent))
 	case hardwareStoppedEvent:
 		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
 	case hardwareStartRequestEvent:
@@ -847,6 +865,19 @@ func (sm *hardwareStateMachine) handleHardwareShutdownFailedEvent(event hardware
 		sm.currentState.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
 	case *hardwareRestarting:
 		sm.currentState.(*hardwareRestarting).handleHardwareShutdownFailedEvent(event)
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
+	}
+}
+
+func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	sm.log("handling hardware power off failed event")
+	switch sm.currentState.(type) {
+	case *hardwareStopping:
+		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(event)
+	case *hardwareRestarting:
+		// Since we are restarting, the hardwareRestarting state will handle the timeouts by entering
+		// failure mode already, so we don't need to do anything here.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}

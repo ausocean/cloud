@@ -311,6 +311,7 @@ type dummyHardwareManager struct {
 	cameraIsReporting bool
 	controllerMAC     string
 	cameraMAC         string
+	cameraAlwaysOn    bool
 	latestRequest     request
 }
 
@@ -353,6 +354,12 @@ func withCamera(mac string) func(*dummyHardwareManager) {
 func withInitialCameraState(s bool) func(*dummyHardwareManager) {
 	return func(h *dummyHardwareManager) {
 		h.cameraIsReporting = s
+	}
+}
+
+func withAlwaysReportingCamera() func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.cameraAlwaysOn = true
 	}
 }
 
@@ -399,6 +406,9 @@ func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, er
 		if !h.hardwareHealthy {
 			return false, nil
 		}
+		if h.cameraAlwaysOn {
+			return true, nil
+		}
 		ctx.log("checking camera status: %v", h.latestRequest)
 		if h.latestRequest.kind != "" && time.Now().Sub(h.latestRequest.Time) > 1*time.Minute {
 			switch h.latestRequest.kind {
@@ -430,6 +440,10 @@ func (h *dummyHardwareManager) shutdown(ctx *broadcastContext) {
 	h.shutdownCalled = true
 	if ctx.cfg.ShutdownActions == "" {
 		ctx.bus.publish(hardwareShutdownFailedEvent{})
+		return
+	}
+	if ctx.cfg.ShutdownActions == SkipAction {
+		ctx.bus.publish(hardwareShutdownFailedEvent{fmt.Errorf("could not perform shutdown actions: %w", warnSkipShutdown)})
 		return
 	}
 	h.latestRequest = request{"shutdown", time.Now()}
