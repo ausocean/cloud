@@ -11,6 +11,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
+	"github.com/ausocean/openfish/datastore"
 )
 
 func register(state registry.Named) struct{} {
@@ -1008,9 +1009,19 @@ func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
 
 	// Get current battery voltage.
 	voltage, err := model.GetSensorValue(context.Background(), ctx.store, sensor)
-	if err != nil {
+	switch {
+	case errors.Is(err, datastore.ErrNoSuchEntity):
+		// We'll get this if the controller is off from low voltage, so just
+		// assume we have alarm voltage.
+		alarmVoltage, err := c.alarmVoltage(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("could not get alarm voltage: %w", err)
+		}
+		return alarmVoltage, nil
+	case err != nil:
 		return 0, fmt.Errorf("could not get current battery voltage: %w", err)
 	}
+
 	return voltage, nil
 }
 
