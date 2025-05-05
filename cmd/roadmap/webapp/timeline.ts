@@ -6,14 +6,14 @@ let visibleTasks: any[] = [];
 let timelineStart: number;
 let timelineEnd: number;
 let startX = 100; // Left margin
-let barHeight = 30;
-let yBoxSpacing = 35;
+let barHeight = 22;
+let yBoxSpacing = 24;
 let offsetX = 0; // Used for panning
 let isDragging = false;
 let dragStartX = 0;
 let nowX = 0;
 let redraw = false;
-let zoomLevel = 1; // Default zoom level
+let zoomLevel = 2.5; // Default zoom level
 let timelineTop = 0; // Updated in draw
 let toolTipTask: any = null;
 
@@ -21,34 +21,35 @@ let toolTipTask: any = null;
 const sketch = (p: p5) => {
     p.setup = async () => {
         await fetchGanttData();
+
+        // Check the 'hide past tasks' checkbox
         visibleTasks = [...tasks];
-
-        const checkbox = document.getElementById("hide-past-tasks") as HTMLInputElement;
-
+        const hidePastTasks = document.getElementById("hide-past-tasks") as HTMLInputElement;
         function updateVisibleTasks() {
-            const now = new Date().toISOString().split("T")[0];
-
-            if (checkbox.checked) {
+            const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .split("T")[0];
+            if (hidePastTasks.checked) {
                 visibleTasks = tasks.filter(task => {
-                    return !task.end || task.end >= now;
+                    return !task.end || task.end >= oneWeekAgo;
                 });
             } else {
                 visibleTasks = [...tasks];
             }
-
             redraw = true;
-        }
-
-        checkbox.addEventListener("change", () => {
+        }        
+        hidePastTasks.addEventListener("change", () => {
             updateVisibleTasks();
         });
 
-        const canvasWidth = p.windowWidth * 0.9;
-        const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300);
+        const container = document.getElementById("canvas-container") as HTMLDivElement | null;
+        if (!container) throw new Error("canvas container not found");
+        const canvasWidth = container.clientWidth;
+        const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300); // Padding added at the bottom for aesthetics
         const canvas = p.createCanvas(canvasWidth, canvasHeight);
         canvas.parent("canvas-container");
 
-        let fourMonthsMillis = 4 * 30 * 24 * 60 * 60 * 1000; // Approx 4 months in ms
+        let fourMonthsMillis = 12 * 30 * 24 * 60 * 60 * 1000; // Approx 12 months in ms
         zoomLevel = (canvasWidth - startX) / ((fourMonthsMillis / (timelineEnd - timelineStart)) * (canvasWidth - startX));
 
         // Compute the "Now" position and set initial offset
@@ -114,9 +115,23 @@ const sketch = (p: p5) => {
         let dayNumberSize = 12;
         let headerPadding = 10;
         timelineTop = monthTextSize + dayNumberSize + milestoneSpaceHeight + headerPadding;
+        dateAreaHeight = timelineTop;
 
         // ---------------- HOVER CURSOR + TOOLTIP DETECTION ----------------
         document.body.style.cursor = "default"; // Reset cursor on each frame
+        
+        // Date area hover detection
+        let withinCanvas = p.mouseX >= 0 && p.mouseX <= p.width && p.mouseY >= 0 && p.mouseY <= p.height;
+        let withinDateArea = p.mouseY <= dateAreaHeight;
+        if (withinCanvas && withinDateArea) {
+            if (isDragging) {
+                document.body.style.cursor = "grabbing";
+            } else {
+                document.body.style.cursor = "grab";
+            }
+        }
+
+        // Task hover detection
         let isHovering = false;
         let showToolTip = false;
         visibleTasks.forEach((task, i) => {
@@ -157,7 +172,7 @@ const sketch = (p: p5) => {
             return;
         }
 
-        console.log("drawing timeline...");
+        // console.log("drawing timeline...");
         p.clear(); // Clears previous frame
         p.textAlign(p.CENTER, p.BOTTOM);
         p.textSize(12);

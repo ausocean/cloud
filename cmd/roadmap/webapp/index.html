@@ -19,11 +19,14 @@
 
     <div class="flex items-center space-x-2 mb-2">
       <input id="hide-past-tasks" type="checkbox" class="w-4 h-4">
-      <label for="hide-past-tasks" class="text-sm">Hide tasks that ended before today</label>
-    </div>  
+      <label for="hide-past-tasks" class="text-sm">
+        Hide past tasks
+        <span class="text-gray-500 text-xs">(over a week old)</span>
+      </label>
+    </div>    
 
     <!-- Full-height container for canvas -->
-    <div id="canvas-container" class="flex-grow w-full overflow-auto relative">
+    <div id="canvas-container" class="flex-grow w-full overflow-y-auto overflow-x-hidden relative">
       <!-- p5.js will insert the canvas here -->
     </div>
 
