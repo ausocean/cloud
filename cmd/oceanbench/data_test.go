@@ -248,7 +248,7 @@ func TestFetchScalars(t *testing.T) {
 	}
 
 	if len(data) != minutesInDay {
-		t.Errorf("expected %d CSV tuples, got %d", minutesInDay, len(data))
+		t.Fatalf("expected %d CSV tuples, got %d", minutesInDay, len(data))
 	}
 
 	t.Log("verifying CSV content")

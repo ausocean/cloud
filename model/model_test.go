@@ -75,6 +75,7 @@ const (
 	testDevMac2      = "00:00:00:00:00:0F"
 	testDevMac3      = "1A:2B:3C:4F:50:61"
 	testDevMa2       = 15
+	testDevDkey2     = 10000015
 	testMID2         = testDevMa2 << 4
 	testMIDAll       = 0
 	testDevPin       = "V0"
@@ -504,36 +505,46 @@ func testEntities(t *testing.T, kind string) {
 func testDevice(t *testing.T, kind string) {
 	ctx := context.Background()
 
+	// Local test constants for testDevice.
+	const (
+		testSiteKey      = 1
+		testDeviceKey    = 10000015
+		testDeviceInputs = "A0,V0"
+		testDeviceID     = "TestDevice15"
+		testDeviceMac    = "00:00:00:00:00:0F"
+		testDeviceEncMac = 15
+	)
+
 	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
 	if err != nil {
 		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
 	}
 
-	dev := &Device{Skey: testSiteKey, Dkey: testDevDkey, Mac: testDevMa, Name: testDevID, Inputs: testDevInputs, Enabled: true}
+	dev := &Device{Skey: testSiteKey, Dkey: testDeviceKey, Mac: testDeviceEncMac, Name: testDeviceID, Inputs: testDeviceInputs, Enabled: true}
 	err = PutDevice(ctx, store, dev)
 	if err != nil {
 		t.Errorf("PutDevice failed with error: %v", err)
 	}
-	dev, err = GetDevice(ctx, store, testDevMa)
+	dev, err = GetDevice(ctx, store, testDeviceEncMac)
 	if err != nil {
 		t.Errorf("GetDevice failed with error: %v", err)
 	}
-	if dev.Skey != testSiteKey || dev.Dkey != testDevDkey || dev.Inputs != testDevInputs || !dev.Enabled {
+	if dev.Skey != testSiteKey || dev.Dkey != testDeviceKey || dev.Inputs != testDeviceInputs || !dev.Enabled {
 		t.Errorf("GetDevice returned wrong values; got %v", dev)
 	}
 
 	// Test checking
-	_, err = CheckDevice(ctx, store, testDevMac, strconv.Itoa(testDevDkey))
+	_, err = CheckDevice(ctx, store, testDeviceMac, strconv.Itoa(testDeviceKey))
 	if err != nil {
 		t.Errorf("checkDevice failed with error: %v", err)
 	}
 
 	// Test deletion.
-	err = DeleteDevice(ctx, store, testDevMa)
+	err = DeleteDevice(ctx, store, testDeviceEncMac)
 	if err != nil {
 		t.Errorf("DeleteDevice failed with error: %v", err)
 	}
-	dev, err = GetDevice(ctx, store, testDevMa)
+	_, err = GetDevice(ctx, store, testDeviceEncMac)
 	if err == nil {
 		t.Errorf("GetDevice failed to fail")
 	}
