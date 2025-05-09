@@ -487,6 +487,9 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not get refreshed token: %w", err)
 		}
+		if newTok.RefreshToken == "" {
+			newTok.RefreshToken = tok.RefreshToken
+		}
 		clt := ua.cfg.Client(ctx, newTok)
 		data := profile.Data // Save optional data.
 		profile, err = fetchProfile(clt)
