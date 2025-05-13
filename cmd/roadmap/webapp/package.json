@@ -9,8 +9,8 @@
     "format:watch": "onchange \"**/*.{html,css,js,ts,json}\" -- prettier --write --ignore-unknown {{changed}}",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "../../../scripts/deploy.sh -b ausoceanroadmap",
-    "deploy:dev": "../../../scripts/deploy.sh -db ausoceanroadmap"
+    "deploy": "../../../scripts/deploy.sh -b ausocean-roadmap",
+    "deploy:dev": "../../../scripts/deploy.sh -db ausocean-roadmap"
   },
   "dependencies": {
     "@lit/context": "^1.1.3",

@@ -24,18 +24,119 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/openfish/cmd/openfish/api"
+	"github.com/ausocean/openfish/datastore"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
+
+// Project constants.
+const (
+	projectID     = "ausocean-roadmap"
+	oauthClientID = "1034725146926-srirvgd3j0gd20n45luju68q2vaago7c.apps.googleusercontent.com"
+	oauthMaxAge   = 60 * 60 * 24 * 7 // 7 days.
+	version       = "v0.0.1"
+)
+
+// service defines the properties of our web service.
+type service struct {
+	setupMutex  sync.Mutex
+	store       datastore.Store
+	debug       bool
+	standalone  bool
+	development bool
+	lite        bool
+	storePath   string
+	auth        *gauth.UserAuth
+	frontendURL string
+}
+
+// svc is an instance of our service.
+var svc *service = &service{}
+
+func registerAPIRoutes(app *fiber.App) {
+	v1 := app.Group("/api/v1")
+
+	// Authentication Routes.
+	v1.Group("/auth").
+		Get("/login", svc.loginHandler).
+		Get("/logout", svc.logoutHandler).
+		Get("oauth2callback", svc.callbackHandler).
+		Get("profile", svc.profileHandler)
+
+	v1.Post("/update", updateHandler)
+
+	v1.Get("/timeline", timelineHandler)
+}
+
+func main() {
+	defaultPort := 8080
+	v := os.Getenv("PORT")
+	if v != "" {
+		i, err := strconv.Atoi(v)
+		if err == nil {
+			defaultPort = i
+		}
+	}
+
+	var port int
+	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
+
+	svc.frontendURL = os.Getenv("FRONTEND_URL")
+	if svc.frontendURL == "" {
+		svc.frontendURL = "http://localhost:5173"
+	}
+
+	// Create app.
+	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler, ReadBufferSize: 8192})
+
+	ctx := context.Background()
+	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Panicf("unable to get sessionKey secret: %v", err)
+	}
+
+	svc.setup()
+
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: key,
+	}))
+
+	registerAPIRoutes(app)
+
+	// Start web server.
+	listenOn := fmt.Sprintf(":%d", port)
+	fmt.Printf("starting web server on %s\n", listenOn)
+	log.Fatal(app.Listen(listenOn))
+}
+
+// setup executes per-instance one-time warmup and is used to
+// initialize the service. Any errors are considered fatal.
+//
+// NOTE: This function must be called before any middleware which uses
+// cookies is attached to the app.
+func (svc *service) setup() {
+	svc.setupMutex.Lock()
+	defer svc.setupMutex.Unlock()
+
+	// Initialise OAuth2.
+	svc.auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
+	svc.auth.Init(backend.NewFiberHandler(nil))
+}
 
 // Spreadsheet details
 const (
@@ -92,12 +193,13 @@ func parseRoadmapData(data [][]interface{}) []map[string]string {
 }
 
 // API handler for serving roadmap data
-func timelineHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
+func timelineHandler(c *fiber.Ctx) error {
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+	c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
+	if c.Method() == fiber.MethodOptions {
+		return c.SendStatus(fiber.StatusOK)
 	}
 
 	ctx := context.Background()
@@ -106,29 +208,19 @@ func timelineHandler(w http.ResponseWriter, r *http.Request) {
 	credentials, err := AuthGSheetsRead(ctx)
 	if err != nil {
 		log.Printf("Failed to authenticate with Google Sheets: %v", err)
-		http.Error(w, "Failed to authenticate with Google Sheets", http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to authenticate with Google Sheets")
 	}
 
 	// Fetch data from Google Sheets
 	data, err := ReadSpreadsheet(ctx, credentials, spreadsheetID, readRange)
 	if err != nil {
 		log.Printf("Error fetching data: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to fetch data: %v", err), http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Failed to fetch data: %v", err))
 	}
 
-	// Convert data to JSON format
 	tasks := parseRoadmapData(data)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
-}
-
-func enableCORS(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*") // Allow all origins (change as needed)
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	return c.JSON(tasks)
 }
 
 type TaskUpdate struct {
@@ -137,54 +229,48 @@ type TaskUpdate struct {
 	End   string `json:"end"`
 }
 
-func updateHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
+func updateHandler(c *fiber.Ctx) error {
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+	c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
+	if c.Method() == fiber.MethodOptions {
+		return c.SendStatus(fiber.StatusOK)
 	}
 
 	var payload struct {
 		Tasks []TaskUpdate `json:"tasks"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusBadRequest)
-		return
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("Invalid request: %v", err))
 	}
 
 	if len(payload.Tasks) == 0 {
-		http.Error(w, "No tasks to update", http.StatusBadRequest)
-		return
+		return c.Status(fiber.StatusBadRequest).SendString("No tasks to update")
 	}
 
 	ctx := context.Background()
 	credentials, err := AuthGSheets(ctx)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Auth failed: %v", err), http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Auth failed: %v", err))
 	}
 
 	srv, err := sheets.NewService(ctx, option.WithCredentials(credentials))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create Sheets service: %v", err), http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Failed to create Sheets service: %v", err))
 	}
 
-	// Fetch all task IDs in one request
 	rowMap, err := getTaskRowMap(srv)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to fetch task list: %v", err), http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Failed to fetch task list: %v", err))
 	}
 
-	// Prepare batch update data
 	var updates []*sheets.ValueRange
 	for _, task := range payload.Tasks {
 		rowIndex, exists := rowMap[task.ID]
 		if !exists {
-			continue // Skip tasks that aren't in the sheet
+			continue
 		}
 
 		formattedStart := formatDateToSheet(task.Start)
@@ -200,15 +286,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Batch update all modified tasks
 	err = batchUpdateGoogleSheet(srv, updates)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Batch update failed: %v", err), http.StatusInternalServerError)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Batch update failed: %v", err))
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "✅ Tasks updated successfully")
+	return c.SendString("✅ Tasks updated successfully")
 }
 
 // Convert YYYY-MM-DD to DD/MM/YYYY
@@ -255,15 +338,4 @@ func batchUpdateGoogleSheet(srv *sheets.Service, updates []*sheets.ValueRange) e
 	}
 
 	return nil
-}
-
-func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080" // Default to 8080 if running locally
-	}
-	http.HandleFunc("/api/timeline", timelineHandler)
-	http.HandleFunc("/api/update", updateHandler)
-	fmt.Println("Server running on port:", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

@@ -2,39 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="/src/assets/favicon2.png" />
-    <title>AusOcean Roadmap</title>
-    <link rel="stylesheet" href="./src/index.css" />
-    <script type="module" src="/main.ts"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body class="p-4 bg-gray-100 flex flex-col h-screen">
-    <h1 class="text-3xl font-bold my-2 text-center">AusOcean Tech Roadmap</h1>
-
-    <!-- Centered zoom slider -->
-    <div class="flex justify-center">
-      <label for="zoom-slider" class="text-sm">Zoom Level:  </label>
-        <input id="zoom-slider" type="range" min="0.2" max="5" step="0.01" value="1" class="w-96 h-3 my-2">
+  <body class="flex h-screen items-center justify-center bg-gray-100">
+    <div class="rounded-2xl bg-white p-8 text-center shadow-lg">
+      <h1 class="mb-6 text-2xl font-semibold">Welcome</h1>
+      <a href="/api/v1/auth/login" class="inline-block rounded-lg bg-red-500 px-4 py-2 font-semibold text-white shadow hover:bg-red-600">Login with Google</a>
     </div>
-
-    <div class="flex items-center space-x-2 mb-2">
-      <input id="hide-past-tasks" type="checkbox" class="w-4 h-4">
-      <label for="hide-past-tasks" class="text-sm">
-        Hide past tasks
-        <span class="text-gray-500 text-xs">(over a week old)</span>
-      </label>
-    </div>    
-
-    <!-- Full-height container for canvas -->
-    <div id="canvas-container" class="flex-grow w-full overflow-y-auto overflow-x-hidden relative">
-      <!-- p5.js will insert the canvas here -->
-    </div>
-
-    <!-- Submit button at the bottom -->
-    <div class="flex justify-center mt-2">
-        <button id="submit-changes" class="px-4 py-2 bg-blue-500 text-white rounded">Submit Changes</button>
-    </div>
-</body>
-
-
+  </body>
 </html>

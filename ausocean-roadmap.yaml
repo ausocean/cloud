@@ -1,0 +1,22 @@
+runtime: go121
+
+env_variables:
+  OAUTH2_CALLBACK: https://roadmap.ausocean.org/api/v1/auth/oauth2callback
+  AUSOCEAN_ROADMAP_CREDENTIALS: gs://ausocean/ausocean-roadmap-62e8ca446bda.json
+  AUSOCEAN_ROADMAP_SECRETS: gs://ausocean/AusOceanRoadmap-secrets.txt
+
+main: ./cmd/roadmap
+
+handlers:
+  - url: /api/.*
+    script: auto
+    secure: always
+
+  # Serve index.html as /
+  - url: /
+    static_files: cmd/roadmap/webapp/dist/index.html
+    upload: cmd/roadmap/webapp/dist/index.html
+
+  # Serve all files in dist.
+  - url: /
+    static_dir: cmd/roadmap/webapp/dist
