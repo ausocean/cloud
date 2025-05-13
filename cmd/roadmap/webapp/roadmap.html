@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/src/assets/favicon2.png" />
+    <title>AusOcean Roadmap</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body class="flex h-screen flex-col bg-gray-100 p-4">
+    <!-- Top bar with title and logout button -->
+    <div class="mb-4 flex items-center justify-between">
+      <h1 class="flex-grow text-center text-3xl font-bold text-gray-800">AusOcean Tech Roadmap</h1>
+      <a href="/api/v1/auth/logout" class="ml-4 rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-red-600">Logout</a>
+    </div>
+
+    <!-- Centered zoom slider -->
+    <div class="flex">
+      <label for="zoom-slider" class="text-sm">Zoom Level:</label>
+      <input id="zoom-slider" type="range" min="0.2" max="5" step="0.01" value="1" class="my-2 h-3 w-96" />
+    </div>
+
+    <div class="mb-2 flex items-center space-x-2">
+      <input id="hide-past-tasks" type="checkbox" class="h-4 w-4" />
+      <label for="hide-past-tasks" class="text-sm">
+        Hide past tasks
+        <span class="text-xs text-gray-500">(over a week old)</span>
+      </label>
+    </div>
+
+    <!-- Full-height container for canvas -->
+    <div id="canvas-container" class="relative w-full flex-grow overflow-y-auto overflow-x-hidden">
+      <!-- p5.js will insert the canvas here -->
+    </div>
+
+    <!-- Submit button at the bottom -->
+    <div class="mt-2 flex justify-center">
+      <button id="submit-changes" class="rounded bg-blue-500 px-4 py-2 text-white">Submit Changes</button>
+    </div>
+  </body>
+</html>

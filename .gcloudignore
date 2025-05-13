@@ -55,8 +55,11 @@ cmd/ausoceantv/.git
 cmd/ausoceantv/.gitignore
 cmd/ausoceantv/node_modules/
 cmd/ausoceantv/webapp/node_modules/
-# oceanbridge
+# roadmap
 cmd/roadmap/.git
 cmd/roadmap/.gitignore
 cmd/roadmap/node_modules/
 cmd/roadmap/webapp/node_modules/
+
+cmd/cloudblue/webapp/node_modules/
+
