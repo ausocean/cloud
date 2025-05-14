@@ -150,6 +150,12 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		dev.Status = model.DeviceStatusOK
 	}
 
+	// Update variables supplied by the client that are included in the varsum.
+	if md != "" {
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
+	}
+
 	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		log.Printf("could not get var sum for device %s: %v", ma, err)
@@ -173,10 +179,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	model.PutDevice(ctx, settingsStore, dev)
 
 	// Update the variables corresponding to the client's uptime, local address and var types.
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
-	}
 	if ut != "" {
 		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
 	}
@@ -266,6 +268,8 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	ma := q.Get("ma")
 	dk := q.Get("dk")
 	ut := q.Get("ut")
+	md := q.Get("md")
+	er := q.Get("er")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -309,6 +313,12 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 			writeError(w, err)
 			return
 		}
+	}
+
+	// Update variables supplied by the client that are included in the varsum.
+	if md != "" {
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
 	}
 
 	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
@@ -494,8 +504,6 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	ma := q.Get("ma")
 	dk := q.Get("dk")
-	md := q.Get("md")
-	er := q.Get("er")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -505,10 +513,6 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
-	}
 	vars, err := model.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		writeError(w, err)
