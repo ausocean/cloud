@@ -268,8 +268,6 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 	ma := q.Get("ma")
 	dk := q.Get("dk")
 	ut := q.Get("ut")
-	md := q.Get("md")
-	er := q.Get("er")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -313,12 +311,6 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 			writeError(w, err)
 			return
 		}
-	}
-
-	// Update variables supplied by the client that are included in the varsum.
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
 	}
 
 	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
