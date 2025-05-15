@@ -447,3 +447,10 @@ func (s *Signal) Copy(datastore.Entity) (datastore.Entity, error) {
 func (s *Signal) GetCache() datastore.Cache {
 	return nil
 }
+
+// SignalRange describes of range of signals to be migrated.
+// NB: Not persistent
+type SignalRange struct {
+	Mac, Pin string
+	From, To time.Time
+}

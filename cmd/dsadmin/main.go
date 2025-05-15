@@ -6,7 +6,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2025 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -198,7 +198,12 @@ func main() {
 				log.Fatalf("migrateDevices failed with error: %v", err)
 			}
 		case "Signal":
-			err = migrateSignals(store, store2)
+			sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+				Pin:  "A0",
+				From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),
+				To:   time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC)),
+			}
+			err = migrateSignals(store, store2, sr, true)
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
@@ -821,31 +826,34 @@ func migrateDevices(store datastore.Store) error {
 	return nil
 }
 
-// migrateSignals migrates a range of signals, specified below.
-func migrateSignals(store, store2 datastore.Store) error {
+// migrateSignals migrates a range of signals, specified by the given SignalRange.
+func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) error {
 	ctx := context.Background()
 
-	ma := "BC:DD:C2:2B:AD:6D"
-	mac := model.MacEncode(ma)
-	pin := "A0"
-	from := time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC))
-	to := time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC))
+	mac := model.MacEncode(sr.Mac)
 
-	fmt.Printf("ma=%s, pin=%s, from=%v, to=%v\n", ma, pin, from, to)
+	fmt.Printf("mac=%s, pin=%s, from=%v, to=%v\n", sr.Mac, sr.Pin, sr.From, sr.To)
+	if count {
+		fmt.Printf("Getting signals...\n")
+	}
 
 	q := store.NewQuery(typeSignal, false)
 	q.Filter("mac =", mac)
-	q.Filter("pin =", pin)
-	q.Filter("date >", from)
-	q.Filter("date <=", to)
+	q.Filter("pin =", sr.Pin)
+	q.Filter("date >", sr.From)
+	q.Filter("date <=", sr.To)
 
 	var signals []Signal
 	_, err := store.GetAll(ctx, q, &signals)
 	if err != nil {
 		return err
 	}
+	if count {
+		fmt.Printf("Counted %d signals\n", len(signals))
+		return nil
+	}
 
-	id := model.ToSID(ma, pin)
+	id := model.ToSID(sr.Mac, sr.Pin)
 	n := 0
 	for _, s := range signals {
 		n += 1
