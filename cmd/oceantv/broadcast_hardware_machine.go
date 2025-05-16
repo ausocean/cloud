@@ -647,6 +647,15 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 	}
 }
 
+func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch s.Substate.(type) {
+	case *hardwarePoweringOff:
+		s.bus.publish(hardwareStopFailedEvent{event})
+	default:
+		// Ignore.
+	}
+}
+
 func (s *hardwareStopping) cameraIsReporting() bool {
 	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
@@ -770,6 +779,8 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareResetRequestEvent(event.(hardwareResetRequestEvent))
 	case hardwareShutdownFailedEvent:
 		sm.handleHardwareShutdownFailedEvent(event.(hardwareShutdownFailedEvent))
+	case hardwarePowerOffFailedEvent:
+		sm.handleHardwarePowerOffFailedEvent(event.(hardwarePowerOffFailedEvent))
 	case hardwareStoppedEvent:
 		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
 	case hardwareStartRequestEvent:
@@ -872,8 +883,16 @@ func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStopped
 func (sm *hardwareStateMachine) handleHardwareStopFailedEvent(event hardwareStopFailedEvent) {
 	switch sm.currentState.(type) {
 	case *hardwareStopping, *hardwareRestarting:
-		sm.log("handling hardware stop failed event")
 		sm.transition(newHardwareFailure(event))
+	}
+}
+
+func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch sm.currentState.(type) {
+	case *hardwareStopping:
+		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(event)
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
 	}
 }
 
