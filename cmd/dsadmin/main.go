@@ -48,10 +48,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -133,7 +135,15 @@ func main() {
 
 	switch task {
 	case "count":
-		err = count(store, kind)
+		switch kind {
+		case "Scalar":
+			err = countScalars(store, key)
+		default:
+			err = count(store, kind)
+		}
+
+	case "list":
+		err = list(store, kind)
 
 	case "dump":
 		err = dump(store, kind, output)
@@ -198,15 +208,30 @@ func main() {
 				log.Fatalf("migrateDevices failed with error: %v", err)
 			}
 		case "Signal":
+			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC)),
+			// }
+			// The following signal migrations were performed on 15 May 2025.
 			sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+//				Pin:  "X60",
 				Pin:  "A0",
-				From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),
-				To:   time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC)),
+				From: time.Time(time.Date(2021, 11, 1, 0, 0, 0, 0, time.UTC)),
+				To:   time.Time(time.Date(2022, 5, 1, 0, 0, 0, 0, time.UTC)),
 			}
-			err = migrateSignals(store, store2, sr, true)
+			err = migrateSignals(store, store2, sr, false)
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
+		default:
+			log.Fatalf("invalid kind %s", kind)
+		}
+
+	case "analyze":
+		switch kind {
+		case "Site":
+			err = analyzeSite(store, key)
 		default:
 			log.Fatalf("invalid kind %s", kind)
 		}
@@ -230,6 +255,52 @@ func count(store datastore.Store, kind string) error {
 		return err
 	}
 	fmt.Printf("Counted %d entities of kind %s\n", len(keys), kind)
+	return nil
+}
+
+// countSclars counts scalars with the given ID.
+func countScalars(store datastore.Store, id int64) error {
+	ctx := context.Background()
+
+	q := store.NewQuery("Scalar", true, "ID")
+	q.Filter("ID =", id)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Counted %d scalars with ID=%d\n", len(keys), id)
+	return nil
+}
+
+// list outputs names of entities of the given kind.
+// NB: The given kind of entity must have a Name field, e.g., a Site or Device.
+func list(store datastore.Store, kind string) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(kind, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d entities of kind %s\n", len(keys), kind)
+	for _, k := range keys {
+		e, err := datastore.NewEntity(kind)
+		if err != nil {
+			return err
+		}
+		err = store.Get(ctx, k, e)
+		if err != nil {
+			return err
+		}
+
+		eValue := reflect.ValueOf(e).Elem()
+		f := eValue.FieldByName("Name")
+		if !f.IsValid() {
+			return errors.New(kind + " has no Name field\n")
+		}
+		fmt.Printf("%s\n", f.String())
+	}
+
 	return nil
 }
 
@@ -833,30 +904,36 @@ func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) e
 	mac := model.MacEncode(sr.Mac)
 
 	fmt.Printf("mac=%s, pin=%s, from=%v, to=%v\n", sr.Mac, sr.Pin, sr.From, sr.To)
-	if count {
-		fmt.Printf("Getting signals...\n")
-	}
 
-	q := store.NewQuery(typeSignal, false)
+	q := store.NewQuery(typeSignal, count)
 	q.Filter("mac =", mac)
 	q.Filter("pin =", sr.Pin)
 	q.Filter("date >", sr.From)
 	q.Filter("date <=", sr.To)
 
+	if count {
+		fmt.Printf("Counting signals...\n")
+		keys, err := store.GetAll(ctx, q, nil)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Counted %d signals\n", len(keys))
+		return nil
+	}
+
+	fmt.Printf("Getting signals...\n")
 	var signals []Signal
 	_, err := store.GetAll(ctx, q, &signals)
 	if err != nil {
 		return err
 	}
-	if count {
-		fmt.Printf("Counted %d signals\n", len(signals))
-		return nil
-	}
 
 	id := model.ToSID(sr.Mac, sr.Pin)
-	n := 0
+	fmt.Printf("Writing %d scalars (ID=%d)...\n", len(signals), id)
 	for _, s := range signals {
-		n += 1
+		if s.Value < 0 {
+			continue
+		}
 		s2 := new(model.Scalar)
 		s2.ID = id
 		s2.Timestamp = s.Date.Unix()
@@ -868,6 +945,23 @@ func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) e
 		}
 	}
 
-	fmt.Printf("Migrated %d signals\n", n)
+	fmt.Printf("Migrated %d signals\n", len(signals))
+	return nil
+}
+
+// analyzeSite analyzes a site.
+func analyzeSite(store datastore.Store, skey int64) error {
+	ctx := context.Background()
+
+	devices, err := model.GetDevicesBySite(ctx, store, skey)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d devices for site %d\n", len(devices), skey)
+
+	for _, dev := range devices {
+		fmt.Printf("%s, %s\n", dev.MAC(), dev.Name)
+	}
+
 	return nil
 }
