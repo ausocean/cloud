@@ -393,6 +393,8 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		if withTimeout.timedOut(event.Time) {
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
+	case *directFailure:
+		// Do nothing.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
