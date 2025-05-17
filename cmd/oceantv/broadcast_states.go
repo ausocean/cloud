@@ -437,8 +437,8 @@ func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
 	return &directLiveUnhealthy{broadcastContext: ctx}
 }
 func (s *directLiveUnhealthy) fix() {
-	const resetInterval = 5 * time.Minute
-	if time.Since(s.LastResetAttempt) <= resetInterval {
+	const directLiveFixTimeout = 8 * time.Minute
+	if time.Since(s.LastResetAttempt) <= directLiveFixTimeout {
 		return
 	}
 
