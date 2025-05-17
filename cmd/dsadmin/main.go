@@ -40,6 +40,9 @@ LICENSE
 // To delete Site entities.
 // - dsadmin --task delete --kind Site
 //
+// To delete Scalars of a given ID and more recent than a given timestamp that are out of range.
+// - dsadmin -task delete -kind Scalar -ds vidgrind -id 53161121647783356 -ts 1
+//
 // To copy SiteV3 to Site (preserving the ID key), i.e, to complete a migration:
 // - dsadmin --task copy --idkey --kind1 SiteV3 --kind2 Site
 
@@ -63,21 +66,25 @@ import (
 	"github.com/ausocean/utils/sliceutils"
 )
 
+const celsius30 int64 = int64((273.2 + 30) * 10) // ~30 degrees Celsius
+
 func main() {
 	var task, kind, kind2, ds, ds2, input, output string
-	var key int64
+	var key, ts int64
 	var idKey bool
 
 	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy or migrate)")
 	flag.StringVar(&kind, "kind", "", "Datastore kind")
-	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as --kind)")
+	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as -kind)")
 	flag.StringVar(&kind2, "kind2", "", "Datastore kind 2")
 	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver or vidgrind)")
 	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver or vidgrind)")
 	flag.StringVar(&input, "input", "", "Input file or file store.")
 	flag.StringVar(&output, "output", "output", "Output file or file store")
-	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey, MID, etc.")
-	flag.BoolVar(&idKey, "idkey", false, "True for and ID key, false for a name key")
+	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey")
+	flag.Int64Var(&key, "id", 0, "Datastore ID (same as -key")
+	flag.BoolVar(&idKey, "idkey", false, "True for an ID key, false for a name key")
+	flag.Int64Var(&ts, "ts", 0, "Timestamp")
 	flag.Parse()
 
 	log.SetFlags(0) // Minimise log messages.
@@ -136,7 +143,7 @@ func main() {
 	switch task {
 	case "count":
 		switch kind {
-		case "Scalar":
+		case typeScalar:
 			err = countScalars(store, key)
 		default:
 			err = count(store, kind)
@@ -159,7 +166,15 @@ func main() {
 		}
 
 	case "delete":
-		err = delete(store, kind)
+		switch kind {
+		case typeScalar:
+			if ts == 0 {
+				log.Fatalf("-ts required")
+			}
+			err = deleteScalars(store, key, ts, float64(celsius30))
+		default:
+			err = delete(store, kind, true) // Set count to false to actually delete.
+		}
 
 	case "copy":
 		if kind == "" || kind2 == "" {
@@ -215,12 +230,12 @@ func main() {
 			// }
 			// The following signal migrations were performed on 15 May 2025.
 			sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
-//				Pin:  "X60",
-				Pin:  "A0",
-				From: time.Time(time.Date(2021, 11, 1, 0, 0, 0, 0, time.UTC)),
-				To:   time.Time(time.Date(2022, 5, 1, 0, 0, 0, 0, time.UTC)),
+				Pin: "X60",
+				//Pin:  "A0",
+				From: time.Time(time.Date(2011, 11, 1, 0, 0, 0, 0, time.UTC)),
+				To:   time.Time(time.Date(2022, 8, 1, 0, 0, 0, 0, time.UTC)),
 			}
-			err = migrateSignals(store, store2, sr, false)
+			err = migrateSignals(store, store2, sr, true) // Set count to false to actually migrate.
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
@@ -262,7 +277,7 @@ func count(store datastore.Store, kind string) error {
 func countScalars(store datastore.Store, id int64) error {
 	ctx := context.Background()
 
-	q := store.NewQuery("Scalar", true, "ID")
+	q := store.NewQuery(typeScalar, true, "ID")
 	q.Filter("ID =", id)
 	keys, err := store.GetAll(ctx, q, nil)
 	if err != nil {
@@ -403,8 +418,10 @@ func extractVars(store datastore.Store, skey int64, output string) error {
 	return nil
 }
 
-// delete deletes all entities of the given kind.
-func delete(store datastore.Store, kind string) error {
+// delete deletes ALL entities of the given kind.
+// If count is true, the number of potential deletions is printed,
+// without actually performing actual deletions.
+func delete(store datastore.Store, kind string, count bool) error {
 	ctx := context.Background()
 
 	q := store.NewQuery(kind, true)
@@ -412,6 +429,13 @@ func delete(store datastore.Store, kind string) error {
 	if err != nil {
 		return err
 	}
+
+	if count {
+		fmt.Printf("Would delete %d entities of kind %s.\n", len(keys), kind)
+		return nil
+	}
+
+	fmt.Printf("Deleting %d entities of kind %s...\n", len(keys), kind)
 	n := 0
 	for sz := len(keys); sz > 0; sz = len(keys) {
 		if sz > datastore.MaxKeys {
@@ -425,6 +449,34 @@ func delete(store datastore.Store, kind string) error {
 		keys = keys[sz:]
 	}
 	fmt.Printf("Deleted %d entities of kind %s\n", n, kind)
+	return nil
+}
+
+// deleteScalars deletes scalars with the given ID from the given timestamp that are out of range.
+func deleteScalars(store datastore.Store, id, ts int64, max float64) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(typeScalar, false, "ID", "Timestamp")
+	q.Filter("ID =", id)
+	q.Filter("Timestamp >", ts)
+
+	var scalars []model.Scalar
+	_, err := store.GetAll(ctx, q, &scalars)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d scalars with ID=%d, Timestamp>%d\n", len(scalars), id, ts)
+
+	deleted := 0
+	for _, s := range scalars {
+		// Delete scalars with values that are out of range.
+		if s.Value < 0 || s.Value > max {
+			store.Delete(ctx, store.IDKey(typeScalar, datastore.IDKey(s.ID, s.Timestamp, 0)))
+			deleted++
+		}
+	}
+
+	fmt.Printf("Deleted %d scalars\n", deleted)
 	return nil
 }
 
@@ -898,6 +950,7 @@ func migrateDevices(store datastore.Store) error {
 }
 
 // migrateSignals migrates a range of signals, specified by the given SignalRange.
+// Only counts signals without performing the migration when count is true.
 func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) error {
 	ctx := context.Background()
 
@@ -930,6 +983,7 @@ func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) e
 
 	id := model.ToSID(sr.Mac, sr.Pin)
 	fmt.Printf("Writing %d scalars (ID=%d)...\n", len(signals), id)
+	n := 0
 	for _, s := range signals {
 		if s.Value < 0 {
 			continue
@@ -943,13 +997,14 @@ func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) e
 		if err != nil {
 			return err
 		}
+		n++
 	}
 
-	fmt.Printf("Migrated %d signals\n", len(signals))
+	fmt.Printf("Migrated %d signals, ignored %d invalid signals\n", n, len(signals)-n)
 	return nil
 }
 
-// analyzeSite analyzes a site.
+// analyzeSite lists the devices for a given site.
 func analyzeSite(store datastore.Store, skey int64) error {
 	ctx := context.Background()
 
