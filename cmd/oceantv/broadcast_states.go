@@ -816,7 +816,7 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
-			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
+			if disableOnFirstFail || _cfg.StartFailures > maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
 				e = criticalFailureEvent{fmt.Errorf("exceeded broadcast start failure limit: %w", err)}
 				_cfg.StartFailures = 0
