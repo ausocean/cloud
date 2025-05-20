@@ -457,4 +457,5 @@ func (s *Signal) GetCache() datastore.Cache {
 type SignalRange struct {
 	Mac, Pin string
 	From, To time.Time
+	Max int64
 }
