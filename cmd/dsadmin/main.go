@@ -223,19 +223,42 @@ func main() {
 				log.Fatalf("migrateDevices failed with error: %v", err)
 			}
 		case "Signal":
+		        //  The following signal migrations was performed for Rapid Bay.
 			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
 			// 	Pin:  "A0",
 			// 	From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),
 			// 	To:   time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC)),
 			// }
-			// The following signal migrations were performed on 15 May 2025.
-			sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
-				Pin: "X60",
-				//Pin:  "A0",
-				From: time.Time(time.Date(2011, 11, 1, 0, 0, 0, 0, time.UTC)),
-				To:   time.Time(time.Date(2022, 8, 1, 0, 0, 0, 0, time.UTC)),
+			// The following signal migrations were performed for Rapid Bay on 15 May 2025.
+			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+			// 	Pin:  "X60",
+			//      Pin:  "A0",
+			// 	From: time.Time(time.Date(2021, 8, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2022, 8, 1, 0, 0, 0, 0, time.UTC)),
+			//	Max:  celsius30,
+			// }
+			// The following signal migration was performed for Rapid Bay on 18 May 2025.
+			// sr := SignalRange{Mac: "5C:CF:7F:19:89:42",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2021, 4, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2021, 8, 15, 0, 0, 0, 0, time.UTC)),
+			// 	Max:  celsius30,
+			// }
+			// The following signal migration was performed for Windara Reef on 18 May 2025.
+			// sr := SignalRange{Mac: "DC:4F:22:0A:86:18",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2019, 2, 25, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2020, 2, 25, 0, 0, 0, 0, time.UTC)),
+			// 	Max:  celsius30,
+			// }
+			// The following signal migration wasd performed for Glenelg on 19 May 2025.
+			sr := SignalRange{Mac: "A4:E5:7C:2C:D6:88",
+				Pin:  "X60",
+				From: time.Time(time.Date(2022, 7, 1, 0, 0, 0, 0, time.UTC)),
+				To:   time.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				Max:  celsius30,
 			}
-			err = migrateSignals(store, store2, sr, true) // Set count to false to actually migrate.
+			err = migrateSignals(store, store2, sr, false) // Set count to false to actually migrate.
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
@@ -985,7 +1008,7 @@ func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) e
 	fmt.Printf("Writing %d scalars (ID=%d)...\n", len(signals), id)
 	n := 0
 	for _, s := range signals {
-		if s.Value < 0 {
+		if s.Value < 0 || (sr.Max > 0 && s.Value > sr.Max) {
 			continue
 		}
 		s2 := new(model.Scalar)
