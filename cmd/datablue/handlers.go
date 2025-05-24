@@ -1,6 +1,6 @@
 /*
 LICENSE
-  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2024-2025 the Australian Ocean Lab (AusOcean)
 
   This file is part of Data Blue. This is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -59,6 +59,8 @@ var (
 // - ut: Uptime.
 // - la: Local (IP) address.
 // - vt: Var types present in body when non-zero.
+// - md: Device mode
+// - er: Device error, if any.
 func configHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := r.Context()
@@ -235,6 +237,7 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Type          string `json:"ct"`
 		Version       string `json:"cv"`
 		Vs            int64  `json:"vs"`
+		Ts            int64  `json:"ts"`
 		DK            string `json:"dk,omitempty"`
 		RC            int    `json:"rc,omitempty"`
 	}{
@@ -247,6 +250,7 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Type:          dev.Type,
 		Version:       dev.Version,
 		Vs:            vs,
+		Ts:            time.Now().Unix(),
 		DK:            dk,
 		RC:            int(dev.Status),
 	}
