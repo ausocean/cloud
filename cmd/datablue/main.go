@@ -1,6 +1,6 @@
 /*
 LICENSE
-  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2024-2025 the Australian Ocean Lab (AusOcean)
 
   This file is part of Data Blue. This is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	version   = "v0.3.0"
+	version   = "v0.4.0"
 	projectID = "datablue"
 )
 
