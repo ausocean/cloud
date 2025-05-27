@@ -245,3 +245,78 @@ func PutRigSystem(ctx context.Context, store datastore.Store, system *RigSystem)
 
 	return nil
 }
+
+// CameraSystem contains a camera device and the associated variables.
+type CameraSystem struct {
+	Cam  *model.Device
+	Vars []*model.Variable
+}
+
+// SetWifi sets the wifi field of the camera.
+func (sys *CameraSystem) SetWifi(ssid, pass string) {
+	sys.Cam.Wifi = ssid + "," + pass
+}
+
+// SetLocation sets the location fields of the camera.
+func (sys *CameraSystem) SetLocation(lat, long float64) {
+	sys.Cam.Latitude = lat
+	sys.Cam.Longitude = long
+}
+
+// AddVariables adds the associated variables to the system.
+func (sys *CameraSystem) AddVariables(variables ...*model.Variable) {
+	sys.Vars = variables
+}
+
+// WithCameraDefaults applies all of the current defaults to the system.
+func (sys *CameraSystem) WithCameraDefaults() {
+	sys.AddVariables(
+		model.NewAutoWhiteBalanceVar(DefaultAutoWhiteBalance),
+		model.NewBitrateVar(DefaultBitrate),
+		model.NewContrastVar(DefaultContrast),
+		model.NewFrameRateVar(DefaultFrameRate),
+		model.NewHDRVar(DefaultHDR),
+		model.NewHeightVar(DefaultHeight),
+		model.NewInputVar(DefaultInput),
+		model.NewOutputVar(DefaultOutput),
+		model.NewRotationVar(DefaultRotation),
+		model.NewSaturationVar(DefaultSaturation),
+		model.NewSharpnessVar(DefaultSharpness),
+		model.NewWidthVar(DefaultWidth),
+		model.NewLoggingVar(DefaultLogging),
+		model.NewModeVar(DefaultMode),
+		model.NewRTMPURLVar(""),
+	)
+}
+
+// NewCamera returns a new camera with the given name and mac address, with the given options applied.
+func NewCamera(skey, dkey int64, name string, mac string, opts ...Option) (*CameraSystem, error) {
+	MAC := model.MacEncode(mac)
+	if MAC == 0 {
+		return nil, model.ErrInvalidMACAddress
+	}
+
+	sys := &CameraSystem{
+		Cam: &model.Device{
+			Skey: skey,
+			Dkey: dkey,
+			Name: name,
+			Mac:  MAC,
+			Type: model.DevTypeCamera,
+		},
+	}
+
+	for i, opt := range opts {
+		err := opt(sys)
+		if err != nil {
+			return nil, fmt.Errorf("unable to apply option (%d): %w", i, err)
+		}
+	}
+
+	for _, variable := range sys.Vars {
+		variable.Skey = skey
+		variable.Scope = strings.ReplaceAll(sys.Cam.MAC(), ":", "")
+	}
+
+	return sys, nil
+}
