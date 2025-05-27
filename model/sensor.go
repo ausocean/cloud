@@ -90,7 +90,7 @@ const (
 	pinESP32BatteryVoltage Pin = "A4"
 	pinESP32Power1Voltage  Pin = "A26"
 	pinESP32Power2Voltage  Pin = "A27"
-	pinESP32Power3Voltage  Pin = "A14"
+	pinESP32Power3Voltage  Pin = "A36"
 	pinESP32NetworkVoltage Pin = "A15"
 	pinESP32Current        Pin = "A2"
 )
