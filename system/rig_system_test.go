@@ -2,11 +2,13 @@ package system_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/system"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -438,6 +440,116 @@ func TestNewRigSystem(t *testing.T) {
 			CompareSlices(t, got.Sensors, tt.expectedSystem.Sensors, "Mac", "Name")
 			CompareSlices(t, got.Actuators, tt.expectedSystem.Actuators, "Mac", "Name", "Var", "Pin")
 		})
+	}
+}
+
+func TestNewCameraSystem(t *testing.T) {
+	const (
+		camName              = "Test Cam Name"
+		testSSID             = "test-ssid"
+		testPassword         = "test-password"
+		testLat      float64 = -16.443725
+		testLong     float64 = 147.898567
+	)
+
+	tests := []struct {
+		name              string
+		skey              int64
+		dkey              int64
+		mac               string
+		cameraName        string
+		options           []system.Option
+		wantErr           error
+		expectedCamera    *model.Device
+		expectedVariables []*model.Variable
+	}{
+		{
+			name:       "New Camera no Options",
+			skey:       testSiteKey,
+			dkey:       testDevKey,
+			mac:        strTestMAC,
+			cameraName: camName,
+			wantErr:    nil,
+			expectedCamera: &model.Device{
+				Name: camName,
+				Dkey: testDevKey,
+				Skey: testSiteKey,
+				Type: model.DevTypeCamera,
+				Mac:  model.MacEncode(strTestMAC),
+			},
+		},
+		{
+			name:       "New Camera with Wifi",
+			skey:       testSiteKey,
+			dkey:       testDevKey,
+			mac:        strTestMAC,
+			cameraName: camName,
+			options:    []system.Option{system.WithWifi(testSSID, testPassword)},
+			wantErr:    nil,
+			expectedCamera: &model.Device{
+				Name: camName,
+				Dkey: testDevKey,
+				Skey: testSiteKey,
+				Type: model.DevTypeCamera,
+				Mac:  model.MacEncode(strTestMAC),
+				Wifi: testSSID + "," + testPassword,
+			},
+		},
+		{
+			name:       "New Camera with Location",
+			skey:       testSiteKey,
+			dkey:       testDevKey,
+			mac:        strTestMAC,
+			cameraName: camName,
+			options:    []system.Option{system.WithLocation(testLat, testLong)},
+			wantErr:    nil,
+			expectedCamera: &model.Device{
+				Name:      camName,
+				Dkey:      testDevKey,
+				Skey:      testSiteKey,
+				Type:      model.DevTypeCamera,
+				Mac:       model.MacEncode(strTestMAC),
+				Latitude:  testLat,
+				Longitude: testLong,
+			},
+		},
+		{
+			name:       "New Camera with Variable",
+			skey:       testSiteKey,
+			dkey:       testDevKey,
+			mac:        strTestMAC,
+			cameraName: camName,
+			options: []system.Option{system.WithVariables([]*model.Variable{
+				{
+					Name:  "Test Var",
+					Value: "Default",
+				},
+			}...)},
+			wantErr: nil,
+			expectedCamera: &model.Device{
+				Name: camName,
+				Dkey: testDevKey,
+				Skey: testSiteKey,
+				Type: model.DevTypeCamera,
+				Mac:  model.MacEncode(strTestMAC),
+			},
+			expectedVariables: []*model.Variable{
+				{
+					Name:  "Test Var",
+					Value: "Default",
+					Skey:  testSiteKey,
+					Scope: strings.ReplaceAll(strTestMAC, ":", ""),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		sys, gotErr := system.NewCamera(tt.skey, tt.dkey, tt.cameraName, tt.mac, tt.options...)
+
+		assert.ErrorIs(t, gotErr, tt.wantErr, "Test [%s] failed", tt.name)
+		assert.Equal(t, tt.expectedCamera, sys.Cam, "Test [%s] failed", tt.name)
+		assert.ElementsMatch(t, tt.expectedVariables, sys.Vars, "Test [%s] failed", tt.name)
 	}
 }
 
