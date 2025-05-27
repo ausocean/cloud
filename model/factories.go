@@ -293,6 +293,126 @@ func NewPulseSuppressVar(suppress bool) *Variable {
 	}
 }
 
+// NewAutoWhiteBalanceVar returns a new AutoWhiteBalance var.
+func NewAutoWhiteBalanceVar(setting string) *Variable {
+	return &Variable{
+		Name:  "AutoWhiteBalance",
+		Value: setting,
+	}
+}
+
+// NewBitrateVar returns a new Bitrate var.
+func NewBitrateVar(bitrate int) *Variable {
+	return &Variable{
+		Name:  "Bitrate",
+		Value: strconv.Itoa(bitrate),
+	}
+}
+
+// NewContrastVar returns a new Contrast var.
+func NewContrastVar(contrast int) *Variable {
+	return &Variable{
+		Name:  "Contrast",
+		Value: strconv.Itoa(contrast),
+	}
+}
+
+// NewFrameRateVar returns a new FrameRate var.
+func NewFrameRateVar(frameRate int) *Variable {
+	return &Variable{
+		Name:  "FrameRate",
+		Value: strconv.Itoa(frameRate),
+	}
+}
+
+// NewHDRVar returns a new HDR var.
+func NewHDRVar(HDRMode string) *Variable {
+	return &Variable{
+		Name:  "HDR",
+		Value: HDRMode,
+	}
+}
+
+// NewHeightVar returns a new Height var.
+func NewHeightVar(height int) *Variable {
+	return &Variable{
+		Name:  "Height",
+		Value: strconv.Itoa(height),
+	}
+}
+
+// NewInputVar returns a new Input var.
+func NewInputVar(input string) *Variable {
+	return &Variable{
+		Name:  "Input",
+		Value: input,
+	}
+}
+
+// NewOutputVar returns a new Output var.
+func NewOutputVar(output string) *Variable {
+	return &Variable{
+		Name:  "Output",
+		Value: output,
+	}
+}
+
+// NewRTMPURLVar returns a new RTMPURL var.
+func NewRTMPURLVar(url string) *Variable {
+	return &Variable{
+		Name:  "RTMPURL",
+		Value: url,
+	}
+}
+
+// NewRotationVar returns a new Rotation var.
+func NewRotationVar(rotation int) *Variable {
+	return &Variable{
+		Name:  "Rotation",
+		Value: strconv.Itoa(rotation),
+	}
+}
+
+// NewSaturationVar returns a new Saturation var.
+func NewSaturationVar(saturation int) *Variable {
+	return &Variable{
+		Name:  "Saturation",
+		Value: strconv.Itoa(saturation),
+	}
+}
+
+// NewSharpnessVar returns a new Sharpness var.
+func NewSharpnessVar(sharpness int) *Variable {
+	return &Variable{
+		Name:  "Sharpness",
+		Value: strconv.Itoa(sharpness),
+	}
+}
+
+// NewWidthVar returns a new Width var.
+func NewWidthVar(width int) *Variable {
+	return &Variable{
+		Name:  "Width",
+		Value: strconv.Itoa(width),
+	}
+}
+
+// NewloggingVar returns a new logging var.
+func NewLoggingVar(level string) *Variable {
+	return &Variable{
+		Name:  "logging",
+		Value: level,
+	}
+}
+
+// NewmodeVar returns a new mode var.
+func NewModeVar(mode string) *Variable {
+	return &Variable{
+		Name:  "mode",
+		Value: mode,
+	}
+}
+
 // NewDevice1Actuator returns a new actuator to control device 1.
 // The actuator is linked to the Power 1 variable (and Pin).
 func NewDevice1Actuator() *ActuatorV2 {
