@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/system/camera"
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -271,20 +272,20 @@ func (sys *CameraSystem) AddVariables(variables ...*model.Variable) {
 // WithCameraDefaults applies all of the current defaults to the system.
 func (sys *CameraSystem) WithCameraDefaults() {
 	sys.AddVariables(
-		model.NewAutoWhiteBalanceVar(DefaultAutoWhiteBalance),
-		model.NewBitrateVar(DefaultBitrate),
-		model.NewContrastVar(DefaultContrast),
-		model.NewFrameRateVar(DefaultFrameRate),
-		model.NewHDRVar(DefaultHDR),
-		model.NewHeightVar(DefaultHeight),
-		model.NewInputVar(DefaultInput),
-		model.NewOutputVar(DefaultOutput),
-		model.NewRotationVar(DefaultRotation),
-		model.NewSaturationVar(DefaultSaturation),
-		model.NewSharpnessVar(DefaultSharpness),
-		model.NewWidthVar(DefaultWidth),
-		model.NewLoggingVar(DefaultLogging),
-		model.NewModeVar(DefaultMode),
+		model.NewAutoWhiteBalanceVar(camera.DefaultAutoWhiteBalance),
+		model.NewBitrateVar(camera.DefaultBitrate),
+		model.NewContrastVar(camera.DefaultContrast),
+		model.NewFrameRateVar(camera.DefaultFrameRate),
+		model.NewHDRVar(camera.DefaultHDR),
+		model.NewHeightVar(camera.DefaultHeight),
+		model.NewInputVar(camera.DefaultInput),
+		model.NewOutputVar(camera.DefaultOutput),
+		model.NewRotationVar(camera.DefaultRotation),
+		model.NewSaturationVar(camera.DefaultSaturation),
+		model.NewSharpnessVar(camera.DefaultSharpness),
+		model.NewWidthVar(camera.DefaultWidth),
+		model.NewLoggingVar(camera.DefaultLogging),
+		model.NewModeVar(camera.DefaultMode),
 		model.NewRTMPURLVar(""),
 	)
 }
