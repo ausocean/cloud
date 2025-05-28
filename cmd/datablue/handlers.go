@@ -516,6 +516,11 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := `{"id":"` + dev.Hex() + `",`
+	if dev.Status != model.DeviceStatusOK {
+		resp += `"rc":` + strconv.Itoa(int(dev.Status)) + `,`
+	}
+	resp += `"ts":` + strconv.Itoa(int(time.Now().Unix())) + `,`
+
 	for _, v := range vars {
 		if v.IsSystemVariable() {
 			continue
