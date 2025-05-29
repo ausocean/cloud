@@ -1763,6 +1763,60 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
 		},
+
+		{
+			desc: "direct broadcast; start with low voltage alarm error, then enter recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareRecoveringVoltage{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			expectedEvents: []event{timeEvent{}, startEvent{}, hardwareStartRequestEvent{}, lowVoltageEvent{}},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		{
+			desc: "direct broadcast; low voltage alarm error, successful voltage recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareStarting{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(49)...),
+				[]event{voltageRecoveredEvent{}}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
 	}
 
 	for _, tt := range tests {

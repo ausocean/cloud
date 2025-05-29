@@ -234,6 +234,35 @@ func (s *hardwareStarting) enter() {
 		return
 	}
 
+	// The first check for any known hardware error states.
+	hwErr, err := s.camera.error(s.broadcastContext)
+	if err != nil {
+		errWrapped := fmt.Errorf("could not get hardware error state: %w", err)
+		s.log(errWrapped.Error())
+		// NOTE here we could do this, however it's not certain that all ESPs
+		// will have the latest firmware that supports this, and so it's not
+		// necessarily a showstopper.
+		// s.bus.publish(invalidConfigurationEvent{errWrapped})
+		// return
+	}
+
+	switch {
+	case errors.Is(hwErr, LowVoltageAlarm):
+		s.log("controller voltage is low, waiting for recovery before starting")
+		s.bus.publish(lowVoltageEvent{})
+		return
+	case errors.Is(hwErr, None):
+		// Continue other checks, this is good.
+	case hwErr != nil:
+		errWrapped := fmt.Errorf("unhandled controller hardware error: %w", hwErr)
+		s.log(errWrapped.Error())
+		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		return
+	default:
+		// This means we failed to get hwErr, which at this stage just means
+		// we have a controller that doesn't have the latest firmware.
+	}
+
 	voltage, err := s.camera.voltage(s.broadcastContext)
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware voltage: %w", err)
@@ -1012,9 +1041,31 @@ type hardwareManager interface {
 	shutdown(ctx *broadcastContext)
 	stop(ctx *broadcastContext)
 	publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event))
+	error(ctx *broadcastContext) (error, error)
 }
 
 type revidCameraClient struct{}
+
+type ControllerError string
+
+const (
+	None            ControllerError = ""
+	LowVoltageAlarm ControllerError = "LowVoltageAlarm"
+)
+
+func (e ControllerError) Error() string {
+	return string(e)
+}
+
+func (e ControllerError) Is(target error) bool {
+	if target == nil {
+		return false
+	}
+	if t, ok := target.(ControllerError); ok {
+		return e == t
+	}
+	return false
+}
 
 func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
@@ -1126,6 +1177,15 @@ func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, event ev
 		publish(event)
 		return
 	}
+}
+
+func (c *revidCameraClient) error(ctx *broadcastContext) (error, error) {
+	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
+	devErr, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".error")
+	if err != nil {
+		return nil, fmt.Errorf("could not get controller error variable: %w", err)
+	}
+	return ControllerError(devErr.Value), nil
 }
 
 func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {
