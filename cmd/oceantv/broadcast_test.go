@@ -312,6 +312,7 @@ type dummyHardwareManager struct {
 	controllerMAC     string
 	cameraMAC         string
 	latestRequest     request
+	hwErr             error
 }
 
 func withHardwareFault() func(*dummyHardwareManager) {
@@ -323,6 +324,12 @@ func withHardwareFault() func(*dummyHardwareManager) {
 func withLowVoltage() func(*dummyHardwareManager) {
 	return func(h *dummyHardwareManager) {
 		h.volts = 24.0
+	}
+}
+
+func withHardwareError(err error) func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.hwErr = err
 	}
 }
 
@@ -455,6 +462,12 @@ func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event
 	} else if status == false {
 		publish(event)
 	}
+}
+func (h *dummyHardwareManager) error(ctx *broadcastContext) (error, error) {
+	if h.volts > h.alarmVolts {
+		return None, nil
+	}
+	return h.hwErr, nil
 }
 
 // mockNotifier to implement Notifier interface.
