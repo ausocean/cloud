@@ -1,0 +1,7 @@
+{
+  "id": "notification-002",
+  "title": "Dark Stream Due to Weather",
+  "message": "The Rapid Bay camera is currently displaying a dark stream due to extremely low light levels caused by rough weather. Visibility is expected to improve by the end of the weekend. Thank you for your patience.",
+  "expiresAt": "2025-06-08T23:59:00Z",
+  "version": "v1"
+}
