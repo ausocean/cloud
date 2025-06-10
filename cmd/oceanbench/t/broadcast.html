@@ -148,6 +148,10 @@
                 <label class="w-25 text-end">Hardware State Data:</label>
                 <input class="w-50 align-items-center form-control" id="hardware-state-data" size="1" value="{{.CurrentBroadcast.PrettyHardwareStateData}}" readonly />
               </div>
+              <div class="d-flex align-items-center gap-1 mb-1">
+                <div class="w-25"></div>
+                <button class="w-50 btn btn-secondary btn-sm" onclick="buttonClick(this)" value="broadcast-reset-state">Reset States</button>
+              </div>
             </div>
           </fieldset>
           <h2 class="pt-5">Device Settings</h2>
@@ -159,12 +163,10 @@
                 <select id="camera-select" name="camera-mac" class="form-select h-auto w-50">
                   <option {{if eq .CurrentBroadcast.CameraMac 0}}selected{{end}}>Select</option>
                   {{range .Cameras}}
-                    <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>
-                      {{.Name}}
-                    </option>
+                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.CameraMac }}selected{{end}}>{{.Name}}</option>
                   {{end}}
-                </select>                
-                
+                </select>
+
                 <div class="d-flex gap-3 flex-row">
                   {{range .Settings.Resolution}}
                   <div>
@@ -181,11 +183,9 @@
                 <select id="controller-select" name="controller-mac" class="form-select h-auto w-50">
                   <option {{if eq .CurrentBroadcast.ControllerMAC 0}}selected{{end}}>Select</option>
                   {{range .Controllers}}
-                    <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC}}selected{{end}}>
-                      {{.Name}}
-                    </option>
+                  <option value="{{.MAC}}" {{if eq .Mac $.CurrentBroadcast.ControllerMAC}}selected{{end}}>{{.Name}}</option>
                   {{end}}
-                </select>                
+                </select>
                 <button type="button" onclick="generateActions()" class="btn btn-primary">Generate Actions</button>
               </div>
             </div>

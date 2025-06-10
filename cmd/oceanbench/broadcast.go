@@ -68,6 +68,7 @@ const (
 	broadcastToken
 	broadcastDelete
 	broadcastSelect
+	broadcastResetState
 
 	// Vidforward control API request actions.
 	vidforwardCreate
@@ -435,6 +436,22 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 		}
 		msg = "slate uploaded successfully"
+	case broadcastResetState:
+		err = resetState(ctx, &req.CurrentBroadcast)
+		if err != nil {
+			reportError(w, r, req, "could not reset state: %v", err)
+			return
+		}
+		v, err := model.GetVariable(ctx, settingsStore, sKey, broadcastScope+"."+cfg.Name)
+		if err != nil {
+			reportError(w, r, req, "could not load saved broadcast: %v", err)
+			return
+		}
+		err = json.Unmarshal([]byte(v.Value), cfg)
+		if err != nil {
+			reportError(w, r, req, "could not unmarshal broadcast: %v", err)
+			return
+		}
 	}
 
 	writeTemplate(w, r, "broadcast.html", &req, msg)
@@ -450,6 +467,7 @@ func stringToAction(s string, req broadcastRequest) Action {
 			"broadcast-token":         broadcastToken,
 			"broadcast-delete":        broadcastDelete,
 			"broadcast-select":        broadcastSelect,
+			"broadcast-reset-state":   broadcastResetState,
 			"vidforward-create":       vidforwardCreate,
 			"vidforward-play":         vidforwardPlay,
 			"vidforward-slate":        vidforwardSlate,
@@ -492,6 +510,37 @@ func saveBroadcast(ctx context.Context, cfg *Cfg) error {
 	}
 
 	log.Printf("%s OK", saveMethod)
+	return nil
+}
+
+// resetState sends a request to reset the state of a broadcast to the broadcast manager service (oceantv).
+// TODO: Add JWT signing.
+func resetState(ctx context.Context, cfg *Cfg) error {
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
+	}
+
+	const resetStateEndpoint = "/broadcast/reset-state"
+	url := tvURL + resetStateEndpoint
+	reader := bytes.NewReader(data)
+	req, err := http.NewRequest("POST", url, reader)
+	if err != nil {
+		return fmt.Errorf("error creating %s request: %w", resetStateEndpoint, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	clt := &http.Client{}
+	resp, err := clt.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending %s request: %w", resetStateEndpoint, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s request failed with status code: %s", resetStateEndpoint, http.StatusText(resp.StatusCode))
+	}
+
+	log.Printf("%s OK", resetStateEndpoint)
 	return nil
 }
 
