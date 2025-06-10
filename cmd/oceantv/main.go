@@ -47,7 +47,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.10.7"
+	version            = "v0.11.0"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -365,7 +365,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	op := req[2]
-	if op != "save" {
+	const resetState string = "reset-state"
+	if op != "save" && op != resetState {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid operation: %s", op))
 		return
 	}
@@ -401,6 +402,30 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		// Update only the fields that can be updated via the UI.
 		// NOTE: This needs to be kept in sync with the UI. To aid this, the fields
 		// have been updated in the same order which they're currently being updated on oceanbench.
+
+		// Reset State.
+		if op == resetState {
+			_cfg.InFailure = false
+			_cfg.StartFailures = 0
+			_cfg.AttemptingToStart = false
+			_cfg.Enabled = true
+			_cfg.Events = []string{}
+			_cfg.Issues = 0
+
+			if cfg.UsingVidforward {
+				if strings.Contains(cfg.Name, secondaryBroadcastPostfix) {
+					_cfg.BroadcastState = stateToString(&vidforwardSecondaryIdle{})
+				} else {
+					_cfg.BroadcastState = stateToString(&vidforwardPermanentIdle{})
+				}
+			} else {
+				_cfg.BroadcastState = stateToString(&directIdle{})
+			}
+			_cfg.StateData = nil
+			_cfg.HardwareState = hardwareStateToString(&hardwareOff{})
+			_cfg.HardwareStateData = nil
+			return
+		}
 
 		// Values parsed initially from the form submission.
 		_cfg.SKey = cfg.SKey
