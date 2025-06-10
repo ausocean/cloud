@@ -272,8 +272,7 @@ func (s *hardwareStarting) enter() {
 	// Not below alarm voltage, but controller is not responding.
 	// This is a critical failure.
 	if !controllerIsOn {
-		s.log("controller not responding above alarm voltage")
-		s.bus.publish(controllerFailureEvent{})
+		s.bus.publish(controllerFailureEvent{errors.New("controller not responding above alarm voltage")})
 		return
 	}
 
