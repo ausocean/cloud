@@ -160,16 +160,17 @@
         <fieldset>
           <legend>Input source</legend>
           <div class="d-flex align-items-center gap-2">
-            <label>Device:</label>
-            <select class="form-select form-select-sm w-25" name="ma" onchange="this.form.submit();">
-              <option value="" selected>- Select device -</option>
-              {{ range .Devices }}
-              <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
-              {{ end }}
-            </select>
+              <label style="width: 60px;">Device:</label>
+              <select class="form-select form-select-sm w-100" name="ma" onchange="this.form.submit();">
+                <option value="" selected>- Select device -</option>
+                {{ range .Devices }}
+                <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
+                {{ end }}
+              </select>
+            </div>
             {{ if .Device }}
-            <div class="d-flex align-items-center">
-              <span>Pin:</span>
+            <div class="d-flex align-items-center gap-2">
+              <label style="width: 60px;">Pin:</label>
               <select class="form-select form-select-sm" name="pn" onchange="this.form.submit();">
                 <option value="" selected>- Select pin -</option>
                 {{ range .Device.InputList }}
