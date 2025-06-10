@@ -26,6 +26,11 @@
       </site-menu>
     </header-group>
     <section id="main" class="main">
+      {{if .Msg}}
+      <div class="red">{{.Msg}}</div>
+      <br />
+      {{end}}
+
       <h1 class="container-md">Monitor</h1>
       <div>
         {{ range .Devices }}
