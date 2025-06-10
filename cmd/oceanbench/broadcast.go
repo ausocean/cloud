@@ -372,7 +372,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		} else if err != nil {
 			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
 			return
-		} else if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+		} else if r.FormValue("in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
 			cfg.HardwareState = "hardwareOff"
 		}
 
