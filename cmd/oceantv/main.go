@@ -47,7 +47,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.10.6"
+	version            = "v0.10.7"
 	projectURL         = "https://oceantv.appspot.com"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.

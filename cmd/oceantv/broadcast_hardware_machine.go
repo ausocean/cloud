@@ -637,8 +637,6 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 			s.log("skipping shutdown: %v:", event.Error)
 		} else if errors.Is(event, errNoShutdownActions) {
 			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())
-		} else {
-			s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
 		}
 		s.transition()
 	default:
