@@ -1576,11 +1576,23 @@ func TestSubFeed(t *testing.T) {
 		t.Errorf("could not create new subfeed: %v", err)
 	}
 
+	newSubfeed2 := &SubFeed{
+		ID:     testSubFeedID + 2,
+		FeedID: testSubFeedFeedID + 1,
+		Source: "https://youtube.com/watch?v=1122334455",
+		Active: true,
+		Start:  startTime,
+		Finish: finishTime,
+	}
+	err = CreateSubFeed(ctx, store, newSubfeed2)
+	if err != nil {
+		t.Errorf("could not create new subfeed: %v", err)
+	}
+
 	subfeeds, err := GetSubFeedsByFeed(ctx, store, testSubFeedFeedID)
 	if err != nil {
 		t.Errorf("could not get all subfeeds: %v", err)
 	}
-
 	assert.Equal(t, []SubFeed{*subfeed, *newSubfeed}, subfeeds, "Got different subfeeds than put, got: \n%+v, wanted \n%+v", subfeeds, []SubFeed{*subfeed, *newSubfeed})
 
 	err = DeleteSubFeed(ctx, store, testSubFeedID)
