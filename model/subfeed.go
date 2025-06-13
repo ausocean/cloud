@@ -63,8 +63,8 @@ func (f *SubFeed) GetCache() datastore.Cache {
 }
 
 // GetSubFeed retrieves a SubFeed entity from the datastore by its ID.
-func GetSubFeed(ctx context.Context, store datastore.Store, ID, feedID int64) (*SubFeed, error) {
-	key := store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", feedID, ID))
+func GetSubFeed(ctx context.Context, store datastore.Store, ID int64) (*SubFeed, error) {
+	key := store.IDKey(typeSubFeed, ID)
 
 	subfeed := &SubFeed{}
 	err := store.Get(ctx, key, subfeed)
@@ -77,7 +77,7 @@ func GetSubFeed(ctx context.Context, store datastore.Store, ID, feedID int64) (*
 
 // GetAllSubFeeds retrieves all SubFeed entities from the datastore for a given FeedID.
 func GetSubFeedsByFeed(ctx context.Context, store datastore.Store, feedID int64) ([]SubFeed, error) {
-	q := store.NewQuery(typeSubFeed, false, "FeedID", "ID")
+	q := store.NewQuery(typeSubFeed, false, "ID")
 	q.FilterField("FeedID", "=", feedID)
 	subfeeds := []SubFeed{}
 	_, err := store.GetAll(ctx, q, &subfeeds)
@@ -90,13 +90,13 @@ func GetSubFeedsByFeed(ctx context.Context, store datastore.Store, feedID int64)
 
 // CreateSubFeed creates a subfeed, or returns an error if a subfeed with the given ID exists.
 func CreateSubFeed(ctx context.Context, store datastore.Store, subfeed *SubFeed) error {
-	key := store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", subfeed.FeedID, subfeed.ID))
+	key := store.IDKey(typeSubFeed, subfeed.ID)
 	return store.Create(ctx, key, subfeed)
 }
 
 // UpdateSubFeed updates a subfeed, or returns an error if the subfeed does not exist.
 func UpdateSubFeed(ctx context.Context, store datastore.Store, subfeed *SubFeed) (*SubFeed, error) {
-	key := store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", subfeed.FeedID, subfeed.ID))
+	key := store.IDKey(typeSubFeed, subfeed.ID)
 	updated := &SubFeed{}
 	err := store.Update(ctx, key, func(e datastore.Entity) {
 		_subfeed := e.(*SubFeed)
@@ -111,8 +111,8 @@ func UpdateSubFeed(ctx context.Context, store datastore.Store, subfeed *SubFeed)
 }
 
 // MarkSubFeedInactive updates the Active field of a given subfeed to false.
-func MarkSubFeedInactive(ctx context.Context, store datastore.Store, ID, feedID int64) error {
-	key := store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", feedID, ID))
+func MarkSubFeedInactive(ctx context.Context, store datastore.Store, ID int64) error {
+	key := store.IDKey(typeSubFeed, ID)
 	return store.Update(ctx, key, func(e datastore.Entity) {
 		subfeed := e.(*SubFeed)
 		subfeed.Active = false
@@ -120,7 +120,7 @@ func MarkSubFeedInactive(ctx context.Context, store datastore.Store, ID, feedID 
 }
 
 // DeleteSubFeed deletes a subfeed, or returns an error if the subfeed does not exist.
-func DeleteSubFeed(ctx context.Context, store datastore.Store, ID, feedID int64) error {
-	key := store.NameKey(typeSubFeed, fmt.Sprintf("%d.%d", feedID, ID))
+func DeleteSubFeed(ctx context.Context, store datastore.Store, ID int64) error {
+	key := store.IDKey(typeSubFeed, ID)
 	return store.Delete(ctx, key)
 }

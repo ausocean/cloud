@@ -1543,7 +1543,7 @@ func TestSubFeed(t *testing.T) {
 		t.Errorf("could not create subfeed: %v", err)
 	}
 
-	subfeed2, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	subfeed2, err := GetSubFeed(ctx, store, testSubFeedID)
 	if err != nil {
 		t.Errorf("could not get subfeed: %v", err)
 	}
@@ -1556,7 +1556,7 @@ func TestSubFeed(t *testing.T) {
 		t.Errorf("could not update subfeed: %v", err)
 	}
 
-	subfeed3, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	subfeed3, err := GetSubFeed(ctx, store, testSubFeedID)
 	if err != nil {
 		t.Errorf("could not get subfeed: %v", err)
 	}
@@ -1583,12 +1583,12 @@ func TestSubFeed(t *testing.T) {
 
 	assert.Equal(t, []SubFeed{*subfeed, *newSubfeed}, subfeeds, "Got different subfeeds than put, got: \n%+v, wanted \n%+v", subfeeds, []SubFeed{*subfeed, *newSubfeed})
 
-	err = DeleteSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	err = DeleteSubFeed(ctx, store, testSubFeedID)
 	if err != nil {
 		t.Errorf("could not delete subfeed: %v", err)
 	}
 
-	subfeed4, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
+	subfeed4, err := GetSubFeed(ctx, store, testSubFeedID)
 	if !errors.Is(err, datastore.ErrNoSuchEntity) {
 		t.Errorf("expected ErrNoSuchEntity, got %v", err)
 	}
