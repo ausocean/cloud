@@ -118,6 +118,7 @@ func (s *stateWithTimeoutFields) timedOut(t time.Time) bool {
 }
 
 func (s *stateWithTimeoutFields) reset(d time.Duration) {
+	s.LastEntered = time.Now()
 	s.Timeout = d
 }
 
