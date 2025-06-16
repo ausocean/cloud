@@ -496,6 +496,16 @@ func newDirectFailure(ctx *broadcastContext, err error) *directFailure {
 	return &directFailure{broadcastContext: ctx, err: err}
 }
 func (s *directFailure) enter() {
+	notifyMsg := "entering direct broadcast failure state"
+	notifyKind := broadcastGeneric
+	if s.err != nil {
+		if errEvent, ok := s.err.(errorEvent); ok {
+			notifyKind = errEvent.Kind()
+		}
+		notifyMsg = fmt.Sprintf("entering direct broadcast failure state due to: %v", s.err)
+	}
+	s.logAndNotify(notifyKind, notifyMsg)
+
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
 	if err != nil {
 		s.log("could not stop broadcast on entry: %v", err)
