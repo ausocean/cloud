@@ -694,11 +694,16 @@ func newHardwareOff() *hardwareOff { return &hardwareOff{} }
 func (s *hardwareOff) enter()      {}
 func (s *hardwareOff) exit()       {}
 
-type hardwareFailure struct{ err error }
+type hardwareFailure struct {
+	*broadcastContext `json:"-"`
+	err               error
+}
 
 var _ = register(hardwareFailure{})
 
-func newHardwareFailure(err error) *hardwareFailure { return &hardwareFailure{err} }
+func newHardwareFailure(ctx *broadcastContext, err error) *hardwareFailure {
+	return &hardwareFailure{ctx, err}
+}
 
 func (s hardwareFailure) Name() string { return "hardwareFailure" }
 
@@ -719,10 +724,20 @@ func (s *hardwareFailure) UnmarshalJSON(data []byte) error {
 // New implements registry.Newable for creating a fresh value of
 // hardwareFailure from an existing value.
 func (s hardwareFailure) New(args ...interface{}) (any, error) {
-	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareFailure(nil) }, args...)
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareFailure(ctx, nil) }, args...)
 }
-func (s *hardwareFailure) enter() {}
-func (s *hardwareFailure) exit()  {}
+func (s *hardwareFailure) enter() {
+	notifyMsg := "entering hardware failure state"
+	notifyKind := broadcastGeneric
+	if s.err != nil {
+		if errEvent, ok := s.err.(errorEvent); ok {
+			notifyKind = errEvent.Kind()
+		}
+		notifyMsg = fmt.Sprintf("entering hardware failure state due to: %v", s.err)
+	}
+	s.logAndNotify(notifyKind, notifyMsg)
+}
+func (s *hardwareFailure) exit() {}
 
 type hardwareStateMachine struct {
 	currentState state
@@ -880,7 +895,7 @@ func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStopped
 func (sm *hardwareStateMachine) handleHardwareStopFailedEvent(event hardwareStopFailedEvent) {
 	switch sm.currentState.(type) {
 	case *hardwareStopping, *hardwareRestarting:
-		sm.transition(newHardwareFailure(event))
+		sm.transition(newHardwareFailure(sm.ctx, event))
 	}
 }
 
@@ -897,7 +912,7 @@ func (sm *hardwareStateMachine) handleHardwareStartFailedEvent(event hardwareSta
 	switch sm.currentState.(type) {
 	case *hardwareStarting, *hardwareRestarting:
 		sm.log("handling hardware start failed event")
-		sm.transition(newHardwareFailure(event))
+		sm.transition(newHardwareFailure(sm.ctx, event))
 	}
 }
 
@@ -957,7 +972,7 @@ func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareRe
 }
 
 func (sm *hardwareStateMachine) handleControllerFailureEvent(event controllerFailureEvent) {
-	sm.transition(newHardwareFailure(event))
+	sm.transition(newHardwareFailure(sm.ctx, event))
 }
 
 func (sm *hardwareStateMachine) handleLowVoltageEvent(event lowVoltageEvent) {
