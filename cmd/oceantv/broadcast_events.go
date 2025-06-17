@@ -327,46 +327,11 @@ var _ = registerEvent(slateResetRequested{})
 
 func (e slateResetRequested) String() string { return "slateResetRequested" }
 
-type fixFailureEvent struct{ error }
+type fixFailureEvent struct{}
 
 var _ = registerEvent(fixFailureEvent{})
 
 func (e fixFailureEvent) String() string { return "fixFailureEvent" }
-func (e fixFailureEvent) Error() string {
-	if e.error == nil {
-		return "(" + e.String() + ") <nil>"
-	}
-	return "(" + e.String() + ") " + e.error.Error()
-}
-func (e fixFailureEvent) New(args ...any) (any, error) {
-	var err error = nil
-	if len(args) != 0 {
-		err = args[0].(error)
-	}
-	return fixFailureEvent{err}, nil
-}
-
-// Kind implements the errorEvent interface.
-func (e fixFailureEvent) Kind() notify.Kind {
-	if errEvent, ok := e.error.(errorEvent); ok {
-		return errEvent.Kind()
-	}
-
-	if unwrapped := unwrapErrEvent(e.error, nil); unwrapped != nil {
-		return unwrapped.Kind()
-	}
-
-	return broadcastGeneric
-}
-
-func (e fixFailureEvent) Unwrap() error { return e.error }
-
-func (e fixFailureEvent) Is(target error) bool {
-	if _, ok := target.(fixFailureEvent); ok {
-		return true
-	}
-	return errors.Is(e.error, target)
-}
 
 type invalidConfigurationEvent struct{ error }
 

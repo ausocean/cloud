@@ -403,8 +403,6 @@ func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) er
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentLiveUnhealthy:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
 	}

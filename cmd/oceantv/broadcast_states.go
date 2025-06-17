@@ -442,18 +442,25 @@ func (s *directLiveUnhealthy) fix() {
 		return
 	}
 
-	var e event
+	s.Attempts++
+
+	var (
+		e   event
+		msg string
+	)
+
 	const maxAttempts = 3
-	if s.Attempts >= maxAttempts {
-		e = fixFailureEvent{fmt.Errorf("failed to fix broadcast (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)}
+	if s.Attempts > maxAttempts {
+		msg = "failed to fix broadcast, requesting broadcast finish (attempts: %d, max attempts: %d)"
+		e = finishEvent{}
 	} else {
-		s.logAndNotify(broadcastHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
-		s.Attempts++
+		msg = "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)"
 		e = hardwareResetRequestEvent{}
 	}
 
-	s.LastResetAttempt = time.Now()
+	s.logAndNotify(broadcastHardware, msg, s.Attempts, maxAttempts)
 	s.bus.publish(e)
+	s.LastResetAttempt = time.Now()
 }
 
 type directStarting struct {
