@@ -1,4 +1,5 @@
 /// <reference types="google.maps" />
+declare const __GOOGLE_MAPS_API_KEY__: string;
 
 async function handleFormSubmit(event: Event): Promise<void> {
   console.log("handling form submission...");
@@ -51,9 +52,6 @@ function initFormHandler(): void {
   }
 }
 
-// Initialize the form submission handler when the document is ready.
-document.addEventListener("DOMContentLoaded", initFormHandler);
-
 function initAutocomplete(): void {
   const input = document.getElementById("location") as HTMLInputElement;
   const regionInput = document.getElementById("region") as HTMLInputElement;
@@ -97,4 +95,33 @@ function initAutocomplete(): void {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initAutocomplete);
+function loadGoogleMapsScript(): Promise<void> {
+  const key = __GOOGLE_MAPS_API_KEY__;
+  return new Promise((resolve, reject) => {
+    if (document.getElementById("google-maps")) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-maps";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Maps script."));
+    document.head.appendChild(script);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initFormHandler();
+
+  loadGoogleMapsScript()
+    .then(() => {
+      initAutocomplete();
+    })
+    .catch((err) => {
+      console.warn("Google Maps failed to load. Skipping autocomplete:", err);
+    });
+});
