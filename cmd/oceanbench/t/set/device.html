@@ -207,7 +207,10 @@
     <section id="main" class="main">
       <div popover id="calibration-popover">
         <div class="bg-white rounded w-50 mx-auto p-5 mt-5">
-          <h2>Calibrate</h2>
+          <div class="d-flex justify-content-between align-items-center">
+            <h2>Calibrate</h2>
+            <button class="btn btn-close" popovertarget="calibration-popover" popovertargetaction="hide"></button>
+          </div>
           <hr />
           <form class="d-flex flex-column gap-2" method="post" action="/set/devices/edit/calibrate">
             <input name="ma" hidden value="{{.Device.MAC}}" />
