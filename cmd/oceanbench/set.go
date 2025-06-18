@@ -374,14 +374,14 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 // device voltages.
 //
 // Query params:
-//   - ma: MAC address
-//   - vb: 	Battery Voltage
+//   - ma:  MAC address
+//   - vb:  Battery Voltage
 //   - vnw: Network Voltage
 //   - vp1: Power 1 Voltage
 //   - vp2: Power 2 Voltage
 //   - vp3: Power 3 Voltage
-//   - va: 	Alarm Voltage
-//   - vr: 	Alarm Recovery Voltage
+//   - va:  Alarm Voltage
+//   - vr:  Alarm Recovery Voltage
 //
 // NOTE: All voltages are parsed in Volts.
 func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
@@ -441,12 +441,16 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	device, err := model.GetDevice(ctx, settingsStore, model.MacEncode(mac))
 	if err != nil {
 		writeDevices(w, r, "unable to get device to calibrate (%s): %v", mac, err)
+		return
 	}
 
 	// Names of the voltage sensors to calibrate.
 	var voltageSensors = []string{
-		model.NameBatterySensor, model.NameNWVoltage, model.NameP1Voltage,
-		model.NameP2Voltage, model.NameP3Voltage,
+		model.NameBatterySensor,
+		model.NameNWVoltage,
+		model.NameP1Voltage,
+		model.NameP2Voltage,
+		model.NameP3Voltage,
 	}
 
 	// Load the most recent sensor values.
@@ -459,50 +463,56 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	// Calibrate each of the voltage sensors.
 	var msgs []string
 	for _, sensor := range sensors {
-		if sliceutils.ContainsString(voltageSensors, sensor.Name) {
-			scalar, err := model.GetLatestScalar(ctx, mediaStore, model.ToSID(mac, sensor.Pin))
-			if err != nil {
-				msgs = append(msgs, fmt.Sprintf("unable to get latest scalar for %s: %v", sensor.Name, err))
-				continue
-			}
-			reportedTime := time.Unix(scalar.Timestamp, 0)
-
-			// Check if the scalar was recently reported (last 2 monitor periods).
-			if reportedTime.Before(time.Now().Add(-2 * time.Duration(device.MonitorPeriod) * time.Second)) {
-				msgs = append(msgs, fmt.Sprintf("scalar (%s) is out of date (timestamp: %s)(current time: %s)",
-					sensor.Name, reportedTime.Format(time.ANSIC), time.Now().Format(time.ANSIC)))
-				continue
-			}
-
-			var actual float64
-			switch sensor.Name {
-			case model.NameBatterySensor:
-				actual = vb
-			case model.NameNWVoltage:
-				actual = vnw
-			case model.NameP1Voltage:
-				actual = vp1
-			case model.NameP2Voltage:
-				actual = vp2
-			case model.NameP3Voltage:
-				actual = vp3
-			default:
-				// This shouldn't be possible with the ContainsString check.
-			}
-
-			// This most likely means the field was left blank. This is not a
-			// meaningful way of calibrating the system.
-			if actual == 0 {
-				continue
-			}
-
-			// Calculate the new scale value.
-			sensor.Args = strconv.FormatFloat(actual/scalar.Value, 'f', -1, 64)
-			log.Printf("calibrated sensor value for %s: %s", sensor.Name, sensor.Args)
-
-			// Save the sensor with the new scale factor.
-			model.PutSensorV2(ctx, settingsStore, &sensor)
+		if !sliceutils.ContainsString(voltageSensors, sensor.Name) {
+			continue
 		}
+
+		scalar, err := model.GetLatestScalar(ctx, mediaStore, model.ToSID(mac, sensor.Pin))
+		if err != nil {
+			msgs = append(msgs, fmt.Sprintf("unable to get latest scalar for %s: %v", sensor.Name, err))
+			continue
+		}
+		reportedTime := time.Unix(scalar.Timestamp, 0)
+
+		// Check if the scalar was recently reported (last 2 monitor periods).
+		if reportedTime.Before(time.Now().Add(-2 * time.Duration(device.MonitorPeriod) * time.Second)) {
+			msgs = append(msgs, fmt.Sprintf("scalar (%s) is out of date (timestamp: %s)(current time: %s)",
+				sensor.Name, reportedTime.Format(time.ANSIC), time.Now().Format(time.ANSIC)))
+
+			// Continue to calibrate other sensors that are still reporting.
+			continue
+		}
+
+		var actual float64
+		switch sensor.Name {
+		case model.NameBatterySensor:
+			actual = vb
+		case model.NameNWVoltage:
+			actual = vnw
+		case model.NameP1Voltage:
+			actual = vp1
+		case model.NameP2Voltage:
+			actual = vp2
+		case model.NameP3Voltage:
+			actual = vp3
+		default:
+			// This shouldn't be possible with the ContainsString check.
+			log.Panicln("cannot handle unexpected sensor name")
+		}
+
+		// This most likely means the field was left blank. This is not a
+		// meaningful way of calibrating the system.
+		if actual == 0 {
+			continue
+		}
+
+		// Calculate the new scale value.
+		sensor.Args = strconv.FormatFloat(actual/scalar.Value, 'f', -1, 64)
+		log.Printf("calibrated sensor value for %s: %s", sensor.Name, sensor.Args)
+
+		// Save the sensor with the new scale factor.
+		model.PutSensorV2(ctx, settingsStore, &sensor)
+
 	}
 
 	msg := strings.Join(msgs, ",")
