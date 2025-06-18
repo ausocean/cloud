@@ -209,7 +209,8 @@
         <div class="bg-white rounded w-50 mx-auto p-5 mt-5">
           <h2>Calibrate</h2>
           <hr />
-          <form class="d-flex flex-column gap-2" method="get" action="/set/devices/calibrate">
+          <form class="d-flex flex-column gap-2" method="post" action="/set/devices/edit/calibrate">
+            <input name="ma" hidden value="{{.Device.MAC}}" />
             <div class="row d-flex gx-1 text-center">
               <div class="col-3 text-end pt-2"></div>
               <div class="col-1">Battery</div>

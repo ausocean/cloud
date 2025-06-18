@@ -37,10 +37,12 @@ const humidityScaleFactor Arg = 0.1
 
 var tempLinearArgs []Arg = []Arg{0.1, -273.15}
 
+const NameBatterySensor = "Battery Voltage"
+
 // BatteryVoltageSensor returns a default calibrated battery sensor.
 func BatteryVoltageSensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Battery Voltage",
+		NameBatterySensor,
 		pinBatteryVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -105,7 +107,7 @@ func WaterTemperatureSensor() *SensorV2 {
 // the given scale factor.
 func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Battery Voltage",
+		NameBatterySensor,
 		pinESP32BatteryVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -115,11 +117,13 @@ func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP1Voltage = "Power 1 Voltage"
+
 // ESP32Power1Sensor returns a Power 1 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 1 Voltage",
+		NameP1Voltage,
 		pinESP32Power1Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -129,11 +133,13 @@ func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP2Voltage = "Power 2 Voltage"
+
 // ESP32Power2Sensor returns a Power 2 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power2Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 2 Voltage",
+		NameP2Voltage,
 		pinESP32Power2Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -143,11 +149,13 @@ func ESP32Power2Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP3Voltage = "Power 3 Voltage"
+
 // ESP32Power3Sensor returns a Power 3 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power3Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 3 Voltage",
+		NameP3Voltage,
 		pinESP32Power3Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -157,11 +165,13 @@ func ESP32Power3Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameNWVoltage = "Network Voltage"
+
 // ESP32NetworkSensor returns a Network Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32NetworkSensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Network Voltage",
+		NameNWVoltage,
 		pinESP32NetworkVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -203,20 +213,24 @@ func NewAlarmPeriodVar(duration time.Duration) *Variable {
 	}
 }
 
+const NameAlarmRecoveryVoltage = "AlarmRecoveryVoltage"
+
 // NewAlarmRecoveryVoltageVar returns a new AlarmRecoveryVoltage var with the
 // passed threshold as its value.
 func NewAlarmRecoveryVoltageVar(threshold int) *Variable {
 	return &Variable{
-		Name:  "AlarmRecoveryVoltage",
+		Name:  NameAlarmRecoveryVoltage,
 		Value: strconv.Itoa(threshold),
 	}
 }
+
+const NameAlarmVoltage = "AlarmVoltage"
 
 // NewAlarmVoltageVar returns a new AlarmVoltage var with the
 // passed threshold as its value.
 func NewAlarmVoltageVar(threshold int) *Variable {
 	return &Variable{
-		Name:  "AlarmVoltage",
+		Name:  NameAlarmVoltage,
 		Value: strconv.Itoa(threshold),
 	}
 }

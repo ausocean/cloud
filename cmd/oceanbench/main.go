@@ -214,6 +214,7 @@ func main() {
 	http.HandleFunc("/set/devices/edit/var", editVarHandler)
 	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
 	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
+	http.HandleFunc("/set/devices/edit/calibrate", calibrateDevicesHandler)
 	http.HandleFunc("/set/devices/edit", editDevicesHandler)
 	http.HandleFunc("/set/devices/", setDevicesHandler)
 	http.HandleFunc("/set/crons/edit", editCronsHandler)
