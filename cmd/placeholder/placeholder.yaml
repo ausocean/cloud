@@ -1,0 +1,6 @@
+# gcloud app deploy --project vidgrind --version 1 placeholder.yaml
+runtime: python313
+handlers:
+- url: /
+  static_files: index.html
+  upload: index.html
