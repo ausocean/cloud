@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import p5 from "p5";
 
 let tasks: any[] = [];
@@ -715,7 +717,7 @@ document.getElementById("submit-changes")!.addEventListener("click", async () =>
   console.log("📤 Sending update request...", tasks);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/update`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tasks }),
