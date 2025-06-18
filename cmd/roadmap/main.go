@@ -30,6 +30,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/ausocean/openfish/cmd/openfish/api"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -104,6 +106,12 @@ func main() {
 	// Create app.
 	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler, ReadBufferSize: 8192})
 
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: svc.frontendURL,
+		AllowMethods: "GET,POST,OPTIONS",
+		AllowHeaders: "Content-Type, Authorization",
+	}))
+
 	ctx := context.Background()
 	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
 	if err != nil {
@@ -144,14 +152,28 @@ const (
 	readRange     = "Sheet1!A2:M"                                  // Adjust based on your sheet layout
 )
 
-// AuthGSheetsRead is a wrapper for the google oauth2 credentials from JSON method.
-// It returns a readonly google credential.
-func AuthGSheetsRead(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/spreadsheets.readonly")
-}
+func loadCredentials(ctx context.Context, envVar string, scope string) (*google.Credentials, error) {
+	keyPath := os.Getenv(envVar)
+	if keyPath == "" {
+		return nil, fmt.Errorf("%s not set", envVar)
+	}
 
-func AuthGSheets(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/spreadsheets")
+	var data []byte
+	var err error
+
+	if strings.HasPrefix(keyPath, "gs://") {
+		data, err = gauth.ReadGoogleStorageBucket(ctx, keyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read from Google Storage: %w", err)
+		}
+	} else {
+		data, err = os.ReadFile(keyPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read local credentials file: %w", err)
+		}
+	}
+
+	return google.CredentialsFromJSON(ctx, data, scope)
 }
 
 // ReadSpreadsheet returns the range of values specified in A1 or R1C1 notation
@@ -205,7 +227,7 @@ func timelineHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Authenticate with Google Sheets API
-	credentials, err := AuthGSheetsRead(ctx)
+	credentials, err := loadCredentials(ctx, "AUSOCEAN_ROADMAP_CREDENTIALS", "https://www.googleapis.com/auth/spreadsheets.readonly")
 	if err != nil {
 		log.Printf("Failed to authenticate with Google Sheets: %v", err)
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to authenticate with Google Sheets")
@@ -251,7 +273,7 @@ func updateHandler(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	credentials, err := AuthGSheets(ctx)
+	credentials, err := loadCredentials(ctx, "AUSOCEAN_ROADMAP_CREDENTIALS", "https://www.googleapis.com/auth/spreadsheets")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Auth failed: %v", err))
 	}
