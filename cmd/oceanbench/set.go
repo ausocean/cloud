@@ -26,6 +26,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -39,6 +40,7 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
+	"github.com/ausocean/utils/sliceutils"
 )
 
 var (
@@ -366,6 +368,149 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+}
+
+// calibrateDevicesHandler handles calibration of controller-type
+// device voltages.
+//
+// Query params:
+//   - ma: MAC address
+//   - vb: 	Battery Voltage
+//   - vnw: Network Voltage
+//   - vp1: Power 1 Voltage
+//   - vp2: Power 2 Voltage
+//   - vp3: Power 3 Voltage
+//   - va: 	Alarm Voltage
+//   - vr: 	Alarm Recovery Voltage
+//
+// NOTE: All voltages are parsed in Volts.
+func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	if r.Method != http.MethodPost {
+		log.Println("calibration request must use POST action")
+		http.Redirect(w, r, "/set/devices?ma="+r.FormValue("ma"), http.StatusSeeOther)
+		return
+	}
+	ctx := context.Background()
+	_, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+
+	mac := r.FormValue("ma")
+	vb, err := strconv.ParseFloat(r.FormValue("vb"), 64)
+	if err != nil && vb != 0 {
+		writeDevices(w, r, "unable to parse battery voltage: %v", err)
+		return
+	}
+	vnw, err := strconv.ParseFloat(r.FormValue("vnw"), 64)
+	if err != nil && vnw != 0 {
+		writeDevices(w, r, "unable to parse network voltage: %v", err)
+		return
+	}
+	vp1, err := strconv.ParseFloat(r.FormValue("vp1"), 64)
+	if err != nil && vp1 != 0 {
+		writeDevices(w, r, "unable to parse power 1 voltage: %v", err)
+		return
+	}
+	vp2, err := strconv.ParseFloat(r.FormValue("vp2"), 64)
+	if err != nil && vp2 != 0 {
+		writeDevices(w, r, "unable to parse power 2 voltage: %v", err)
+		return
+	}
+	vp3, err := strconv.ParseFloat(r.FormValue("vp3"), 64)
+	if err != nil && vp3 != 0 {
+		writeDevices(w, r, "unable to parse power 3 voltage: %v", err)
+		return
+	}
+	va, err := strconv.ParseFloat(r.FormValue("va"), 64)
+	if err != nil && va != 0 {
+		writeDevices(w, r, "unable to parse alarm voltage: %v", err)
+		return
+	}
+	vr, err := strconv.ParseFloat(r.FormValue("vr"), 64)
+	if err != nil && vr != 0 {
+		writeDevices(w, r, "unable to parse alarm recovery voltage: %v", err)
+		return
+	}
+
+	device, err := model.GetDevice(ctx, settingsStore, model.MacEncode(mac))
+	if err != nil {
+		writeDevices(w, r, "unable to get device to calibrate (%s): %v", mac, err)
+	}
+
+	// Names of the voltage sensors to calibrate.
+	var voltageSensors = []string{
+		model.NameBatterySensor, model.NameNWVoltage, model.NameP1Voltage,
+		model.NameP2Voltage, model.NameP3Voltage,
+	}
+
+	// Load the most recent sensor values.
+	sensors, err := model.GetSensorsV2(ctx, settingsStore, model.MacEncode(mac))
+	if err != nil {
+		writeDevices(w, r, "unable to get sensors (%s): %v", mac, err)
+		return
+	}
+
+	// Calibrate each of the voltage sensors.
+	var msgs []string
+	for _, sensor := range sensors {
+		if sliceutils.ContainsString(voltageSensors, sensor.Name) {
+			scalar, err := model.GetLatestScalar(ctx, mediaStore, model.ToSID(mac, sensor.Pin))
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("unable to get latest scalar for %s: %v", sensor.Name, err))
+				continue
+			}
+			reportedTime := time.Unix(scalar.Timestamp, 0)
+
+			// Check if the scalar was recently reported (last 2 monitor periods).
+			if reportedTime.Before(time.Now().Add(-2 * time.Duration(device.MonitorPeriod) * time.Second)) {
+				msgs = append(msgs, fmt.Sprintf("scalar (%s) is out of date (timestamp: %s)(current time: %s)",
+					sensor.Name, reportedTime.Format(time.ANSIC), time.Now().Format(time.ANSIC)))
+				continue
+			}
+
+			var actual float64
+			switch sensor.Name {
+			case model.NameBatterySensor:
+				actual = vb
+			case model.NameNWVoltage:
+				actual = vnw
+			case model.NameP1Voltage:
+				actual = vp1
+			case model.NameP2Voltage:
+				actual = vp2
+			case model.NameP3Voltage:
+				actual = vp3
+			default:
+				// This shouldn't be possible with the ContainsString check.
+			}
+
+			// This most likely means the field was left blank. This is not a
+			// meaningful way of calibrating the system.
+			if actual == 0 {
+				continue
+			}
+
+			// Calculate the new scale value.
+			sensor.Args = strconv.FormatFloat(actual/scalar.Value, 'f', -1, 64)
+			log.Printf("calibrated sensor value for %s: %s", sensor.Name, sensor.Args)
+
+			// Save the sensor with the new scale factor.
+			model.PutSensorV2(ctx, settingsStore, &sensor)
+		}
+	}
+
+	msg := strings.Join(msgs, ",")
+	if msg != "" {
+		writeDevices(w, r, "errors during calibration: %s", msg)
+		return
+	}
+	writeDevices(w, r, "Device Calibrated")
 }
 
 // editVarHandler handles per-device variable update/deletion requests.
