@@ -14,7 +14,7 @@ export class SiteNotification extends TailwindElement() {
 
   async loadNotification() {
     try {
-      const res = await fetch("/temp/notification-001.json");
+      const res = await fetch("/temp/notification-003.json");
       const data = await res.json();
 
       const dismissed = localStorage.getItem("dismissedNotification");

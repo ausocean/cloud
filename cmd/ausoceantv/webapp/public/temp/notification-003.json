@@ -1,0 +1,7 @@
+{
+  "id": "notification-003",
+  "title": "Camera is not streaming",
+  "message": "The Rapid Bay camera is currently not streaming due to damage from severe weather. We're working on a solution. Thank you for your patience.",
+  "expiresAt": "2025-10-28T23:59:00Z",
+  "version": "v1"
+}
