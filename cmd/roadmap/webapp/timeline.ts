@@ -81,6 +81,7 @@ const sketch = (p: p5) => {
     let milestoneLevels: { xStart: number; xEnd: number; yLevel: number }[] = [];
     let mileStoneBoxHeight = 20;
     let maxYLevel = 20; // Default top margin
+    p.textSize(14);
 
     visibleTasks.forEach((task) => {
       if (task.milestone) {
