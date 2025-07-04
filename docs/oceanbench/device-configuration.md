@@ -78,7 +78,7 @@ Actuators are the output of a device. An Actuator can write a value to a digital
 
 ## Defaults
 
-The default configuration for different device types can be filled using the [Auto Configuration](/oceanbench/autoconfiguraion) process, or they can be manually filled based on these values.
+The default configuration for different device types can be filled using the [Auto Configuration](/oceanbench/autoconfiguration) process, or they can be manually filled based on these values.
 > [!IMPORTANT]
 > These values are derived from the system package and should be kept in sync.\
 > **Last updated:** 4th July 2025

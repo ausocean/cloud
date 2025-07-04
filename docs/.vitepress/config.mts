@@ -5,7 +5,7 @@ export default defineConfig({
   title: "Cloud",
   description: "Documentation for AusOcean's cloud services",
   head: [["link", { rel: "icon", href: "/favicon.ico" }]],
-  base: "/repo/",
+  base: "/cloud/",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
