@@ -71,7 +71,7 @@ The Broadcast page is where users can create and manage broadcasts.
 
 ### Configuration
 
-The Configuration page is used to configure new devices. It is only accessible on the Sandbox site. See [configuration](/oceanbench/configuration) for more.
+The Configuration page is used to configure new devices. It is only accessible on the Sandbox site. See [configuration](/oceanbench/device-configuration) for more.
 
 ### Utilities
 

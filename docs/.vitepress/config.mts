@@ -15,7 +15,7 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: "Examples",
+        text: "For Users:",
         items: [
           { text: "Introduction", link: "/introduction" },
           {
