@@ -1,0 +1,80 @@
+# General ignores
+.DS_Store
+.env
+.env.*
+.vscode/
+.idea/
+*.log
+*.tmp
+*.bak
+*~
+~*
+*.swp
+*.swo
+.DS_Store? # macOS specific
+Thumbs.db # Windows specific
+ehthumbs.db # Windows specific
+
+# Build artifacts
+/build/
+/dist/
+/out/
+/target/
+/tmp/
+
+# Dependency directories
+node_modules/
+vendor/
+venv/
+.venv/
+env/
+.env/
+
+# Compiled files
+*.class
+*.pyc
+__pycache__/
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.bin
+*.out
+
+# Editor specific files (common ones)
+*.sublime-project
+*.sublime-workspace
+*.komodoproject
+*.iml # IntelliJ IDEA
+.project # Eclipse
+.classpath # Eclipse
+.settings/ # Eclipse
+*.sln # Visual Studio
+*.suo # Visual Studio
+*.user # Visual Studio
+*.ncb # Visual Studio
+*.opensdf # Visual Studio
+*.sdf # Visual Studio
+
+# OS generated files (more specific)
+.localized
+.Trashes
+.Spotlight-V100
+.AppleDouble
+.LSOverride
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotbackup
+
+# Package manager specific (common ones)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerignore
+
+# Misc.
+.history/ # VS Code local history

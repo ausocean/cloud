@@ -14,7 +14,7 @@ The Sandbox Site is a specially defined site, which is used to hold devices whil
 1. To configure the device, select the sandbox site from the site-selection widget, this will redirect you to the configuration page.
 ![Configuration Page](../images/configuration-page.png)
 2. On the configuration page, select the device to be configured. The device will list when it was created, and this should help identify the device. If you are unsure, the MAC can also be cross-checked after selection.
-3. Press the Configure button. This will take you to the next step where the device can be customised based on its type, location, and wifi connection.
+3. Press the Configure button. This will take you to the next step where the device can be customised based on its type, location, and WiFi connection.
 ![Configuration Page Form](../images/configuration-configuration.png)
 4. To complete the configuration, at least the device name, site, and device type must be set. All other fields are optional, however, it is encouraged to assign them now. Once the fields have been filled out, press Configure Device.
 5. This will set the default values for the given device type, move the device to the selected site, and redirect to the device page for the newly created device.

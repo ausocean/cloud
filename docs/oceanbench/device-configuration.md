@@ -14,10 +14,10 @@ The configuration consists of the following fields:
 |---| ---|
 |**Name**|User-friendly name of the device|
 |**MAC**|Unique MAC of the device (Immutable)|
-|**Type**|Type of device (_camera, hydrophone, controlller..._)|
+|**Type**|Type of device (_camera, hydrophone, controller..._)|
 |**Inputs**|Pin names that are _read_ by the device|
 |**Outputs**|Pin names that are _written_ to by the device|
-|**WiFi**|Comma seperated pair of wifi credentials <_SSID,Password_>|
+|**WiFi**|Comma separated pair of WiFi credentials <_SSID,Password_>|
 |**Mon Period**|Period in seconds between monitor/actuation cycles (typically 60 seconds)|
 |**Act Period**|Period in seconds that the device is not sleeping|
 |**Client Version**||
@@ -54,7 +54,7 @@ By convention, pin numbers start from 0, not 1. For example, A0 is the first ana
 
 In addition to a site's configuration information, users may define variables to represent state. A OceanBench variable is simply a string. Boolean variables are variables for which a value of "1", "true" or "on" is treated as logical true. A value of "0", "false" or "off" is logical false, as is a variable that is not defined.
 
-When variables are mapped onto actuator pin ervalues, logical true is sent as integer 1 and false as integer 0. Other integers are sent as is.
+When variables are mapped onto actuator pin values, logical true is sent as integer 1 and false as integer 0. Other integers are sent as is.
 
 ### Special Variable
 
