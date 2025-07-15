@@ -392,7 +392,7 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	_, err := getProfile(w, r)
+	p, err := getProfile(w, r)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -506,12 +506,41 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		// If the scalar value is zero, the division calculation will result in a
+		// divide by zero calculation. Return a message to the user, and do not
+		// calibrate this sensor.
+		const nearZeroValue = 0.05
+		if scalar.Value <= nearZeroValue {
+			msgs = append(msgs, "cannot calibrate sensor reading 0")
+			continue
+		}
+
 		// Calculate the new scale value.
-		sensor.Args = strconv.FormatFloat(actual/scalar.Value, 'f', -1, 64)
+		scaleFactor := actual / scalar.Value
+		sensor.Args = strconv.FormatFloat(scaleFactor, 'f', -1, 64)
 		log.Printf("calibrated sensor value for %s: %s", sensor.Name, sensor.Args)
 
 		// Save the sensor with the new scale factor.
 		model.PutSensorV2(ctx, settingsStore, &sensor)
+
+		if sensor.Name != model.NameBatterySensor {
+			continue
+		}
+
+		// Calibrate the alarm voltage and alarm recovery voltage variables.
+		skey, _ := profileData(p)
+		if va > 0 {
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, strconv.FormatFloat(va/scaleFactor, 'f', -1, 64))
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("unable to set alarm voltage: %v", err))
+			}
+		}
+		if vr > 0 {
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmRecoveryVoltage, strconv.FormatFloat(vr/scaleFactor, 'f', -1, 64))
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("unable to set alarm recovery voltage: %v", err))
+			}
+		}
 
 	}
 
