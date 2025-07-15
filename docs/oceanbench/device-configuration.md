@@ -131,6 +131,9 @@ That will open the follow popover menu.
 ![Calibration Popover](../images/device-calibrate-popover.png)
 Measure the actual values for the measured voltage fields. In most cases, it will be acceptable to only measure the battery voltage (input screw terminals to the PCB), and use this as the calibration value for all voltages. If that is acceptable, leave the lock icon in the locked state. If each voltage needs to be calibrated independently, click on the padlock icon and leave it in the unlocked state. This will use the entered value to calibrate each voltage separately.
 
+> [!NOTE]
+> When calibrating a controller, calibration will only occur for non-zero sensor readings. To calibrate all sensors, ensure that all power variables are turned on, such that Power 1, 2, and 3 are all reading a non-zero voltage.
+
 Enter the voltage value that the controller should enter a low voltage alarm, and the voltage which it should recover.
 
 For any field that is left empty, this value will not be calibrated.
