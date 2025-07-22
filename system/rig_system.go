@@ -270,24 +270,32 @@ func (sys *CameraSystem) AddVariables(variables ...*model.Variable) {
 }
 
 // WithCameraDefaults applies all of the current defaults to the system.
-func (sys *CameraSystem) WithCameraDefaults() {
-	sys.AddVariables(
-		model.NewAutoWhiteBalanceVar(camera.DefaultAutoWhiteBalance),
-		model.NewBitrateVar(camera.DefaultBitrate),
-		model.NewContrastVar(camera.DefaultContrast),
-		model.NewFrameRateVar(camera.DefaultFrameRate),
-		model.NewHDRVar(camera.DefaultHDR),
-		model.NewHeightVar(camera.DefaultHeight),
-		model.NewInputVar(camera.DefaultInput),
-		model.NewOutputVar(camera.DefaultOutput),
-		model.NewRotationVar(camera.DefaultRotation),
-		model.NewSaturationVar(camera.DefaultSaturation),
-		model.NewSharpnessVar(camera.DefaultSharpness),
-		model.NewWidthVar(camera.DefaultWidth),
-		model.NewLoggingVar(camera.DefaultLogging),
-		model.NewModeVar(camera.DefaultMode),
-		model.NewRTMPURLVar(""),
-	)
+func WithCameraDefaults() Option {
+	return func(v any) error {
+		sys, ok := v.(*CameraSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a CameraSystem", reflect.TypeOf(v).String())
+		}
+		sys.AddVariables(
+			model.NewAutoWhiteBalanceVar(camera.DefaultAutoWhiteBalance),
+			model.NewBitrateVar(camera.DefaultBitrate),
+			model.NewContrastVar(camera.DefaultContrast),
+			model.NewFrameRateVar(camera.DefaultFrameRate),
+			model.NewHDRVar(camera.DefaultHDR),
+			model.NewHeightVar(camera.DefaultHeight),
+			model.NewInputVar(camera.DefaultInput),
+			model.NewOutputVar(camera.DefaultOutput),
+			model.NewRotationVar(camera.DefaultRotation),
+			model.NewSaturationVar(camera.DefaultSaturation),
+			model.NewSharpnessVar(camera.DefaultSharpness),
+			model.NewWidthVar(camera.DefaultWidth),
+			model.NewLoggingVar(camera.DefaultLogging),
+			model.NewModeVar(camera.DefaultMode),
+			model.NewRTMPURLVar(""),
+		)
+
+		return nil
+	}
 }
 
 // NewCamera returns a new camera with the given name and mac address, with the given options applied.
@@ -320,4 +328,23 @@ func NewCamera(skey, dkey int64, name string, mac string, opts ...Option) (*Came
 	}
 
 	return sys, nil
+}
+
+// PutCameraSystem puts a CameraSystem and all of its components into the datastore.
+func PutCameraSystem(ctx context.Context, store datastore.Store, system *CameraSystem) error {
+	// Put the Camera.
+	err := model.PutDevice(ctx, store, system.Cam)
+	if err != nil {
+		return fmt.Errorf("unable to put system camera: %w", err)
+	}
+
+	// Put all variables.
+	for _, v := range system.Vars {
+		err = model.PutVariable(ctx, store, v.Skey, system.Cam.Hex()+"."+v.Name, v.Value)
+		if err != nil {
+			return fmt.Errorf("unable to put variable with name: %s, err: %w", v.Name, err)
+		}
+	}
+
+	return nil
 }
