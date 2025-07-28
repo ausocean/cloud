@@ -307,11 +307,14 @@ func NewCamera(skey, dkey int64, name string, mac string, opts ...Option) (*Came
 
 	sys := &CameraSystem{
 		Cam: &model.Device{
-			Skey: skey,
-			Dkey: dkey,
-			Name: name,
-			Mac:  MAC,
-			Type: model.DevTypeCamera,
+			Skey:          skey,
+			Dkey:          dkey,
+			Name:          name,
+			Mac:           MAC,
+			Type:          model.DevTypeCamera,
+			Inputs:        "V0,T0",
+			MonitorPeriod: 60,
+			ActPeriod:     60,
 		},
 	}
 
