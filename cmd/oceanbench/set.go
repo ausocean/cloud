@@ -530,13 +530,13 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		// Calibrate the alarm voltage and alarm recovery voltage variables.
 		skey, _ := profileData(p)
 		if va > 0 {
-			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, strconv.FormatFloat(va/scaleFactor, 'f', -1, 64))
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, fmt.Sprintf("%d", int(va/scaleFactor)))
 			if err != nil {
 				msgs = append(msgs, fmt.Sprintf("unable to set alarm voltage: %v", err))
 			}
 		}
 		if vr > 0 {
-			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmRecoveryVoltage, strconv.FormatFloat(vr/scaleFactor, 'f', -1, 64))
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmRecoveryVoltage, fmt.Sprintf("%d", int(vr/scaleFactor)))
 			if err != nil {
 				msgs = append(msgs, fmt.Sprintf("unable to set alarm recovery voltage: %v", err))
 			}
