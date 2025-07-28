@@ -60,3 +60,5 @@ cmd/decode/*
 cmd/cloudblue/*
 cmd/oceancast/*
 cmd/roadmap/*
+
+docs/*

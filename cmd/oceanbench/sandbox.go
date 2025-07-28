@@ -176,11 +176,10 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the device.
-	var sys *system.RigSystem
 	switch dt {
 	case model.DevTypeController:
 		// Create a controller with all default values defined in rig_system.go.
-		sys, err = system.NewRigSystem(skey, dev.Dkey, ma, dn,
+		sys, err := system.NewRigSystem(skey, dev.Dkey, ma, dn,
 			system.WithRigSystemDefaults(),
 			system.WithWifi(ssid, pass),
 			system.WithLocation(lat, long),
@@ -189,14 +188,27 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 			writeError(w, err)
 			return
 		}
+
+		err = system.PutRigSystem(ctx, settingsStore, sys)
+		if err != nil {
+			writeError(w, fmt.Errorf("unable to put rig system: %w", err))
+			return
+		}
+	case model.DevTypeCamera:
+		camSys, err := system.NewCamera(skey, dev.Dkey, dn, ma, system.WithCameraDefaults())
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+
+		err = system.PutCameraSystem(ctx, settingsStore, camSys)
+		if err != nil {
+			writeError(w, fmt.Errorf("unable to put camera system: %w", err))
+			return
+		}
+
 	default:
 		writeError(w, errNotImplemented)
-		return
-	}
-
-	err = system.PutRigSystem(ctx, settingsStore, sys)
-	if err != nil {
-		writeError(w, fmt.Errorf("unable to put rig system: %w", err))
 		return
 	}
 	site, err := model.GetSite(ctx, settingsStore, int64(skey))
