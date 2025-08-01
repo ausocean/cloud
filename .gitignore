@@ -6,6 +6,7 @@
 .idea/
 *.log
 *.tmp
+*tmp
 *.bak
 *~
 ~*
