@@ -7,51 +7,15 @@ function init() {
     form.addEventListener(
       "submit",
       async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+        // Run custom Bootstrap validation
         if (!form.checkValidity()) {
+          event.preventDefault(); // Only prevent submission if validation fails
+          event.stopPropagation();
           form.classList.add("was-validated");
           return;
         }
-
-        // Format the request to meet the REST API.
-        let data = new FormData(form);
-
-        if (data.get("lat") != "" && data.get("long") != "") {
-          data.set("ll", data.get("lat") + "," + data.get("long"));
-        }
-        data.delete("lat");
-        data.delete("long");
-
-        if (data.get("ssid") != "" && data.get("pass") != "") {
-          data.set("wi", data.get("ssid") + "," + data.get("pass"));
-        }
-        data.delete("ssid");
-        data.delete("pass");
-
-        await submitForm(data);
       },
       false,
     );
   });
-}
-
-async function submitForm(data) {
-  // Submit the form.
-  const resp = await fetch("/admin/sandbox/configure", {
-    method: "POST",
-    body: data,
-  });
-
-  if (resp.redirected) {
-    console.log("redirecting to devices page");
-    window.location.href = resp.url;
-    return;
-  }
-
-  const error = await resp.json();
-
-  let msg = document.getElementById("msg");
-  msg.innerText = error.er;
-  msg.style.display = "block";
 }
