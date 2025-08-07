@@ -28,6 +28,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,6 +75,7 @@ func setupAPIRoutes() {
 	http.HandleFunc("/api/get/sites/user", wrapAPI(getUserSitesHandler))
 	http.HandleFunc("/api/get/profile/data", wrapAPI(getProfileDataHandler))
 	http.HandleFunc("/api/get/vars/site", wrapAPI(getVarsForSiteHandler))
+	http.HandleFunc("/api/get/sensor/data/", wrapAPI(getSensorDataHandler))
 
 	http.HandleFunc("/api/set/site/", wrapAPI(setSiteHandler))
 
@@ -306,6 +308,104 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(filtered)
 	if err != nil {
 		writeHttpError(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
+		return
+	}
+	w.Write(data)
+}
+
+// getSensorDataHandler handles requests to get data for a given sensor. The API transforms
+// the scalar data based on the sensor transform function and returns it.
+//
+// Expected path format:
+//
+//	/api/get/sensor/data/<mac>,<pin>,<start Timestamp>,<finish Timestamp>
+//
+// NOTE: The mac should be given in the form: XX:XX:XX:XX:XX:XX
+// This currently does not require authentication, and so requests are limited to 10 minute
+// periods. If the requested period is more than 10 minutes, the finish time will be changed
+// to be only 10 minutes after the start time.
+func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
+	val, err := getPathValue(r, 5)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Validate format: <sensorID>,<start>,<finish>
+	parts := strings.Split(val, ",")
+	if len(parts) != 4 {
+		writeHttpError(w, http.StatusBadRequest, "invalid sensor request, wanted: <mac>,<sensorID>,<start>,<finish>")
+		return
+	}
+
+	mac := model.MacEncode(parts[0])
+	if mac == 0 {
+		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", parts[0])
+		return
+	}
+
+	pin := parts[1]
+
+	ctx := context.Background()
+	sensor, err := model.GetSensorV2(ctx, settingsStore, mac, pin)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get sensor: %v", err)
+		return
+	}
+
+	start, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
+		return
+	}
+
+	finish, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		writeHttpError(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
+		return
+	}
+
+	if start > finish {
+		writeHttpError(w, http.StatusBadRequest, "start time must be before finish time")
+		return
+	}
+
+	// For now we will limit requests to 10 minutes at a time.
+	// TODO: Update once we have authentication.
+	const maxPeriod = 60 * 10
+	if finish-start >= maxPeriod {
+		// Adjust the finish time to be 10 minutes after the start time.
+		finish = start + maxPeriod
+	}
+
+	// Get the data for the sensor.
+	scalars, err := model.GetScalars(ctx, mediaStore, model.ToSID(model.MacDecode(mac), pin), []int64{start, finish})
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get scalars for sensor: %v", err)
+	}
+
+	type timedValue struct {
+		Value     float64
+		Timestamp int64
+	}
+
+	var output []timedValue
+	for _, s := range scalars {
+		transformed, err := sensor.Transform(s.Value)
+		if err != nil {
+			writeHttpError(w, http.StatusInternalServerError, "error whilst transforming scalar value: %v", err)
+			return
+		}
+		output = append(output, timedValue{Value: transformed, Timestamp: s.Timestamp})
+	}
+
+	// Allow scripts to access this data.
+	// TODO: restrict based on needs and authentication.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to marshal response data to json: %v", err)
 		return
 	}
 	w.Write(data)
