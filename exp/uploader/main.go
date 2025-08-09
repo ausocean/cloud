@@ -1,6 +1,6 @@
 // Experimental implementation of media uploader for user-generated content (UGC).
 // Media is uploaded to a unique Google Storage Bucket object named ausoceantv-ugc/username/filename.
-// Using the same filename a second time overwrites the previous bucket boject.
+// Using the same filename a second time overwrites the previous bucket object.
 // Set GOOGLE_APPLICATION_CREDENTIALS to AusOceanTV-5dd467893726.json to run.
 
 package main
