@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -68,7 +69,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 
 	username := r.FormValue("username")
 	if username == "" {
-		return 0, fmt.Errorf("username missing")
+		return 0, errors.New("missing username")
 	}
 
 	f, fh, err := r.FormFile("file")
