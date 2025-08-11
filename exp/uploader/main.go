@@ -33,7 +33,7 @@ func main() {
 	var err error
 	templates, err = template.New("").ParseGlob("t/*.html")
 	if err != nil {
-		log.Fatalf("error parsing templates: %v", err)
+		log.Fatalf("Error parsing templates: %v", err)
 	}
 
 	fmt.Println("Server starting on :8080")
@@ -72,6 +72,11 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, errors.New("missing username")
 	}
 
+	desc := r.FormValue("desc")
+	if desc == "" {
+		return 0, errors.New("missing description")
+	}
+
 	f, fh, err := r.FormFile("file")
 	if err != nil {
 		return 0, fmt.Errorf("missing file: %w", err)
@@ -84,7 +89,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, fmt.Errorf("error reading body: %w", err)
 	}
 
-	err = writeBucket(ctx, content, username, fh.Filename)
+	err = writeBucket(ctx, content, desc, username, fh.Filename)
 	if err != nil {
 		return 0, fmt.Errorf("error writing media to bucket: %w", err)
 	}
@@ -93,29 +98,37 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 	return n, nil
 }
 
-// writeBucket writes data to a Google storage bucket named ausoceantv-ugc/username/filename.
-func writeBucket(ctx context.Context, data []byte, username, filename string) error {
+// writeBucket writes data to a Google storage bucket named ausoceantv-ugc/username/filename
+// and the description to ausoceantv-ugc/username/filename.txt
+func writeBucket(ctx context.Context, data []byte, desc, username, filename string) error {
 	clt, err := storage.NewClient(ctx)
 	if err != nil {
 		log.Fatalf("Failed to create GCS client: %v", err)
 	}
+	defer clt.Close()
 
 	bkt := clt.Bucket(bucketName)
 	objName := fmt.Sprintf("%s/%s", username, filename)
 	writer := bkt.Object(objName).NewWriter(ctx)
+	defer writer.Close()
 
 	_, err = writer.Write(data)
 	if err != nil {
-		writer.Close()
-		return err
+		return fmt.Errorf("failed to write data to '%s': %w", objName, err)
 	}
 
-	err = writer.Close()
+	log.Printf("wrote data to bucket object: gs://%s/%s", bucketName, objName)
+
+	objName = objName + ".txt"
+	writer = bkt.Object(objName).NewWriter(ctx)
+	defer writer.Close()
+
+	_, err = writer.Write([]byte(desc))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write description to '%s': %w", objName, err)
 	}
 
-	log.Printf("created bucket object: gs://%s/%s", bucketName, objName)
+	log.Printf("wrote description to bucket object: gs://%s/%s", bucketName, objName)
 	return nil
 }
 
