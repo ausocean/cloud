@@ -318,33 +318,26 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 //
 // Expected path format:
 //
-//	/api/get/sensor/data/<mac>,<pin>,<start Timestamp>,<finish Timestamp>
+//	/api/get/sensor/data
 //
-// NOTE: The mac should be given in the form: XX:XX:XX:XX:XX:XX
+// Expected query params:
+//
+//	ma: MAC address of associated device in the form XX:XX:XX:XX:XX:XX
+//	pn: Pin name, ie: X50, A0, ...
+//	start: unix timestamp to start query
+//	finish: unix timestamp to finish query
+//
 // This currently does not require authentication, and so requests are limited to 10 minute
 // periods. If the requested period is more than 10 minutes, the finish time will be changed
 // to be only 10 minutes after the start time.
 func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
-	val, err := getPathValue(r, 5)
-	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// Validate format: <sensorID>,<start>,<finish>
-	parts := strings.Split(val, ",")
-	if len(parts) != 4 {
-		writeHttpError(w, http.StatusBadRequest, "invalid sensor request, wanted: <mac>,<sensorID>,<start>,<finish>")
-		return
-	}
-
-	mac := model.MacEncode(parts[0])
+	mac := model.MacEncode(r.FormValue("ma"))
 	if mac == 0 {
-		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", parts[0])
+		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", r.FormValue("ma"))
 		return
 	}
 
-	pin := parts[1]
+	pin := r.FormValue("pn")
 
 	ctx := context.Background()
 	sensor, err := model.GetSensorV2(ctx, settingsStore, mac, pin)
@@ -353,13 +346,13 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	start, err := strconv.ParseInt(parts[2], 10, 64)
+	start, err := strconv.ParseInt(r.FormValue("start"), 10, 64)
 	if err != nil {
 		writeHttpError(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
 		return
 	}
 
-	finish, err := strconv.ParseInt(parts[3], 10, 64)
+	finish, err := strconv.ParseInt(r.FormValue("finish"), 10, 64)
 	if err != nil {
 		writeHttpError(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
 		return
