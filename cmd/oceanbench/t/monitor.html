@@ -9,8 +9,6 @@
     <title>CloudBlue | Monitor</title>
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
-
-    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   </head>
@@ -29,7 +27,6 @@
         {{- end }}
       </site-menu>
     </header-group>
-
     <section id="main" class="main">
       {{if .Msg}}
       <div class="red">{{.Msg}}</div>
@@ -37,7 +34,6 @@
       {{end}}
 
       <h1 class="container-md">Monitor</h1>
-
       <div>
         {{ range .Devices }}
         <div class="border rounded p-4 container-md bg-white">
@@ -63,7 +59,6 @@
             <br />
             {{ else }} Last Reported: {{ localdatetime .LastReportedTimestamp $.Timezone }} {{ end }} {{ if eq .Count 0 }}{{ else }}Throughput: {{ .Throughput }}% {{ .Count }}/{{ .MaxCount }}{{ end }}
           </span>
-
           {{ $mac := .Device.MAC }} {{ range .Sensors }}
           <hr />
           <span>

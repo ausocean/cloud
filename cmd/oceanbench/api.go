@@ -415,7 +415,7 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// --- Parse MAC ---
+	// Parse MAC.
 	macStr := r.FormValue("ma")
 	mac := model.MacEncode(macStr)
 	if mac == 0 {
@@ -423,13 +423,13 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- Parse pin (default T1) ---
+	// Parse pin (default T1).
 	pin := r.FormValue("pn")
 	if pin == "" {
 		pin = "T1"
 	}
 
-	// --- Parse limit (default 100, max 1000) ---
+	// Parse limit (default 100, max 1000).
 	parseInt := func(s string, def int) int {
 		if s == "" {
 			return def
@@ -448,7 +448,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 1000
 	}
 
-	// --- Optional time window ---
+	// Optional time window.
 	var (
 		useRange bool
 		startTS  int64
@@ -478,7 +478,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		useRange = true
 	}
 
-	// --- Build MID and fetch texts ---
+	// Build MID and fetch texts.
 	mid := model.ToMID(model.MacDecode(mac), pin)
 
 	type gpsIn struct {
@@ -497,29 +497,29 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if useRange {
-		// Range query (inclusive start, exclusive finish like your scalar handler)
+		// Range query (inclusive start, exclusive finish).
 		texts, err = model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
 		if err != nil {
 			writeHttpError(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
 			return
 		}
-		// Trim to limit from the END (latest) if too many
+		// Trim to limit from the END (latest) if too many.
 		if len(texts) > limit {
 			texts = texts[len(texts)-limit:]
 		}
 	} else {
-		// Latest N (newest-first helper you added earlier)
+		// Latest N.
 		texts, err = model.GetLatestTexts(ctx, mediaStore, mid, limit)
 		if err != nil {
 			if err == datastore.ErrNoSuchEntity {
-				// Empty result is fine — return empty array
+				// Empty result is fine, return empty array.
 				texts = nil
 			} else {
 				writeHttpError(w, http.StatusInternalServerError, "unable to get latest gps texts: %v", err)
 				return
 			}
 		}
-		// GetLatestTexts returns newest-first; reverse to oldest->newest for nicer paths
+		// GetLatestTexts returns newest-first; reverse to oldest->newest for nicer paths.
 		if len(texts) > 1 {
 			slices.Reverse(texts)
 		}
@@ -529,14 +529,14 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	for _, t := range texts {
 		var g gpsIn
 		if err := json.Unmarshal([]byte(t.Data), &g); err != nil {
-			// skip malformed rows
+			// Skip malformed rows.
 			continue
 		}
-		// Skip null island / incomplete rows
+		// Skip null island / incomplete rows.
 		if g.Latitude == 0 && g.Longitude == 0 {
 			continue
 		}
-		// Parse time → RFC3339 + unix
+		// Parse time → RFC3339 + unix.
 		var ts int64
 		timestr := g.LastFixTime
 		if parsed, e := time.Parse(time.RFC3339, g.LastFixTime); e == nil {
@@ -551,7 +551,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Response envelope
+	// Response envelope.
 	resp := struct {
 		MAC    string   `json:"mac"`
 		Pin    string   `json:"pin"`
@@ -564,7 +564,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		Points: points,
 	}
 
-	// CORS + JSON
+	// CORS + JSON.
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
