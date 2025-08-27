@@ -9,6 +9,8 @@
     <title>CloudBlue | Monitor</title>
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -68,6 +70,23 @@
             <span class="signal-date">{{ .Date }}</span>
             <span class="signal-value">{{ .Scalar }} {{ .Units }}</span>
           </span>
+          {{ end }} {{ if .HasGPS }}
+          <hr />
+          <div>
+            <strong>GPS (last fix {{ .FixTime }}):</strong>
+            <div id="map-{{ .Device.MAC }}" style="height: 300px"></div>
+            <script>
+                            (function() {
+                              var map = L.map('map-{{ .Device.MAC }}').setView([{{ .Lat }}, {{ .Lon }}], 15);
+                              L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                { attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
+              ).addTo(map);
+
+                              L.marker([{{ .Lat }}, {{ .Lon }}]).addTo(map);
+                            })();
+            </script>
+          </div>
           {{ end }}
         </div>
         <br />

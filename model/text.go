@@ -134,6 +134,29 @@ func GetTextKeys(ctx context.Context, store datastore.Store, mid int64, ts []int
 	return store.GetAll(ctx, q, nil)
 }
 
+// GetLatestTexts retrieves up to 'limit' most recent Texts for a given Media ID.
+// If limit <= 0, it defaults to 1.
+func GetLatestTexts(ctx context.Context, store datastore.Store, mid int64, limit int) ([]Text, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+
+	q := store.NewQuery(typeText, false, "MID", "Timestamp")
+	q.Filter("MID =", mid)
+	q.Order("-Timestamp") // descending
+	q.Limit(limit)
+
+	var texts []Text
+	_, err := store.GetAll(ctx, q, &texts)
+	if err != nil {
+		return nil, err
+	}
+	if len(texts) == 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+	return texts, nil
+}
+
 // DeleteText deletes all text for a given Media ID.
 func DeleteText(ctx context.Context, store datastore.Store, mid int64) error {
 	keys, err := GetTextKeys(ctx, store, mid, nil)

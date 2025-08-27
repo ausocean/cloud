@@ -30,6 +30,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -76,6 +77,12 @@ type monitorDevice struct {
 	MaxCount              int // Max number of scalars that could be sent.
 	Throughput            int // Percentage of successful scalars.
 	Sensors               []sensorData
+
+	// Used for GPS (T1).
+	HasGPS  bool
+	Lat     float64
+	Lon     float64
+	FixTime string
 }
 
 // monitorData holds the relevant information for the monitor page
@@ -278,6 +285,29 @@ func monitorLoadRoutine(
 	if err != nil {
 		reportMonitorError(w, r, &data, "failed to parse uptime: %v", err)
 		return
+	}
+
+	// GPS: look for latest text on pin T1.
+	if strings.Contains(dev.Inputs, "T1") {
+		mid := model.ToMID(model.MacDecode(dev.Mac), "T1")
+		gpsTexts, err := model.GetLatestTexts(ctx, mediaStore, mid, 1) // change 1 → 10 if you want a trail
+		if err != nil && err != datastore.ErrNoSuchEntity {
+			reportMonitorError(w, r, &data, "could not get latest GPS text %d: %v", mid, err)
+			return
+		}
+		if err == nil && len(gpsTexts) > 0 {
+			var gps struct {
+				Latitude    float64 `json:"Latitude"`
+				Longitude   float64 `json:"Longitude"`
+				LastFixTime string  `json:"LastFixTime"`
+			}
+			if jsonErr := json.Unmarshal([]byte(gpsTexts[0].Data), &gps); jsonErr == nil {
+				md.HasGPS = true
+				md.Lat = gps.Latitude
+				md.Lon = gps.Longitude
+				md.FixTime = gps.LastFixTime
+			}
+		}
 	}
 
 	sensors, err := model.GetSensorsV2(ctx, settingsStore, dev.Mac)
