@@ -73,18 +73,62 @@
           {{ end }} {{ if .HasGPS }}
           <hr />
           <div>
-            <strong>GPS (last fix {{ .FixTime }}):</strong>
+            <strong>GPS (last fix {{ .FixTime }}): {{ printf "%.5f" .Lat }}, {{ printf "%.5f" .Lon }} {{ if .GPSTrailN }} — {{ .GPSTrailN }} pts{{ end }}</strong>
+
+            <!-- Pass the trail to JS safely -->
+            <script type="application/json" id="trail-{{ .Device.MAC }}">
+              {{- .GPSTrailJSON -}}
+            </script>
+
             <div id="map-{{ .Device.MAC }}" style="height: 300px"></div>
             <script>
-                            (function() {
-                              var map = L.map('map-{{ .Device.MAC }}').setView([{{ .Lat }}, {{ .Lon }}], 15);
-                              L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                { attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
-              ).addTo(map);
+              window.addEventListener('load', function () {
+                var el = document.getElementById('trail-{{ .Device.MAC }}');
+                var trail = [];
+                try {
+                  var txt = (el && el.textContent ? el.textContent : '').trim();
+                  if (txt.length > 0) {
+                    var parsed = JSON.parse(txt);
+                    trail = Array.isArray(parsed) ? parsed : [];
+                  }
+                } catch (e) {
+                  console.error("Failed to parse trail JSON:", e);
+                }
 
-                              L.marker([{{ .Lat }}, {{ .Lon }}]).addTo(map);
-                            })();
+                // quick debug preview
+                console.log('trail length:', trail.length, 'sample:', trail.slice(0, 2));
+
+                // Base map: satellite
+                var esri = L.tileLayer(
+                  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  { attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
+                );
+
+                var map = L.map('map-{{ .Device.MAC }}', {
+                  center: [{{ .Lat }}, {{ .Lon }}],
+                  zoom: 15,
+                  layers: [esri]
+                });
+
+                // Draw trail polyline (oldest -> newest)
+                if (trail.length > 1) {
+                  var latlngs = trail.map(function (p) { return [p.lat, p.lon]; });
+                  L.polyline(latlngs, { weight: 3, color: '#00C2FF' }).addTo(map);
+                  map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
+                }
+
+                // Latest point marker with popup
+                L.circleMarker([{{ .Lat }}, {{ .Lon }}], {
+                  radius: 7,
+                  fillColor: '#ff4d4f',
+                  color: '#ffffff',
+                  weight: 2,
+                  opacity: 1,
+                  fillOpacity: 0.9
+                })
+                .addTo(map)
+                .bindPopup("{{ .Device.Name }}<br/>{{ .FixTime }}<br/>{{ printf "%.5f" .Lat }}, {{ printf "%.5f" .Lon }}");
+              });
             </script>
           </div>
           {{ end }}

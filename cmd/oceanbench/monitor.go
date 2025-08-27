@@ -79,10 +79,12 @@ type monitorDevice struct {
 	Sensors               []sensorData
 
 	// Used for GPS (T1).
-	HasGPS  bool
-	Lat     float64
-	Lon     float64
-	FixTime string
+	HasGPS       bool
+	Lat          float64
+	Lon          float64
+	FixTime      string
+	GPSTrailJSON string // JSON array of [{lat,lon,timeLocal}].
+	GPSTrailN    int    // how many points included.
 }
 
 // monitorData holds the relevant information for the monitor page
@@ -290,23 +292,70 @@ func monitorLoadRoutine(
 	// GPS: look for latest text on pin T1.
 	if strings.Contains(dev.Inputs, "T1") {
 		mid := model.ToMID(model.MacDecode(dev.Mac), "T1")
-		gpsTexts, err := model.GetLatestTexts(ctx, mediaStore, mid, 1) // change 1 → 10 if you want a trail
+
+		// Get up to 360 most-recent points
+		gpsTexts, err := model.GetLatestTexts(ctx, mediaStore, mid, 360)
 		if err != nil && err != datastore.ErrNoSuchEntity {
 			reportMonitorError(w, r, &data, "could not get latest GPS text %d: %v", mid, err)
 			return
 		}
+
 		if err == nil && len(gpsTexts) > 0 {
-			var gps struct {
+			// Oldest -> newest for a sane trail order
+			// (GetLatestTexts returns newest-first)
+			slices.Reverse(gpsTexts)
+
+			type gpsIn struct {
 				Latitude    float64 `json:"Latitude"`
 				Longitude   float64 `json:"Longitude"`
 				LastFixTime string  `json:"LastFixTime"`
 			}
-			if jsonErr := json.Unmarshal([]byte(gpsTexts[0].Data), &gps); jsonErr == nil {
-				md.HasGPS = true
-				md.Lat = gps.Latitude
-				md.Lon = gps.Longitude
-				md.FixTime = gps.LastFixTime
+			type gpsOut struct {
+				Lat       float64 `json:"lat"`
+				Lon       float64 `json:"lon"`
+				TimeLocal string  `json:"timeLocal"`
 			}
+
+			loc := fixedTimezone(tz)
+			trail := make([]gpsOut, 0, len(gpsTexts))
+
+			for _, t := range gpsTexts {
+				var g gpsIn
+				if jsonErr := json.Unmarshal([]byte(t.Data), &g); jsonErr != nil {
+					continue
+				}
+				// parse & localise time (fallback to raw string if parse fails)
+				timeLocal := g.LastFixTime
+				if tm, e := time.Parse(time.RFC3339, g.LastFixTime); e == nil {
+					timeLocal = tm.In(loc).Format("Jan 2 15:04:05")
+				}
+				trail = append(trail, gpsOut{Lat: g.Latitude, Lon: g.Longitude, TimeLocal: timeLocal})
+			}
+
+			if len(trail) > 0 {
+				// Latest point is the last element (because we reversed to oldest->newest)
+				last := trail[len(trail)-1]
+				md.HasGPS = true
+				md.Lat = last.Lat
+				md.Lon = last.Lon
+				md.FixTime = last.TimeLocal
+
+				// Marshal trail for the template
+				if b, e := json.Marshal(trail); e == nil {
+					md.GPSTrailJSON = string(b)
+					md.GPSTrailN = len(trail)
+					log.Printf("GPSTrailJSON raw: %s", string(b))
+				}
+			}
+
+			if b, e := json.Marshal(trail); e == nil {
+				md.GPSTrailJSON = string(b)
+				md.GPSTrailN = len(trail)
+				log.Printf("GPS trail for %s: %d points", dev.Name, md.GPSTrailN)
+			} else {
+				log.Printf("failed to marshal GPS trail: %v", e)
+			}
+
 		}
 	}
 
