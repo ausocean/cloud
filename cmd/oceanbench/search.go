@@ -57,6 +57,7 @@ var pinMap = map[string]string{
 	"V0":  "video",
 	"S0":  "sound",
 	"T0":  "logs",
+	"T1":  "gps",
 	"A0":  "battery voltage",
 	"A4":  "battery voltage",
 	"A2":  "24v current draw",

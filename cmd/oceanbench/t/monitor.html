@@ -71,25 +71,29 @@
             <span class="signal-value">{{ .Scalar }} {{ .Units }}</span>
           </span>
           {{ end }} {{ if .HasT1 }}
-          <!-- GPS map container (created dynamically if API returns points) -->
+          <!-- GPS map container -->
           <div id="gps-{{ .Device.MAC }}" class="mt-3"></div>
 
           <script>
-            // Build a map for this device after page load
+            // Build a map for this device after page load.
             window.addEventListener("load", function () {
               const mac = "{{ .Device.MAC }}";
               const mount = document.getElementById("gps-{{ .Device.MAC }}");
 
-              // Fetch up to 360 latest GPS points from API
-              fetch("/api/get/gpstrail/?ma=" + encodeURIComponent(mac) + "&pn=T1&limit=360")
+              // Compute start/finish for last 12 hours
+              const finish = Math.floor(Date.now() / 1000);          // Now, in seconds.
+              const start = finish - (12 * 60 * 60);                 // 12 hours ago.
+              fetch("/api/get/gpstrail/?ma=" + encodeURIComponent(mac) + "&pn=T1&start=" + start + "&finish=" + finish)
                 .then(function (r) {
                   return r.ok ? r.json() : Promise.reject(r.status);
                 })
                 .then(function (data) {
+                  console.log("GPS trail length:", data.points?.length);
+                  console.log("GPS trail:", data);
                   const points = Array.isArray(data && data.points) ? data.points : [];
                   if (points.length === 0) return;
 
-                  // Latest point
+                  // Latest point.
                   const lastIdx = points.length - 1;
                   const p = points[lastIdx];
                   const when = typeof p.ts === "number" && p.ts > 0 ? new Date(p.ts * 1000).toLocaleString() : p.time || "";
@@ -97,32 +101,32 @@
 
                   const siteCoordsText = '{{ printf "%.5f" $.SiteLat }}, {{ printf "%.5f" $.SiteLon }}';
 
-                  // Create a text element above the map
+                  // Create a text element above the map.
                   const infoEl = document.createElement("div");
                   infoEl.className = "mb-2";
                   infoEl.innerHTML = "Latest GPS fix: " + coordsText + " — " + when;
                   mount.appendChild(infoEl);
 
-                  // Create a map DIV
+                  // Create a map DIV.
                   const mapId = "map-{{ .Device.MAC }}";
                   const mapEl = document.createElement("div");
                   mapEl.id = mapId;
                   mapEl.style.height = "300px";
                   mount.appendChild(mapEl);
 
-                  // Satellite base layer (Esri World Imagery)
+                  // Satellite base layer (Esri World Imagery).
                   const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" });
 
                   const map = L.map(mapId, { layers: [esri] });
 
-                  // Convert to Leaflet latlngs
+                  // Convert to Leaflet latlngs.
                   const latlngs = points.map(function (p) {
                     return [p.lat, p.lon];
                   });
 
-                  // Draw trail polyline (red)
+                  // Draw trail polyline.
                   if (latlngs.length > 1) {
-                    L.polyline(latlngs, { weight: 3, color: "#ff4d4f" }).addTo(map);
+                    L.polyline(latlngs, { weight: 3, color: "#FFFFE0" }).addTo(map);
                     map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
                   } else {
                     map.setView(latlngs[0], 16);
@@ -131,14 +135,14 @@
                   const siteLL = [{{ $.SiteLat }}, {{ $.SiteLon }}];
                   L.circleMarker(siteLL, {
                     radius: 6,
-                    fillColor: '#1e90ff', // blue for site
+                    fillColor: '#1e90ff', // Blue for site.
                     color: '#ffffff',
                     weight: 2,
                     opacity: 1,
                     fillOpacity: 0.95
                   }).addTo(map).bindTooltip("Deployment site: " + siteCoordsText);
 
-                  // Marker at the latest point
+                  // Marker at the latest point.
                   const lastLL = latlngs[lastIdx];
                   L.circleMarker(lastLL, {
                     radius: 7,

@@ -35,14 +35,12 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 type minimalSite struct {
@@ -409,9 +407,7 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // getGPSTrailHandler returns recent GPS points for a device/pin from Text storage.
-// Endpoint: GET /api/get/gpstrail/?ma=<MAC>&pn=<pin>&limit=<n>
-//
-//	or with a range: &start=<unix>&finish=<unix>
+// Endpoint: GET /api/get/gpstrail/?ma=<MAC>&pn=<pin>&start=<unix>&finish=<unix>
 func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -429,28 +425,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		pin = "T1"
 	}
 
-	// Parse limit (default 100, max 1000).
-	parseInt := func(s string, def int) int {
-		if s == "" {
-			return def
-		}
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			return def
-		}
-		return n
-	}
-	limit := parseInt(r.FormValue("limit"), 100)
-	if limit <= 0 {
-		limit = 1
-	}
-	if limit > 1000 {
-		limit = 1000
-	}
-
-	// Optional time window.
 	var (
-		useRange bool
 		startTS  int64
 		finishTS int64
 	)
@@ -475,7 +450,6 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 			writeHttpError(w, http.StatusBadRequest, "start time must be before finish time")
 			return
 		}
-		useRange = true
 	}
 
 	// Build MID and fetch texts.
@@ -496,33 +470,11 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	var texts []model.Text
 	var err error
 
-	if useRange {
-		// Range query (inclusive start, exclusive finish).
-		texts, err = model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
-		if err != nil {
-			writeHttpError(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
-			return
-		}
-		// Trim to limit from the END (latest) if too many.
-		if len(texts) > limit {
-			texts = texts[len(texts)-limit:]
-		}
-	} else {
-		// Latest N.
-		texts, err = model.GetLatestTexts(ctx, mediaStore, mid, limit)
-		if err != nil {
-			if err == datastore.ErrNoSuchEntity {
-				// Empty result is fine, return empty array.
-				texts = nil
-			} else {
-				writeHttpError(w, http.StatusInternalServerError, "unable to get latest gps texts: %v", err)
-				return
-			}
-		}
-		// GetLatestTexts returns newest-first; reverse to oldest->newest for nicer paths.
-		if len(texts) > 1 {
-			slices.Reverse(texts)
-		}
+	// Range query (inclusive start, exclusive finish).
+	texts, err = model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
+		return
 	}
 
 	points := make([]gpsOut, 0, len(texts))
