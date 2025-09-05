@@ -310,6 +310,7 @@ func (s *YouTubeBroadcastService) SetBroadcastPrivacy(ctx context.Context, id, p
 		Id: id,
 		Status: &youtube.VideoStatus{
 			PrivacyStatus: privacy,
+			Embeddable:    true, // This must be set, otherwise it defaults to not embeddable.
 		},
 	}
 
