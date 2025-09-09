@@ -411,7 +411,6 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Parse MAC.
 	macStr := r.FormValue("ma")
 	mac := model.MacEncode(macStr)
 	if mac == 0 {
@@ -482,9 +481,10 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		var g gpsIn
 		if err := json.Unmarshal([]byte(t.Data), &g); err != nil {
 			// Skip malformed rows.
+			log.Printf("skipping malformed GPS JSON text: %v", t.Data)
 			continue
 		}
-		// Skip null island / incomplete rows.
+		// Skip null island (0,0) / incomplete rows.
 		if g.Latitude == 0 && g.Longitude == 0 {
 			continue
 		}
