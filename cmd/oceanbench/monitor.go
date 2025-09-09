@@ -76,6 +76,7 @@ type monitorDevice struct {
 	MaxCount              int // Max number of scalars that could be sent.
 	Throughput            int // Percentage of successful scalars.
 	Sensors               []sensorData
+	HasT1                 bool
 }
 
 // monitorData holds the relevant information for the monitor page
@@ -84,6 +85,8 @@ type monitorData struct {
 	Devices   []monitorDevice
 	WritePerm bool
 	Timezone  float64
+	SiteLat   float64
+	SiteLon   float64
 	commonData
 }
 
@@ -129,6 +132,8 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Timezone = site.Timezone
+	data.SiteLat = site.Latitude
+	data.SiteLon = site.Longitude
 
 	monitorDevices := make([]monitorDevice, len(devices))
 	var wg sync.WaitGroup
@@ -310,6 +315,10 @@ func monitorLoadRoutine(
 		}
 		md.Sensors = append(md.Sensors, sensorData)
 	}
+	if strings.Contains(dev.Inputs, "T1") {
+		md.HasT1 = true
+	}
+
 	ch <- md
 	wg.Done()
 }

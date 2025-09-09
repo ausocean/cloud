@@ -37,6 +37,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -76,6 +77,7 @@ func setupAPIRoutes() {
 	http.HandleFunc("/api/get/profile/data", wrapAPI(getProfileDataHandler))
 	http.HandleFunc("/api/get/vars/site", wrapAPI(getVarsForSiteHandler))
 	http.HandleFunc("/api/get/sensor/data/", wrapAPI(getSensorDataHandler))
+	http.HandleFunc("/api/get/gpstrail/", wrapAPI(getGPSTrailHandler))
 
 	http.HandleFunc("/api/set/site/", wrapAPI(setSiteHandler))
 
@@ -402,6 +404,128 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(data)
+}
+
+// getGPSTrailHandler returns recent GPS points for a device/pin from Text storage.
+// Endpoint: GET /api/get/gpstrail/?ma=<MAC>&pn=<pin>&start=<unix>&finish=<unix>
+func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	macStr := r.FormValue("ma")
+	mac := model.MacEncode(macStr)
+	if mac == 0 {
+		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", macStr)
+		return
+	}
+
+	// Parse pin (default T1).
+	pin := r.FormValue("pn")
+	if pin == "" {
+		pin = "T1"
+	}
+
+	var (
+		startTS  int64
+		finishTS int64
+	)
+	if sv := r.FormValue("start"); sv != "" {
+		if v, err := strconv.ParseInt(sv, 10, 64); err == nil {
+			startTS = v
+		} else {
+			writeHttpError(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
+			return
+		}
+	}
+	if fv := r.FormValue("finish"); fv != "" {
+		if v, err := strconv.ParseInt(fv, 10, 64); err == nil {
+			finishTS = v
+		} else {
+			writeHttpError(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
+			return
+		}
+	}
+	if startTS != 0 && finishTS != 0 {
+		if startTS > finishTS {
+			writeHttpError(w, http.StatusBadRequest, "start time must be before finish time")
+			return
+		}
+	}
+
+	// Build MID and fetch texts.
+	mid := model.ToMID(model.MacDecode(mac), pin)
+
+	type gpsIn struct {
+		Latitude    float64 `json:"Latitude"`
+		Longitude   float64 `json:"Longitude"`
+		LastFixTime string  `json:"LastFixTime"`
+	}
+	type gpsOut struct {
+		Lat  float64 `json:"lat"`
+		Lon  float64 `json:"lon"`
+		Time string  `json:"time"` // RFC3339 (UTC)
+		TS   int64   `json:"ts"`   // unix seconds (derived)
+	}
+
+	var texts []model.Text
+	var err error
+
+	// Range query (inclusive start, exclusive finish).
+	texts, err = model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
+		return
+	}
+
+	points := make([]gpsOut, 0, len(texts))
+	for _, t := range texts {
+		var g gpsIn
+		if err := json.Unmarshal([]byte(t.Data), &g); err != nil {
+			// Skip malformed rows.
+			log.Printf("skipping malformed GPS JSON text: %v", t.Data)
+			continue
+		}
+		// Skip null island (0,0) / incomplete rows.
+		if g.Latitude == 0 && g.Longitude == 0 {
+			continue
+		}
+		// Parse time → RFC3339 + unix.
+		var ts int64
+		timestr := g.LastFixTime
+		if parsed, e := time.Parse(time.RFC3339, g.LastFixTime); e == nil {
+			ts = parsed.Unix()
+			timestr = parsed.UTC().Format(time.RFC3339)
+		}
+		points = append(points, gpsOut{
+			Lat:  g.Latitude,
+			Lon:  g.Longitude,
+			Time: timestr,
+			TS:   ts,
+		})
+	}
+
+	// Response envelope.
+	resp := struct {
+		MAC    string   `json:"mac"`
+		Pin    string   `json:"pin"`
+		Count  int      `json:"count"`
+		Points []gpsOut `json:"points"`
+	}{
+		MAC:    macStr,
+		Pin:    pin,
+		Count:  len(points),
+		Points: points,
+	}
+
+	// CORS + JSON.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(resp); err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to encode response: %v", err)
+		return
+	}
 }
 
 // setSiteHandler handles API requests to update the user's current site selection.
