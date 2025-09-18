@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Example usage
-	err = youtube.UploadVideo(
+	_, err = youtube.UploadVideo(
 		context.Background(),
 		reader,
 		youtube.WithTitle("Test upload "+time.Now().Format("2006-01-02 15:04:05")),

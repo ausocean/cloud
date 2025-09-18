@@ -27,6 +27,7 @@ package youtube
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -35,6 +36,8 @@ import (
 	"github.com/ausocean/cloud/utils"
 	"google.golang.org/api/youtube/v3"
 )
+
+var ErrUnknownStatus = errors.New("unknown video status")
 
 // VideoUploadOption is a functional option type for configuring YouTube video uploads.
 type VideoUploadOption func(*youtube.Video) error
@@ -137,6 +140,15 @@ func WithTags(tags []string) VideoUploadOption {
 	}
 }
 
+// Upload Status constants.
+const (
+	UploadStatusUploaded  = "uploaded"
+	UploadStatusProcessed = "processed"
+	UploadStatusFailed    = "failed"
+	UploadStatusRejected  = "rejected"
+	UploadStatusDeleted   = "deleted"
+)
+
 // UploadVideo uploads a video to AusOcean's YouTube account using the provided media reader and options.
 // Defaults are applied for title, description, category, privacy, and tags if not specified in options.
 // Defaults are as follows:
@@ -146,7 +158,7 @@ func WithTags(tags []string) VideoUploadOption {
 // - Privacy: "unlisted"
 // - Tags: ["ocean uploads"]
 // It returns an error if the upload fails.
-func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption) error {
+func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption) (*youtube.Video, error) {
 	const (
 		// Science & Technology category ID
 		scienceAndTechnologyCategoryID = "28"
@@ -176,7 +188,7 @@ func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption
 	// Apply options
 	for _, opt := range opts {
 		if err := opt(upload); err != nil {
-			return fmt.Errorf("failed to apply option: %w", err)
+			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 
@@ -184,15 +196,54 @@ func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption
 	tokenURI := utils.TokenURIFromAccount("")
 	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
 	if err != nil {
-		return fmt.Errorf("failed to get YouTube service: %w", err)
+		return nil, fmt.Errorf("failed to get YouTube service: %w", err)
 	}
 
-	_, err = youtube.NewVideosService(svc).Insert([]string{"snippet", "status"}, upload).Media(media).Do()
+	vid, err := youtube.NewVideosService(svc).Insert([]string{"snippet", "status"}, upload).Media(media).Do()
 	if err != nil {
-		return fmt.Errorf("failed to insert video: %w", err)
+		return nil, fmt.Errorf("failed to insert video: %w", err)
 	}
 
-	return nil
+	return vid, nil
+}
+
+// CheckUploadStatus checks the status for the video with the associated videoID.
+// the returned status will be one of:
+// - UploadStatusUploaded
+// - UploadStatusProcessed
+// - UploadStatusFailed
+// - UploadStatusRejected
+// - UploadStatusDeleted
+func CheckUploadStatus(ctx context.Context, videoID string) (string, error) {
+	// Force using the default account (AusOcean's account).
+	tokenURI := utils.TokenURIFromAccount("")
+	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
+	if err != nil {
+		return "", fmt.Errorf("failed to get YouTube service: %w", err)
+	}
+	vid, err := youtube.NewVideosService(svc).List([]string{"snippet", "status"}).Id(videoID).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to get video status: %w", err)
+	}
+
+	if len(vid.Items) == 0 {
+		return "", fmt.Errorf("video not found")
+	}
+
+	switch vid.Items[0].Status.UploadStatus {
+	case "processed":
+		return UploadStatusProcessed, nil
+	case "failed":
+		return UploadStatusFailed, nil
+	case "rejected":
+		return UploadStatusRejected, nil
+	case "deleted":
+		return UploadStatusDeleted, nil
+	case "uploaded":
+		return UploadStatusUploaded, nil
+	default:
+		return "", ErrUnknownStatus
+	}
 }
 
 // sanitiseCategory checks if the given category ID or Name is valid,
