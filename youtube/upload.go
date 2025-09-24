@@ -149,7 +149,8 @@ const (
 	UploadStatusDeleted   = "deleted"
 )
 
-// UploadVideo uploads a video to AusOcean's YouTube account using the provided media reader and options.
+// UploadVideo uploads a video to the given YouTube account using the provided media reader and options.
+// If no account is specified, the upload will default to the AusOcean channel.
 // Defaults are applied for title, description, category, privacy, and tags if not specified in options.
 // Defaults are as follows:
 // - Title: "Uploaded at <current time>"
@@ -157,8 +158,8 @@ const (
 // - Category: "Science & Technology" (ID: 28)
 // - Privacy: "unlisted"
 // - Tags: ["ocean uploads"]
-// It returns an error if the upload fails.
-func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption) (*youtube.Video, error) {
+// It returns the created video object, and an error if the upload fails.
+func UploadVideo(ctx context.Context, media io.Reader, account string, opts ...VideoUploadOption) (*youtube.Video, error) {
 	const (
 		// Science & Technology category ID
 		scienceAndTechnologyCategoryID = "28"
@@ -193,7 +194,7 @@ func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption
 	}
 
 	// Force using the default account (AusOcean's account).
-	tokenURI := utils.TokenURIFromAccount("")
+	tokenURI := utils.TokenURIFromAccount(account)
 	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get YouTube service: %w", err)
@@ -214,9 +215,11 @@ func UploadVideo(ctx context.Context, media io.Reader, opts ...VideoUploadOption
 // - UploadStatusFailed
 // - UploadStatusRejected
 // - UploadStatusDeleted
-func CheckUploadStatus(ctx context.Context, videoID string) (string, error) {
-	// Force using the default account (AusOcean's account).
-	tokenURI := utils.TokenURIFromAccount("")
+//
+// NOTE: The passed account should match the account of the uploader. If no account
+// is passed, the AusOcean channel will be used.
+func CheckUploadStatus(ctx context.Context, videoID string, account string) (string, error) {
+	tokenURI := utils.TokenURIFromAccount(account)
 	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("failed to get YouTube service: %w", err)

@@ -55,6 +55,7 @@ func main() {
 	_, err = youtube.UploadVideo(
 		context.Background(),
 		reader,
+		"", // Default to the AusOcean account.
 		youtube.WithTitle("Test upload "+time.Now().Format("2006-01-02 15:04:05")),
 		youtube.WithDescription("This is a test upload"),
 		youtube.WithCategory("28"), // Science & Technology
