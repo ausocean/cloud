@@ -69,6 +69,9 @@ type minimalSite struct {
 //
 // Only some endpoints require authentication. These checks are handled per handler.
 func setupAPIRoutes() {
+
+	setupAPIV1Routes()
+
 	http.HandleFunc("/api/get/site/", wrapAPI(getSiteHandler))
 	http.HandleFunc("/api/get/devices/site", wrapAPI(getDevicesForSiteHandler))
 	http.HandleFunc("/api/get/sites/all", wrapAPI(getAllSitesHandler))
