@@ -50,10 +50,16 @@ func missionControlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}}
+	// Require super admin (same pattern as /admin/site/add).
+	if !isSuperAdmin(profile.Email) {
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+
+	// Use the "admin" page set so the admin nav highlights correctly.
+	data := monitorData{commonData: commonData{Pages: pages("admin"), Profile: profile}}
 
 	ctx := r.Context()
-
 	skey, _ := profileData(profile)
 
 	// Check if user has write permissions to link to devices page.
@@ -64,6 +70,7 @@ func missionControlHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("failed getting user permissions", err)
 	}
 
+	// Retain site context if your template uses timezone/lat/lon.
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		reportMonitorError(w, r, &data, "could not get devices: %v", err)
