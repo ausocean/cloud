@@ -1,29 +1,24 @@
-// /s/lit/site-footer.ts
-import { html } from "lit";
+// ts/site-footer.ts
+import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { TailwindElement } from "shared/tailwind.element.ts";
 
-/**
- * Site footer component.
- * Uses Tailwind for styling. Keep comments ending with full stops.
- */
 @customElement("site-footer")
-export class SiteFooter extends TailwindElement() {
-  /** First year to display in the © range. */
+export class SiteFooter extends LitElement {
   @property({ type: Number }) startYear = 2019;
-
-  /** Organisation display name. */
   @property({ type: String }) orgName = "Australian Ocean Laboratory Limited (AusOcean)";
-
-  /** License URL. */
   @property({ type: String }) licenseHref = "https://www.ausocean.org/license";
 
-  private yearRange(): string {
-    const thisYear = new Date().getFullYear();
-    return this.startYear === thisYear ? `${thisYear}` : `${this.startYear}–${thisYear}`;
+  // Render into light DOM so global Tailwind classes apply.
+  protected createRenderRoot() {
+    return this;
   }
 
-  render() {
+  private yearRange(): string {
+    const y = new Date().getFullYear();
+    return this.startYear === y ? `${y}` : `${this.startYear}–${y}`;
+  }
+
+  override render() {
     return html`
       <footer class="w-full border-t border-neutral-200 bg-neutral-50/80 backdrop-blur-sm">
         <div class="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-neutral-700">

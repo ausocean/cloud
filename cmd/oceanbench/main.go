@@ -238,6 +238,7 @@ func main() {
 	http.HandleFunc("/admin/site", adminHandler)
 	http.HandleFunc("/admin/broadcast", adminHandler)
 	http.HandleFunc("/admin/tv-overview", tvOverviewHandler)
+	http.HandleFunc("/admin/missioncontrol", adminHandler)
 	http.HandleFunc("/admin/sandbox", sandboxHandler)
 	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
@@ -625,6 +626,12 @@ func pages(selected string) []page {
 		{
 			Name:  "broadcast",
 			URL:   "/admin/broadcast",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "mission control",
+			URL:   "/admin/missioncontrol",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
