@@ -228,7 +228,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	sd.PinType = sd.Pn[0]
 	switch sd.PinType {
 	case 'T':
-		sd.Log = true
+		sd.Log = (sd.Pn == "T0")
 		fallthrough
 
 	case 'S', 'V':
