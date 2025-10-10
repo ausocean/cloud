@@ -41,6 +41,7 @@ import (
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
 	"github.com/ausocean/utils/sliceutils"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -122,13 +123,15 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	ctx := r.Context()
 	setup(ctx)
 
-	siteChanged := false
+	// If a MAC is present, fetch once here and reuse later.
+	var siteChanged bool
 	if model.IsMacAddress(data.Mac) {
-		data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
-		if err != nil {
-			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
+		d, derr := model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
+		if derr != nil {
+			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, derr)
 			return
 		}
+		data.Device = d
 		if data.Device.Skey != skey && r.FormValue("sk") == "auto" {
 			skey = data.Device.Skey
 			siteChanged = true
@@ -147,89 +150,140 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	site, err := model.GetSite(ctx, settingsStore, skey)
-	if err != nil {
-		reportDevicesError(w, r, data, "get site error: %v", err)
+	// Fetch site and devices concurrently.
+	g, gctx := errgroup.WithContext(ctx)
+
+	var site *model.Site
+	g.Go(func() error {
+		s, e := model.GetSite(gctx, settingsStore, skey)
+		if e == nil {
+			site = s
+		}
+		return e
+	})
+
+	g.Go(func() error {
+		ds, e := model.GetDevicesBySite(gctx, settingsStore, skey)
+		if e == nil {
+			data.Devices = ds
+		}
+		return e
+	})
+
+	if err := g.Wait(); err != nil {
+		reportDevicesError(w, r, data, "site or device list error: %v", err)
 		return
 	}
+
 	if siteChanged {
-		err := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
-		if err != nil {
-			log.Printf("could not put profile data: %v", err)
+		perr := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
+		if perr != nil {
+			log.Printf("could not put profile data: %v", perr)
 		}
 	}
-
 	data.Timezone = site.Timezone
-
-	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
-	if err != nil {
-		reportDevicesError(w, r, data, "get devices by site error: %v", err)
-		return
-	}
 
 	if msg != "" {
 		reportDevicesError(w, r, data, msg, args...)
 		return
 	}
 
+	// If no MAC, render the selection page early. Avoid extra calls.
 	if !model.IsMacAddress(data.Mac) {
 		writeTemplate(w, r, "set/device.html", &data, "")
 		return
 	}
 
-	data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
-	if err != nil {
-		reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
+	// Parallelize per-device lookups.
+	var (
+		uptimeVar    *model.Variable
+		localAddrVar *model.Variable
+		vars         []model.Variable
+		varTypes     []model.Variable
+		sensors      []model.SensorV2
+		actuators    []model.ActuatorV2
+	)
+
+	g2, gctx2 := errgroup.WithContext(ctx)
+
+	g2.Go(func() error {
+		v, e := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
+		if e == nil {
+			uptimeVar = v
+		} else if !errors.Is(e, datastore.ErrNoSuchEntity) {
+			return e
+		}
+		return nil
+	})
+	g2.Go(func() error {
+		v, e := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
+		if e == nil {
+			localAddrVar = v
+		} else if !errors.Is(e, datastore.ErrNoSuchEntity) {
+			return e
+		}
+		return nil
+	})
+	g2.Go(func() error {
+		vs, e := model.GetVariablesBySite(gctx2, settingsStore, skey, data.Device.Hex())
+		if e == nil || errors.Is(e, datastore.ErrNoSuchEntity) {
+			vars = vs
+			return nil
+		}
+		return e
+	})
+	g2.Go(func() error {
+		vt, e := model.GetVariablesBySite(gctx2, settingsStore, skey, "_type")
+		if e == nil || errors.Is(e, datastore.ErrNoSuchEntity) {
+			varTypes = vt
+			return nil
+		}
+		return e
+	})
+	g2.Go(func() error {
+		ss, e := model.GetSensorsV2(gctx2, settingsStore, data.Device.Mac)
+		if e == nil {
+			sensors = ss
+		}
+		return e
+	})
+	g2.Go(func() error {
+		aa, e := model.GetActuatorsV2(gctx2, settingsStore, data.Device.Mac)
+		if e == nil {
+			actuators = aa
+		}
+		return e
+	})
+
+	if err := g2.Wait(); err != nil {
+		reportDevicesError(w, r, data, "per-device data error: %v", err)
 		return
 	}
 
 	// Provide uptime and device status information.
-	v, err := model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
 	switch {
-	case errors.Is(err, datastore.ErrNoSuchEntity):
+	case uptimeVar == nil:
 		data.Device.SetOther("sending", "black")
-	case err != nil:
-		reportDevicesError(w, r, data, "get uptime error: %v", err)
-		return
-	case time.Since(v.Updated) < time.Duration(2*int(data.Device.MonitorPeriod))*time.Second:
-		data.Device.SetOther("sending", "green")
-		ut, err := strconv.Atoi(v.Value)
-		if err == nil {
-			data.Device.SetOther("uptime", (time.Duration(ut) * time.Second).String())
-		}
 	default:
-		data.Device.SetOther("sending", "red")
+		if time.Since(uptimeVar.Updated) < time.Duration(2*int(data.Device.MonitorPeriod))*time.Second {
+			data.Device.SetOther("sending", "green")
+			if ut, e := strconv.Atoi(uptimeVar.Value); e == nil {
+				data.Device.SetOther("uptime", (time.Duration(ut) * time.Second).String())
+			}
+		} else {
+			data.Device.SetOther("sending", "red")
+		}
 	}
 
 	// Get the local address only if available.
-	v, err = model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
-	if err == nil {
-		data.Device.SetOther("localaddr", v.Value)
+	if localAddrVar != nil {
+		data.Device.SetOther("localaddr", localAddrVar.Value)
 	}
 
-	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variables error: %v", err)
-		return
-	}
-
-	data.VarTypes, err = model.GetVariablesBySite(ctx, settingsStore, skey, "_type")
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variable types error: %v", err)
-		return
-	}
-
-	data.Sensors, err = model.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get sensors error: %v", err)
-		return
-	}
-
-	data.Actuators, err = model.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get actuators error: %v", err)
-		return
-	}
+	data.Vars = vars
+	data.VarTypes = varTypes
+	data.Sensors = sensors
+	data.Actuators = actuators
 
 	writeTemplate(w, r, "set/device.html", &data, msg)
 }
@@ -891,6 +945,4 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("could not schedule cron: %v", err))
 		return
 	}
-
-	return
 }
