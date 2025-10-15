@@ -126,9 +126,9 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	// If a MAC is present, fetch once here and reuse later.
 	var siteChanged bool
 	if model.IsMacAddress(data.Mac) {
-		d, derr := model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
-		if derr != nil {
-			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, derr)
+		d, err := model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
+		if err != nil {
+			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
 			return
 		}
 		data.Device = d
@@ -140,7 +140,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
-	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
+	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.WritePermission == 0) {
 		log.Println("user does not have write permissions")
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -155,19 +155,21 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 
 	var site *model.Site
 	g.Go(func() error {
-		s, e := model.GetSite(gctx, settingsStore, skey)
-		if e == nil {
-			site = s
+		s, err := model.GetSite(gctx, settingsStore, skey)
+		if err != nil {
+			return fmt.Errorf("get site error: %v", err)
 		}
-		return e
+		site = s
+		return nil
 	})
 
 	g.Go(func() error {
-		ds, e := model.GetDevicesBySite(gctx, settingsStore, skey)
-		if e == nil {
-			data.Devices = ds
+		ds, err := model.GetDevicesBySite(gctx, settingsStore, skey)
+		if err != nil {
+			return fmt.Errorf("get devices by site error: %v", err)
 		}
-		return e
+		data.Devices = ds
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {
@@ -176,9 +178,9 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	if siteChanged {
-		perr := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
-		if perr != nil {
-			log.Printf("could not put profile data: %v", perr)
+		err := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
+		if err != nil {
+			log.Printf("could not put profile data: %v", err)
 		}
 	}
 	data.Timezone = site.Timezone
@@ -204,75 +206,76 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		actuators    []model.ActuatorV2
 	)
 
-	g2, gctx2 := errgroup.WithContext(ctx)
+	g, gctx2 := errgroup.WithContext(ctx)
 
-	g2.Go(func() error {
-		v, e := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
-		if e == nil {
+	g.Go(func() error {
+		v, err := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
+		if err == nil {
 			uptimeVar = v
-		} else if !errors.Is(e, datastore.ErrNoSuchEntity) {
-			return e
+		} else if !errors.Is(err, datastore.ErrNoSuchEntity) {
+			return fmt.Errorf("get uptime variable error: %v", err)
 		}
 		return nil
 	})
-	g2.Go(func() error {
-		v, e := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
-		if e == nil {
+	g.Go(func() error {
+		v, err := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
+		if err == nil {
 			localAddrVar = v
-		} else if !errors.Is(e, datastore.ErrNoSuchEntity) {
-			return e
+		} else if !errors.Is(err, datastore.ErrNoSuchEntity) {
+			return fmt.Errorf("get localaddr variable error: %v", err)
 		}
 		return nil
 	})
-	g2.Go(func() error {
-		vs, e := model.GetVariablesBySite(gctx2, settingsStore, skey, data.Device.Hex())
-		if e == nil || errors.Is(e, datastore.ErrNoSuchEntity) {
+	g.Go(func() error {
+		vs, err := model.GetVariablesBySite(gctx2, settingsStore, skey, data.Device.Hex())
+		if err == nil || errors.Is(err, datastore.ErrNoSuchEntity) {
 			vars = vs
 			return nil
 		}
-		return e
+		return fmt.Errorf("get variables by site error: %v", err)
 	})
-	g2.Go(func() error {
-		vt, e := model.GetVariablesBySite(gctx2, settingsStore, skey, "_type")
-		if e == nil || errors.Is(e, datastore.ErrNoSuchEntity) {
+	g.Go(func() error {
+		vt, err := model.GetVariablesBySite(gctx2, settingsStore, skey, "_type")
+		if err == nil || errors.Is(err, datastore.ErrNoSuchEntity) {
 			varTypes = vt
 			return nil
 		}
-		return e
+		return fmt.Errorf("get vartype variable error: %v", err)
 	})
-	g2.Go(func() error {
-		ss, e := model.GetSensorsV2(gctx2, settingsStore, data.Device.Mac)
-		if e == nil {
-			sensors = ss
+	g.Go(func() error {
+		ss, err := model.GetSensorsV2(gctx2, settingsStore, data.Device.Mac)
+		if err != nil {
+			return fmt.Errorf("get sensors error: %v", err)
 		}
-		return e
+		sensors = ss
+		return nil
 	})
-	g2.Go(func() error {
-		aa, e := model.GetActuatorsV2(gctx2, settingsStore, data.Device.Mac)
-		if e == nil {
-			actuators = aa
+	g.Go(func() error {
+		aa, err := model.GetActuatorsV2(gctx2, settingsStore, data.Device.Mac)
+		if err != nil {
+			return fmt.Errorf("get actuators error: %v", err)
 		}
-		return e
+		actuators = aa
+		return nil
 	})
 
-	if err := g2.Wait(); err != nil {
+	if err := g.Wait(); err != nil {
 		reportDevicesError(w, r, data, "per-device data error: %v", err)
 		return
 	}
 
 	// Provide uptime and device status information.
+	thresh := time.Duration(2*int(data.Device.MonitorPeriod)) * time.Second
 	switch {
 	case uptimeVar == nil:
 		data.Device.SetOther("sending", "black")
-	default:
-		if time.Since(uptimeVar.Updated) < time.Duration(2*int(data.Device.MonitorPeriod))*time.Second {
-			data.Device.SetOther("sending", "green")
-			if ut, e := strconv.Atoi(uptimeVar.Value); e == nil {
-				data.Device.SetOther("uptime", (time.Duration(ut) * time.Second).String())
-			}
-		} else {
-			data.Device.SetOther("sending", "red")
+	case time.Since(uptimeVar.Updated) < thresh:
+		data.Device.SetOther("sending", "green")
+		if ut, err := strconv.Atoi(uptimeVar.Value); err == nil {
+			data.Device.SetOther("uptime", (time.Duration(ut) * time.Second).String())
 		}
+	default:
+		data.Device.SetOther("sending", "red")
 	}
 
 	// Get the local address only if available.
