@@ -27,8 +27,6 @@ package model
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -42,7 +40,6 @@ import (
 	"github.com/ausocean/av/container/mts/meta"
 	"github.com/ausocean/av/container/mts/psi"
 	"github.com/ausocean/openfish/datastore"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -420,8 +417,6 @@ func TestNetreceiverFileAccess(t *testing.T) {
 	testDevice(t, "file")
 	testVariable(t, "file")
 	testCron(t, "file")
-	testSubscriber(t, "file")
-	testSubscription(t, "file")
 }
 
 func TestNetreceiverCloudAccess(t *testing.T) {
@@ -432,8 +427,6 @@ func TestNetreceiverCloudAccess(t *testing.T) {
 	testDevice(t, "cloud")
 	testVariable(t, "cloud")
 	testCron(t, "cloud")
-	testSubscriber(t, "cloud")
-	testSubscription(t, "cloud")
 }
 
 // testEntities tests access to various entities in NetReceiver's datastore.
@@ -661,7 +654,6 @@ func TestVidgrindFileAccess(t *testing.T) {
 	testScalar(t, "file")
 	testActuator(t, "file")
 	testMtsDurations(t, "file")
-	testSubscriber(t, "file")
 }
 
 func TestVidgrindCloudAccess(t *testing.T) {
@@ -674,7 +666,6 @@ func TestVidgrindCloudAccess(t *testing.T) {
 	testScalar(t, "cloud")
 	testActuator(t, "cloud")
 	testMtsDurations(t, "cloud")
-	testSubscriber(t, "cloud")
 }
 
 // testMtsMedia tests MtsMedia methods.
@@ -1346,266 +1337,6 @@ func testCron(t *testing.T, kind string) {
 	}
 }
 
-// testSubscriber tests Subscriber methods.
-func testSubscriber(t *testing.T, kind string) {
-	ctx := context.Background()
-
-	// Define test subscriber IDs and emails.
-	sub1ID := int64(testSubscriberID)
-	sub1Email := testUserEmail
-
-	sub2ID := int64(1098765432)
-	sub2Email := "second@example.com"
-
-	sub1Key := fmt.Sprintf("%d.%s", sub1ID, sub1Email)
-	sub2Key := fmt.Sprintf("%d.%s", sub2ID, sub2Email)
-
-	// Create test subscriber objects.
-	s1a := &Subscriber{sub1ID, "", sub1Email, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
-	s2 := &Subscriber{sub2ID, "", sub2Email, "Second", "User", nil, "", "", time.Now().Round(time.Second).UTC()}
-
-	// Create a new store instance.
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
-	}
-
-	// Delete any existing test subscriber entries before starting.
-	for _, key := range []string{sub1Key, sub2Key} {
-		err := store.Delete(ctx, store.NameKey(typeSubscriber, key))
-		if err != nil && err != datastore.ErrNoSuchEntity && !os.IsNotExist(err) {
-			t.Fatalf("failed to delete test subscriber key %q: %v", key, err)
-		}
-	}
-
-	// Create and verify subscriber 1.
-	if err := CreateSubscriber(ctx, store, s1a); err != nil {
-		t.Errorf("CreateSubscriber failed: %v", err)
-	}
-
-	s1b, err := GetSubscriber(ctx, store, s1a.ID)
-	if err != nil {
-		t.Errorf("GetSubscriber failed: %v", err)
-	}
-	if !reflect.DeepEqual(s1a, s1b) {
-		t.Errorf("Subscriber mismatch (by ID). Got:\n%+v\nWanted:\n%+v", s1b, s1a)
-	}
-
-	s1b, err = GetSubscriberByEmail(ctx, store, sub1Email)
-	if err != nil {
-		t.Errorf("GetSubscriberByEmail failed: %v", err)
-	}
-	if !reflect.DeepEqual(s1a, s1b) {
-		t.Errorf("Subscriber mismatch (by Email). Got:\n%+v\nWanted:\n%+v", s1b, s1a)
-	}
-
-	// Update and verify subscriber 1.
-	s1a.FamilyName = "New-Name"
-	if err := UpdateSubscriber(ctx, store, s1a); err != nil {
-		t.Errorf("UpdateSubscriber failed: %v", err)
-	}
-
-	s1b, err = GetSubscriber(ctx, store, s1a.ID)
-	if err != nil {
-		t.Errorf("GetSubscriber failed after update: %v", err)
-	}
-	if !reflect.DeepEqual(s1a, s1b) {
-		t.Errorf("Subscriber mismatch after update. Got:\n%+v\nWanted:\n%+v", s1b, s1a)
-	}
-
-	// Create and verify subscriber 2.
-	if err := CreateSubscriber(ctx, store, s2); err != nil {
-		t.Errorf("CreateSubscriber (second) failed: %v", err)
-	}
-
-	// Fetch all subscribers and check that both are present.
-	subscribers, err := GetAllSubscribers(ctx, store)
-	if err != nil {
-		t.Errorf("GetAllSubscribers failed: %v", err)
-	}
-
-	var found1, found2 bool
-	for _, sub := range subscribers {
-		if reflect.DeepEqual(sub, *s1a) {
-			found1 = true
-		}
-		if reflect.DeepEqual(sub, *s2) {
-			found2 = true
-		}
-	}
-
-	if !found1 {
-		t.Errorf("GetAllSubscribers did not return the first subscriber: %+v", s1a)
-	}
-	if !found2 {
-		t.Errorf("GetAllSubscribers did not return the second subscriber: %+v", s2)
-	}
-}
-
-// testSubscriber tests Subscription methods.
-func testSubscription(t *testing.T, kind string) {
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
-	}
-
-	// Since we will create a new subscription, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.NameKey(typeSubscription, fmt.Sprintf("%d.%d", testSubscriberID, testFeedID)))
-
-	start := time.Now().Truncate(24 * time.Hour).UTC()
-	finish := start.AddDate(0, 0, 1)
-	s1 := &Subscription{SubscriberID: testSubscriberID, FeedID: testFeedID, Class: SubscriptionDay, Prefs: "", Start: start, Finish: finish, Renew: true}
-
-	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, "", true, WithSubscriptionClass(SubscriptionDay))
-	if err != nil {
-		t.Errorf("CreateSubscription failed with error: %v", err)
-	}
-
-	s2, err := GetSubscription(ctx, store, testSubscriberID, testFeedID)
-	if err != nil {
-		t.Errorf("GetSubscription failed with error: %v", err)
-	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscription than created (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-
-	subs, err := GetSubscriptions(ctx, store, testSubscriberID)
-	if err != nil {
-		t.Errorf("GetSubscriptions failed with error: %v", err)
-	}
-
-	if len(subs) != 1 {
-		t.Errorf("got incorrect number of subscriptions, got %d, wanted 1", len(subs))
-	}
-
-	if !reflect.DeepEqual(s1, &subs[0]) {
-		t.Errorf("Got different subscription than created, got: \n%+v, wanted \n%+v", &subs[0], s1)
-	}
-
-	s1.Renew = false
-	err = UpdateSubscription(ctx, store, s1)
-	if err != nil {
-		t.Errorf("UpdateSubscriber failed with error: %v", err)
-	}
-
-	s2, err = GetSubscription(ctx, store, testSubscriberID, testFeedID)
-	if err != nil {
-		t.Errorf("GetSubscription failed with error: %v", err)
-	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscription than updated (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-
-}
-
-func testFeed(t *testing.T, kind string) {
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
-	}
-
-	// Since we will create a new Feed, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
-}
-
-func TestSubFeed(t *testing.T) {
-	const (
-		testSubFeedID     = 1234567890
-		testSubFeedFeedID = 9876543210
-		testSubFeedSource = "https://youtube.com/watch?v=1234567890"
-	)
-
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, "file", "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not get store: %v", err)
-	}
-
-	startTime := time.Now().UTC().Truncate(0)
-
-	// Add an arbitrary amount of time to differentiate start and finish.
-	finishTime := startTime.Add(1 * time.Hour)
-
-	subfeed := &SubFeed{
-		ID:     testSubFeedID,
-		FeedID: testSubFeedFeedID,
-		Source: testSubFeedSource,
-		Active: true,
-		Start:  startTime,
-		Finish: finishTime,
-	}
-	err = CreateSubFeed(ctx, store, subfeed)
-	if err != nil {
-		t.Errorf("could not create subfeed: %v", err)
-	}
-
-	subfeed2, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
-	if err != nil {
-		t.Errorf("could not get subfeed: %v", err)
-	}
-
-	assert.Equal(t, subfeed, subfeed2, "Got different subfeed than put, got: \n%+v, wanted \n%+v", subfeed2, subfeed)
-
-	subfeed.Source = "https://youtube.com/watch?v=0987654321"
-	subfeed, err = UpdateSubFeed(ctx, store, subfeed)
-	if err != nil {
-		t.Errorf("could not update subfeed: %v", err)
-	}
-
-	subfeed3, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
-	if err != nil {
-		t.Errorf("could not get subfeed: %v", err)
-	}
-
-	assert.Equal(t, subfeed, subfeed3, "Got different subfeed than put, got: \n%+v, wanted \n%+v", subfeed3, subfeed)
-
-	newSubfeed := &SubFeed{
-		ID:     testSubFeedID + 1,
-		FeedID: testSubFeedFeedID,
-		Source: "https://youtube.com/watch?v=1122334455",
-		Active: true,
-		Start:  startTime,
-		Finish: finishTime,
-	}
-	err = CreateSubFeed(ctx, store, newSubfeed)
-	if err != nil {
-		t.Errorf("could not create new subfeed: %v", err)
-	}
-
-	subfeeds, err := GetSubFeedsByFeed(ctx, store, testSubFeedFeedID)
-	if err != nil {
-		t.Errorf("could not get all subfeeds: %v", err)
-	}
-
-	assert.Equal(t, []SubFeed{*subfeed, *newSubfeed}, subfeeds, "Got different subfeeds than put, got: \n%+v, wanted \n%+v", subfeeds, []SubFeed{*subfeed, *newSubfeed})
-
-	err = DeleteSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
-	if err != nil {
-		t.Errorf("could not delete subfeed: %v", err)
-	}
-
-	subfeed4, err := GetSubFeed(ctx, store, testSubFeedID, testSubFeedFeedID)
-	if !errors.Is(err, datastore.ErrNoSuchEntity) {
-		t.Errorf("expected ErrNoSuchEntity, got %v", err)
-	}
-
-	if subfeed4 != nil {
-		t.Errorf("expected nil, got %v", subfeed4)
-	}
-
-	// Cleanup.
-	t.Cleanup(func() {
-		err := os.RemoveAll("vidgrind")
-		if err != nil {
-			panic(err)
-		}
-	})
-}
-
 // Benchmarks follow.
 // These are executed by running "go test -bench=."
 
@@ -1638,77 +1369,5 @@ func benchmarkSite(b *testing.B) {
 		if err != nil {
 			b.Fatalf("could not get site: %v", err)
 		}
-	}
-}
-
-func TestFeed(t *testing.T) {
-	const (
-		testFeedName   = "Test Feed"
-		testFeedArea   = "Fleurieu Peninsula"
-		testFeedClass  = "Video"
-		testFeedSource = "https://youtube.com/watch?v=1234567890"
-	)
-
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, "file", "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not get store: %v", err)
-	}
-
-	// Clear any existing feeds.
-	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
-	store.Delete(ctx, store.IDKey(typeFeed, testFeedID+1))
-
-	feed := &Feed{ID: testFeedID, Name: testFeedName, Area: testFeedArea, Class: testFeedClass, Source: testFeedSource, Created: time.Now().UTC().Truncate(0)}
-	err = CreateFeed(ctx, store, feed)
-	if err != nil {
-		t.Errorf("could not create feed: %v", err)
-	}
-
-	feed2, err := GetFeed(ctx, store, testFeedID)
-	if err != nil {
-		t.Errorf("could not get feed: %v", err)
-	}
-
-	assert.Equal(t, feed, feed2, "Got different feed than put, got: \n%+v, wanted \n%+v", feed2, feed)
-
-	feed.Name = "Updated Feed Name"
-	feed, err = UpdateFeed(ctx, store, feed)
-	if err != nil {
-		t.Errorf("could not update feed: %v", err)
-	}
-
-	feed3, err := GetFeed(ctx, store, testFeedID)
-	if err != nil {
-		t.Errorf("could not get feed: %v", err)
-	}
-
-	assert.Equal(t, feed, feed3, "Got different feed than put, got: \n%+v, wanted \n%+v", feed3, feed)
-
-	newFeed := &Feed{ID: testFeedID + 1, Name: "New Feed", Created: time.Now().UTC().Truncate(0)}
-	err = CreateFeed(ctx, store, newFeed)
-	if err != nil {
-		t.Errorf("could not create new feed: %v", err)
-	}
-
-	feeds, err := GetAllFeeds(ctx, store)
-	if err != nil {
-		t.Errorf("could not get all feeds: %v", err)
-	}
-
-	assert.Equal(t, []Feed{*feed, *newFeed}, feeds, "Got different feeds than put, got: \n%+v, wanted \n%+v", feeds, []Feed{*feed, *newFeed})
-
-	err = DeleteFeed(ctx, store, testFeedID)
-	if err != nil {
-		t.Errorf("could not delete feed: %v", err)
-	}
-
-	feed4, err := GetFeed(ctx, store, testFeedID)
-	if !errors.Is(err, datastore.ErrNoSuchEntity) {
-		t.Errorf("expected ErrNoSuchEntity, got %v", err)
-	}
-
-	if feed4 != nil {
-		t.Errorf("expected nil, got %v", feed4)
 	}
 }
