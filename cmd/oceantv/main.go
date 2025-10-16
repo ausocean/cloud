@@ -145,13 +145,6 @@ func main() {
 		),
 		withStateHooks(
 			func(s state, cfg *Cfg) {
-
-				// We're deactivating this webhook for the time being until it's been
-				// properly configured.
-				// Remove return to re-enable.
-				log.Println("AusOceanTV webhook disabled")
-				return
-
 				// Only continue if we have a directLive state.
 				// NOTE this can be removed if we wish to webhook for all states.
 				if _, ok := s.(*directLive); !ok {
@@ -159,13 +152,15 @@ func main() {
 				}
 
 				data := struct {
+					Name  string `json:"name"`
 					ID    string `json:"id"`
 					State string `json:"state"`
 				}{
-					ID:    cfg.Name,
+					Name:  cfg.Name,
+					ID:    cfg.ID,
 					State: stateToString(s),
 				}
-				const ausoceanTVWebHookDest = "https://www.ausocean.org/ausocean-tv/tvwebhook"
+				const ausoceanTVWebHookDest = "https://ausocean.tv/api/v1/webhooks/oceantv"
 				err := sendWebhook(ausoceanTVWebHookDest, data)
 				if err != nil {
 					log.Printf("could not send AusOceanTV webhook: %v", err)

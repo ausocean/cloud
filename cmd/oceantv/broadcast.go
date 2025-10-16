@@ -88,7 +88,7 @@ const (
 // BroadcastConfig holds configuration data for a YouTube broadcast.
 type BroadcastConfig struct {
 	SKey                     int64         // The key of the site this broadcast belongs to.
-	Name                     string        // The name of the broadcat.
+	Name                     string        // The name of the broadcast.
 	ID                       string        // Broadcast identification.
 	SID                      string        // Stream ID for any currently associated stream.
 	CID                      string        // ID of associated chat.
