@@ -39,10 +39,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adrianmo/go-nmea"
-
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/utils/nmea"
 )
 
 type minimalSite struct {
@@ -448,6 +447,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build MID and fetch texts.
 	mid := model.ToMID(model.MacDecode(mac), pin)
 
 	texts, err := model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
@@ -464,95 +464,18 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	points := make([]gpsOut, 0, len(texts))
-
 	for _, t := range texts {
-		// Some devices might batch multiple sentences in one Text row; handle that.
-		for _, line := range splitLines(t.Data) {
-			if line == "" || line[0] != '$' {
-				continue
-			}
-			s, err := nmea.Parse(line)
-			if err != nil {
-				continue // skip malformed lines.
-			}
-
-			var (
-				lat, lon float64
-				ok       bool
-				ts       = t.Timestamp
-			)
-
-			switch v := s.(type) {
-			case nmea.RMC:
-				if v.Validity != "A" {
-					break
-				}
-				lat, lon = v.Latitude, v.Longitude
-				// Prefer RMC time+date if present.
-				if v.Time.Valid && v.Date.Valid {
-					ts = time.Date(
-						v.Date.YY,
-						time.Month(v.Date.MM),
-						v.Date.DD,
-						v.Time.Hour, v.Time.Minute, v.Time.Second,
-						v.Time.Millisecond*1e6,
-						time.UTC,
-					).Unix()
-				}
-				ok = true
-
-			case nmea.GGA:
-				// FixQuality "0" = invalid.
-				if v.FixQuality == "0" {
-					break
-				}
-				lat, lon = v.Latitude, v.Longitude
-				// GGA has time only → combine with server date from Text.Timestamp.
-				if v.Time.Valid {
-					day := time.Unix(t.Timestamp, 0).UTC()
-					ts = time.Date(
-						day.Year(), day.Month(), day.Day(),
-						v.Time.Hour, v.Time.Minute, v.Time.Second,
-						v.Time.Millisecond*1e6,
-						time.UTC,
-					).Unix()
-				}
-				ok = true
-
-			case nmea.GLL:
-				if v.Validity != "A" {
-					break
-				}
-				lat, lon = v.Latitude, v.Longitude
-				if v.Time.Valid {
-					day := time.Unix(t.Timestamp, 0).UTC()
-					ts = time.Date(
-						day.Year(), day.Month(), day.Day(),
-						v.Time.Hour, v.Time.Minute, v.Time.Second,
-						v.Time.Millisecond*1e6,
-						time.UTC,
-					).Unix()
-				}
-				ok = true
-
-			default:
-				// Ignore other sentences.
-			}
-
-			if !ok {
-				continue
-			}
-			if lat == 0 && lon == 0 {
-				continue // null island
-			}
-
-			points = append(points, gpsOut{
-				Lat:  lat,
-				Lon:  lon,
-				Time: time.Unix(ts, 0).UTC().Format(time.RFC3339),
-				TS:   ts,
-			})
+		fix, err := nmea.Parse(t.Data, t.Date.UTC())
+		if err != nil || !fix.Valid || (fix.Lat == 0 && fix.Lon == 0) {
+			continue
 		}
+		points = append(points, gpsOut{
+			Lat:  fix.Lat,
+			Lon:  fix.Lon,
+			Time: fix.Time.Format(time.RFC3339),
+			TS:   fix.Time.Unix(),
+		})
+
 	}
 
 	resp := struct {
@@ -575,22 +498,6 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		writeHttpError(w, http.StatusInternalServerError, "unable to encode response: %v", err)
 		return
 	}
-}
-
-func splitLines(s string) []string {
-	// Handles \n, \r\n, stray \r.
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
-	parts := strings.Split(s, "\n")
-	// Trim spaces.
-	out := parts[:0]
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 // setSiteHandler handles API requests to update the user's current site selection.
