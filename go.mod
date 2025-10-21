@@ -10,6 +10,7 @@ require (
 	cloud.google.com/go/storage v1.30.1
 	github.com/Comcast/gots/v2 v2.2.1
 	github.com/Knetic/govaluate v3.0.0+incompatible
+	github.com/adrianmo/go-nmea v1.10.0
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/openfish v0.1.6
 	github.com/ausocean/utils v0.3.2
