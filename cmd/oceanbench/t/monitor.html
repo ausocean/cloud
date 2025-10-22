@@ -80,9 +80,9 @@
               const mac = "{{ .Device.MAC }}";
               const mount = document.getElementById("gps-{{ .Device.MAC }}");
 
-              // Compute start/finish for last 12 hours
+              // Compute start/finish for desired hours
               const finish = Math.floor(Date.now() / 1000);          // Now, in seconds.
-              const start = finish - (12 * 60 * 60);                 // 12 hours ago.
+              const start = finish - (48 * 60 * 60);                 // 48 hours ago.
               fetch("/api/get/gpstrail/?ma=" + encodeURIComponent(mac) + "&pn=T1&start=" + start + "&finish=" + finish)
                 .then(function (r) {
                   return r.ok ? r.json() : Promise.reject(r.status);

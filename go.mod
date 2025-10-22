@@ -11,7 +11,7 @@ require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/openfish v0.1.6
-	github.com/ausocean/utils v0.3.2
+	github.com/ausocean/utils v0.3.3
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.5.0
@@ -35,6 +35,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/datastore v1.11.0 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
+	github.com/adrianmo/go-nmea v1.10.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
