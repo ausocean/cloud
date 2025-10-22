@@ -6,7 +6,6 @@ toolchain go1.23.4
 
 require (
 	bou.ke/monkey v1.0.2
-	cloud.google.com/go/datastore v1.11.0
 	cloud.google.com/go/storage v1.30.1
 	github.com/Comcast/gots/v2 v2.2.1
 	github.com/Knetic/govaluate v3.0.0+incompatible
@@ -23,10 +22,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.8.1
-	github.com/stripe/stripe-go/v81 v81.0.0
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/oauth2 v0.7.0
+	golang.org/x/sync v0.11.0
 	google.golang.org/api v0.118.0
 )
 
@@ -34,6 +33,7 @@ require (
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/datastore v1.11.0 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
 	github.com/adrianmo/go-nmea v1.10.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect

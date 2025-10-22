@@ -50,11 +50,6 @@ cmd/vidforward/.circleci
 cmd/vidforward/vidforward
 cmd/vidforward/*~
 cmd/vidforward/#*
-# ausoceantv
-cmd/ausoceantv/.git
-cmd/ausoceantv/.gitignore
-cmd/ausoceantv/node_modules/
-cmd/ausoceantv/webapp/node_modules/
 
 cmd/decode/*
 cmd/cloudblue/*
