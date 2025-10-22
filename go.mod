@@ -27,6 +27,7 @@ require (
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/oauth2 v0.7.0
+	golang.org/x/sync v0.11.0
 	google.golang.org/api v0.118.0
 )
 
