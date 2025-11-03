@@ -674,6 +674,9 @@ const ownerColors: Record<string, string> = {
   "Breeze del West": "rgba(220, 220, 255, 0.3)", // Light Blue
   "Trek Hopton": "rgba(255, 255, 220, 0.3)", // Light Yellow
   "Scott Barnard": "rgba(255, 220, 255, 0.3)", // Light Pink
+  "Intern-Software": "rgba(255, 220, 190, 0.3)",
+  "Intern-Elec": "rgba(190, 220, 190, 0.3)",
+  "Intern-Mech": "rgba(255, 190, 255, 0.3)",
   Other: "rgba(240, 240, 240, 0.3)", // Default Gray
 };
 
