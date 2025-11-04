@@ -73,12 +73,12 @@ func main() {
 	var key, ts int64
 	var idKey bool
 
-	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy or migrate)")
+	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy, transfer, or migrate)")
 	flag.StringVar(&kind, "kind", "", "Datastore kind")
 	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as -kind)")
 	flag.StringVar(&kind2, "kind2", "", "Datastore kind 2")
-	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver or vidgrind)")
-	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver or vidgrind)")
+	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver, vidgrind, or ausocean)")
+	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver, vidgrind, or ausocean)")
 	flag.StringVar(&input, "input", "", "Input file or file store.")
 	flag.StringVar(&output, "output", "output", "Output file or file store")
 	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey")
@@ -91,13 +91,13 @@ func main() {
 	log.SetPrefix("ERROR: ")
 
 	switch ds {
-	case "netreceiver", "vidgrind":
+	case "netreceiver", "vidgrind", "ausocean":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds) missing or invalid")
 	}
 	switch ds2 {
-	case "netreceiver", "vidgrind", "":
+	case "netreceiver", "vidgrind", "ausocean":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds2) invalid")
@@ -181,6 +181,12 @@ func main() {
 			log.Fatal("copy requires kind and kind2 options")
 		}
 		err = copy(store, kind, kind2, idKey, key)
+
+	case "transfer":
+		if ds == "" || ds2 == "" {
+			log.Fatal("transfer requires ds and ds2 options")
+		}
+		err = transfer(store, store2, kind, idKey)
 
 	case "migrate":
 		// Functions for one-time datastore migrations.
@@ -550,6 +556,60 @@ func copy(store datastore.Store, kind1, kind2 string, idKey bool, key int64) err
 	}
 
 	fmt.Printf("Copied %d %s to %s\n", n, kind1, kind2)
+	return nil
+}
+
+// transfer transfers all entities of type kind from store1 to store2.
+// The following transfers happended on 4 Nov 2025.
+/*
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Cron
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Device -idkey
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Site -idkey
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind ActuatorV2
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind SensorV2
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind User
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Variable
+*/
+func transfer(store1, store2 datastore.Store, kind string, idKey bool) error {
+	ctx := context.Background()
+
+	q := store1.NewQuery(kind, true)
+	keys, err := store1.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	if idKey {
+		fmt.Printf("Transferring %s using ID key\n", kind)
+	} else {
+		fmt.Printf("Transferring %s using name key\n", kind)
+	}
+
+	n := 0
+	for _, k1 := range keys {
+		e, err := datastore.NewEntity(kind)
+		if err != nil {
+			return fmt.Errorf("NewEntity returned error: %w", err)
+		}
+		err = store1.Get(ctx, k1, e)
+		if err != nil {
+			return err
+		}
+
+		var k2 *datastore.Key
+		if idKey {
+			k2 = store2.IDKey(kind, k1.ID)
+		} else {
+			k2 = store2.NameKey(kind, k1.Name)
+		}
+
+		_, err = store2.Put(ctx, k2, e)
+		if err != nil {
+			return err
+		}
+		n += 1
+	}
+
+	fmt.Printf("Transferred %d %s\n", n, kind)
 	return nil
 }
 
