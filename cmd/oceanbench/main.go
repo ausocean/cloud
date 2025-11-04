@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.33.5"
+	version     = "v0.34.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -83,8 +83,8 @@ const (
 	projectID          = "oceanbench"
 	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
-	tvServiceURL       = "https://oceantv.appspot.com"
-	cronServiceURL     = "https://oceancron.appspot.com"
+	tvServiceURL       = "https://tv.cloudblue.org"
+	cronServiceURL     = "https://cron.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
 
@@ -283,12 +283,7 @@ func main() {
 }
 
 // setup executes per-instance one-time warmup and is used to
-// initialize datastores. In standalone mode we use a file store for
-// storing both media and settings. In App Engine mode we use
-// the netreceiver datastore for settings and the vidgrind datastore for
-// media.
-//
-// In standalone mode all data is associated with site 1.
+// initialize datastores.
 func setup(ctx context.Context) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
@@ -298,25 +293,13 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	if standalone {
-		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-		if err == nil {
-			settingsStore = mediaStore
-			err = setupLocal(ctx, settingsStore)
-		}
-	} else {
-		log.Printf("Running in App Engine mode")
-		mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
-		if err == nil {
-			settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		}
+	settingsStore, mediaStore, err = model.SetupDatastore(standalone, storePath, ctx)
+	if err == nil && standalone {
+		err = setupLocal(ctx, settingsStore)
 	}
 	if err != nil {
-		log.Fatalf("setup failed due to datastore.NewStore error: %v", err)
+		log.Fatalf("could not set up datastore: %v", err)
 	}
-
-	model.RegisterEntities()
 
 	templateDir := "cmd/oceanbench/t"
 	if standalone || os.Getenv("GAE_ENV") == "" {
@@ -333,6 +316,7 @@ func setup(ctx context.Context) {
 }
 
 // setupLocal creates a local site, user and device for use in standalone mode.
+// In standalone mode all data is associated with site 1.
 func setupLocal(ctx context.Context, store datastore.Store) error {
 	standaloneData = "1:" + localSite
 	err := model.PutSite(ctx, store, &model.Site{Skey: 1, Name: localSite, Enabled: true})

@@ -14,14 +14,14 @@ To deploy OceanBench:
 gcloud app deploy --version V --project oceanbeach oceanbeach.yaml
 ```
 
-Currently, OceanBench utilizes two datastores, namely NetReceiver's and VidGrind's.
+Currently, OceanBench utilizes datastores in two projects, namely ausocean and vidgrind.
 Deploying datastore indexes therefore requires running two commands.
 
 ```bash
 cp vidgrind_index.yaml index.yaml
 gcloud app deploy --project vidgrind index.yaml
 
-cp netreceiver_index.yaml index.yaml
+cp ausocean_index.yaml index.yaml
 gcloud app deploy --project netreceiver index.yaml
 ```
 
