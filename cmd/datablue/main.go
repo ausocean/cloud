@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	version   = "v0.6.0"
+	version   = "v0.7.0"
 	projectID = "datablue"
 )
 
@@ -102,12 +102,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // setup executes per-instance one-time warmup and is used to
-// initialize datastores. In standalone mode we use a file store for
-// storing both media and settings. In App Engine mode we use
-// NetReceiver's datastore for settings and VidGrind's datastore for
-// media.
-//
-// In standalone mode all data is associated with site 1.
+// initialize datastores.
 func setup(ctx context.Context) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
@@ -117,28 +112,17 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	if standalone {
-		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-		if err == nil {
-			settingsStore = mediaStore
-			err = setupLocal(ctx, settingsStore)
-		}
-	} else {
-		log.Printf("Running in App Engine mode")
-		mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
-		if err == nil {
-			settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		}
+	settingsStore, mediaStore, err = model.SetupDatastore(standalone, storePath, ctx)
+	if err == nil && standalone {
+		err = setupLocal(ctx, settingsStore)
 	}
 	if err != nil {
-		log.Fatalf("setup failed due to datastore.NewStore error: %v", err)
+		log.Fatalf("could not set up datastore: %v", err)
 	}
-
-	model.RegisterEntities()
 }
 
 // setupLocal creates a local site and device for use in standalone mode.
+// In standalone mode all data is associated with site 1.
 func setupLocal(ctx context.Context, store datastore.Store) error {
 	err := model.PutSite(ctx, store, &model.Site{Skey: 1, Name: "localhost", Enabled: true})
 	if err != nil {

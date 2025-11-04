@@ -51,7 +51,7 @@ import (
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.3"
+	version   = "v0.3.0"
 )
 
 // Site/device defaults.
@@ -146,17 +146,10 @@ func (svc *service) setup(ctx context.Context) {
 	}
 
 	var err error
-	if svc.standalone {
-		log.Printf("Running in standalone mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
-	} else {
-		log.Printf("Running in App Engine mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-	}
+	svc.settingsStore, _, err = model.SetupDatastore(svc.standalone, svc.storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	model.RegisterEntities()
 
 	// Get or create sandbox site and its admin user if it doesn't exist.
 	site, err := model.GetSite(ctx, svc.settingsStore, sandboxSite)

@@ -1,9 +1,9 @@
-# gcloud app deploy --project datablue --version 1 datablue.yaml
+# gcloud app deploy --project datablue --version 2 datablue.yaml
 runtime: go123
 app_engine_apis: true
 
 env_variables:
-  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  AUSOCEAN_CREDENTIALS: gs://ausocean/AusOcean-ef9cd79f81a8.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
 
 main: cmd/datablue
