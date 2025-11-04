@@ -1,8 +1,8 @@
-# gcloud app deploy --project oceancron --version 1 oceancron.yaml
+# gcloud app deploy --project oceancron --version 2 oceancron.yaml
 runtime: go121
 
 env_variables:
-  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  AUSOCEAN_CREDENTIALS: gs://ausocean/AusOcean-ef9cd79f81a8.json
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
 
 main: cmd/oceancron

@@ -42,13 +42,12 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.11.3"
-	projectURL         = "https://oceantv.appspot.com"
+	version            = "v0.12.0"
+	projectURL         = "https://tv.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
 )
@@ -275,27 +274,10 @@ func setup(ctx context.Context) {
 		return
 	}
 
-	var (
-		err                       error
-		settingsStore, mediaStore datastore.Store
-	)
-	if standalone {
-		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-		if err != nil {
-			mediaStore = settingsStore
-		}
-	} else {
-		log.Printf("Running in App Engine mode")
-		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		if err == nil {
-			mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
-		}
-	}
+	settingsStore, mediaStore, err := model.SetupDatastore(standalone, storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	model.RegisterEntities()
 
 	store = ausOceanCompositeStore(settingsStore, mediaStore)
 

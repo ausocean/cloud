@@ -1,8 +1,8 @@
-# gcloud app deploy --version 1 --project oceancenter oceancenter.yaml
+# gcloud app deploy --version 3 --project oceancenter oceancenter.yaml
 runtime: go121
 
 env_variables:
-  NETRECEIVER_CREDENTIALS: gs://ausocean/NetReceiver-55f1f53a6d8a.json
+  AUSOCEAN_CREDENTIALS: gs://ausocean/AusOcean-ef9cd79f81a8.json
   VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
   OCEANCENTER_SECRETS: gs://ausocean/OceanCenter-secrets.txt
 
