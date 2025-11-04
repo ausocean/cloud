@@ -25,6 +25,9 @@ LICENSE
 package model
 
 import (
+	"context"
+	"log"
+
 	"github.com/ausocean/openfish/datastore"
 )
 
@@ -45,4 +48,27 @@ func RegisterEntities() {
 	datastore.RegisterEntity(typeText, func() datastore.Entity { return new(Text) })
 	datastore.RegisterEntity(typeUser, func() datastore.Entity { return new(User) })
 	datastore.RegisterEntity(typeVariable, func() datastore.Entity { return new(Variable) })
+}
+
+// SetupDatastore sets up settings and media datastores.
+// In App Engine mode, we use the ausocean datastore for settings and the vidgrind datastore for media.
+// In standalone mode, both stores are an identical file store, for which the path must be supplied.
+func SetupDatastore(standalone bool, path string, ctx context.Context) (settings, media datastore.Store, err error) {
+	if standalone {
+		log.Printf("Running in standalone mode")
+		settings, err = datastore.NewStore(ctx, "file", "vidgrind", path)
+		media = settings
+	} else {
+		log.Printf("Running in App Engine mode")
+		settings, err = datastore.NewStore(ctx, "cloud", "ausocean", "")
+		if err == nil {
+			media, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
+		}
+	}
+
+	if err != nil {
+		RegisterEntities()
+	}
+
+	return settings, media, err
 }
