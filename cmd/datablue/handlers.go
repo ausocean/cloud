@@ -539,7 +539,6 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 //	/api/operation/property/value
 func apiHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
-        ctx := r.Context()
 
 	req := strings.Split(r.URL.Path, "/")
 	if len(req) < 5 {
@@ -595,63 +594,10 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-	case "scalar":
-	        // ToDo: Deprecate this scalar endpoint once all NetSender clients no longer use NetReceiver.
-		args, err := splitNumbers(val)
-		if err != nil {
-			writeError(w, fmt.Errorf("invalid arg: %v", err))
-			return
-		}
-		if len(args) != 3 {
-			writeError(w, fmt.Errorf("invalid number of args"))
-			return
-		}
-
-		var resp []byte
-		switch prop {
-		case "put":
-			err := model.PutScalar(ctx, mediaStore, &model.Scalar{ID: args[0], Timestamp: args[1], Value: float64(args[2])})
-			if err != nil {
-				writeError(w, fmt.Errorf("could not put scalar: %v", err))
-				return
-			}
-		case "get":
-			scalars, err := model.GetScalars(ctx, mediaStore, args[0], []int64{args[1], args[2]})
-			if err != nil {
-				writeError(w, fmt.Errorf("could not get scalar: %v", err))
-				return
-			}
-			resp, err = json.Marshal(scalars)
-			if err != nil {
-				writeError(w, fmt.Errorf("error marshaling scalars: %v", err))
-				return
-			}
-		default:
-			writeError(w, fmt.Errorf("invalid scalar request: %s", prop))
-			return
-		}
-
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Write(resp)
-		return
-
         default:
 		writeError(w, errInvalidAPI)
 		return
 	}
-}
-
-// splitNumbers splits a comma-separated string of numbers, ignoring the decimal part.
-func splitNumbers(s string) ([]int64, error) {
-	var res []int64
-	for _, v := range strings.Split(s, ",") {
-		n, err := strconv.ParseInt(strings.TrimRight(v, "."), 10, 64)
-		if err != nil {
-			return res, err
-		}
-		res = append(res, n)
-	}
-	return res, nil
 }
 
 // writeError writes an error in JSON format.
