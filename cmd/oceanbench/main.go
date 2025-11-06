@@ -338,7 +338,7 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // indexHandler handles requests for the home page and unimplemented pages.
-// Signed-in users are presented with a list of their NetReceiver sites.
+// Signed-in users are presented with a list of their sites.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
