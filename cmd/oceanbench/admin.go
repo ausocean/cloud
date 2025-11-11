@@ -238,8 +238,58 @@ func parseLocation(s string) (location, error) {
 }
 
 // updateSite updates an existing site.
-// Parameter names conform to standard NetReceiver JSON values described at
-// https://netreceiver.appspot.com/help/json
+// Parameter names conform to the following:
+// Attribute Description
+// sk: site key
+// sn: site name
+// oe: owner email
+// op: owner phone
+// cc: country code
+// tz: timezone offset from UTC
+// ue: user email
+// ur: user role (read, write or admin)
+// np: notify period
+// mp: monitor period (seconds between monitor/actuation cycles)
+// di: device ID
+// dk: device key
+// ma: MAC address
+// ip: input pin(s), comma separated (e.g., "A0,D1,X2")
+// op: output pin(s), comma separated (e.g., "D2")
+// wi: WiFi network info, comma separated (e.g., "ssid,key")
+// tg: device tag (typically a Git tag)
+// si: sensor ID
+// sp: sensor (input) pin
+// sq: sensor quantity
+// sx: sensor transformation (xform) function
+// sa: sensor arguments
+// su: sensor units
+// sf: sensor formatting function
+// ai: actuator ID
+// ap: actuator (output) pin or active period
+// av: actuator variable
+// ti: trigger ID
+// tp: trigger precondition (comma separated variable names)
+// ts: trigger subject (sensor ID)
+// to: trigger operation
+// tc: trigger comparate or trigger count
+// ta: trigger action
+// tv: trigger variable
+// td: trigger data
+// ci: cron ID
+// ct: cron time
+// ca: cron action
+// cv: cron variable
+// cd: cron data
+// ce: cron enabled
+// ei: endpoint ID
+// es: endpoint sensor ID
+// ea: endpoint address (IPv4 or IPv6 address)
+// ep: endpoint port
+// ex: endpoint protocol (udp or rtp)
+// et: endpoint timeout in seconds
+// ee: endpoint enabled
+// vn: version
+// er: error (results in a client-side netsender.ServerError)
 func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
 	skey, _ := profileData(p)
 	name := r.FormValue("sn")

@@ -22,7 +22,7 @@ cp vidgrind_index.yaml index.yaml
 gcloud app deploy --project vidgrind index.yaml
 
 cp ausocean_index.yaml index.yaml
-gcloud app deploy --project netreceiver index.yaml
+gcloud app deploy --project ausocean index.yaml
 ```
 
 To clean up indexes:
