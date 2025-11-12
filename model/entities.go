@@ -66,7 +66,7 @@ func SetupDatastore(standalone bool, path string, ctx context.Context) (settings
 		}
 	}
 
-	if err != nil {
+	if err == nil {
 		RegisterEntities()
 	}
 
