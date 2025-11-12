@@ -22,8 +22,30 @@ export default defineConfig({
             text: "OceanBench",
             link: "/oceanbench/oceanbench",
             items: [
-              { text: "Configuration", link: "/oceanbench/device-configuration" },
-              { text: "Auto Configuration", link: "/oceanbench/autoconfiguration" },
+              {
+                text: "Configuration",
+                link: "/oceanbench/device-configuration",
+                items: [
+                  {
+                    text: "Auto Configuration",
+                    link: "/oceanbench/autoconfiguration",
+                  },
+                ],
+              },
+              {
+                text: "Broadcasting",
+                link: "oceanbench/broadcast/broadcast.md",
+                items: [
+                  {
+                    text: "Broadcast Settings",
+                    link: "oceanbench/broadcast/broadcast-settings.md",
+                  },
+                  {
+                    text: "Failure Mode",
+                    link: "oceanbench/broadcast/failure-mode.md",
+                  },
+                ],
+              },
             ],
           },
         ],
