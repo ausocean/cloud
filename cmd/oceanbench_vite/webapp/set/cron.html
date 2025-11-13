@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <link href="/src/main.css" rel="stylesheet" type="text/css" />
+    <title>Crons</title>
+    <script type="module" src="/src/web-components/header-group.js"></script>
+    <script type="text/javascript" src="/src/main.js"></script>
+    <script type="text/javascript" src="/src/cron.js"></script>
+    <script type="module" src="/src/web-components/cron-settings.ts"></script>
+  </head>
+  <body>
+    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{ range .Pages -}}
+        <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+        </li>
+        {{- end }}
+      </nav-menu>
+      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+        {{ range .Users -}}
+        <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
+        {{- end }}
+      </site-menu>
+    </header-group>
+    <section id="main" class="main">
+      {{ if .Msg }}
+      <div class="red">{{ .Msg }}</div>
+      <br />
+      {{ end }}
+      <h1 class="container-md">Crons</h1>
+      <div class="table border rounded p-4 container-md bg-white" id="crons">
+        <div style="display: grid; grid-template-columns: 8% 20% 8% 8% 20% 16% 10%; gap: 10px">
+          <span class="td select"></span>
+          <span class="td std">ID</span>
+          <span class="td half">Time</span>
+          <span class="td half">Action</span>
+          <span class="td std">Variable</span>
+          <span class="td std">Value</span>
+          <span class="td half">Enabled</span>
+        </div>
+        {{ range $c := .Crons }}
+        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
+        {{ end }}
+        <cron-settings class="w-100" new-cron></cron-settings>
+      </div>
+    </section>
+    {{ .Footer }}
+  </body>
+</html>

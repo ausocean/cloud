@@ -118,7 +118,7 @@ func main() {
 	app.setup(ctx)
 
 	// Serve static files when running locally
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
+	http.Handle("http://localhost:5173/src/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
 	http.Handle("/dl/", http.StripPrefix("/dl", http.FileServer(http.Dir("dl"))))
 
 	http.HandleFunc("/", app.indexHandler)

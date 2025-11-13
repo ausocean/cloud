@@ -1,0 +1,8 @@
+.btn-primary:disabled {
+    background-color: grey;
+    border-width: 0px;
+}
+
+/* .hidable-form {
+    display: none;
+} */

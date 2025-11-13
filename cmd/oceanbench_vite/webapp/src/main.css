@@ -1,0 +1,148 @@
+/* This main.css file is intended to be used in all VidGrind pages. Be cautious adding rules that target all instances of an element. */
+
+@import "tailwindcss";
+
+/* Reset margin, padding, and border. */
+html, body, div, h1, h2, h3, h4, h5, h6, p, img, dl, dt, dd, ol, ul, li, table, caption, tbody, tfoot, thead, tr, th, td, form, fieldset, embed, object, applet { margin: 0; padding: 0; border: 0 }
+
+/* Elements. */
+body { font-family: Arial, sans-serif; color: #000; background: var(--bg-colour); padding: 10px; min-height: 100vh; display: flex; flex-direction: column; }
+section, header, nav { display: block }
+section { margin-top: 10px; }
+h1 { margin-bottom: 10px; font-size: 2em; font-weight: bold }
+h2 { font-size: 1.2em; }
+h3 { font-size: 1.0em; font-weight: normal; color: #0077BB; }
+p { padding: 0 0 0 0 }
+legend { color: #0077BB; width: 100%; margin-bottom: 10px; }
+li { padding: 2px; }
+
+
+a { color: #0077BB; text-decoration: none; }
+a.follow { padding-right: 8px; }
+a:hover { color: #009933 }
+
+footer { font-size: 80%; flex-shrink: 0; }
+div.table { display: table; }
+form.tr, div.tr { display: table-row; vertical-align: middle; }
+span.td, div.td { display: table-cell; }
+span.select { width: 20px; }
+span.qtr { width: 50px; }
+.td.qtr input { width: inherit; }
+span.half { width: 100px; }
+span.std { width: 200px; }
+span.width-300 { width: 300px; }
+span.dbl { width: 400px; }
+select { margin-bottom: 2px; height: 30px; }
+input.half { width: 90px; }
+input.width-302 { width: 300px; }
+input:read-only { background-color: #eee; }
+ul.nobullet { list-style-type: none; }
+
+/* Common Classes. */
+.inline { display: inline; }
+.flex-row { display: flex; flex-direction: row; }
+.flex-column { display: flex; flex-direction: column; }
+.responsive { width: 100%; height: auto; }
+.pad-5 { padding: 5px; }
+.width-100 { width: 100px; }
+.right-100 { margin-right: 100px; }
+.top-right { position: absolute; top: 10px; right: 10px; }
+.red { color: red; }
+.bold { font-weight: bold; }
+.url { width: 600px; font-size: 75%; }
+.fineprint { font-size: 80%; font-style: italic; }
+.main { box-sizing: border-box; width: 100%; max-width: 1000px; padding: 5px; margin: 0 auto; flex-grow: 1; }
+.heading { display: inline; padding-left: 140px; }
+.header { height: 50px; margin-bottom: 32px; position: relative; }
+.msg { font-size: 80%; color: darkred; }
+.msg.hidden { display: none; }
+.rounded-box { margin: 2px; padding: 2px; border-radius: 5px 5px; border: 1px solid grey; }
+
+/* Log Messages. */
+.level-debug { background-color: #c4eeb7; }
+.level-info { background-color: #a6c8eb }
+.level-warn { background-color: #ffff9f; }
+.level-error { background-color: #fab97d; }
+.level-fatal { background-color: #d84a45; }
+
+#header #logo { position: relative; width: 300px; height: 170px; top: 80px; left: -90px }
+#pn { width: 30px; }
+#main h1 { color: black; }
+#main h2 { color: #2F4F7F; }
+#main h3 { color: #126BB0; }
+
+/* Search Page. */
+#search-list { border: 1px solid black; height: 400px; width: 600px; overflow: hidden; overflow-y: scroll; }
+
+#chartdiv {
+  width: 100%;
+  height: 500px;
+}
+
+#progress {
+  width: 100%;
+  height: 20px;
+}
+
+td.scrollable { display: block; overflow-x: auto; white-space: nowrap }
+table.fixed { table-layout: fixed; width: 100% }
+th.narrow { width: 2.5rem; }
+th.medium { width: 15rem; }
+th.wide { width: 20rem; }
+.center { text-align: center; }
+
+/* Broadcast Page. */
+#description-box {
+  width: 400px;
+  height: 100px;
+  overflow: scroll;
+}
+
+/* Monitor Page. */
+.monitor-box {
+  padding: 5px;
+  border: 2px;
+  border-style: solid;
+  border-radius: 10px;
+}
+
+.monitor-title {
+  color: #0077BB;
+}
+
+.signal-date {
+  margin-left: 15px;
+}
+
+.signal-value {
+  margin-left: 15px;
+}
+
+/* Bootstrap theme override */
+:root {
+  --primary-blue: #2f4f7f;
+  --primary-yellow: #fbae16;
+  --bg-colour: #eef1f7
+}
+
+.btn-outline-primary {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue)
+}
+
+.btn-primary,
+.btn-active,
+.btn-outline-primary.active,
+.btn-outline-primary:hover,
+.btn-outline-primary:active {
+  background-color: var(--primary-blue) !important;
+  color: white;
+  border-color: var(--primary-blue) !important;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0;
+}
+
+
+div[popover] {position: fixed; width: 100vw; height: 100vh; background: #00000088}

@@ -370,7 +370,7 @@ async function initAudio() {
   return new Promise((resolve, reject) => {
     document.getElementById("liverow").hidden = true;
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/s/player/audio-player.html");
+    xhr.open("GET", "http://localhost:5173/src/player/audio-player.html");
     xhr.onreadystatechange = function () {
       if (xhr.readyState == 4) {
         document.getElementById("specific").innerHTML = xhr.responseText;

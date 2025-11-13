@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "lit/*": [
+        "node_modules/lit/*"
+      ],
+      "lit": [
+        "node_modules/lit"
+      ]
+    },
+    "target": "ESNext",
+    "module": "ESNext",
+    "esModuleInterop": true,
+    "lib": [
+      "es2016",
+      "dom"
+    ],
+    "outDir": "s",
+    "strict": true,
+    "moduleResolution": "node",
+    "experimentalDecorators": true
+  },
+  "include": [
+    "ts/*.ts"
+  ]
+}

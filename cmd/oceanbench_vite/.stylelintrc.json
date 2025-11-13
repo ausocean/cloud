@@ -1,0 +1,15 @@
+{
+    "extends": ["stylelint-config-standard"],
+    "rules": {
+        "declaration-block-single-line-max-declarations": 10,
+        "color-hex-length": null,
+        "shorthand-property-no-redundant-values": null,
+        "block-opening-brace-space-after": "always-single-line",
+        "block-opening-brace-space-before": "always",
+        "block-closing-brace-space-before": "always-single-line",
+        "declaration-block-semicolon-space-after": "always-single-line",
+        "selector-list-comma-space-after": "always-single-line",
+        "value-list-comma-space-after": "always-single-line",
+        "declaration-colon-space-after": "always-single-line"
+    }
+}

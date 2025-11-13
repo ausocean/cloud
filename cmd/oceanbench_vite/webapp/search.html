@@ -1,0 +1,510 @@
+<!doctype html>
+{{- $pn := printf "%v" .Pn -}}
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CloudBlue | Search</title>
+    <script type="module" src="/src/web-components/header-group.ts"></script>
+    <script type="text/javascript" src="/src/main.js"></script>
+    <script type="text/javascript" src="/src/logs.js"></script>
+    <script type="text/javascript" src="/src/graph.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <script src="https://cdn.rawgit.com/kimmobrunfeldt/progressbar.js/1.1.0/dist/progressbar.js"></script>
+    <link href="/src/main.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+      #id { display: {{if .Id}}block{{else}}none{{end}}; }
+    </style>
+    <script type="text/javascript">
+      function setActive(id) {
+        let timeOpts = document.getElementById("time-btns").children;
+        for (let i = 0; i< timeOpts.length; i++) {
+          if (timeOpts[i].classList.contains("active") && timeOpts[i].id != id) {
+            timeOpts[i].classList.remove("active");
+          } else if (timeOpts[i].id == id) {
+            timeOpts[i].classList.add("active");
+          }
+        }
+        if (id == "ex-btn") {
+          toggleDatePickers(true);
+        } else {
+          toggleDatePickers(false);
+        }
+      }
+      function toggleDatePickers(set) {
+        let dp = document.getElementById("datepickers");
+        if (set == true) {
+          dp.classList.remove("d-none");
+        } else {
+          dp.classList.add("d-none");
+        }
+      }
+      function toggleAdvanced(set) {
+        let advOpts = document.getElementsByClassName("adv-opt");
+        if (set) {
+          for (let i = 0; i < advOpts.length; i++) {
+            advOpts[i].classList.remove("d-none");
+            if (advOpts[i].id == "id") {
+              advOpts[i].classList.add("d-flex");
+            }
+          }
+        } else {
+          for (let i = 0; i < advOpts.length; i++) {
+            advOpts[i].classList.add("d-none");
+            if (advOpts[i].id == "id") {
+              advOpts[i].classList.remove("d-flex");
+            }
+          }
+        }
+      }
+      function setTimeRange(hours) {
+        var tz = document.getElementById('tz').value;
+        if (tz == "") {
+          tz = "0";
+        }
+        const z = parseFloat(tz);
+        const now = new Date();
+        const fd = new Date(now.getTime() + z * 60 * 60 * 1000);
+        const sd = new Date(fd.getTime() - hours * 60 * 60 * 1000);
+        document.getElementById('sd').value = sd.toISOString().slice(0, 16);
+        document.getElementById('fd').value = fd.toISOString().slice(0, 16);
+        sync('sd', 'st', 'tz', true);
+        sync('fd', 'ft', 'tz', true);
+      }
+      function presubmit() {
+        if (document.getElementById('st').value == "" && document.getElementById('sd').value != "") {
+          sync('sd', 'st', 'tz', true);
+        }
+        if (document.getElementById('ft').value == "" && document.getElementById('fd').value != "") {
+          sync('fd', 'ft', 'tz', true);
+        }
+        if (document.getElementById('ft').value == "") {
+          document.getElementById('ts').value = document.getElementById('st').value;
+        } else {
+          document.getElementById('ts').value = document.getElementById('st').value + '-' + document.getElementById('ft').value;
+        }
+      }
+
+      // Lightweight NMEA renderer for T1 pins.
+      function initNMEA(opts) {
+        // Fetch concatenated text for the selected range, then render raw and parsed views.
+        const url = `/get?id=${opts.id}&ts=${opts.st}-${opts.ft}`;
+        fetch(url).then(r => r.text()).then(txt => {
+          const lines = txt.split(/\r?\n/).filter(Boolean);
+          renderRaw(lines);
+          renderParsed(lines, opts.tz);
+          document.getElementById('nmea-count').textContent = lines.length.toString();
+        }).catch(err => {
+          const el = document.getElementById('nmea-error');
+          if (el) el.textContent = `Failed to load NMEA data: ${err}.`;
+        });
+      }
+
+      function renderRaw(lines) {
+        const pre = document.getElementById('nmea-raw');
+        if (pre) pre.textContent = lines.join('\n');
+      }
+
+      function renderParsed(lines, tzStr) {
+        const tbody = document.querySelector('#nmea-table tbody');
+        if (!tbody) return;
+        const tz = parseFloat(tzStr || "0");
+        const toLocal = (d) => new Date(d.getTime() + tz * 3600000);
+
+        // Very small parser for common sentences (RMC, GGA, GLL, VTG). Not exhaustive.
+        function parseSentence(s) {
+          // Strip checksum.
+          const body = s.replace(/^\$|[*][0-9A-Fa-f]{2}$/g, '');
+          const parts = body.split(',');
+          const talker = parts[0] || '';
+          const type = talker.slice(-3);
+          const p = parts;
+
+          const toDeg = (v, hemi) => {
+            // NMEA lat/long are DDMM.MMMM. Convert to decimal degrees.
+            if (!v) return null;
+            const dot = v.indexOf('.');
+            const minsStart = dot <= 2 ? 2 : (dot - 2);
+            const deg = parseFloat(v.slice(0, minsStart));
+            const min = parseFloat(v.slice(minsStart));
+            if (isNaN(deg) || isNaN(min)) return null;
+            let val = deg + (min / 60.0);
+            if (hemi === 'S' || hemi === 'W') val = -val;
+            return val;
+          };
+
+          // Provide a best-effort summary per type.
+          if (type === 'RMC') {
+            // $--RMC,hhmmss.sss,A,llll.ll,a,yyyyy.yy,a,x.x,x.x,ddmmyy,x.x,a*hh
+            const t = p[1], status = p[2], lat = toDeg(p[3], p[4]), lon = toDeg(p[5], p[6]);
+            const spdKn = p[7] ? parseFloat(p[7]) : null;
+            const cog = p[8] ? parseFloat(p[8]) : null;
+            return { type: 'RMC', status, lat, lon, speedKn: spdKn, course: cog, timeHHMMSS: t };
+          }
+          if (type === 'GGA') {
+            // $--GGA,hhmmss.sss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh
+            const t = p[1], lat = toDeg(p[2], p[3]), lon = toDeg(p[4], p[5]);
+            const fixQ = p[6], sats = p[7], hdop = p[8], altM = p[9];
+            return { type: 'GGA', lat, lon, fix: fixQ, sats, hdop, altM, timeHHMMSS: t };
+          }
+          if (type === 'GLL') {
+            // $--GLL,llll.ll,a,yyyyy.yy,a,hhmmss.sss,A*hh
+            const lat = toDeg(p[1], p[2]), lon = toDeg(p[3], p[4]), t = p[5], status = p[6];
+            return { type: 'GLL', status, lat, lon, timeHHMMSS: t };
+          }
+          if (type === 'VTG') {
+            // $--VTG,c.x,T,,M,s.x,N,k.x,K*hh
+            const course = p[1], spdKn = p[5], spdKmh = p[7];
+            return { type: 'VTG', course, speedKn: spdKn, speedKmh: spdKmh };
+          }
+          return { type, raw: s };
+        }
+
+        // Render rows.
+        tbody.innerHTML = '';
+        for (const line of lines) {
+          const parsed = parseSentence(line);
+          const tr = document.createElement('tr');
+
+          const tdType = document.createElement('td');
+          tdType.textContent = parsed.type || '';
+          tr.appendChild(tdType);
+
+          const tdSummary = document.createElement('td');
+          if (parsed.lat != null && parsed.lon != null) {
+            tdSummary.textContent = `Lat ${parsed.lat.toFixed(6)}, Lon ${parsed.lon.toFixed(6)}`;
+          } else if (parsed.raw) {
+            tdSummary.textContent = parsed.raw;
+          } else {
+            tdSummary.textContent = '—';
+          }
+          tr.appendChild(tdSummary);
+
+          const tdExtra = document.createElement('td');
+          const extras = [];
+          if (parsed.speedKn != null) extras.push(`Speed ${parsed.speedKn} kn`);
+          if (parsed.speedKmh != null) extras.push(`Speed ${parsed.speedKmh} km/h`);
+          if (parsed.course != null) extras.push(`Course ${parsed.course}°`);
+          if (parsed.sats != null) extras.push(`Sats ${parsed.sats}`);
+          if (parsed.hdop != null) extras.push(`HDOP ${parsed.hdop}`);
+          if (parsed.altM != null) extras.push(`Alt ${parsed.altM} m`);
+          if (parsed.status) extras.push(`Status ${parsed.status}`);
+          tdExtra.textContent = extras.join(' · ') || '—';
+          tr.appendChild(tdExtra);
+
+          const tdRaw = document.createElement('td');
+          tdRaw.textContent = line;
+          tr.appendChild(tdRaw);
+
+          tbody.appendChild(tr);
+        }
+      }
+
+      function init() {
+        const inputs = document.querySelectorAll('input');
+        for (const input of inputs) {
+          input.addEventListener('keydown', (event) => {
+            if (event.keyCode === 13) {
+              event.preventDefault();
+            }
+          });
+        }
+        // T0 → Logs view.
+        {{ if eq $pn "T0" -}}
+        initLogs({
+          {{if .Id}}id: {{.Id}},{{end}}
+          {{if .St}}st: {{.St}},{{end}}
+          {{if .Ft}}ft: {{.Ft}},{{end}}
+          {{if .Lv}}lv: {{.Lv}},{{end}}
+        });
+        {{- end }}
+
+        // T1 → NMEA view.
+        {{ if eq $pn "T1" -}}
+          initNMEA({
+            {{if .Id}}id: {{.Id}},{{end}}
+            {{if .St}}st: {{.St}},{{end}}
+            {{if .Ft}}ft: {{.Ft}},{{end}}
+            {{if .Tz}}tz: "{{.Tz}}",{{end}}
+          });
+        {{- end }}
+      }
+
+      function searchQuery(form) {
+        presubmit();
+        form.querySelector("input[name='search']").value = true;
+        form.submit();
+      }
+      function exportQuery(form) {
+        presubmit();
+        form.querySelector("input[name='export']").value = true;
+        document.getElementById("export-msg").innerHTML = "<p>Export may take several minutes...</p>";
+        form.submit();
+      }
+      function viewJPEG(url){
+        document.getElementById('jpeg-view').innerHTML = `<img style="max-height: 100%; max-width: 100%;" id = 'jpeg'>`;
+        l = window.location;
+        imgSrc = l.protocol + "//" + l.host + url;
+        document.getElementById('jpeg').src = imgSrc;
+      }
+      function sortResults(e) {
+        let results = document.getElementById("results")
+        if (e.value == "Newest") {
+          results.classList.remove("flex-column")
+          results.classList.add("flex-column-reverse")
+        } else {
+          results.classList.remove("flex-column-reverse")
+          results.classList.add("flex-column")
+        }
+      }
+    </script>
+  </head>
+  <body onload="init()">
+    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{ range .Pages -}}
+        <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+        </li>
+        {{- end }}
+      </nav-menu>
+      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+        {{ range .Users -}}
+        <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
+        {{- end }}
+      </site-menu>
+    </header-group>
+    <section id="main" class="main">
+      {{ if .Msg }}
+      <div class="red">{{ .Msg }}</div>
+      <br />
+      {{ end }}
+      <h1 class="container-md">Search</h1>
+      <form class="border rounded p-4 container-md bg-white" action="/search" enctype="multipart/form-data" method="post" id="search" onsubmit="event.preventDefault();">
+        <input type="hidden" name="search" value="false" />
+        <input type="hidden" name="export" value="false" />
+        <fieldset>
+          <legend>Input source</legend>
+          <div class="d-flex align-items-center gap-2">
+              <label style="width: 60px;">Device:</label>
+              <select class="form-select form-select-sm w-100" name="ma" onchange="this.form.submit();">
+                <option value="" selected>- Select device -</option>
+                {{ range .Devices }}
+                <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
+                {{ end }}
+              </select>
+            </div>
+            {{ if .Device }}
+            <div class="d-flex align-items-center gap-2">
+              <label style="width: 60px;">Pin:</label>
+              <select class="form-select form-select-sm" name="pn" onchange="this.form.submit();">
+                <option value="" selected>- Select pin -</option>
+                {{ range .Device.InputList }}
+                <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
+                {{ end }}
+                <option value="throughput" {{ if eq $.Pn "throughput"}}selected{{end}}>throughput</option>
+              </select>
+            </div>
+            {{ end }}
+          </div>
+          <div id="id" class="adv-opt d-none gap-2">
+            <label>Data ID:</label>
+            <input class="form-control form-control-sm w-25" value="{{ .Id }}" disabled />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Time range</legend>
+          <div id="time-btns" class="d-flex justify-content-center align-items-center gap-2">
+            <button id="24-btn" class="btn btn-outline-primary w-25 {{ if eq 24 $.Period }}active{{ end }}" onclick="setTimeRange(24); setActive(this.id);">Past 24 hours</button>
+            <button id="7-btn" class="btn btn-outline-primary w-25 {{ if eq 7 $.Period }}active{{ end }}" onclick="setTimeRange(7*24); setActive(this.id)">Past 7 days</button>
+            <p class="pb-0">OR</p>
+            <button id="ex-btn" class="btn btn-outline-primary w-25 {{ if eq -1 $.Period }}active{{ end }}" onclick="setActive(this.id)">Exact Range</button>
+          </div>
+          <div id="datepickers" class="{{ if eq -1 $.Period }}d-block{{ else }}d-none{{ end }}">
+            <div class="d-flex align-items-center mt-2">
+              <label class="flex-shrink-0">Start date/time:</label>
+              <input name="sd" class="form-control" type="datetime-local" id="sd" onchange="sync('sd', 'st', 'tz', true);" value="{{ if .Sd }}{{ .Sd }}{{ end }}" size="14" />
+              &nbsp;
+              <input name="st" class="form-control adv-opt d-none" type="input" id="st" onchange="sync('sd', 'st', 'tz', false);" value="{{ if .St }}{{ .St }}{{ end }}" size="15" />
+            </div>
+            <div class="d-flex align-items-center mt-2">
+              <label class="flex-shrink-0">Finish date/time:</label>
+              <input name="fd" class="form-control" type="datetime-local" id="fd" onchange="sync('fd', 'ft', 'tz', true);" value="{{ if .Fd }}{{ .Fd }}{{ end }}" size="22" />
+              &nbsp;
+              <input name="ft" class="adv-opt d-none form-control" type="input" id="ft" onchange="sync('fd', 'ft', 'tz', false);" value="{{ if .Ft }}{{ .Ft }}{{ end }}" size="15" />
+            </div>
+            <div class="d-flex align-items-center mt-2 adv-opt d-none">
+              <label>Timezone:</label>
+              <input name="tz" class="w-25 form-control" value="{{ .Tz }}" id="tz" size="1" onchange="sync('sd', 'st', 'tz', false); sync('fd', 'ft', 'tz', false);" />
+            </div>
+          </div>
+          <input type="hidden" name="ts" id="ts" />
+        </fieldset>
+        <fieldset class="adv-opt d-none">
+          <legend>Advanced Options</legend>
+          {{ if or (eq .PinType 'V') (eq .PinType 'S') -}}
+          <div class="d-flex align-items-center">
+            <label>Clip period:</label>
+            <div class="input-group w-25 d-flex align-items-start">
+              <input name="cp" class="form-control" type="text" value="{{ if .Cp }}{{ .Cp }}{{ else }}60{{ end }}" />
+              <span class="input-group-text">seconds</span>
+            </div>
+            <br />
+          </div>
+          {{- else if eq $pn "T0" -}}
+          <div class="d-flex align-items-center">
+            <label>Log level:</label>
+            <select class="form-select form-select-sm w-25" name="lv" onchange="this.form.submit()">
+              {{$all := "all"}} {{$info := "info"}} {{$warning := "warning"}} {{$error := "error"}} {{$fatal := "fatal"}}
+              <option value="all" {{if eq .Lv $all}}selected{{- end}}>All logs</option>
+              <option value="info" {{if eq .Lv $info}}selected{{- end}}>Info level or above</option>
+              <option value="warning" {{if eq .Lv $warning}}selected{{- end}}>Warning level or above</option>
+              <option value="error" {{if eq .Lv $error}}selected{{- end}}>Error level or above</option>
+              <option value="fatal" {{if eq .Lv $fatal}}selected{{- end}}>Fatal only</option>
+            </select>
+          </div>
+          {{- else if eq $pn "T1" -}}
+            <p class="mb-0">T1 selected. No additional options.</p>
+          {{- else if (or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') (eq .Pn "throughput")) -}}
+          <div class="d-flex flex-column">
+            <div class="d-flex align-items-center mb-2">
+              <label>Resolution:</label>
+              <input name="resolution" type="input" onchange="this.form.submit();" value="{{ if .Resolution }}{{ .Resolution }}{{ else }}60{{ end }}" />
+              pts/hour
+              <br />
+            </div>
+            <div class="d-flex align-items-center">
+              <label for="groupDataToggle" class="me-2">Group Data:</label>
+              <input type="checkbox" id="groupDataToggle" name="groupData" checked onchange="toggleGrouping();" />
+            </div>
+          </div>
+          {{- else -}}
+          <p>No additional options available.</p>
+          {{ end -}}
+        </fieldset>
+
+        <div class="d-flex flex-row-reverse align-items-center justify-content-between mt-4">
+          <div class="d-flex mt-2">
+            <label for="advanced-opts">Advanced Options</label>
+            <input name="advanced-opts" type="checkbox" onclick="toggleAdvanced(this.checked)" />
+          </div>
+          {{ if or (or (eq .PinType 'V') (eq .PinType 'T')) (eq .PinType 'S') -}}
+          <button class="btn btn-primary" onclick="searchQuery(this.form)">Search</button>
+          {{ end -}} {{ if or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') (eq .Pn "throughput") -}}
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-primary" onclick="exportQuery(this.form)">Export</button>
+            <p class="p-0">OR</p>
+            <button class="btn btn-primary" type="button" onclick="graphHandler({{ .DataHost }},{{ .SKey }},{{ .Ma }},{{ .Pn }},document.getElementById('st').value,document.getElementById('ft').value,document.getElementById('tz').value,{{ .Resolution }})">Graph</button>
+            <div id="export-msg"></div>
+            <p class="p-0" id="graph-error"></p>
+          </div>
+          {{ end -}}
+        </div>
+      </form>
+    </section>
+
+    {{ if and .Searching (eq $pn "T0") }}
+    <section>
+      <h2>Results</h2>
+      <p>
+        <span id="result-num">loading</span>
+        results (
+        <a href="/get?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}">download all</a>
+        )
+      </p>
+      <p>
+        <a href="javascript:void(0)" onclick="prevPage()">&lt;&lt;Previous</a>
+        <span id="page-num"></span>
+        <a href="javascript:void(0)" onclick="nextPage()">Next&gt;&gt;</a>
+      </p>
+      <table class="search fixed">
+        <thead>
+          <th class="pad-5 narrow">Level</th>
+          <th class="pad-5 medium">Time</th>
+          <th class="pad-5 medium">Caller</th>
+          <th class="pad-5 wide">Message</th>
+          <th class="pad-5">Additional information</th>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    {{- end }}
+
+    {{ if and .Searching (eq $pn "T1") }}
+    <section class="border rounded p-4 container-md bg-white">
+      <h2 class="mb-2">Results</h2>
+      <div class="d-flex justify-content-between align-items-center">
+        <div><strong><span id="nmea-count">0</span></strong> NMEA sentences.</div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-primary btn-sm" href="/get?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}">Download raw</a>
+        </div>
+      </div>
+
+      <hr />
+
+      <h5 class="mt-3">Parsed summary.</h5>
+      <div class="table-responsive">
+        <table id="nmea-table" class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Position / Summary</th>
+              <th>Extra</th>
+              <th>Raw</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h5 class="mt-4">Raw.</h5>
+      <pre id="nmea-raw" class="p-2 bg-light border" style="max-height: 300px; overflow:auto;"></pre>
+      <div id="nmea-error" class="text-danger mt-2"></div>
+    </section>
+    {{ end }}
+
+
+    <div id="progress"></div>
+    <div id="graph"></div>
+
+    {{ if .Timestamps }} {{ with $subtype := part (split $.Type "/") 1 }}
+    <section class="border rounded p-4 container-sm">
+      <h2>Results</h2>
+      <div class="d-flex justify-content-between">
+        {{ len $.Timestamps }} results
+        <br />
+        <select class="btn btn-outline-primary" onchange="sortResults(this)">
+          <option>Oldest</option>
+          <option>Newest</option>
+        </select>
+      </div>
+      <div class="search d-flex flex-column align-items-center">
+        <div class="d-flex align-items-center gap-2 justify-content-center">
+          <div class="w-50 flex-shrink-0 text-center"><strong>All</strong></div>
+          <a class="btn btn-primary btn-sm" href="/play?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}&out={{ $subtype }}">Play</a>
+          <a class="btn btn-primary btn-sm" href="/get?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}">Download</a>
+          <a class="btn btn-primary btn-sm flex-shrink-0" href="/get?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}&out=media">Download as {{ $subtype }}</a>
+        </div>
+        <hr class="w-100" />
+      </div>
+      <div id="results" class="search d-flex flex-column align-items-center">
+        {{ range $.Timestamps }}
+        <div class="d-flex align-items-center gap-2 mb-1 justify-content-center">
+          <div class="w-50">{{ localdatetime . (float $.Tz) }}</div>
+          <a class="btn btn-outline-primary btn-sm" href="/play?id={{ $.Id }}&ts={{ . }}{{ if $.Cp }},{{ $.Cp }}{{ end }}&out={{ $subtype }}">Play</a>
+          <a class="btn btn-outline-primary btn-sm" href="/get?id={{ $.Id }}&ts={{ . }}{{ if $.Cp }},{{ $.Cp }}{{ end }}">Download</a>
+          {{ if $.Type -}}
+          <a class="btn btn-outline-primary btn-sm flex-shrink-0" href="/get?id={{ $.Id }}&ts={{ . }}{{ if $.Cp }},{{ $.Cp }}{{ end }}&out=media">Download as {{ $subtype }}</a>
+          {{- end }}
+        </div>
+        {{ end }}
+      </div>
+    </section>
+    {{ end }} {{ end }} {{ if and .Searching (not (or .Log .Timestamps)) }}No results.{{ end }}
+  </body>
+  {{ .Footer }}
+</html>

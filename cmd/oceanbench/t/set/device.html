@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <link href="http://localhost:5173/src/main.css" rel="stylesheet" type="text/css" />
     <style rel="stylesheet" type="text/css">
       .advanced {
         transition: all 0.3s ease; /* Optional: for smooth transition */
@@ -19,9 +19,9 @@
       }
     </style>
     <title>Devices</title>
-    <script type="module" src="/s/lit/header-group.js"></script>
-    <script type="text/javascript" src="/s/main.js"></script>
-    <script type="text/javascript" src="/s/device.js"></script>
+    <script type="module" src="http://localhost:5173/src/web-components/header-group.ts"></script>
+    <script type="text/javascript" src="http://localhost:5173/src/main.js"></script>
+    <script type="text/javascript" src="http://localhost:5173/src/device.js"></script>
     <script type="text/javascript">
       var advancedOpts;
       var adv = false;
@@ -402,9 +402,9 @@
                 <div class="col-sm-10 col-md-6 col-12 d-flex align-items-center gap-2">
                   <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}} />
                   {{if .Name}}
-                  <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}" />
+                  <img src="http://localhost:5173/src/{{ .StatusText }}.png" alt="{{ .StatusText }}" />
                   {{ $sending := "sending" }}
-                  <img src="/s/{{ .Other $sending }}.png" alt="{{ .Other $sending }}" />
+                  <img src="http://localhost:5173/src/{{ .Other $sending }}.png" alt="{{ .Other $sending }}" />
                   {{end}}
                 </div>
               </div>
@@ -449,12 +449,12 @@
               {{range .Vars}}
               <tr>
                 <form class="row gx-1 d-flex align-items-center" id="{{ .Basename }}" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
-                  <td class="d-flex justify-content-end h-75"><img src="/s/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" /></td>
+                  <td class="d-flex justify-content-end h-75"><img src="http://localhost:5173/src/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" /></td>
                   <td><input class="form-control form-control-sm w-100" type="text" name="vn" value="{{ .Basename }}" readonly /></td>
                   <td>
                     <input class="form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(this)" oninput="validateVar(this)" />
                     {{if .IsLink }}
-                    <a href="{{ .Value }}" target="_blank"><img src="/s/link.png" /></a>
+                    <a href="{{ .Value }}" target="_blank"><img src="http://localhost:5173/src/link.png" /></a>
                     {{end}}
                   </td>
                   <span class="td msg hidden"></span>
@@ -464,7 +464,7 @@
               {{end}}
               <tr>
                 <form class="row gx-1 d-flex align-items-center" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
-                  <td class="d-flex justify-content-end h-75"><input type="image" src="/s/add.png" /></td>
+                  <td class="d-flex justify-content-end h-75"><input type="image" src="http://localhost:5173/src/add.png" /></td>
                   <td><input type="text" class="form-control form-control-sm w-100" name="vn" id="vn" list="list_vars" onchange="setValue('_newvar');" /></td>
                   <td><input type="text" class="form-control form-control-sm w-100" name="vv" oninput="validateVar(this)" /></td>
                   <td class="td msg hidden"></td>
@@ -497,7 +497,7 @@
               {{$dev := $.Device}} {{$data := $}} {{range $sensor := .Sensors}}
               <tr>
                 <form class="row gx-1 d-flex align-items-center" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
-                  <td><img class="mt-2" src="/s/delete.png" onclick="deleteSensor('{{$dev.MAC}}','{{ $sensor.Pin }}');" /></td>
+                  <td><img class="mt-2" src="http://localhost:5173/src/delete.png" onclick="deleteSensor('{{$dev.MAC}}','{{ $sensor.Pin }}');" /></td>
                   <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $sensor.Name }}" onchange="submitSensor(this)" /></td>
                   <td class="col-1"><input class="form-control form-control-sm" type="text" name="pin" value="{{ $sensor.Pin }}" readonly /></td>
                   <td>
@@ -530,7 +530,7 @@
               {{end}}
               <tr>
                 <form class="row gx-1 d-flex align-items-center" id="new-sensor" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
-                  <td><input class="mt-2" type="image" src="/s/add.png" /></td>
+                  <td><input class="mt-2" type="image" src="http://localhost:5173/src/add.png" /></td>
                   <td><input class="form-control form-control-sm" type="text" name="name" /></td>
                   <td>
                     <select class="form-select form-select-sm" name="pin">
@@ -590,7 +590,7 @@
                 {{$dev := $.Device}} {{$data := $}} {{range $act := .Actuators}}
                 <tr>
                   <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
-                    <td><img class="mt-2" src="/s/delete.png" onclick="deleteActuator('{{$dev.MAC}}','{{ $act.Pin }}');" /></td>
+                    <td><img class="mt-2" src="http://localhost:5173/src/delete.png" onclick="deleteActuator('{{$dev.MAC}}','{{ $act.Pin }}');" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $act.Name }}" onchange="submitActuator(this)" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="var" value="{{ $act.Var}}" onchange="submitActuator(this)" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="pin" value="{{ $act.Pin }}" readonly /></td>
@@ -601,7 +601,7 @@
                 {{end}}
                 <tr>
                   <form class="tr" id="new-actuator" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
-                    <td><input class="mt-2" type="image" src="/s/add.png" /></td>
+                    <td><input class="mt-2" type="image" src="http://localhost:5173/src/add.png" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="name" class="width-302" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="var" class="width-302" /></td>
                     <td>

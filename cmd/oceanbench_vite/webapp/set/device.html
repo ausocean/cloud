@@ -1,0 +1,663 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link href="/src/main.css" rel="stylesheet" type="text/css" />
+    <style rel="stylesheet" type="text/css">
+      .advanced {
+        transition: all 0.3s ease; /* Optional: for smooth transition */
+      }
+
+      .advanced.hidden {
+        display: none;
+        height: 0;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+    <title>Devices</title>
+    <script type="module" src="/src/web-components/header-group.ts"></script>
+    <script type="text/javascript" src="/src/main.js"></script>
+    <script type="text/javascript" src="/src/device.js"></script>
+    <script type="text/javascript">
+      var advancedOpts;
+      var adv = false;
+
+      var varTypes = { {{range $.VarTypes}}
+        {{.Basename}}:"{{.Value}}",{{end}}
+      };
+      var varEnums = {};
+      function deleteVar(ma, name) {
+        window.location = '/set/devices/edit/var?ma=' + ma + '&vn=' + name + '&vd=true';
+      }
+
+      function checkVar() {
+        let vn = document.getElementById('vn');
+        if (vn.value == '') {
+          setValue('_newvar');
+          return false;
+        }
+        return true;
+      }
+
+      function setValue(id) {
+        if (id == "") {
+          return;
+        }
+        let form = document.getElementById(id);
+        let span2 = form.firstElementChild.nextElementSibling;
+        let vn = span2.firstChild;
+        let span3 = span2.nextElementSibling;
+        let vv = span3.firstChild;
+        let msg = form.querySelector('.msg')
+
+        while (span3.firstChild) {
+          span3.removeChild(span3.firstChild);
+        }
+
+        let k = vn.value;
+        let v = varTypes[k];
+        if (v === 'int') {
+          msg.textContent = k + ' must be a whole number'
+          vv.required = true
+          vv.type = 'number'
+          vv.step = 1
+        } else if (v === 'uint') {
+          msg.textContent = k + ' must be a positive whole number'
+          vv.required = true
+          vv.type = 'number'
+          vv.step = 1
+          vv.min = 0
+        } else if (v === 'float') {
+          msg.textContent =  k + ' must be a number'
+          vv.required = true
+          vv.type = 'number'
+          vv.step = 'any'
+        }
+
+        let enums = varEnums[k];
+        if (enums == null) {
+          span3.appendChild(vv);
+          vv.removeAttribute('hidden');
+          vv.removeAttribute('disabled');
+          return;
+        }
+
+        vv.setAttribute('hidden', 'true');
+        vv.setAttribute('disabled', 'true');
+
+        let type = 'radio';
+        if (varTypes[k].substring(0,6) == 'enums:') {
+          type = 'checkbox';
+        }
+        let values = vv.value.split(',');
+        for (let i = 0; i < enums.length; i++) {
+          let input = document.createElement('input');
+          input.type = type;
+          input.name = 'vv';
+          input.value = enums[i];
+          input.setAttribute('onchange', "document.getElementById('"+id+"').submit();")
+          if (values.includes(input.value)) {
+            input.checked = true;
+          }
+          span3.appendChild(input);
+          let text = document.createTextNode(enums[i] + ' ');
+          span3.appendChild(text);
+        }
+      }
+
+      function init() {
+        for (let k in varTypes) {
+          let v = varTypes[k];
+          if (v == "bool") {
+            varEnums[k] = ['true', 'false'];
+          } else if (v.substring(0,5) == 'enum:') {
+            varEnums[k] = v.substring(5).split(',');
+          } else if (v.substring(0,6) == 'enums:') {
+            varEnums[k] = v.substring(6).split(',');
+          }
+        }
+        let elems = document.querySelectorAll('input[name=vn]');
+        for (let elem of elems){
+          setValue(elem.value);
+        }
+
+        // Read the cookie for the advanced settings.
+        let cookies = document.cookie.split(";", 5);
+        for (c of cookies) {
+          let cpair = c
+            .trim()
+            .split("=", 2);
+          if (cpair[0] == "advanced") {
+            adv = cpair[1] == "on" ? true : false;
+          }
+        }
+
+        advancedOpts = document.getElementsByClassName("advanced");
+        for (opt of advancedOpts) {
+          adv ? document.getElementById("adv-options-toggle").checked = true : opt.style.display = "none";
+        }
+      }
+
+      function submitVar(vv) {
+        if (vv.validity.valid) {
+          vv.form.submit()
+        }
+      }
+
+      function validateVar(vv) {
+        if (vv.validity.valid) {
+          vv.form.querySelector('.msg').className = 'td msg hidden'
+        } else {
+          vv.form.querySelector('.msg').className = 'td msg'
+        }
+      }
+
+      function deleteSensor(mac, pin) {
+        window.location = '/set/devices/edit/sensor?ma=' + mac + '&pin=' + pin + '&delete=true';
+      }
+
+      function submitSensor(field) {
+        field.form.submit()
+      }
+
+      function deleteActuator(mac, pin) {
+        window.location = '/set/devices/edit/actuator?ma=' + mac + '&pin=' + pin + '&delete=true';
+      }
+
+      function submitActuator(field) {
+        field.form.submit()
+      }
+
+      function toggleAdvanced(checked) {
+        for (opt of advancedOpts) {
+          checked ? opt.style.display = "flex" : opt.style.display = "none";
+        }
+
+        document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/set/devices";
+      }
+    </script>
+  </head>
+  <body onload="init();">
+    <div id="data">
+      <datalist id="list_vars">
+        {{range $.VarTypes}}
+        <option>{{ .Basename }}</option>
+        {{end}}
+      </datalist>
+    </div>
+
+    <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{range .Pages -}}
+        <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
+          <a {{if .URL}}href="{{.URL}}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
+        </li>
+        {{- end}}
+      </nav-menu>
+      <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}" {{end}} slot="site-menu">
+        {{range .Users -}}
+        <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
+        {{- end}}
+      </site-menu>
+    </header-group>
+    <section id="main" class="main">
+      <div popover id="calibration-popover">
+        <div class="bg-white rounded w-50 mx-auto p-5 mt-5">
+          <div class="d-flex justify-content-between align-items-center">
+            <h2>Calibrate</h2>
+            <button class="btn btn-close" popovertarget="calibration-popover" popovertargetaction="hide"></button>
+          </div>
+          <hr />
+          <form class="d-flex flex-column gap-2" method="post" action="/set/devices/edit/calibrate">
+            <input name="ma" hidden value="{{.Device.MAC}}" />
+            <div class="row d-flex gx-1 text-center">
+              <div class="col-3 text-end pt-2"></div>
+              <div class="col-1">Battery</div>
+              <div class="col-1">Network</div>
+              <div class="col-1">Power 1</div>
+              <div class="col-1">Power 2</div>
+              <div class="col-1">Power 3</div>
+            </div>
+            <div class="row d-flex gx-1 align-items-center">
+              <label class="col-3 text-end pt-2">Measured Voltage:</label>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vb" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vnw" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp1" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp2" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp3" />
+              </div>
+              <label for="lock-voltages" style="cursor: pointer" class="col-1 ps-4">
+                <input class="d-none" type="checkbox" id="lock-voltages" checked />
+                <span id="lock-icon" class="bi bi-unlock-fill"></span>
+              </label>
+            </div>
+            <div class="row d-flex gx-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Alarm Voltage:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="va" value="24.5" />
+              </div>
+            </div>
+            <div class="row d-flex gx-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Alarm Recovery Voltage:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="vr" value="25" />
+              </div>
+            </div>
+            <div class="row d-flex gx-1 align-items-center">
+              <div class="col-3 text-end pt-2"></div>
+              <input type="submit" class="btn btn-primary w-50" value="Calibrate Now" />
+            </div>
+          </form>
+          <small>NOTE: Sensors will only be calibrated whilst reading non-zero values</small>
+        </div>
+      </div>
+      {{if .Msg}}
+      <div class="red">{{.Msg}}</div>
+      <br />
+      {{end}}
+      <h1 class="container-md">Devices</h1>
+      <div class="border rounded p-4 container-md bg-white">
+        <form action="/set/devices/" enctype="multipart/form-data" method="post">
+          <fieldset class="row d-flex gx-1 align-items-center">
+            <label class="col-sm-2 col-md-3 col-1 text-end pt-1">Select Device:</label>
+            <div class="col-sm-10 col-md-6 col-12">
+              <select name="ma" onchange="this.form.submit();" class="form-select h-auto">
+                <option value="">-- New device --</option>
+                {{range .Devices}}
+                <option value="{{ .MAC }}" {{if eq .MAC $.Mac}} selected{{end}}>{{ .Name }}</option>
+                {{end}}
+              </select>
+            </div>
+          </fieldset>
+        </form>
+        {{with .Device}}
+        <form action="/set/devices/edit" enctype="multipart/form-data" method="post">
+          <fieldset>
+            <div class="d-flex justify-content-between h-auto pt-5">
+              <h2>Configuration</h2>
+            </div>
+            <hr />
+            <div class="d-flex flex-column gap-1">
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Name:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="dn" value="{{.Name}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">MAC:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ma" value="{{.MAC}}" {{if .MAC}}readonly{{end}} />
+                </div>
+              </div>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Type:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  {{if .Type}}
+                  <input class="form-control" value="{{.Type}}" name="ct" readonly />
+                  {{else}}
+                  <select name="ct" class="form-select h-auto">
+                    <option value="">-- Select type --</option>
+                    {{range $.DevTypes}}
+                    <option value="{{.}}" {{if eq . $.Device.Type}} selected{{end}}>{{.}}</option>
+                    {{end}} {{end}}
+                  </select>
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Inputs:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ip" value="{{.Inputs}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Outputs:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="op" value="{{.Outputs}}" />
+                </div>
+              </div>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">WiFi:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="wi" value="{{.Wifi}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Mon Period:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="mp" value="{{.MonitorPeriod}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Act Period:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="ap" value="{{.ActPeriod}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Version:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="cv" value="{{.Version}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Client Protocol:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="ns" value="{{.Protocol}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Latitude:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="lt" value="{{.Latitude}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Longitude:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="ln" value="{{.Longitude}}" />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Device Key:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="number" name="dk" value="{{.Dkey}}" disabled />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Local Address:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  {{$localAddr := .Other "localaddr"}}
+                  <input class="form-control" type="input" name="la" value="{{if $localAddr}}{{$localAddr}}{{end}}" disabled />
+                </div>
+              </div>
+              <div class="advanced row gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Last Updated:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  <input class="form-control" type="input" name="up" value="{{if .Name}}{{localdatetime .Updated.Unix $.Timezone}}{{end}}" disabled />
+                </div>
+              </div>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Uptime:</label>
+                <div class="col-sm-10 col-md-6 col-12">
+                  {{$uptime := .Other "uptime"}}
+                  <input class="form-control" type="input" name="ut" value="{{if $uptime}}{{$uptime}}{{end}}" disabled />
+                </div>
+              </div>
+              <div class="row d-flex gx-1">
+                <label class="col-sm-2 col-md-3 col-1 text-end">Enabled:</label>
+                <div class="col-sm-10 col-md-6 col-12 d-flex align-items-center gap-2">
+                  <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}} />
+                  {{if .Name}}
+                  <img src="/src/{{ .StatusText }}.png" alt="{{ .StatusText }}" />
+                  {{ $sending := "sending" }}
+                  <img src="/src/{{ .Other $sending }}.png" alt="{{ .Other $sending }}" />
+                  {{end}}
+                </div>
+              </div>
+            </div>
+            {{if .Name}}
+            <div class="d-flex justify-content-center">
+              <div class="d-flex gap-1">
+                <input class="btn btn-primary" type="submit" name="task" value="Update" />
+                <input class="btn btn-primary" type="submit" name="task" value="Shutdown" />
+                <input class="btn btn-primary" type="submit" name="task" value="Reboot" />
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Debug" />
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Upgrade" />
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Alarm" />
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Test" />
+                <input class="advanced btn btn-outline-primary" type="submit" name="task" value="Delete" onclick="return confirm('Are you sure?')" />
+              </div>
+            </div>
+            {{else}}
+            <div class="d-flex justify-content-center pb-1">
+              <input class="btn btn-primary w-50" type="submit" name="task" value="Add" />
+            </div>
+            {{end}}
+          </fieldset>
+        </form>
+        <div class="row d-flex gx-1">
+          <label for="adv-toggle" class="col-sm-2 col-md-3 col-1 text-end">Advanced Options:</label>
+          <div class="col-sm-10 col-md-6 col-12">
+            <input type="checkbox" id="adv-options-toggle" name="adv-toggle" onchange="toggleAdvanced(checked)" />
+          </div>
+        </div>
+        {{end}} {{if .Device }}
+        <div class="advanced flex-column">
+          <h2>Variables</h2>
+          <hr />
+          <table class="table mx-auto" style="max-width: 500px">
+            <thead>
+              <th></th>
+              <th class="text-center">Name</th>
+              <th class="text-center">Value</th>
+            </thead>
+            <tbody>
+              {{range .Vars}}
+              <tr>
+                <form class="row gx-1 d-flex align-items-center" id="{{ .Basename }}" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
+                  <td class="d-flex justify-content-end h-75"><img src="/src/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" /></td>
+                  <td><input class="form-control form-control-sm w-100" type="text" name="vn" value="{{ .Basename }}" readonly /></td>
+                  <td>
+                    <input class="form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(this)" oninput="validateVar(this)" />
+                    {{if .IsLink }}
+                    <a href="{{ .Value }}" target="_blank"><img src="/src/link.png" /></a>
+                    {{end}}
+                  </td>
+                  <span class="td msg hidden"></span>
+                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
+                </form>
+              </tr>
+              {{end}}
+              <tr>
+                <form class="row gx-1 d-flex align-items-center" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
+                  <td class="d-flex justify-content-end h-75"><input type="image" src="/src/add.png" /></td>
+                  <td><input type="text" class="form-control form-control-sm w-100" name="vn" id="vn" list="list_vars" onchange="setValue('_newvar');" /></td>
+                  <td><input type="text" class="form-control form-control-sm w-100" name="vv" oninput="validateVar(this)" /></td>
+                  <td class="td msg hidden"></td>
+                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
+                </form>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="advanced flex-column">
+          <div class="d-flex gap-2 align-items-center">
+            <h2>Sensors</h2>
+            <button class="btn btn-sm btn-outline-primary" popovertarget="calibration-popover">Calibrate</button>
+          </div>
+          <hr />
+          <table class="table" id="sensors">
+            <thead>
+              <tr>
+                <th class="text-center" scope="col"></th>
+                <th class="text-center" scope="col">Name</th>
+                <th class="text-center" scope="col">Input</th>
+                <th class="text-center" scope="col">Quantity</th>
+                <th class="text-center" scope="col">Function</th>
+                <th class="text-center" scope="col">Args</th>
+                <th class="text-center" scope="col">Units</th>
+                <th class="text-center" scope="col">Format</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{$dev := $.Device}} {{$data := $}} {{range $sensor := .Sensors}}
+              <tr>
+                <form class="row gx-1 d-flex align-items-center" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+                  <td><img class="mt-2" src="/src/delete.png" onclick="deleteSensor('{{$dev.MAC}}','{{ $sensor.Pin }}');" /></td>
+                  <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $sensor.Name }}" onchange="submitSensor(this)" /></td>
+                  <td class="col-1"><input class="form-control form-control-sm" type="text" name="pin" value="{{ $sensor.Pin }}" readonly /></td>
+                  <td>
+                    <select class="form-select form-select-sm" name="sqty" onchange="submitSensor(this)">
+                      {{range $qty := $data.Quantities}}
+                      <option value="{{$qty.Code}}" {{if eq $qty.Code $sensor.Quantity}} selected{{end}}>{{$qty.Name}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td class="td std">
+                    <select class="form-select form-select-sm" name="sfunc" onchange="submitSensor(this)">
+                      {{range $func := $data.Funcs}}
+                      <option value="{{$func}}" {{if eq $func $sensor.Func}} selected{{end}}>{{$func}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td><input class="form-control form-control-sm" type="text" name="sargs" value="{{ $sensor.Args }}" class="std" onchange="submitSensor(this)" /></td>
+                  <td class="col-1"><input class="form-control form-control-sm" type="text" name="sunits" value="{{ $sensor.Units }}" class="std" onchange="submitSensor(this)" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" name="sfmt" onchange="submitSensor(this)">
+                      {{range $fmt := $data.Formats}}
+                      <option value="{{$fmt}}" {{if eq $fmt $sensor.Format}} selected{{end}}>{{$fmt}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td class="td msg hidden"></td>
+                  <input type="hidden" name="ma" value="{{$dev.MAC}}" />
+                </form>
+              </tr>
+              {{end}}
+              <tr>
+                <form class="row gx-1 d-flex align-items-center" id="new-sensor" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+                  <td><input class="mt-2" type="image" src="/src/add.png" /></td>
+                  <td><input class="form-control form-control-sm" type="text" name="name" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" name="pin">
+                      <option value="">--</option>
+                      {{range $pin := $dev.InputList}}
+                      <option value="{{ $pin }}">{{ $pin }}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td>
+                    <select class="form-select form-select-sm" class="dbl" name="sqty">
+                      <option value="">- Select -</option>
+                      {{range $qty := $data.Quantities}}
+                      <option value="{{$qty.Code}}">{{$qty.Name}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td>
+                    <select class="form-select form-select-sm" name="sfunc">
+                      <option value="">--</option>
+                      {{range $func := $data.Funcs}}
+                      <option value="{{$func}}">{{$func}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td><input class="form-control form-control-sm" type="text" name="sargs" /></td>
+                  <td><input class="form-control form-control-sm" type="text" name="sunits" /></td>
+                  <td>
+                    <select class="form-select form-select-sm" name="sfmt">
+                      <option value="">--</option>
+                      {{range $fmt := $data.Formats}}
+                      <option value="{{$fmt}}">{{$fmt}}</option>
+                      {{end}}
+                    </select>
+                  </td>
+                  <td class="td msg hidden"></td>
+                  <input type="hidden" name="ma" value="{{$dev.MAC}}" />
+                </form>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="advanced flex-column">
+          <h2 class="pt-5">Actuators</h2>
+          <hr />
+          <div class="d-flex justify-content-around">
+            <table class="table" id="actuators">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th class="text-center">Name</th>
+                  <th class="text-center">Var</th>
+                  <th class="text-center">Pin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{$dev := $.Device}} {{$data := $}} {{range $act := .Actuators}}
+                <tr>
+                  <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+                    <td><img class="mt-2" src="/src/delete.png" onclick="deleteActuator('{{$dev.MAC}}','{{ $act.Pin }}');" /></td>
+                    <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $act.Name }}" onchange="submitActuator(this)" /></td>
+                    <td><input class="form-control form-control-sm" type="text" name="var" value="{{ $act.Var}}" onchange="submitActuator(this)" /></td>
+                    <td><input class="form-control form-control-sm" type="text" name="pin" value="{{ $act.Pin }}" readonly /></td>
+                    <span class="td msg hidden"></span>
+                    <input type="hidden" name="ma" value="{{$dev.MAC}}" />
+                  </form>
+                </tr>
+                {{end}}
+                <tr>
+                  <form class="tr" id="new-actuator" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+                    <td><input class="mt-2" type="image" src="/src/add.png" /></td>
+                    <td><input class="form-control form-control-sm" type="text" name="name" class="width-302" /></td>
+                    <td><input class="form-control form-control-sm" type="text" name="var" class="width-302" /></td>
+                    <td>
+                      <select class="form-select form-select-sm" name="pin">
+                        <option value="">- Select -</option>
+                        {{range $pin:= $dev.OutputList}}
+                        <option value="{{$pin}}">{{$pin}}</option>
+                        {{end}}
+                      </select>
+                    </td>
+                    <span class="td msg hidden"></span>
+                    <input type="hidden" name="ma" value="{{$dev.MAC}}" />
+                  </form>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </section>
+    {{.Footer}}
+    <script type="text/javascript">
+      document.addEventListener("DOMContentLoaded", function () {
+        const lockCheckbox = document.getElementById("lock-voltages");
+        const lockIcon = document.getElementById("lock-icon");
+
+        // Update the lock icon based on the checkbox.
+        function updateLockIcon() {
+          if (lockCheckbox.checked) {
+            lockIcon.classList.remove("bi-unlock-fill");
+            lockIcon.classList.add("bi-lock-fill");
+            lockIcon.setAttribute("title", "Voltages Locked");
+          } else {
+            lockIcon.classList.remove("bi-lock-fill");
+            lockIcon.classList.add("bi-unlock-fill");
+            lockIcon.setAttribute("title", "Voltages Unlocked");
+          }
+        }
+
+        // Initial icon setup.
+        updateLockIcon();
+
+        // Listen for changes on the checkbox.
+        lockCheckbox.addEventListener("change", updateLockIcon);
+
+        // Listen for changes in the voltage input.
+        voltages = document.getElementsByClassName("voltage");
+        voltages[0].addEventListener("keyup", () => {
+          if (document.getElementById("lock-voltages").checked) {
+            for (var i = 1; i < voltages.length; i++) {
+              voltages[i].value = voltages[0].value;
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

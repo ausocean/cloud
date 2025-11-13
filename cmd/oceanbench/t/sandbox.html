@@ -4,10 +4,10 @@
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
-    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <link href="http://localhost:5173/src/main.css" rel="stylesheet" type="text/css" />
     <title>Devices</title>
-    <script type="module" src="/s/lit/header-group.js"></script>
-    <script type="text/javascript" src="/s/main.js"></script>
+    <script type="module" src="http://localhost:5173/src/web-components/header-group.ts"></script>
+    <script type="text/javascript" src="http://localhost:5173/src/main.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
@@ -73,9 +73,9 @@
           <label class="col-4 text-end">Enabled:</label>
           <div class="col">
             <input type="checkbox" name="de" id="de" {{if .Enabled }}checked{{end}} />
-            <img src="/s/{{ .StatusText }}.png" alt="{{ .StatusText }}" />
+            <img src="http://localhost:5173/src/{{ .StatusText }}.png" alt="{{ .StatusText }}" />
             {{$sending := .Other "sending"}}
-            <img src="/s/{{$sending}}.png" alt="{{$sending}}" />
+            <img src="http://localhost:5173/src/{{$sending}}.png" alt="{{$sending}}" />
           </div>
         </div>
 

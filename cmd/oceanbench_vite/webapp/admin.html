@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <link href="/src/main.css" rel="stylesheet" type="text/css" />
+    <title>CloudBlue | Admin</title>
+    <script type="module" src="/src/web-components/header-group.ts"></script>
+    <script type="text/javascript" src="/src/main.js"></script>
+    <script type="text/javascript">
+      function init() {
+        document.getElementById("sitemenu").addEventListener("site-change", (event) => {
+          fetch("/api/set/site/" + event.detail.newSite).then((resp) => {
+            if (!resp.ok) {
+              alert("error switching sites");
+              return;
+            }
+            window.location.assign("/admin/site");
+          });
+        });
+      }
+
+      function updateUser() {
+        return copyFormValues("update_user", "users", {
+          email: "input",
+          perm: "select",
+        });
+      }
+      function deleteUser() {
+        return copyFormValues("delete_user", "users", { email: "input" });
+      }
+    </script>
+  </head>
+  <body onload="init()">
+    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{ range .Pages -}}
+        <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+        </li>
+        {{- end }}
+      </nav-menu>
+      <site-menu id="sitemenu" custom-handling {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+        {{ range .Users -}}
+        <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
+        {{- end }}
+      </site-menu>
+    </header-group>
+    <section id="main" class="main">
+      {{ if .Msg }}
+      <div class="red">{{ .Msg }}</div>
+      <br />
+      {{ end }}
+      <h1 class="container-md">Site Admin</h1>
+      <!-- site details -->
+      <div class="border rounded p-4 container-md bg-white">
+        <span class="bold">Site</span>
+        <hr />
+        <div>
+          <form class="inline" enctype="multipart/form-data" action="/admin/site/update" method="post">
+            <label>Name:</label>
+            <input type="text" name="sn" value="{{ .Site.Name }}" class="dbl bold w-25" />
+            <br />
+            <label>Site Key:</label>
+            <input type="text" name="sk" value="{{ .Site.Skey }}" class="w-25" readonly />
+            <br />
+            <label>Description:</label>
+            <input type="text" name="sd" value="{{ .Site.Description }}" />
+            <br />
+            <label>Org:</label>
+            <input type="text" name="org" value="{{ .Site.OrgID }}" />
+            <br />
+            <label>Timezone:</label>
+            <input type="text" name="tz" value="{{ .Site.Timezone }}" class="half" />
+            hours &plusmn; UTC
+            <br />
+            <label>Location:</label>
+            <input type="text" name="ll" value="{{ .Site.Latitude }},{{ .Site.Longitude }}" class="w-25" />
+            (lat,lng)
+            <br />
+            <label>Ops email:</label>
+            <input type="text" name="ops" value="{{ .Site.OpsEmail }}" />
+            <br />
+            <label>YouTube email:</label>
+            <input type="text" name="yt" value="{{ .Site.YouTubeEmail }}" />
+            <br />
+            <label>Notify period:</label>
+            <input type="text" name="np" value="{{ .Site.NotifyPeriod }}" class="half" />
+            hour{{ if gt .Site.NotifyPeriod 1 }}s{{ end }}
+            <br />
+            <label>Public:</label>
+            <input type="checkbox" name="pb" {{ if .Site.Public }}checked{{ end }} />
+            <br />
+            <label>Confirmed:</label>
+            <input type="checkbox" name="cf" {{ if .Site.Confirmed }}checked{{ end }} />
+            <br />
+            <label>Enabled:</label>
+            <input type="checkbox" name="en" {{ if .Site.Enabled }}checked{{ end }} />
+            <br />
+            <input type="submit" value="Update" class="btn btn-primary" />
+          </form>
+          <form class="inline" enctype="multipart/form-data" action="/admin/site/delete" method="post" onsubmit="return confirm('Really delete site?');">
+            <input type="submit" value="Delete" class="btn btn-primary" />
+          </form>
+        </div>
+      </div>
+      <!--rounded box -->
+      <br />
+
+      <!-- user details -->
+      <div class="border rounded p-4 container-md bg-white">
+        <span class="bold">Users</span>
+        <hr />
+        <table id="users">
+          <tr>
+            <th class="select"></th>
+            <th class="full">Email</th>
+            <th class="half">Role</th>
+          </tr>
+          {{ range .SiteUsers }} {{ $perm := .Perm }}
+          <tr>
+            <form id="{{ .Email }}">
+              <td class="select"><input type="checkbox" name="select" /></td>
+              <td class="full">
+                <input type="text" name="email" value="{{ .Email }}" class="full id" readonly />
+              </td>
+              <td class="half">
+                <select name="perm" class="half">
+                  <option value="">- Select -</option>
+                  {{ range $.Roles }}
+                  <option value="{{ .Perm }}" {{ if eq .Perm $perm }}selected{{ end }}>{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </td>
+            </form>
+          </tr>
+          {{ end }}
+          <tr>
+            <form enctype="multipart/form-data" action="/admin/user/add" method="post">
+              <td class="select">
+                <button type="submit" value="Add" class="border-0 bg-white">
+                  <img src="/src/add.png" />
+                </button>
+              </td>
+              <td class="full">
+                <input type="text" name="email" class="full" />
+              </td>
+              <td class="half">
+                <select name="perm" class="half">
+                  <option value="">- Select -</option>
+                  {{ range .Roles }}
+                  <option value="{{ .Perm }}">{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </td>
+            </form>
+          </tr>
+        </table>
+        <div>
+          <form class="inline" enctype="multipart/form-data" id="update_user" action="/admin/user/update" method="post" onsubmit="return updateUser();">
+            <input type="hidden" name="email" />
+            <input type="hidden" name="perm" />
+            <input type="submit" value="Update" class="btn btn-primary" />
+          </form>
+          <form class="inline" enctype="multipart/form-data" id="delete_user" action="/admin/user/delete" method="post" onsubmit="return deleteUser();">
+            <input type="hidden" name="email" />
+            <input type="submit" value="Delete" class="btn btn-primary" />
+          </form>
+        </div>
+      </div>
+      <!--rounded box -->
+    </section>
+    {{ .Footer }}
+  </body>
+</html>

@@ -1,0 +1,31 @@
+version: 2
+jobs:
+  build:
+    docker:
+      # CircleCI Go images available at: https://hub.docker.com/r/circleci/golang/
+      - image: cimg/go:1.21
+        environment:
+          GO111MODULE: "on"
+
+    working_directory: ~/go/src/github.com/ausocean/cloud/cmd/oceanbench
+
+    environment:
+      TEST_RESULTS: /tmp/test-results
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - v1-pkg-cache
+
+      - run: go get -d -t -v ./...
+
+      - run: go build -v ./...
+
+      - run: go test -v ./...
+
+      - save_cache:
+          key: v1-pkg-cache
+          paths:
+            - "/go/pkg"

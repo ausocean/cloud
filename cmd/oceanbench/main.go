@@ -190,7 +190,7 @@ func main() {
 	setup(ctx)
 
 	// Serve static files from the "s" directory.
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
+	// http.Handle("http://localhost:5173/src/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
 	// Except for favicon.ico.
 	http.HandleFunc("/favicon.ico", faviconHandler)
 
