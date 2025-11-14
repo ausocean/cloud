@@ -59,6 +59,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"reflect"
 	"strconv"
@@ -86,6 +88,7 @@ const (
 	tvServiceURL       = "https://tv.cloudblue.org"
 	cronServiceURL     = "https://cron.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
+	viteURL            = "http://localhost:5173"
 )
 
 // page defines one page of the web app.
@@ -101,6 +104,7 @@ type page struct {
 // commonData defines the commonly used template data.
 type commonData struct {
 	Standalone bool
+	Dev        bool
 	Debug      bool
 	Version    string
 	Msg        string
@@ -122,9 +126,11 @@ var (
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
+	dev           bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
 	storePath     string
+	viteProxy     *httputil.ReverseProxy
 )
 
 var (
@@ -189,8 +195,12 @@ func main() {
 	ctx := context.Background()
 	setup(ctx)
 
+	dev = standalone || os.Getenv("GAE_ENV") == ""
 	// Serve static files from the "s" directory.
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
+	// initViteProxy()
+	// http.HandleFunc("/s/", handleAssets)
+	// http.HandleFunc("/node_modules/", handleAssets)
+	// http.HandleFunc("/@vite/", handleAssets)
 	// Except for favicon.ico.
 	http.HandleFunc("/favicon.ico", faviconHandler)
 
@@ -330,6 +340,33 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 	err = model.PutDevice(ctx, store, &model.Device{Skey: 1, Mac: 1, Dkey: 0, Name: localDevice, Inputs: "A0,V0,S0", MonitorPeriod: 60, Enabled: true})
 
 	return err
+}
+
+func initViteProxy() {
+	viteURL, err := url.Parse("http://localhost:5173") // your Vite dev server
+	if err != nil {
+		log.Fatalf("unable to parse vite URL: %v", err)
+	}
+	viteProxy = httputil.NewSingleHostReverseProxy(viteURL)
+
+	// optional: preserve original Host header if needed
+	originalDirector := viteProxy.Director
+	viteProxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		// ensure Host header points to Vite server
+		req.Host = viteURL.Host
+	}
+}
+
+func handleAssets(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	if standalone || os.Getenv("GAE_ENV") == "" {
+		viteProxy.ServeHTTP(w, r)
+		return
+	}
+
+	// fallback to production static file serving here if needed
 }
 
 // faviconHandler serves favicon.ico.
@@ -508,6 +545,10 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	p := v.FieldByName("Standalone")
 	if p.IsValid() {
 		p.SetBool(standalone)
+	}
+	p = v.FieldByName("Dev")
+	if p.IsValid() {
+		p.SetBool(dev)
 	}
 	p = v.FieldByName("Debug")
 	if p.IsValid() {
