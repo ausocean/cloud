@@ -1065,7 +1065,7 @@ type ControllerError string
 
 const (
 	None            ControllerError = ""
-	LowVoltageAlarm ControllerError = "LowVoltageAlarm"
+	LowVoltageAlarm ControllerError = "LowVoltage"
 )
 
 func (e ControllerError) Error() string {
