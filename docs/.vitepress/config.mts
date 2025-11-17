@@ -41,6 +41,10 @@ export default defineConfig({
                     link: "oceanbench/broadcast/broadcast-settings.md",
                   },
                   {
+                    text: "Selecting a Channel",
+                    link: "oceanbench/broadcast/selecting-channel.md",
+                  },
+                  {
                     text: "Failure Mode",
                     link: "oceanbench/broadcast/failure-mode.md",
                   },
