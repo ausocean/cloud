@@ -30,17 +30,29 @@
         {{.Basename}}:"{{.Value}}",{{end}}
       };
       var varEnums = {};
-      function deleteVar(ma, name) {
-        window.location = '/set/devices/edit/var?ma=' + ma + '&vn=' + name + '&vd=true';
+
+      function deleteVar(event) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        updateVars(event, true)
       }
 
-      function checkVar() {
-        let vn = document.getElementById('vn');
-        if (vn.value == '') {
-          setValue('_newvar');
-          return false;
+      function checkVar(event, form) {
+        event.preventDefault()
+        event.stopPropagation()
+        let varForm = event.target;
+        const vn = varForm.querySelector('input[name="vn"]');
+        const vv = varForm.querySelector('input[name="vv"]');
+
+        if (!vn.value) {
+          let msg = varForm.querySelector('.msg')
+          msg.classList.remove("hidden")
+          msg.innerText = "Variable name must not be empty"
+          return
         }
-        return true;
+
+        submitVar(event, document.getElementById("vv"));
       };
 
       function setValue(id) {
@@ -144,9 +156,12 @@
         }
       }
 
-      function submitVar(vv) {
+      function submitVar(event, vv) {
         if (vv.validity.valid) {
-          vv.form.submit()
+          event.preventDefault()
+          event.stopPropagation()
+
+          updateVars(event)
         }
       }
 

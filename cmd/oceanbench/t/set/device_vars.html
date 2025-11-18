@@ -1,4 +1,7 @@
 <h2>Variables</h2>
+{{ if .Msg }}
+<p class="msg">{{ .Msg }}</p>
+{{ end }}
 <hr />
 
 <div class="row fw-bold m-auto mb-2" style="max-width: 500px">
@@ -7,12 +10,12 @@
 </div>
 
 {{range .Vars}}
-<form class="row align-items-center gx-1 m-auto" style="max-width: 500px" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
+<form class="row align-items-center gx-1 m-auto" style="max-width: 500px" enctype="multipart/form-data" action="/set/devices/edit/var" method="get" novalidate>
   <div class="col-auto">
-    <img style="width: 16px; height: 16px" src="/s/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" />
+    <img style="width: 16px; height: 16px" src="/s/delete.png" onclick="deleteVar(event, '{{$.Device.MAC}}','{{ .Basename }}');" />
   </div>
   <input class="col form-control form-control-sm w-100" type="text" name="vn" value="{{ .Basename }}" readonly />
-  <input class="col form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(this)" oninput="validateVar(this)" />
+  <input class="col form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(event, this)" oninput="validateVar(this)" />
   {{if .IsLink }}
   <a href="{{ .Value }}" target="_blank"><img src="/s/link.png" /></a>
   {{end}}
@@ -21,12 +24,12 @@
 </form>
 {{end}}
 
-<form class="row gx-1 align-items-center m-auto" style="max-width: 500px" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
+<form class="row gx-1 align-items-center m-auto" style="max-width: 500px" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="get" onsubmit="checkVar(event);" novalidate>
   <div class="col-auto">
     <input type="image" src="/s/add.png" />
   </div>
   <input type="text" class="col form-control form-control-sm w-100" name="vn" id="vn" list="list_vars" onchange="setValue('_newvar');" />
-  <td><input type="text" class="col form-control form-control-sm w-100" name="vv" oninput="validateVar(this)" /></td>
+  <input type="text" class="col form-control form-control-sm w-100" name="vv" id="vv" oninput="validateVar(this)" />
+  <p class="col msg hidden"></p>
   <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
-  <p class="msg hidden"></p>
 </form>
