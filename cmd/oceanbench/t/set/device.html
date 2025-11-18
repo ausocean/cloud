@@ -41,7 +41,7 @@
           return false;
         }
         return true;
-      }
+      };
 
       function setValue(id) {
         if (id == "") {
@@ -110,6 +110,8 @@
       }
 
       function init() {
+        loadVars();
+
         for (let k in varTypes) {
           let v = varTypes[k];
           if (v == "bool") {
@@ -150,9 +152,9 @@
 
       function validateVar(vv) {
         if (vv.validity.valid) {
-          vv.form.querySelector('.msg').className = 'td msg hidden'
+          vv.form.querySelector('.msg').className = 'msg hidden'
         } else {
-          vv.form.querySelector('.msg').className = 'td msg'
+          vv.form.querySelector('.msg').className = 'msg'
         }
       }
 
@@ -270,7 +272,7 @@
       {{end}}
       <h1 class="container-md">Devices</h1>
       <div class="border rounded p-4 container-md bg-white">
-        <form action="/set/devices/" enctype="multipart/form-data" method="post">
+        <form action="/set/devices/" enctype="multipart/form-data" method="get">
           <fieldset class="row d-flex gx-1 align-items-center">
             <label class="col-sm-2 col-md-3 col-1 text-end pt-1">Select Device:</label>
             <div class="col-sm-10 col-md-6 col-12">
@@ -437,42 +439,7 @@
         </div>
         {{end}} {{if .Device }}
         <div class="advanced flex-column">
-          <h2>Variables</h2>
-          <hr />
-          <table class="table mx-auto" style="max-width: 500px">
-            <thead>
-              <th></th>
-              <th class="text-center">Name</th>
-              <th class="text-center">Value</th>
-            </thead>
-            <tbody>
-              {{range .Vars}}
-              <tr>
-                <form class="row gx-1 d-flex align-items-center" id="{{ .Basename }}" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
-                  <td class="d-flex justify-content-end h-75"><img src="/s/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" /></td>
-                  <td><input class="form-control form-control-sm w-100" type="text" name="vn" value="{{ .Basename }}" readonly /></td>
-                  <td>
-                    <input class="form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(this)" oninput="validateVar(this)" />
-                    {{if .IsLink }}
-                    <a href="{{ .Value }}" target="_blank"><img src="/s/link.png" /></a>
-                    {{end}}
-                  </td>
-                  <span class="td msg hidden"></span>
-                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
-                </form>
-              </tr>
-              {{end}}
-              <tr>
-                <form class="row gx-1 d-flex align-items-center" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
-                  <td class="d-flex justify-content-end h-75"><input type="image" src="/s/add.png" /></td>
-                  <td><input type="text" class="form-control form-control-sm w-100" name="vn" id="vn" list="list_vars" onchange="setValue('_newvar');" /></td>
-                  <td><input type="text" class="form-control form-control-sm w-100" name="vv" oninput="validateVar(this)" /></td>
-                  <td class="td msg hidden"></td>
-                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
-                </form>
-              </tr>
-            </tbody>
-          </table>
+          <div id="var-element"></div>
         </div>
         <div class="advanced flex-column">
           <div class="d-flex gap-2 align-items-center">
