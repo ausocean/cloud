@@ -200,7 +200,6 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	var (
 		uptimeVar    *model.Variable
 		localAddrVar *model.Variable
-		vars         []model.Variable
 		varTypes     []model.Variable
 		sensors      []model.SensorV2
 		actuators    []model.ActuatorV2
@@ -225,14 +224,6 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 			return fmt.Errorf("get localaddr variable error: %v", err)
 		}
 		return nil
-	})
-	g.Go(func() error {
-		vs, err := model.GetVariablesBySite(gctx2, settingsStore, skey, data.Device.Hex())
-		if err == nil || errors.Is(err, datastore.ErrNoSuchEntity) {
-			vars = vs
-			return nil
-		}
-		return fmt.Errorf("get variables by site error: %v", err)
 	})
 	g.Go(func() error {
 		vt, err := model.GetVariablesBySite(gctx2, settingsStore, skey, "_type")
@@ -283,7 +274,6 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		data.Device.SetOther("localaddr", localAddrVar.Value)
 	}
 
-	data.Vars = vars
 	data.VarTypes = varTypes
 	data.Sensors = sensors
 	data.Actuators = actuators
