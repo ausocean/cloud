@@ -599,63 +599,6 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	writeDevices(w, r, "Device Calibrated")
 }
 
-// editVarHandler handles per-device variable update/deletion requests.
-// Query params:
-//
-//   - ma: MAC address
-//   - vn: variable name
-//   - vv: variable value
-//   - vd: variable delete
-func editVarHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
-	if err != nil {
-		if err != gauth.TokenNotFound {
-			log.Printf("authentication error: %v", err)
-		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
-	}
-	skey, _ := profileData(profile)
-
-	ma := r.FormValue("ma")
-	vn := strings.TrimSpace(r.FormValue("vn"))
-	vv := strings.Join(r.Form["vv"], ",")
-	vd := r.FormValue("vd")
-
-	mac := model.MacEncode(ma)
-	if mac == 0 {
-		writeDevices(w, r, "MAC address missing")
-		return
-	}
-
-	if vn == "" {
-		writeDevices(w, r, "Name missing")
-		return
-	}
-
-	setup(ctx)
-	dev, err := model.GetDevice(ctx, settingsStore, mac)
-	if err != nil {
-		writeDevices(w, r, err.Error())
-		return
-	}
-
-	if vd == "true" {
-		err = model.DeleteVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn)
-	} else {
-		err = model.PutVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn, vv)
-	}
-
-	if err != nil {
-		writeDevices(w, r, err.Error())
-		return
-	}
-
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
-}
-
 // editSensorHandler handles requests to /set/device/edit/sensor.
 func editSensorHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("edit sensor handler")

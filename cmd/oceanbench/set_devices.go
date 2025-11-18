@@ -75,3 +75,68 @@ func setDevicesVars(w http.ResponseWriter, r *http.Request) {
 
 	writeTemplate(w, r, "set/device_vars.html", &data, "")
 }
+
+// editVarHandler handles per-device variable update/deletion requests.
+// Query params:
+//
+//   - ma: MAC address
+//   - vn: variable name
+//   - vv: variable value
+//   - vd: variable delete
+func editVarHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+	profile, err := getProfile(w, r)
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+		}
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return
+	}
+	skey, _ := profileData(profile)
+
+	ma := r.FormValue("ma")
+	vn := strings.TrimSpace(r.FormValue("vn"))
+	vv := strings.Join(r.Form["vv"], ",")
+	vd := r.FormValue("vd")
+
+	log.Printf("variable name: %s", vn)
+	log.Printf("variable value: %s", vv)
+
+	data := devicesData{
+		commonData: commonData{},
+		Mac:        ma,
+		Device:     &model.Device{Mac: model.MacEncode(ma)},
+	}
+
+	mac := model.MacEncode(ma)
+	if mac == 0 {
+		writeTemplate(w, r, "set/device_vars.html", &data, "MAC address missing")
+		return
+	}
+
+	if vn == "" {
+		writeTemplate(w, r, "set/device_vars.html", &data, "Name Missing")
+		return
+	}
+
+	dev, err := model.GetDevice(ctx, settingsStore, mac)
+	if err != nil {
+		writeTemplate(w, r, "set/device_vars.html", &data, err.Error())
+		return
+	}
+
+	if vd == "true" {
+		err = model.DeleteVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn)
+	} else {
+		err = model.PutVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn, vv)
+	}
+
+	if err != nil {
+		writeTemplate(w, r, "set/device_vars.html", &data, err.Error())
+		return
+	}
+
+	setDevicesVars(w, r)
+}
