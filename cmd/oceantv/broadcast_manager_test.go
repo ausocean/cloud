@@ -19,7 +19,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "empty status",
 			svc:  newDummyService(WithStart(time.Now())), // DummyService always returns an empty status.
 			cfg: &BroadcastConfig{
-				ID:  "1",
+				BID: "1",
 				SID: "2",
 			},
 			expectedReuse: false,
@@ -28,7 +28,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "good status",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:  "1",
+				BID: "1",
 				SID: "2",
 			},
 			expectedReuse: true,
@@ -37,7 +37,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "empty ID, good status",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:  "",
+				BID: "",
 				SID: "2",
 			},
 			expectedReuse: false,
@@ -46,7 +46,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "good status, old broadcast",
 			svc:  newDummyService(WithStart(time.Now().Add(-24*time.Hour)), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:  "1",
+				BID: "1",
 				SID: "2",
 			},
 			expectedReuse: false,
@@ -55,7 +55,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 			name: "good status, today's broadcast",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
 			cfg: &BroadcastConfig{
-				ID:  "1",
+				BID: "1",
 				SID: "2",
 			},
 			expectedReuse: true,
@@ -98,7 +98,7 @@ func TestCreateBroadcast(t *testing.T) {
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
 				c.End = time.Now().Add(1 * time.Hour)
-				c.ID = "1"
+				c.BID = "1"
 				c.SID = "2"
 			},
 			initialState:   &directIdle{},

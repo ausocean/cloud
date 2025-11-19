@@ -232,19 +232,19 @@ func (bs *broadcastSystem) tick() error {
 		)
 
 		// If there's a broadcast ID, set to complete if live and then clear it.
-		if bs.ctx.cfg.ID != "" {
-			status, err := bs.ctx.svc.BroadcastStatus(context.Background(), bs.ctx.cfg.ID)
+		if bs.ctx.cfg.BID != "" {
+			status, err := bs.ctx.svc.BroadcastStatus(context.Background(), bs.ctx.cfg.BID)
 			if err != nil {
 				bs.log("could not get broadcast status: %v", err)
 			} else {
 				if status == broadcast.StatusLive {
-					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.ID)
+					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
 						bs.ctx.logAndNotify(broadcastService, "could not complete broadcast, please check this manually: %v", err)
 					}
 				}
 			}
-			try(bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.ID = "" }), "could not clear broadcast ID", bs.log)
+			try(bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.BID = "" }), "could not clear broadcast ID", bs.log)
 		}
 
 		bs.log("broadcast not enabled, not doing anything")
