@@ -94,14 +94,14 @@ const (
 
 // broadcastRequest is used by the broadcastHandler to hold broadcast information.
 type broadcastRequest struct {
-	BroadcastVars      []model.Variable // Holds prior saved broadcast configs.
-	ParsedBroadcasts   []*BroadcastConfig
-	CurrentBroadcast   BroadcastConfig // Holds configuration data for broadcast config in form.
-	Cameras            []model.Device  // Slice of all the cameras on the site.
-	Controllers        []model.Device  // Slice of all the controllers on the site.
-	Settings           Settings        // A struct containing options for some settings that have limited options.
-	Action             string          // Holds value of any button pressed.
-	ListingSecondaries bool            // Are we listing secondary broadcasts?
+	BroadcastVars      []model.Variable   // Holds prior saved broadcast configs.
+	ParsedBroadcasts   []*BroadcastConfig // Holds broadcast configs, in the struct, parsed from the JSON in the BroadcastVars.
+	CurrentBroadcast   BroadcastConfig    // Holds configuration data for broadcast config in form.
+	Cameras            []model.Device     // Slice of all the cameras on the site.
+	Controllers        []model.Device     // Slice of all the controllers on the site.
+	Settings           Settings           // A struct containing options for some settings that have limited options.
+	Action             string             // Holds value of any button pressed.
+	ListingSecondaries bool               // Are we listing secondary broadcasts?
 	Site               *model.Site
 	commonData
 }
