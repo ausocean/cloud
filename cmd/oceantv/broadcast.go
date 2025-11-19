@@ -87,6 +87,7 @@ const (
 
 // BroadcastConfig holds configuration data for a YouTube broadcast.
 type BroadcastConfig struct {
+	UUID                     string        // The immutable unique key of the broadcast.
 	SKey                     int64         // The key of the site this broadcast belongs to.
 	Name                     string        // The name of the broadcast.
 	BID                      string        // Broadcast identification.

@@ -46,7 +46,7 @@ import (
 
 const (
 	projectID          = "oceantv"
-	version            = "v0.12.0"
+	version            = "v0.13.0"
 	projectURL         = "https://tv.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 	locationID         = "Australia/Adelaide" // TODO: Use site location.
@@ -405,6 +405,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Values parsed initially from the form submission.
+		_cfg.UUID = cfg.UUID
 		_cfg.SKey = cfg.SKey
 		_cfg.Name = cfg.Name
 		_cfg.BID = cfg.BID

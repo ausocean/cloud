@@ -38,6 +38,7 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
+	"github.com/google/uuid"
 )
 
 // BroadcastManager is an interface for managing broadcasts.
@@ -239,7 +240,46 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 			*m.cfg = *_cfg
 		}
 	}
-	return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
+
+	// Reference by UUID if we have one.
+	if uuid.Validate(m.cfg.UUID) == nil {
+		return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.UUID, _update)
+	}
+
+	// If we don't have a UUID, we will follow the following steps:
+	//   1. Add a UUID to the config
+	//   2. Run the transaction to update the config
+	//   3. Copy the config, and index it by the UUID
+	//   4. Delete the old config
+	origUpdate := _update
+
+	_update = func(_cfg *Cfg) {
+		_cfg.UUID = uuid.NewString()
+		origUpdate(_cfg)
+	}
+
+	err := updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
+	if err != nil {
+		return fmt.Errorf("unable to update config: %w", err)
+	}
+	oldName := broadcastScope + "." + m.cfg.Name
+	v, err := model.GetVariable(ctx, m.store, m.cfg.SKey, oldName)
+	if err != nil {
+		return fmt.Errorf("unable to get variable for updated config: %w", err)
+	}
+
+	newName := broadcastScope + "." + m.cfg.UUID
+	err = model.PutVariable(ctx, m.store, m.cfg.SKey, newName, v.Value)
+	if err != nil {
+		return fmt.Errorf("unable to put config indexed with UUID: %w", err)
+	}
+
+	err = model.DeleteVariable(ctx, m.store, m.cfg.SKey, oldName)
+	if err != nil {
+		return fmt.Errorf("unable to delete config indexed by name: %w", err)
+	}
+
+	return nil
 }
 
 // HandleStatus checks the status of a broadcast and stops it if it has

@@ -45,6 +45,7 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/google/uuid"
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -94,12 +95,13 @@ const (
 // broadcastRequest is used by the broadcastHandler to hold broadcast information.
 type broadcastRequest struct {
 	BroadcastVars      []model.Variable // Holds prior saved broadcast configs.
-	CurrentBroadcast   BroadcastConfig  // Holds configuration data for broadcast config in form.
-	Cameras            []model.Device   // Slice of all the cameras on the site.
-	Controllers        []model.Device   // Slice of all the controllers on the site.
-	Settings           Settings         // A struct containing options for some settings that have limited options.
-	Action             string           // Holds value of any button pressed.
-	ListingSecondaries bool             // Are we listing secondary broadcasts?
+	ParsedBroadcasts   []*BroadcastConfig
+	CurrentBroadcast   BroadcastConfig // Holds configuration data for broadcast config in form.
+	Cameras            []model.Device  // Slice of all the cameras on the site.
+	Controllers        []model.Device  // Slice of all the controllers on the site.
+	Settings           Settings        // A struct containing options for some settings that have limited options.
+	Action             string          // Holds value of any button pressed.
+	ListingSecondaries bool            // Are we listing secondary broadcasts?
 	Site               *model.Site
 	commonData
 }
@@ -112,6 +114,7 @@ type Settings struct {
 
 // BroadcastConfig holds configuration data for a YouTube broadcast.
 type BroadcastConfig struct {
+	UUID                     string        // The immutable unique key of the broadcast.
 	SKey                     int64         // The key of the site this broadcast belongs to.
 	Name                     string        // The name of the broadcast.
 	BID                      string        // Broadcast identification.
@@ -206,6 +209,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			Pages: pages("broadcast"),
 		},
 		CurrentBroadcast: BroadcastConfig{
+			UUID:                  r.FormValue("broadcast-uuid"),
 			SKey:                  sKey,
 			Name:                  r.FormValue("broadcast-name"),
 			BID:                   r.FormValue("broadcast-id"),
@@ -285,6 +289,23 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		reportError(w, r, req, "could not get broadcast configs variable: %v", err)
 		return
+	}
+
+	for _, v := range req.BroadcastVars {
+		cfg := &BroadcastConfig{}
+		err := json.Unmarshal([]byte(v.Value), cfg)
+		if err != nil {
+			reportError(w, r, req, "could not unmarshal broadcast variables: %v", err)
+			return
+		}
+
+		log.Printf("[DEBUG] >> Parsed config: \nfrom: %+v\n---\nto: %+v\n\n", v, cfg)
+
+		// Handle older version broadcasts which don't have a UUID.
+		if cfg.UUID == "" {
+			cfg.UUID = cfg.Name
+		}
+		req.ParsedBroadcasts = append(req.ParsedBroadcasts, cfg)
 	}
 
 	// If we're not listing secondaries, we need to filter out any secondary broadcasts.
@@ -485,6 +506,13 @@ func stringToAction(s string, req broadcastRequest) Action {
 // saveBroadcast sends a request to save a broadcast to the broadcast manager service (oceantv).
 // TODO: Add JWT signing.
 func saveBroadcast(ctx context.Context, cfg *Cfg) error {
+	if cfg.UUID == "" {
+		// The config is new, and should be assigned a UUID.
+		cfg.UUID = uuid.NewString()
+	} else if err := uuid.Validate(cfg.UUID); err != nil {
+		return fmt.Errorf("broadcast config has invalid UUID: %w", err)
+	}
+
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
