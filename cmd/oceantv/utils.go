@@ -47,7 +47,7 @@ func logForBroadcast(cfg *BroadcastConfig, output func(v ...any), msg string, ar
 }
 
 func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) string {
-	idArgs := []interface{}{cfg.Name, cfg.ID}
+	idArgs := []interface{}{cfg.Name, cfg.BID}
 	idArgs = append(idArgs, args...)
 	return fmt.Sprintf("(name: %s, id: %s) "+msg, idArgs...)
 }

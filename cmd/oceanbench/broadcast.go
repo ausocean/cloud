@@ -114,7 +114,7 @@ type Settings struct {
 type BroadcastConfig struct {
 	SKey                     int64         // The key of the site this broadcast belongs to.
 	Name                     string        // The name of the broadcast.
-	ID                       string        // Broadcast identification.
+	BID                      string        // Broadcast identification.
 	SID                      string        // Stream ID for any currently associated stream.
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
@@ -208,7 +208,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		CurrentBroadcast: BroadcastConfig{
 			SKey:                  sKey,
 			Name:                  r.FormValue("broadcast-name"),
-			ID:                    r.FormValue("broadcast-id"),
+			BID:                   r.FormValue("broadcast-id"),
 			StreamName:            r.FormValue("stream-name"),
 			Description:           r.FormValue("description"),
 			LivePrivacy:           r.FormValue("live-privacy"),

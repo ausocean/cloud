@@ -89,7 +89,7 @@ const (
 type BroadcastConfig struct {
 	SKey                     int64         // The key of the site this broadcast belongs to.
 	Name                     string        // The name of the broadcast.
-	ID                       string        // Broadcast identification.
+	BID                      string        // Broadcast identification.
 	SID                      string        // Stream ID for any currently associated stream.
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
@@ -269,7 +269,7 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks
 	for i := range cfgs {
 		err := performChecks(ctx, &cfgs[i], store, eventHooks, stateHooks)
 		if err != nil {
-			return fmt.Errorf("could not perform checks for broadcast: %s, ID: %s: %w", cfgs[i].Name, cfgs[i].ID, err)
+			return fmt.Errorf("could not perform checks for broadcast: %s, BID: %s: %w", cfgs[i].Name, cfgs[i].BID, err)
 		}
 	}
 	return nil

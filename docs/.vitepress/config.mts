@@ -34,19 +34,19 @@ export default defineConfig({
               },
               {
                 text: "Broadcasting",
-                link: "oceanbench/broadcast/broadcast.md",
+                link: "oceanbench/broadcast/broadcast",
                 items: [
                   {
                     text: "Broadcast Settings",
-                    link: "oceanbench/broadcast/broadcast-settings.md",
+                    link: "oceanbench/broadcast/broadcast-settings",
                   },
                   {
                     text: "Selecting a Channel",
-                    link: "oceanbench/broadcast/selecting-channel.md",
+                    link: "oceanbench/broadcast/selecting-channel",
                   },
                   {
                     text: "Failure Mode",
-                    link: "oceanbench/broadcast/failure-mode.md",
+                    link: "oceanbench/broadcast/failure-mode",
                   },
                 ],
               },

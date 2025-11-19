@@ -152,11 +152,11 @@ func main() {
 
 				data := struct {
 					Name  string `json:"name"`
-					ID    string `json:"id"`
+					BID   string `json:"bid"`
 					State string `json:"state"`
 				}{
 					Name:  cfg.Name,
-					ID:    cfg.ID,
+					BID:   cfg.BID,
 					State: stateToString(s),
 				}
 				const ausoceanTVWebHookDest = "https://ausocean.tv/api/v1/webhooks/oceantv"
@@ -407,7 +407,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		// Values parsed initially from the form submission.
 		_cfg.SKey = cfg.SKey
 		_cfg.Name = cfg.Name
-		_cfg.ID = cfg.ID
+		_cfg.BID = cfg.BID
 		_cfg.StreamName = cfg.StreamName
 		_cfg.Description = cfg.Description
 		_cfg.LivePrivacy = cfg.LivePrivacy

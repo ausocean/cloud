@@ -90,8 +90,13 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 ) error {
 	// Only create a new broadcast if a valid one doesn't already exist.
 	if m.broadcastCanBeReused(cfg, svc) {
-		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.ID, cfg.SID)
-		err := m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
+		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.BID, cfg.SID)
+		err := m.Save(nil, func(_cfg *Cfg) {
+			_cfg.BID = cfg.BID
+			_cfg.SID = cfg.SID
+			_cfg.CID = cfg.CID
+			_cfg.RTMPKey = cfg.RTMPKey
+		})
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
 		}
@@ -135,7 +140,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
 	}
 	err = m.Save(nil, func(_cfg *Cfg) {
-		_cfg.ID = ids.BID
+		_cfg.BID = ids.BID
 		_cfg.SID = ids.SID
 		_cfg.CID = ids.CID
 		_cfg.RTMPKey = rtmpKey
@@ -169,7 +174,7 @@ func (m *OceanBroadcastManager) StartBroadcast(
 	go func() {
 		err := svc.StartBroadcast(
 			cfg.Name,
-			cfg.ID,
+			cfg.BID,
 			cfg.SID,
 			saveLinkFunc(),
 			func() error { return nil }, // This is now handled by the hardware state machine.
@@ -189,13 +194,13 @@ func (m *OceanBroadcastManager) StartBroadcast(
 func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error {
 	m.log("stopping broadcast")
 
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
 		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
 
 	if status != broadcast.StatusComplete && status != "" {
-		err := svc.CompleteBroadcast(ctx, cfg.ID)
+		err := svc.CompleteBroadcast(ctx, cfg.BID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
 		}
@@ -208,7 +213,7 @@ func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, sv
 
 	// Change privacy to post live privacy.
 	// This will also set the privacy of the video after the broadcast has ended.
-	err = svc.SetBroadcastPrivacy(ctx, cfg.ID, cfg.PostLivePrivacy)
+	err = svc.SetBroadcastPrivacy(ctx, cfg.BID, cfg.PostLivePrivacy)
 	if err != nil {
 		return fmt.Errorf("could not update broadcast privacy: %w", err)
 	}
@@ -241,7 +246,7 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 // complete or revoked status.
 func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, noBroadcastCallBack BroadcastCallback) error {
 	m.log("handling status check")
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
 		if !errors.Is(err, broadcast.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
@@ -432,7 +437,7 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 // is, if it has been revoked or completed, and if its IDs have been set.
 func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
 	// Check if the broadcast was created today. Don't reuse an old broadcast.
-	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.ID)
+	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast start time: %v", err)
 		return false
@@ -444,11 +449,11 @@ func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc B
 		return false
 	}
 
-	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
+	status, err := svc.BroadcastStatus(context.Background(), cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast status: %v", err)
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
+	return cfg.BID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
 }
