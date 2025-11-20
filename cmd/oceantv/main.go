@@ -45,11 +45,12 @@ import (
 )
 
 const (
-	projectID          = "oceantv"
-	version            = "v0.13.0"
-	projectURL         = "https://tv.cloudblue.org"
-	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	locationID         = "Australia/Adelaide" // TODO: Use site location.
+	projectID            = "oceantv"
+	version              = "v0.13.0"
+	projectURL           = "https://tv.cloudblue.org"
+	cronServiceAccount   = "oceancron@appspot.gserviceaccount.com"
+	locationID           = "Australia/Adelaide" // TODO: Use site location.
+	AusOceanTVServiceURL = "https://ausocean.tv"
 )
 
 var (
@@ -60,6 +61,7 @@ var (
 	notifier   notify.Notifier
 	cronSecret []byte
 	storePath  string
+	aotvURL    = AusOceanTVServiceURL
 )
 
 func main() {
@@ -79,6 +81,7 @@ func main() {
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
+	flag.StringVar(&aotvURL, "aotvurl", AusOceanTVServiceURL, "AusOceanTV Service URL")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -151,15 +154,18 @@ func main() {
 				}
 
 				data := struct {
+					UUID  string `json:"uuid"`
 					Name  string `json:"name"`
 					BID   string `json:"bid"`
 					State string `json:"state"`
 				}{
+					UUID:  cfg.UUID,
 					Name:  cfg.Name,
 					BID:   cfg.BID,
 					State: stateToString(s),
 				}
-				const ausoceanTVWebHookDest = "https://ausocean.tv/api/v1/webhooks/oceantv"
+				const ausoceanTVWebHookEndpoint = "/api/v1/webhooks/oceantv"
+				ausoceanTVWebHookDest := aotvURL + ausoceanTVWebHookEndpoint
 				err := sendWebhook(ausoceanTVWebHookDest, data)
 				if err != nil {
 					log.Printf("could not send AusOceanTV webhook: %v", err)
@@ -178,6 +184,7 @@ func main() {
 	mux.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
+	log.Printf("Sending AusOceanTV webhooks to %s", aotvURL)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
 }
 
