@@ -299,8 +299,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("[DEBUG] >> Parsed config: \nfrom: %+v\n---\nto: %+v\n\n", v, cfg)
-
 		// Handle older version broadcasts which don't have a UUID.
 		if cfg.UUID == "" {
 			cfg.UUID = cfg.Name
@@ -463,7 +461,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			reportError(w, r, req, "could not reset state: %v", err)
 			return
 		}
-		v, err := model.GetVariable(ctx, settingsStore, sKey, broadcastScope+"."+cfg.Name)
+
+		v, err := model.GetVariable(ctx, settingsStore, sKey, broadcastScope+"."+cfg.UUID)
 		if err != nil {
 			reportError(w, r, req, "could not load saved broadcast: %v", err)
 			return
