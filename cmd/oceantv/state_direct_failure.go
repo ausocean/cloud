@@ -60,7 +60,11 @@ func (s *directFailure) enter() {
 }
 
 func (s *directFailure) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct{ Err string }{Err: s.err.Error()})
+	if s.err != nil {
+		return json.Marshal(struct{ Err string }{Err: s.err.Error()})
+	}
+
+	return json.Marshal(struct{ Err string }{Err: ""})
 }
 
 func (s *directFailure) UnmarshalJSON(data []byte) error {
