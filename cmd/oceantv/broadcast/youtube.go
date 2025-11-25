@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/ausocean/cloud/gauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
@@ -89,19 +90,19 @@ func GetService(ctx context.Context, scope string, tokenURI string) (*youtube.Se
 		return nil, fmt.Errorf("could not get google config: %w", err)
 	}
 
-	s, err := youtube.NewService(ctx, option.WithHTTPClient(cfg.Client(ctx, tok)))
+	saveTokCallback := func(tok *oauth2.Token) error {
+		if production {
+			return saveTokObj(ctx, tok, tokenURI)
+		}
+		return saveTokFile(tok, tokenURI)
+	}
+
+	smartTokenSource := gauth.NewSmartTokenSource(ctx, cfg, tok, saveTokCallback)
+	client := oauth2.NewClient(ctx, smartTokenSource)
+
+	s, err := youtube.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		return nil, fmt.Errorf("could not create youtube service: %w", err)
-	}
-
-	if production {
-		err = saveTokObj(ctx, tok, tokenURI)
-	} else {
-		err = saveTokFile(tok, tokenURI)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("could not save new token: %w", err)
 	}
 
 	return s, nil
