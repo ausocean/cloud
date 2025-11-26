@@ -482,7 +482,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 // writeError writes HTTP errors to the response writer.
 func writeError(w http.ResponseWriter, code int, err error) {
-	log.Printf(err.Error())
+	log.Printf("%s", err.Error())
 	http.Error(w, http.StatusText(code)+":"+err.Error(), code)
 }
 
