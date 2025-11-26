@@ -318,11 +318,11 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	if task != "Add" {
 		dev, err = model.GetDevice(ctx, settingsStore, mac)
 		if err != nil {
-			writeDevices(w, r, err.Error())
+			writeDevices(w, r, "%s", err.Error())
 			return
 		}
 		if dev.Skey != skey {
-			writeDevices(w, r, errPermissionDenied.Error())
+			writeDevices(w, r, "%s", errPermissionDenied.Error())
 			return
 		}
 	}
@@ -410,7 +410,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = model.PutDevice(ctx, settingsStore, dev)
 	if err != nil {
-		writeDevices(w, r, err.Error())
+		writeDevices(w, r, "%s", err.Error())
 		return
 	}
 

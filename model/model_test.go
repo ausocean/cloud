@@ -411,17 +411,17 @@ func init() {
 	RegisterEntities()
 }
 
-// TestNetreceiverAccess tests access to NetReceiver's datastore.
-func TestNetreceiverFileAccess(t *testing.T) {
+// TestAusoceanAccess tests access to AusOcean's datastore.
+func TestAusoceanFileAccess(t *testing.T) {
 	testEntities(t, "file")
 	testDevice(t, "file")
 	testVariable(t, "file")
 	testCron(t, "file")
 }
 
-func TestNetreceiverCloudAccess(t *testing.T) {
-	if os.Getenv("NETRECEIVER_CREDENTIALS") == "" {
-		t.Skip("NETRECEIVER_CREDENTIALS required to access NetReceiver datastore")
+func TestAusoceanCloudAccess(t *testing.T) {
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS required to access AusOcean datastore")
 	}
 	testEntities(t, "cloud")
 	testDevice(t, "cloud")
@@ -429,13 +429,13 @@ func TestNetreceiverCloudAccess(t *testing.T) {
 	testCron(t, "cloud")
 }
 
-// testEntities tests access to various entities in NetReceiver's datastore.
+// testEntities tests access to various entities in AusOcean's datastore.
 func testEntities(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	// If we're testing FileStore we first need to create some entities.
@@ -508,9 +508,9 @@ func testDevice(t *testing.T, kind string) {
 		testDeviceEncMac = 15
 	)
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	dev := &Device{Skey: testSiteKey, Dkey: testDeviceKey, Mac: testDeviceEncMac, Name: testDeviceID, Inputs: testDeviceInputs, Enabled: true}
@@ -547,9 +547,9 @@ func testDevice(t *testing.T, kind string) {
 func testVariable(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -622,16 +622,25 @@ func testVariable(t *testing.T, kind string) {
 	}
 
 	vars, err := GetVariablesBySite(ctx, store, 0, "dev")
+	if err != nil {
+		t.Errorf("unable to get variables by site with scope dev: %v", err)
+	}
 	if len(vars) != 1 {
 		t.Errorf("GetVariablesBySite(dev) returned wrong number of variables; expected 1, got %d", len(vars))
 	}
 	vars, err = GetVariablesBySite(ctx, store, 0, "_sys")
+	if err != nil {
+		t.Errorf("unable to get variables by site with scope _sys: %v", err)
+	}
 	if len(vars) != 2 {
 		t.Errorf("GetVariablesBySite(.sys) returned wrong number of variables; expected 2, got %d", len(vars))
 	}
 	vars, err = GetVariablesBySite(ctx, store, 0, "")
 	if len(vars) < len(tests) {
 		t.Errorf("GetVariablesBySite() returned wrong number of variables; expected at least %d, got %d", len(tests), len(vars))
+	}
+	if err != nil {
+		t.Errorf("unable to get variables by site: %v", err)
 	}
 
 	for i, test := range tests[:2] {
@@ -646,8 +655,10 @@ func testVariable(t *testing.T, kind string) {
 	}
 }
 
-// TestVidgrindAccess tests access to VidGrind's datastore.
-// VIDGRIND_CREDENTIALS is required in order to access the datastore.
+// TestVidgrindAccess tests access to AusOcean's datastore.
+// AUSOCEAN_CREDENTIALS is required in order to access the datastore.
+//
+// TODO: Merge this with Ausocean tests.
 func TestVidgrindFileAccess(t *testing.T) {
 	testMtsMedia(t, "file")
 	testText(t, "file")
@@ -657,8 +668,8 @@ func TestVidgrindFileAccess(t *testing.T) {
 }
 
 func TestVidgrindCloudAccess(t *testing.T) {
-	if os.Getenv("VIDGRIND_CREDENTIALS") == "" {
-		t.Skip("VIDGRIND_CREDENTIALS required to test VidGrind datastore")
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS required to test VidGrind datastore")
 	}
 
 	testMtsMedia(t, "cloud")
@@ -672,9 +683,9 @@ func TestVidgrindCloudAccess(t *testing.T) {
 func testMtsMedia(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	// Write MtsMedia.
@@ -959,9 +970,9 @@ func testGeohashes(t *testing.T, store datastore.Store) {
 func testText(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	texts := []Text{
@@ -1014,9 +1025,9 @@ func testText(t *testing.T, kind string) {
 // testActuator checks that we successfully add actuators to the datastore and then get them.
 func testActuator(t *testing.T, kind string) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -1057,9 +1068,9 @@ func testActuator(t *testing.T, kind string) {
 // testScalar tests scalars.
 func testScalar(t *testing.T, kind string) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -1142,7 +1153,7 @@ func testMtsDurations(t *testing.T, kind string) {
 		return
 	}
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
 		t.Fatalf("could not create new store: %v", err)
 	}
@@ -1309,7 +1320,7 @@ func TestGotsPacket(t *testing.T) {
 func testCron(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
 		t.Fatalf("could not create new store: %v", err)
 	}
@@ -1353,7 +1364,7 @@ func BenchmarkSiteWithoutCaching(b *testing.B) {
 
 func benchmarkSite(b *testing.B) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
+	store, err := datastore.NewStore(ctx, "cloud", "ausocean/test", "")
 	if err != nil {
 		b.Errorf("could not get store: %v", err)
 	}

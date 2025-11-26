@@ -25,6 +25,15 @@ cp ausocean_index.yaml index.yaml
 gcloud app deploy --project ausocean index.yaml
 ```
 
+There is an additional testing database which is part of the ausocean project. These indexes
+can be updated using the ausocean_test.yaml file. This index file contains both the indexes
+for vidgrind entities as well as ausocean entities.
+
+```bash
+cp ausocean_test_index.yaml index.yaml
+gcloud datastore indexes create --project=ausocean --database=test index.yaml
+```
+
 To clean up indexes:
 
 ```bash
