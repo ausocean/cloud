@@ -362,7 +362,7 @@ func writeDeviceConfig(w http.ResponseWriter, dev *model.Device) {
 // prefixed er:.
 // NB: This is to make parsing easier for dumb clients, such as shell scripts.
 func writeError(w http.ResponseWriter, status int, msg string) {
-	log.Printf(msg)
+	log.Printf("%s", msg)
 	http.Error(w, "er:"+msg, status)
 }
 

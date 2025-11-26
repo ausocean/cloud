@@ -86,7 +86,7 @@ func pollGPS(name string, baud int, alt float64) {
 	if err != nil {
 		log.Fatalf("Error opening serial port %s: %v", name, err)
 	}
-	log.Printf("Polling GPS on serial port " + name)
+	log.Printf("Polling GPS on serial port %s", name)
 
 	sc := bufio.NewScanner(rd)
 	for sc.Scan() {
