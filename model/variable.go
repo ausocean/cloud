@@ -54,6 +54,21 @@ type Variable struct {
 	Updated time.Time // Date/time last updated.
 }
 
+// VarType holds the type information about a variable with a given name.
+type VarType struct {
+	Name string
+	Type string
+}
+
+// Variable types.
+const (
+	VarTypeInt    = "int"
+	VarTypeUint   = "uint"
+	VarTypeFloat  = "float"
+	VarTypeBool   = "bool"
+	VarTypeString = "string"
+)
+
 // Encode serializes a Variable into tab-separated values.
 func (v *Variable) Encode() []byte {
 	return []byte(fmt.Sprintf("%d\t%s\t%s\t%s\t%d", v.Skey, v.Scope, v.Name, v.Value, v.Updated.Unix()))
