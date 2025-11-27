@@ -36,26 +36,42 @@ async function updateVars(event, deleteVar) {
   // Add variable to update.
   const form = event.target.closest("form");
   const vn = form.querySelector("input[name=vn]");
-  const vv = form.querySelector("input[name=vv]");
+  const vv = form.querySelectorAll("input[name=vv]");
+  let values = [];
+  vv.forEach((elem) => {
+    // Only use the value if the input is both shown, and checked.
+    if (elem.getAttribute("hidden") == "true") {
+      return;
+    }
+    if (!elem.checked) {
+      return;
+    }
+    values.push(elem.value);
+  });
 
   console.log("vn:", vn);
   console.log("vv:", vv);
 
   url.searchParams.set("vn", vn.value);
-  url.searchParams.set("vv", vv.value);
+  url.searchParams.set("vv", values.join(","));
 
   // Show a small loading spinner.
   let spinner = document.createElement("div");
   spinner.className = "spinner-border spinner-border-sm text-primary ms-2";
   spinner.role = "status";
   spinner.innerHTML = `<span class="visually-hidden">Loading...</span>`;
-  vv.parentElement.appendChild(spinner);
+  vn.parentElement.appendChild(spinner);
 
   try {
     const resp = await fetch(url.toString());
     const html = await resp.text();
 
     varElement.innerHTML = html;
+
+    let elems = document.querySelectorAll(".var-form");
+    for (let elem of elems) {
+      setValue(elem.id);
+    }
   } catch (err) {
     console.error("Error updating variable:", err);
   } finally {
