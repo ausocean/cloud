@@ -38,6 +38,8 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/system/camera"
+	"github.com/ausocean/cloud/system/controller"
 	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
 	"github.com/ausocean/utils/sliceutils"
@@ -80,7 +82,7 @@ type devicesData struct {
 	Vars       []model.Variable
 	Sensors    []model.SensorV2
 	Actuators  []model.ActuatorV2
-	VarTypes   []model.Variable
+	VarTypes   []model.VarType
 	DevTypes   []string
 	Quantities []nmea.Quantity
 	Funcs      []string
@@ -200,7 +202,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	var (
 		uptimeVar    *model.Variable
 		localAddrVar *model.Variable
-		varTypes     []model.Variable
+		varTypes     []model.VarType
 		sensors      []model.SensorV2
 		actuators    []model.ActuatorV2
 	)
@@ -226,12 +228,23 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return nil
 	})
 	g.Go(func() error {
-		vt, err := model.GetVariablesBySite(gctx2, settingsStore, skey, "_type")
-		if err == nil || errors.Is(err, datastore.ErrNoSuchEntity) {
-			varTypes = vt
-			return nil
+		switch data.Device.Type {
+		case model.DevTypeCamera:
+			varTypes = camera.VarTypes
+		case model.DevTypeController:
+			varTypes = controller.VarTypes
+		case model.DevTypeAligner:
+			fallthrough
+		case model.DevTypeSpeaker:
+			fallthrough
+		case model.DevTypeTest:
+			fallthrough
+		case model.DevTypeHydrophone:
+			return errNotImplemented
+		default:
+			return model.ErrInvalidDevType
 		}
-		return fmt.Errorf("get vartype variable error: %v", err)
+		return nil
 	})
 	g.Go(func() error {
 		ss, err := model.GetSensorsV2(gctx2, settingsStore, data.Device.Mac)
