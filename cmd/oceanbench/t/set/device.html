@@ -27,7 +27,7 @@
       var adv = false;
 
       var varTypes = { {{range $.VarTypes}}
-        {{.Basename}}:"{{.Value}}",{{end}}
+        {{.Name}}:"{{.Type}}",{{end}}
       };
       var varEnums = {};
 
@@ -60,15 +60,10 @@
           return;
         }
         let form = document.getElementById(id);
-        let span2 = form.firstElementChild.nextElementSibling;
-        let vn = span2.firstChild;
-        let span3 = span2.nextElementSibling;
-        let vv = span3.firstChild;
-        let msg = form.querySelector('.msg')
-
-        while (span3.firstChild) {
-          span3.removeChild(span3.firstChild);
-        }
+        let vn = form.querySelector("input[name='vn']");
+        let vv = form.querySelector("input[name='vv']");
+        let msg = form.querySelector('.msg');
+        let btnDiv = form.querySelector(".btn-container")
 
         let k = vn.value;
         let v = varTypes[k];
@@ -92,14 +87,18 @@
 
         let enums = varEnums[k];
         if (enums == null) {
-          span3.appendChild(vv);
           vv.removeAttribute('hidden');
           vv.removeAttribute('disabled');
+          btnDiv.innerHTML = ""
+          btnDiv.setAttribute('hidden', 'true')
           return;
         }
 
         vv.setAttribute('hidden', 'true');
         vv.setAttribute('disabled', 'true');
+
+        btnDiv.removeAttribute('hidden')
+        btnDiv.innerHTML = ""
 
         let type = 'radio';
         if (varTypes[k].substring(0,6) == 'enums:') {
@@ -107,22 +106,26 @@
         }
         let values = vv.value.split(',');
         for (let i = 0; i < enums.length; i++) {
+          let label = document.createElement("label");
           let input = document.createElement('input');
           input.type = type;
           input.name = 'vv';
           input.value = enums[i];
-          input.setAttribute('onchange', "document.getElementById('"+id+"').submit();")
+          input.setAttribute('onchange', "submitVar(event, this);")
+          input.id = `vv_${enums[i]}`
+          label.htmlFor = input.id
           if (values.includes(input.value)) {
             input.checked = true;
           }
-          span3.appendChild(input);
-          let text = document.createTextNode(enums[i] + ' ');
-          span3.appendChild(text);
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(enums[i] + ' '));
+          btnDiv.appendChild(label);
         }
+
       }
 
-      function init() {
-        loadVars();
+      async function init() {
+        await loadVars();
 
         for (let k in varTypes) {
           let v = varTypes[k];
@@ -134,9 +137,9 @@
             varEnums[k] = v.substring(6).split(',');
           }
         }
-        let elems = document.querySelectorAll('input[name=vn]');
+        let elems = document.querySelectorAll('.var-form');
         for (let elem of elems){
-          setValue(elem.value);
+          setValue(elem.id);
         }
 
         // Read the cookie for the advanced settings.
@@ -202,7 +205,7 @@
     <div id="data">
       <datalist id="list_vars">
         {{range $.VarTypes}}
-        <option>{{ .Basename }}</option>
+        <option>{{ .Name }}</option>
         {{end}}
       </datalist>
     </div>
