@@ -22,6 +22,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -339,6 +340,14 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = processWebhooks(ctx, dev, "poll")
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		log.Printf("no poll webhook registered for device: %s", dev.Name)
+	} else if err != nil {
+		writeError(w, err)
+		return
+	}
+
 	resp, err := json.Marshal(respMap)
 	if err != nil {
 		writeError(w, fmt.Errorf("could not marshal response map %w", err))
@@ -378,6 +387,54 @@ func processActuators(ctx context.Context, dev *model.Device, respMap map[string
 		}
 		respMap[act.Pin] = n
 	}
+	return nil
+}
+
+// processWebhooks gets the webhooks for a device and event and makes the requests.
+// The event is typically the endpoint hit by the device, such as 'poll' or 'var'.
+func processWebhooks(ctx context.Context, dev *model.Device, event string) error {
+	hooksVarName := fmt.Sprintf("%s.webhooks_%s", dev.Hex(), event)
+	log.Println("looking for var with name:", hooksVarName)
+	hooksVar, err := model.GetVariable(ctx, settingsStore, dev.Skey, hooksVarName)
+	if err != nil {
+		return fmt.Errorf("unable to get hooks for device (%s): %w", dev.Name, err)
+	}
+
+	// Webhooks are stored as comma separated URLs.
+	hooks := strings.Split(hooksVar.Value, ",")
+
+	hookBody := struct {
+		DeviceMac int64
+		Event     string
+	}{
+		DeviceMac: dev.Mac,
+		Event:     event,
+	}
+
+	body, err := json.Marshal(hookBody)
+	if err != nil {
+		return fmt.Errorf("unable to marshal webhook body: %w", err)
+	}
+
+	var reqErrs []error
+
+	for _, h := range hooks {
+		resp, err := http.Post(h, "application/json", bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("unable to send webhook to %s: %w", h, err)
+		}
+
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusCreated {
+			return nil
+		}
+
+		reqErrs = append(reqErrs, fmt.Errorf("webhook request to %s failed with status: %s", h, resp.Status))
+	}
+
+	if len(reqErrs) != 0 {
+		return fmt.Errorf("errors occured sending webhooks: %w", errors.Join(reqErrs...))
+	}
+
 	return nil
 }
 
@@ -594,7 +651,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-        default:
+	default:
 		writeError(w, errInvalidAPI)
 		return
 	}

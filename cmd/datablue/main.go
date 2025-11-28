@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	version   = "v0.7.1"
+	version   = "v0.8.1"
 	projectID = "datablue"
 )
 
