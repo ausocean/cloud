@@ -144,3 +144,23 @@ th.wide { width: 20rem; }
 
 
 div[popover] {position: fixed; width: 100vw; height: 100vh; background: #00000088}
+
+.inline {
+  label {
+    padding: 0.2rem;
+    margin: 0.2rem;
+    width: 20%;
+  }
+
+  input {
+    margin: 0.2rem;
+    padding: 0.2rem;
+  }
+}
+
+#users {
+  th,
+  td {
+    padding: 5px;
+  }
+}
