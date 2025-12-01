@@ -386,7 +386,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		// Check if we've just pulled the hardware out of a failure state.
 		// We do this by checking if the hardware was in a failure state and
 		// now it's not.
-		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
+		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.UUID)
 		if errors.Is(err, ErrBroadcastNotFound{}) {
 			// Assume the broadcast is newly saved.
 		} else if err != nil {
@@ -575,7 +575,7 @@ func resetState(ctx context.Context, cfg *Cfg) error {
 // list and CurrentBroadcast config to clear the form on next page write.
 func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore.Store) error {
 	cfg := &req.CurrentBroadcast
-	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name)
+	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.UUID)
 	if err != nil {
 		return fmt.Errorf("could not delete broadcast: %v", err)
 	}
@@ -614,10 +614,10 @@ func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) 
 
 // getExistingAccount will return the current associated account of the broadcast with the current config
 // name. This should be used to ensure that the associated account is only updated using the generate token method.
-// If no broadcast/account is found, then an empty string will be returned
+// If no broadcast/account is found, then an empty string will be returned.
 func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) (string, error) {
-	cfg, err := broadcastFromVars(broadcasts, cfg.Name)
-	if errors.Is(err, ErrBroadcastNotFound{}) {
+	cfg, err := broadcastFromVars(broadcasts, cfg.UUID)
+	if errors.Is(err, ErrBroadcastNotFound{cfg.UUID}) {
 		return "", nil
 	}
 	if err != nil {
