@@ -192,9 +192,51 @@ function tzParseUTCOffset(offset) {
   return sign * (hours + minutes / 60);
 }
 
-// sync syncs time and timestamp input values. If either of these inputs are changed, the other input is updated to match.
+// syncDate syncs date and timestamp input values. If either of these three inputs are changed, the other inputs are updated to match.
+// dateChanged signifies if the datepicker input has been used to change the date.
+function syncDate(dateID, tsID, tzID, dateChanged) {
+  var tz = document.getElementById(tzID).value;
+  if (tz == "") {
+    document.getElementById(tzID).value = "0";
+    tz = "0";
+  }
+  if (dateChanged) {
+    // Go from local date to Unix timestamp.
+    var s = document.getElementById(dateID).value;
+    if (s == "") {
+      document.getElementById(tsID).value = "";
+      return;
+    }
+    if (s.length == 16) {
+      s += ":00"; // Append seconds to make RFC3339 compliant.
+    }
+    // If the timezone is not in UTC offset format, try to convert it from an offset number.
+    if(!checkUTCOffset(tz)){
+      s += tzFormatUTCOffset(tz);
+    } else {
+      s += tz;
+    }
+    const ts = new Date(s).getTime() / 1000;
+    document.getElementById(tsID).value = ts.toString();
+  } else {
+    // Go from Unix timestamp to local date.
+    const s = document.getElementById(tsID).value;
+    if (s == "") {
+      document.getElementById(dateID).value = "";
+      return;
+    }
+    if(checkUTCOffset(tz)){
+      tz = tzParseUTCOffset(tz);
+    }
+    const ts = parseInt(s) + Math.round(parseFloat(tz) * 3600);
+    const dt = new Date(ts * 1000).toISOString().slice(0, -1);
+    document.getElementById(dateID).value = dt;
+  }
+}
+
+// syncTime syncs time and timestamp input values. If either of these inputs are changed, the other input is updated to match.
 // pickerUsed signifies if the time picker was used to change the time.
-function sync(timeID, tsID, tzID, pickerUsed) {
+function syncTime(timeID, tsID, tzID, pickerUsed) {
   var tz = document.getElementById(tzID).value;
   // set the timestamp to zero if it is empty (default UTC)
   if (tz == "") {
