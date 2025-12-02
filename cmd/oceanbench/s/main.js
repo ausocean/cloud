@@ -110,9 +110,7 @@ function updateMID(mac, pin, id) {
 // copyFormValues copies field values from the selected form within srcContainerID to the form dstID.
 function copyFormValues(dstID, srcContainerID, fields) {
   var dst = document.getElementById(dstID);
-  var forms = document
-    .getElementById(srcContainerID)
-    .getElementsByTagName("form");
+  var forms = document.getElementById(srcContainerID).getElementsByTagName("form");
   for (var ii = 0; ii < forms.length; ii++) {
     var src = forms[ii];
     var checkbox = src.elements["select"];
@@ -184,104 +182,76 @@ function tzParseUTCOffset(offset) {
     return 0;
   }
 
-  const sign = offset[0] === '-' ? -1 : 1;
-  const parts = offset.slice(1).split(':');
+  const sign = offset[0] === "-" ? -1 : 1;
+  const parts = offset.slice(1).split(":");
   const hours = parseInt(parts[0], 10);
   const minutes = parseInt(parts[1], 10);
 
   return sign * (hours + minutes / 60);
 }
 
-// syncDate syncs date and timestamp input values. If either of these three inputs are changed, the other inputs are updated to match.
-// dateChanged signifies if the datepicker input has been used to change the date.
-function syncDate(dateID, tsID, tzID, dateChanged) {
-  var tz = document.getElementById(tzID).value;
-  if (tz == "") {
-    document.getElementById(tzID).value = "0";
-    tz = "0";
-  }
-  if (dateChanged) {
-    // Go from local date to Unix timestamp.
-    var s = document.getElementById(dateID).value;
-    if (s == "") {
-      document.getElementById(tsID).value = "";
-      return;
-    }
-    if (s.length == 16) {
-      s += ":00"; // Append seconds to make RFC3339 compliant.
-    }
-    // If the timezone is not in UTC offset format, try to convert it from an offset number.
-    if(!checkUTCOffset(tz)){
-      s += tzFormatUTCOffset(tz);
-    } else {
-      s += tz;
-    }
-    const ts = new Date(s).getTime() / 1000;
-    document.getElementById(tsID).value = ts.toString();
-  } else {
-    // Go from Unix timestamp to local date.
-    const s = document.getElementById(tsID).value;
-    if (s == "") {
-      document.getElementById(dateID).value = "";
-      return;
-    }
-    if(checkUTCOffset(tz)){
-      tz = tzParseUTCOffset(tz);
-    }
-    const ts = parseInt(s) + Math.round(parseFloat(tz) * 3600);
-    const dt = new Date(ts * 1000).toISOString().slice(0, -1);
-    document.getElementById(dateID).value = dt;
-  }
-}
-
-// syncTime syncs time and timestamp input values. If either of these inputs are changed, the other input is updated to match.
-// pickerUsed signifies if the time picker was used to change the time.
-function syncTime(timeID, tsID, tzID, pickerUsed) {
-  var tz = document.getElementById(tzID).value;
+// syncDateTime syncs a date/time picker and a timestamp input.
+// If either of these are changed, the other is updated to match.
+// pickerUsed signifies if the date/time picker was changed.
+function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
+  let timezone = document.getElementById(timezoneID).value;
   // set the timestamp to zero if it is empty (default UTC)
-  if (tz == "") {
-    document.getElementById(tzID).value = "0";
-    tz = "0";
+  if (timezone == "") {
+    document.getElementById(timezoneID).value = "0";
+    timezone = "0";
   }
+  const pickerElem = document.getElementById(datetimeID);
+  const timestampElem = document.getElementById(timestampID);
   if (pickerUsed) {
     // Update timestamp from time picker
-    var s = document.getElementById(timeID).value;
-    if (s == "") {
-      document.getElementById(tsID).value = "";
+    let datetime = pickerElem.value;
+    if (datetime == "") {
+      timestampElem.value = "";
       return;
     }
-    if (s.length == 5) {
-      s += ":00"; // Append seconds to make RFC3339 compliant.
+    // time only
+    if (datetime.length == 5) {
+      datetime += ":00"; // Append seconds to make RFC3339 compliant.
+      // prepend a date to make it a valid datetime
+      datetime = "2000-01-01T" + datetime;
+    }
+    // date and time
+    else if (datetime.length == 16) {
+      datetime += ":00"; // Append seconds to make RFC3339 compliant.
     }
     // If the timezone is not in UTC offset format, try to convert it from an offset number.
-    if(!checkUTCOffset(tz)){
-      s += tzFormatUTCOffset(tz);
+    if (!checkUTCOffset(timezone)) {
+      datetime += tzFormatUTCOffset(timezone);
     } else {
-      s += tz;
+      datetime += timezone;
     }
-    // prepend a date to make it a valid datetime
-    s = "2000-01-01T" + s
     // parse the datetime and convert it to seconds
-    const ts = new Date(s).getTime() / 1000;
-    document.getElementById(tsID).value = ts.toString();
+    const timestamp = new Date(datetime).getTime() / 1000;
+    timestampElem.value = timestamp.toString();
   } else {
     // Update time picker from timestamp
-    const timestamp = document.getElementById(tsID).value;
+    const timestamp = timestampElem.value;
     // if we don't have a timestamp, we don't have a time
     if (timestamp == "") {
-      document.getElementById(timeID).value = "";
+      pickerElem.value = "";
       return;
     }
     // if the timezone is a valid UTC offset, convert it to hours
-    if(checkUTCOffset(tz)){
-      tz = tzParseUTCOffset(tz);
+    if (checkUTCOffset(timezone)) {
+      timezone = tzParseUTCOffset(timezone);
     }
 
     // add the offset (in seconds) to the timestamp
-    const ts = parseInt(timestamp) + Math.round(parseFloat(tz) * 3600);
+    const localTimestamp = parseInt(timestamp) + Math.round(parseFloat(timezone) * 3600);
     // convert the timestamp to an iso string and extract the time portion
-    const dt = new Date(ts * 1000).toISOString().slice(11,16);
-    document.getElementById(timeID).value = dt;
+    const datetime = new Date(localTimestamp * 1000).toISOString();
+    if (pickerElem.type == "time") {
+      // extract the time portion only (HH:mm)
+      pickerElem.value = datetime.slice(11, 16);
+    } else if (pickerElem.type == "datetime-local") {
+      // extract the date and hours/mins only (YYYY-MM-DDTHH:mm)
+      pickerElem.value = datetime.slice(0, 16);
+    }
   }
 }
 
