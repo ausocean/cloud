@@ -45,12 +45,13 @@ import (
 )
 
 const (
-	projectID            = "oceantv"
-	version              = "v0.13.2"
-	projectURL           = "https://tv.cloudblue.org"
-	cronServiceAccount   = "oceancron@appspot.gserviceaccount.com"
-	locationID           = "Australia/Adelaide" // TODO: Use site location.
-	AusOceanTVServiceURL = "https://ausocean.tv"
+	projectID             = "oceantv"
+	version               = "v0.13.3"
+	projectURL            = "https://tv.cloudblue.org"
+	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
+	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
+	locationID            = "Australia/Adelaide" // TODO: Use site location.
+	AusOceanTVServiceURL  = "https://ausocean.tv"
 )
 
 var (
@@ -60,6 +61,7 @@ var (
 	standalone bool
 	notifier   notify.Notifier
 	cronSecret []byte
+	tvSecret   []byte
 	storePath  string
 	aotvURL    = AusOceanTVServiceURL
 )
@@ -194,11 +196,17 @@ func sendWebhook(url string, data interface{}) error {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 
+	tokString, err := gauth.PutClaims(map[string]any{"iss": oceanTVServiceAccount}, tvSecret)
+	if err != nil {
+		return fmt.Errorf("failed to put claims in JWT: %w", err)
+	}
+
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+tokString)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -291,6 +299,11 @@ func setup(ctx context.Context) {
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
 		log.Printf("could not get cronSecret: %v", err)
+	}
+
+	tvSecret, err = gauth.GetHexSecret(ctx, projectID, "tvSecret")
+	if err != nil || tvSecret == nil {
+		log.Printf("could not get tvSecret: %v", err)
 	}
 
 	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
