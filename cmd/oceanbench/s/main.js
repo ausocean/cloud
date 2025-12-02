@@ -195,7 +195,7 @@ function tzParseUTCOffset(offset) {
 // pickerUsed signifies if the date/time picker was changed.
 function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
   let timezone = document.getElementById(timezoneID).value;
-  // set the timestamp to zero if it is empty (default UTC)
+  // Set the timestamp to zero if it is empty (default UTC).
   if (timezone == "") {
     document.getElementById(timezoneID).value = "0";
     timezone = "0";
@@ -203,19 +203,19 @@ function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
   const pickerElem = document.getElementById(datetimeID);
   const timestampElem = document.getElementById(timestampID);
   if (pickerUsed) {
-    // Update timestamp from time picker
+    // Update the timestamp from the time picker.
     let datetime = pickerElem.value;
     if (datetime == "") {
       timestampElem.value = "";
       return;
     }
-    // time only
+    // We only have a time.
     if (datetime.length == 5) {
       datetime += ":00"; // Append seconds to make RFC3339 compliant.
-      // prepend a date to make it a valid datetime
+      // Prepend a date to make it a valid datetime.
       datetime = "2000-01-01T" + datetime;
     }
-    // date and time
+    // We have both a date and a time.
     else if (datetime.length == 16) {
       datetime += ":00"; // Append seconds to make RFC3339 compliant.
     }
@@ -225,31 +225,31 @@ function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
     } else {
       datetime += timezone;
     }
-    // parse the datetime and convert it to seconds
+    // Parse the datetime and convert it from milliseconds to seconds.
     const timestamp = new Date(datetime).getTime() / 1000;
     timestampElem.value = timestamp.toString();
   } else {
-    // Update time picker from timestamp
+    // Update the time picker from the timestamp.
     const timestamp = timestampElem.value;
-    // if we don't have a timestamp, we don't have a time
+    // If we don't have a timestamp, we don't have a time to sync.
     if (timestamp == "") {
       pickerElem.value = "";
       return;
     }
-    // if the timezone is a valid UTC offset, convert it to hours
+    // If the timezone is a valid UTC offset, convert it to hours.
     if (checkUTCOffset(timezone)) {
       timezone = tzParseUTCOffset(timezone);
     }
 
-    // add the offset (in seconds) to the timestamp
+    // Add the offset (in seconds) to the timestamp.
     const localTimestamp = parseInt(timestamp) + Math.round(parseFloat(timezone) * 3600);
-    // convert the timestamp to an iso string and extract the time portion
+    // Convert the timestamp to an ISO string
     const datetime = new Date(localTimestamp * 1000).toISOString();
     if (pickerElem.type == "time") {
-      // extract the time portion only (HH:mm)
+      // Extract the hours/mins portion only (HH:mm).
       pickerElem.value = datetime.slice(11, 16);
     } else if (pickerElem.type == "datetime-local") {
-      // extract the date and hours/mins only (YYYY-MM-DDTHH:mm)
+      // Extract the date and hours/mins only (YYYY-MM-DDTHH:mm).
       pickerElem.value = datetime.slice(0, 16);
     }
   }
