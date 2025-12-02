@@ -192,22 +192,23 @@ function tzParseUTCOffset(offset) {
   return sign * (hours + minutes / 60);
 }
 
-// sync syncs date and timestamp input values. If either of these three inputs are changed, the other inputs are updated to match.
-// dateChanged signifies if the datepicker input has been used to change the date.
-function sync(dateID, tsID, tzID, dateChanged) {
+// sync syncs time and timestamp input values. If either of these inputs are changed, the other input is updated to match.
+// pickerUsed signifies if the time picker was used to change the time.
+function sync(timeID, tsID, tzID, pickerUsed) {
   var tz = document.getElementById(tzID).value;
+  // set the timestamp to zero if it is empty (default UTC)
   if (tz == "") {
     document.getElementById(tzID).value = "0";
     tz = "0";
   }
-  if (dateChanged) {
-    // Go from local date to Unix timestamp.
-    var s = document.getElementById(dateID).value;
+  if (pickerUsed) {
+    // Update timestamp from time picker
+    var s = document.getElementById(timeID).value;
     if (s == "") {
       document.getElementById(tsID).value = "";
       return;
     }
-    if (s.length == 16) {
+    if (s.length == 5) {
       s += ":00"; // Append seconds to make RFC3339 compliant.
     }
     // If the timezone is not in UTC offset format, try to convert it from an offset number.
@@ -216,21 +217,29 @@ function sync(dateID, tsID, tzID, dateChanged) {
     } else {
       s += tz;
     }
+    // prepend a date to make it a valid datetime
+    s = "2000-01-01T" + s
+    // parse the datetime and convert it to seconds
     const ts = new Date(s).getTime() / 1000;
     document.getElementById(tsID).value = ts.toString();
   } else {
-    // Go from Unix timestamp to local date.
-    const s = document.getElementById(tsID).value;
-    if (s == "") {
-      document.getElementById(dateID).value = "";
+    // Update time picker from timestamp
+    const timestamp = document.getElementById(tsID).value;
+    // if we don't have a timestamp, we don't have a time
+    if (timestamp == "") {
+      document.getElementById(timeID).value = "";
       return;
     }
+    // if the timezone is a valid UTC offset, convert it to hours
     if(checkUTCOffset(tz)){
       tz = tzParseUTCOffset(tz);
     }
-    const ts = parseInt(s) + Math.round(parseFloat(tz) * 3600);
-    const dt = new Date(ts * 1000).toISOString().slice(0, -1);
-    document.getElementById(dateID).value = dt;
+
+    // add the offset (in seconds) to the timestamp
+    const ts = parseInt(timestamp) + Math.round(parseFloat(tz) * 3600);
+    // convert the timestamp to an iso string and extract the time portion
+    const dt = new Date(ts * 1000).toISOString().slice(11,16);
+    document.getElementById(timeID).value = dt;
   }
 }
 
