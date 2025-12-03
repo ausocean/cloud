@@ -22,7 +22,6 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,7 +36,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -116,65 +114,8 @@ func main() {
 	)
 
 	otv, err := newOceanTVService(
-		withEventHooks(
-			func(e event, cfg *Cfg) {
-				// Only continue if we have a finished event.
-				if _, ok := e.(finishedEvent); !ok {
-					return
-				}
-
-				if !cfg.RegisterOpenFish {
-					return
-				}
-
-				// Register stream with openfish so we can annotate the video.
-				cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
-				if err != nil {
-					log.Printf("could not parse OpenFish capture source: %v", err)
-					return
-				}
-
-				ofsvc, err := openfish.New()
-				if err != nil {
-					log.Printf("could not setup openfish service: %v", err)
-					return
-				}
-
-				err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
-				if err != nil {
-					log.Printf("could not register stream with OpenFish: %v", err)
-					return
-				}
-			},
-		),
-		withStateHooks(
-			func(s state, cfg *Cfg) {
-				// Only continue if we have a directLive state.
-				// NOTE this can be removed if we wish to webhook for all states.
-				if _, ok := s.(*directLive); !ok {
-					return
-				}
-
-				data := struct {
-					UUID  string `json:"uuid"`
-					Name  string `json:"name"`
-					BID   string `json:"bid"`
-					State string `json:"state"`
-				}{
-					UUID:  cfg.UUID,
-					Name:  cfg.Name,
-					BID:   cfg.BID,
-					State: stateToString(s),
-				}
-				const ausoceanTVWebHookEndpoint = "/api/v1/webhooks/oceantv"
-				ausoceanTVWebHookDest := aotvURL + ausoceanTVWebHookEndpoint
-				err := sendWebhook(ausoceanTVWebHookDest, data)
-				if err != nil {
-					log.Printf("could not send AusOceanTV webhook: %v", err)
-					return
-				}
-			},
-		),
+		withEventHooks(openfishEventHook),
+		withStateHooks(ausoceanTVWebhook),
 	)
 	if err != nil {
 		log.Fatalf("could not create oceanTV service: %v", err)
@@ -188,42 +129,6 @@ func main() {
 	log.Printf("Listening on %s:%d", host, port)
 	log.Printf("Sending AusOceanTV webhooks to %s", aotvURL)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
-}
-
-func sendWebhook(url string, data interface{}) error {
-	b, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data: %v", err)
-	}
-
-	tokString, err := gauth.PutClaims(map[string]any{"iss": oceanTVServiceAccount}, tvSecret)
-	if err != nil {
-		return fmt.Errorf("failed to put claims in JWT: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+tokString)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %v", err)
-	}
-	defer func(b io.ReadCloser) {
-		if err := b.Close(); err != nil {
-			log.Printf("failed to close webhook response body: %v", err)
-		}
-	}(resp.Body)
-
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusCreated {
-		return nil
-	}
-
-	return fmt.Errorf("webhook request failed with status: %s", resp.Status)
 }
 
 func sendPanicNotification(publicKey, privateKey, msg string) error {
