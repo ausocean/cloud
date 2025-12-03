@@ -42,13 +42,13 @@ import (
 //
 // If the response status is OK, Accepted, or Created, the request is considered
 // successful, otherwise an error is returned.
-func sendWebhook(url string, data interface{}) error {
+func sendWebhook(url string, data subjecter) error {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 
-	tokString, err := gauth.PutClaims(map[string]any{"iss": oceanTVServiceAccount}, tvSecret)
+	tokString, err := gauth.PutClaims(map[string]any{"iss": oceanTVServiceAccount, "sub": data.subject()}, tvSecret)
 	if err != nil {
 		return fmt.Errorf("failed to put claims in JWT: %w", err)
 	}
@@ -110,6 +110,27 @@ func openfishEventHook(e event, cfg *Cfg) {
 	}
 }
 
+// subjecter is an interface that defines a method for retrieving the subject
+// of an entity. The subject is typically used as the value for the "sub" field
+// in a JWT (JSON Web Token), representing the principal that is the subject
+// of the token.
+type subjecter interface {
+	subject() string
+}
+
+type aotvWebHookData struct {
+	UUID  string `json:"uuid"`
+	Name  string `json:"name"`
+	BID   string `json:"bid"`
+	State string `json:"state"`
+}
+
+// subjecter returns the broadcast ID of the passed stream to implement the subjecter
+// interface. This will be used as the 'sub' field of the JWT request to AusOceanTV.
+func (d *aotvWebHookData) subject() string {
+	return d.BID
+}
+
 // ausoceanTVWebhook is a callback function used to make webhook requests to the
 // AusOceanTV service.
 func ausoceanTVWebhook(s state, cfg *Cfg) {
@@ -119,12 +140,7 @@ func ausoceanTVWebhook(s state, cfg *Cfg) {
 		return
 	}
 
-	data := struct {
-		UUID  string `json:"uuid"`
-		Name  string `json:"name"`
-		BID   string `json:"bid"`
-		State string `json:"state"`
-	}{
+	data := &aotvWebHookData{
 		UUID:  cfg.UUID,
 		Name:  cfg.Name,
 		BID:   cfg.BID,
