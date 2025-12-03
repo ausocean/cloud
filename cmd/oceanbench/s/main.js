@@ -209,13 +209,13 @@ function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
       timestampElem.value = "";
       return;
     }
-    // We only have a time.
+    // Check if we only have a time.
     if (datetime.length == 5) {
       datetime += ":00"; // Append seconds to make RFC3339 compliant.
       // Prepend a date to make it a valid datetime.
       datetime = "2000-01-01T" + datetime;
     }
-    // We have both a date and a time.
+    // Check if we have both a date and a time.
     else if (datetime.length == 16) {
       datetime += ":00"; // Append seconds to make RFC3339 compliant.
     }
