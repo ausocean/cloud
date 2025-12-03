@@ -1385,8 +1385,8 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			expectedNotify: map[int64]map[notify.Kind][]string{
 				testSiteKey: {
 					broadcastConfiguration: []string{
-						"(name: , id: ) error event: (invalidConfigurationEvent) camera mac is empty",
-						"(name: , id: ) entering direct broadcast failure state due to: (invalidConfigurationEvent) camera mac is empty",
+						"error event: (invalidConfigurationEvent) camera mac is empty",
+						"entering direct broadcast failure state due to: (invalidConfigurationEvent) camera mac is empty",
 					},
 				},
 			},
