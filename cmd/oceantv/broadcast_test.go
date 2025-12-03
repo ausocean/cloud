@@ -505,7 +505,8 @@ func (m *mockNotifier) checkNotifications(want map[int64]map[notify.Kind][]strin
 				)
 			}
 			for i, msg := range msgs {
-				if !strings.Contains(msg, m.sent[skey][kind][i]) {
+				// Check that the actual message contains the expected message.
+				if !strings.Contains(m.sent[skey][kind][i], msg) {
 					return fmt.Errorf("expected message %s for site %d and kind %s, got %s", msg, skey, kind, m.sent[skey][kind][i])
 				}
 			}
