@@ -71,15 +71,15 @@
         const sd = new Date(fd.getTime() - hours * 60 * 60 * 1000);
         document.getElementById('sd').value = sd.toISOString().slice(0, 16);
         document.getElementById('fd').value = fd.toISOString().slice(0, 16);
-        sync('sd', 'st', 'tz', true);
-        sync('fd', 'ft', 'tz', true);
+        syncDateTime('sd', 'st', 'tz', true);
+        syncDateTime('fd', 'ft', 'tz', true);
       }
       function presubmit() {
         if (document.getElementById('st').value == "" && document.getElementById('sd').value != "") {
-          sync('sd', 'st', 'tz', true);
+          syncDateTime('sd', 'st', 'tz', true);
         }
         if (document.getElementById('ft').value == "" && document.getElementById('fd').value != "") {
-          sync('fd', 'ft', 'tz', true);
+          syncDateTime('fd', 'ft', 'tz', true);
         }
         if (document.getElementById('ft').value == "") {
           document.getElementById('ts').value = document.getElementById('st').value;
@@ -327,19 +327,19 @@
           <div id="datepickers" class="{{ if eq -1 $.Period }}d-block{{ else }}d-none{{ end }}">
             <div class="d-flex align-items-center mt-2">
               <label class="flex-shrink-0">Start date/time:</label>
-              <input name="sd" class="form-control" type="datetime-local" id="sd" onchange="sync('sd', 'st', 'tz', true);" value="{{ if .Sd }}{{ .Sd }}{{ end }}" size="14" />
+              <input name="sd" class="form-control" type="datetime-local" id="sd" onchange="syncDateTime('sd', 'st', 'tz', true);" value="{{ if .Sd }}{{ .Sd }}{{ end }}" size="14" />
               &nbsp;
-              <input name="st" class="form-control adv-opt d-none" type="input" id="st" onchange="sync('sd', 'st', 'tz', false);" value="{{ if .St }}{{ .St }}{{ end }}" size="15" />
+              <input name="st" class="form-control adv-opt d-none" type="input" id="st" onchange="syncDateTime('sd', 'st', 'tz', false);" value="{{ if .St }}{{ .St }}{{ end }}" size="15" />
             </div>
             <div class="d-flex align-items-center mt-2">
               <label class="flex-shrink-0">Finish date/time:</label>
-              <input name="fd" class="form-control" type="datetime-local" id="fd" onchange="sync('fd', 'ft', 'tz', true);" value="{{ if .Fd }}{{ .Fd }}{{ end }}" size="22" />
+              <input name="fd" class="form-control" type="datetime-local" id="fd" onchange="syncDateTime('fd', 'ft', 'tz', true);" value="{{ if .Fd }}{{ .Fd }}{{ end }}" size="22" />
               &nbsp;
-              <input name="ft" class="adv-opt d-none form-control" type="input" id="ft" onchange="sync('fd', 'ft', 'tz', false);" value="{{ if .Ft }}{{ .Ft }}{{ end }}" size="15" />
+              <input name="ft" class="adv-opt d-none form-control" type="input" id="ft" onchange="syncDateTime('fd', 'ft', 'tz', false);" value="{{ if .Ft }}{{ .Ft }}{{ end }}" size="15" />
             </div>
             <div class="d-flex align-items-center mt-2 adv-opt d-none">
               <label>Timezone:</label>
-              <input name="tz" class="w-25 form-control" value="{{ .Tz }}" id="tz" size="1" onchange="sync('sd', 'st', 'tz', false); sync('fd', 'ft', 'tz', false);" />
+              <input name="tz" class="w-25 form-control" value="{{ .Tz }}" id="tz" size="1" onchange="syncDateTime('sd', 'st', 'tz', false); syncDateTime('fd', 'ft', 'tz', false);" />
             </div>
           </div>
           <input type="hidden" name="ts" id="ts" />

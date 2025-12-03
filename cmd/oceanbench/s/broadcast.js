@@ -11,8 +11,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
   const sendMsg = document.getElementById("send-msg").dataset.sendMsg === "true";
 
-  if (startTimestamp) sync("start-time", "start-timestamp", "time-zone", false);
-  if (endTimestamp) sync("end-time", "end-timestamp", "time-zone", false);
+  if (startTimestamp) syncDateTime("start-time", "start-timestamp", "time-zone", false);
+  if (endTimestamp) syncDateTime("end-time", "end-timestamp", "time-zone", false);
 
   if (sensorList) {
     sensorList.forEach((sensor) => {

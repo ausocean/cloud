@@ -124,17 +124,17 @@
             </div>
             <div id="set-times">
               <div class="d-flex align-items-center gap-1 mb-1">
-                <label for="start-time" class="w-25 text-end">Start Date/Time:</label>
+                <label for="start-time" class="w-25 text-end">Start Time:</label>
                 <div class="d-flex gap-2 w-50">
-                  <input name="start-time" class="form-control" type="datetime-local" id="start-time" onchange="sync('start-time', 'start-timestamp', 'time-zone', true)" size="14" />
-                  <input class="advanced form-control" name="start-timestamp" type="input" id="start-timestamp" onchange="sync('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15" />
+                  <input name="start-time" class="form-control" type="time" id="start-time" onchange="syncDateTime('start-time', 'start-timestamp', 'time-zone', true)" size="14" />
+                  <input class="advanced form-control" name="start-timestamp" type="input" id="start-timestamp" onchange="syncDateTime('start-time', 'start-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.StartTimestamp}}{{.CurrentBroadcast.StartTimestamp}}{{end}}" size="15" />
                 </div>
               </div>
               <div class="d-flex align-items-center gap-1 mb-1">
-                <label for="end-time" class="w-25 text-end">End Date/Time:</label>
+                <label for="end-time" class="w-25 text-end">End Time:</label>
                 <div class="d-flex gap-2 w-50">
-                  <input name="end-time" class="form-control" type="datetime-local" id="end-time" onchange="sync('end-time', 'end-timestamp', 'time-zone', true)" size="14" />
-                  <input class="advanced form-control" name="end-timestamp" type="input" id="end-timestamp" onchange="sync('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15" />
+                  <input name="end-time" class="form-control" type="time" id="end-time" onchange="syncDateTime('end-time', 'end-timestamp', 'time-zone', true)" size="14" />
+                  <input class="advanced form-control" name="end-timestamp" type="input" id="end-timestamp" onchange="syncDateTime('end-time', 'end-timestamp', 'time-zone', false);" value="{{if .CurrentBroadcast.EndTimestamp}}{{.CurrentBroadcast.EndTimestamp}}{{end}}" size="15" />
                 </div>
               </div>
               <div class="d-flex align-items-center gap-1 mb-1">
