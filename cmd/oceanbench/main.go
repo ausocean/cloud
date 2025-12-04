@@ -6,6 +6,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
   Dan Kortschak <dan@ausocean.org>
   Trek Hopton <trek@ausocean.org>
+  Deborah Baker <deborah@ausocean.org>
 
 LICENSE
   Copyright (C) 2018-2024 the Australian Ocean Lab (AusOcean)
