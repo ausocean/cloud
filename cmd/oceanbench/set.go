@@ -230,9 +230,9 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	g.Go(func() error {
 		switch data.Device.Type {
 		case model.DevTypeCamera:
-			varTypes = camera.VarTypes
+			varTypes = camera.VarTypes()
 		case model.DevTypeController:
-			varTypes = controller.VarTypes
+			varTypes = controller.VarTypes()
 		case model.DevTypeAligner:
 			fallthrough
 		case model.DevTypeSpeaker:
