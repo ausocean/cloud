@@ -48,7 +48,7 @@ func withForwardingService(fs ForwardingService) broadcastSystemOption {
 
 func withHardwareManager(hm hardwareManager) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
-		bs.ctx.camera = hm
+		bs.ctx.hardware = hm
 		return nil
 	}
 }

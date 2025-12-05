@@ -524,7 +524,7 @@ func standardMockBroadcastContext(t *testing.T, hardwareHealthy bool) *broadcast
 	return &broadcastContext{
 		store:     &dummyStore{},
 		svc:       &dummyService{},
-		camera:    &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
+		hardware:  &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
 		notifier:  newMockNotifier(),
 		logOutput: t.Log,
 	}

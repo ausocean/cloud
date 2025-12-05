@@ -1264,7 +1264,7 @@ func TestBroadcastStart(t *testing.T) {
 			)
 
 			bCtx.man = newDummyManager(t, tt.cfg)
-			bCtx.camera = tt.hardwareMan
+			bCtx.hardware = tt.hardwareMan
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1293,10 +1293,10 @@ func TestBroadcastStart(t *testing.T) {
 			}
 
 			// Check that the hardware manager start was called/not called as expected.
-			startCalled := bCtx.camera.(*dummyHardwareManager).startCalled
+			startCalled := bCtx.hardware.(*dummyHardwareManager).startCalled
 			if tt.expectHardwareStartCall != startCalled {
 				t.Errorf("hardware manager start was/was not called as expected, expected: %v, got: %v",
-					tt.expectHardwareStartCall, bCtx.camera.(*dummyHardwareManager).startCalled)
+					tt.expectHardwareStartCall, bCtx.hardware.(*dummyHardwareManager).startCalled)
 			}
 
 			// Check that the broadcast manager start was called/not called as expected.

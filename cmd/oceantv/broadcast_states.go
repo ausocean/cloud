@@ -14,13 +14,13 @@ import (
 )
 
 type broadcastContext struct {
-	cfg    *BroadcastConfig
-	man    BroadcastManager
-	store  Store
-	svc    BroadcastService
-	fwd    ForwardingService
-	bus    eventBus
-	camera hardwareManager
+	cfg      *BroadcastConfig
+	man      BroadcastManager
+	store    Store
+	svc      BroadcastService
+	fwd      ForwardingService
+	bus      eventBus
+	hardware hardwareManager
 
 	// When nil, defaults to log.Println. Useful to plug in test implementation.
 	logOutput func(v ...any)
