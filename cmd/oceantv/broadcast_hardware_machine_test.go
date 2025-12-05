@@ -21,7 +21,7 @@ func TestGetHardwareStateStorage(t *testing.T) {
 	}{
 		{"test hardware off", newHardwareOff()},
 		{"test hardware on", newHardwareOn()},
-		{"test hardware starting", newHardwareStarting(&broadcastContext{camera: &dummyHardwareManager{}, logOutput: t.Log, notifier: newMockNotifier()})},
+		{"test hardware starting", newHardwareStarting(&broadcastContext{hardware: &dummyHardwareManager{}, logOutput: t.Log, notifier: newMockNotifier()})},
 		{"test hardware stopping", newHardwareStopping(minimalMockBroadcastContext(t))},
 		{"test hardware restarting", newHardwareRestarting(minimalMockBroadcastContext(t))},
 	}
@@ -361,7 +361,7 @@ func (h hardwareSystem) withForwardingService(fs ForwardingService) hardwareSyst
 
 func (h hardwareSystem) withHardwareManager(hm hardwareManager) hardwareSystemOption {
 	return func(bs *hardwareSystem) error {
-		bs.ctx.camera = hm
+		bs.ctx.hardware = hm
 		return nil
 	}
 }

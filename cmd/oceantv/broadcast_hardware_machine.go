@@ -199,7 +199,7 @@ func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(event hardwareShu
 }
 
 func (s *hardwareRestarting) cameraIsReporting() bool {
-	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
 		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
@@ -230,12 +230,12 @@ func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
 	// A MAC of 0 indicates it is invalid or unset, proceed with starting the camera.
 	if s.cfg.ControllerMAC == 0 {
-		s.camera.start(s.broadcastContext)
+		s.hardware.start(s.broadcastContext)
 		return
 	}
 
 	// The first check for any known hardware error states.
-	hwErr, err := s.camera.error(s.broadcastContext)
+	hwErr, err := s.hardware.error(s.broadcastContext)
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware error state: %w", err)
 		s.log(errWrapped.Error())
@@ -263,7 +263,7 @@ func (s *hardwareStarting) enter() {
 		// we have a controller that doesn't have the latest firmware.
 	}
 
-	voltage, err := s.camera.voltage(s.broadcastContext)
+	voltage, err := s.hardware.voltage(s.broadcastContext)
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware voltage: %w", err)
 		s.log(errWrapped.Error())
@@ -271,7 +271,7 @@ func (s *hardwareStarting) enter() {
 		return
 	}
 
-	alarmVoltage, err := s.camera.alarmVoltage(s.broadcastContext)
+	alarmVoltage, err := s.hardware.alarmVoltage(s.broadcastContext)
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get alarm voltage: %w", err)
 		s.log(errWrapped.Error())
@@ -279,7 +279,7 @@ func (s *hardwareStarting) enter() {
 		return
 	}
 
-	controllerIsOn, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.ControllerMAC))
+	controllerIsOn, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.ControllerMAC))
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get controller status: %w", err)
 		s.log(errWrapped.Error())
@@ -314,8 +314,8 @@ func (s *hardwareStarting) enter() {
 	}
 
 	// Controller is reporting and we're above streaming voltage, let's power
-	// on the camera.
-	s.camera.start(s.broadcastContext)
+	// on the hardware.
+	s.hardware.start(s.broadcastContext)
 }
 
 func (s *hardwareStarting) exit() {}
@@ -436,7 +436,7 @@ func newHardwareShuttingDown(ctx *broadcastContext) *hardwareShuttingDown {
 }
 func (s *hardwareShuttingDown) enter() {
 	s.LastEntered = time.Now()
-	s.camera.shutdown(s.broadcastContext)
+	s.hardware.shutdown(s.broadcastContext)
 }
 func (s *hardwareShuttingDown) exit() {}
 
@@ -500,7 +500,7 @@ func newHardwarePoweringOff(ctx *broadcastContext) *hardwarePoweringOff {
 }
 func (s *hardwarePoweringOff) enter() {
 	s.LastEntered = time.Now()
-	s.camera.stop(s.broadcastContext)
+	s.hardware.stop(s.broadcastContext)
 }
 func (s *hardwarePoweringOff) exit() {}
 
@@ -683,7 +683,7 @@ func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePower
 }
 
 func (s *hardwareStopping) cameraIsReporting() bool {
-	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
 		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
@@ -843,7 +843,7 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	sm.log("handling time event")
 	eventIfStatus := func(e event, status bool) {
-		sm.ctx.camera.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
@@ -866,7 +866,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 			return
 		}
 
-		voltage, err := sm.ctx.camera.voltage(sm.ctx)
+		voltage, err := sm.ctx.hardware.voltage(sm.ctx)
 		if err != nil {
 			errWrapped := fmt.Errorf("could not get hardware voltage: %v", err)
 			sm.log(errWrapped.Error())
@@ -963,7 +963,7 @@ func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(event hardwareSt
 	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
-		sm.ctx.camera.publishEventIfStatus(sm.ctx, hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	case *hardwareStopping:
 		// Ignore and log.
 		sm.log("ignoring hardware start request event since hardware is still stopping")
