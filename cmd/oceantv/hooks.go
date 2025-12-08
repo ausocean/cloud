@@ -134,9 +134,10 @@ func (d *aotvWebHookData) subject() string {
 // ausoceanTVWebhook is a callback function used to make webhook requests to the
 // AusOceanTV service.
 func ausoceanTVWebhook(s state, cfg *Cfg) {
-	// Only continue if we have a directLive state.
-	// NOTE this can be removed if we wish to webhook for all states.
-	if _, ok := s.(*directLive); !ok {
+	// Only continue if we have a directLive or directIdle state.
+	_, live := s.(*directLive)
+	_, idle := s.(*directIdle)
+	if !live && !idle {
 		return
 	}
 
