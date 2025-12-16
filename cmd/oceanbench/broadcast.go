@@ -617,7 +617,7 @@ func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) 
 // If no broadcast/account is found, then an empty string will be returned.
 func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) (string, error) {
 	cfg, err := broadcastFromVars(broadcasts, cfg.UUID)
-	if errors.Is(err, ErrBroadcastNotFound{cfg.UUID}) {
+	if errors.Is(err, ErrBroadcastNotFound{}) {
 		return "", nil
 	}
 	if err != nil {
