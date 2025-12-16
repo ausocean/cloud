@@ -265,6 +265,28 @@ func DeleteVariables(ctx context.Context, store datastore.Store, skey int64, sco
 	return store.DeleteMulti(ctx, keys)
 }
 
+// GetBroadcastVarByUUID gets the variable associated with a given broadcast UUID.
+func GetBroadcastVarByUUID(ctx context.Context, store datastore.Store, uuid string) (*Variable, error) {
+	const broadcastScope = "Broadcast"
+	q := store.NewQuery(typeVariable, false)
+	q.FilterField("Scope", "=", broadcastScope)
+	q.FilterField("Name", "=", broadcastScope+"."+uuid)
+
+	var vars []Variable
+	_, err := store.GetAll(ctx, q, &vars)
+	if err != nil {
+		return nil, fmt.Errorf("error getting variables: %w", err)
+	}
+
+	if len(vars) > 1 {
+		return nil, fmt.Errorf("duplicate broadcasts with uuid: %s", uuid)
+	} else if len(vars) <= 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+
+	return &vars[0], nil
+}
+
 // ComputeVarSum computes the var sum from a slice of variables. The
 // var sum is a IEEE CRC checksum 32-bit signed integer of the
 // name/value variable pairs concanentated with ampersands, i.e.,
