@@ -59,7 +59,7 @@ const (
 	sandboxSite   = 3
 	sandboxName   = "Sandbox"
 	sandboxOrg    = "AusOcean"
-	sandboxOwner  = "breeze@ausocean.org"
+	sandboxOwner  = "david@ausocean.org"
 	sandboxOps    = "ops@ausocean.org"
 	sandboxTz     = 9.5
 	sandboxPeriod = 1 * time.Hour
