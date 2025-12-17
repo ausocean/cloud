@@ -269,7 +269,6 @@ func DeleteVariables(ctx context.Context, store datastore.Store, skey int64, sco
 func GetBroadcastVarByUUID(ctx context.Context, store datastore.Store, uuid string) (*Variable, error) {
 	const broadcastScope = "Broadcast"
 	q := store.NewQuery(typeVariable, false)
-	q.FilterField("Scope", "=", broadcastScope)
 	q.FilterField("Name", "=", broadcastScope+"."+uuid)
 
 	var vars []Variable
