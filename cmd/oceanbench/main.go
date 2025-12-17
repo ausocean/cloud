@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.35.1"
+	version     = "v0.35.2"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -236,6 +236,7 @@ func main() {
 	http.HandleFunc("/admin/user/delete", adminHandler)
 	http.HandleFunc("/admin/site", adminHandler)
 	http.HandleFunc("/admin/broadcast", adminHandler)
+	http.HandleFunc("/admin/tv-overview", tvOverviewHandler)
 	http.HandleFunc("/admin/sandbox", sandboxHandler)
 	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
