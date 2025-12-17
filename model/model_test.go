@@ -27,6 +27,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -40,6 +41,8 @@ import (
 	"github.com/ausocean/av/container/mts/meta"
 	"github.com/ausocean/av/container/mts/psi"
 	"github.com/ausocean/openfish/datastore"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -643,6 +646,10 @@ func testVariable(t *testing.T, kind string) {
 		t.Errorf("unable to get variables by site: %v", err)
 	}
 
+	t.Run("getBroadcastVarByUUID", func(t *testing.T) {
+		testBroadcastVarByUUID(t, ctx, store, kind)
+	})
+
 	for i, test := range tests[:2] {
 		err = DeleteVariable(ctx, store, 0, test.name)
 		if err != nil {
@@ -653,6 +660,42 @@ func testVariable(t *testing.T, kind string) {
 	if err != nil {
 		t.Errorf("DeleteVariables failed with error: %v", err)
 	}
+}
+
+func testBroadcastVarByUUID(t *testing.T, ctx context.Context, store datastore.Store, kind string) {
+	// id is a constant UUID that will always be the same.
+	id := uuid.NameSpaceURL.String()
+	const broadcastScope = "Broadcast"
+
+	type config struct {
+		UUID string
+	}
+
+	// Since we don't want a circular import, we will generate a dummy broadcast config.
+	data, err := json.Marshal(config{UUID: id})
+	if err != nil {
+		t.Errorf("failed to marshal dummy config into JSON: %v", err)
+	}
+
+	// Put the variable into the store.
+	err = PutVariable(ctx, store, testSiteKey, broadcastScope+"."+id, string(data))
+	if err != nil {
+		t.Errorf("failed to put dummy config into store: %v", err)
+	}
+
+	// Get the broadcast var.
+	broadcastVar, err := GetBroadcastVarByUUID(ctx, store, id)
+	if err != nil {
+		t.Errorf("unable to get broadcast var by uuid (%s): %v", id, err)
+	}
+
+	// Unmarshal to compare expected vs stored values.
+	cfg := &config{}
+	err = json.Unmarshal([]byte(broadcastVar.Value), cfg)
+	if err != nil {
+		t.Errorf("unable to unmarhal broadcastVar value: %v", err)
+	}
+	assert.Equal(t, id, cfg.UUID, "dummy config from store does not match stored object", cfg.UUID, id)
 }
 
 // TestVidgrindAccess tests access to AusOcean's datastore.
