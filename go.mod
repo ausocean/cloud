@@ -9,7 +9,7 @@ require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/openfish v0.2.1
-	github.com/ausocean/utils v0.3.3
+	github.com/ausocean/utils v0.4.1
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0

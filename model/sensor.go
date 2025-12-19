@@ -87,6 +87,7 @@ const (
 	pinAirTemperature      Pin = "X50"
 	pinHumidity            Pin = "X51"
 	pinWaterTemperature    Pin = "X60"
+	pinBrightness          Pin = "X70"
 	pinESP32BatteryVoltage Pin = "A4"
 	pinESP32Power1Voltage  Pin = "A26"
 	pinESP32Power2Voltage  Pin = "A27"
@@ -104,6 +105,7 @@ const (
 	unitPercent   Unit = "%"
 	unitVoltage   Unit = "V"
 	unitMilliamps Unit = "mA"
+	unitLux       Unit = "Lux"
 )
 
 // Arg defines a float64 value which comprises the arguments to a sensor.

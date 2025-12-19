@@ -103,6 +103,18 @@ func WaterTemperatureSensor() *SensorV2 {
 	)
 }
 
+// LightSensor returns a light brightness sensor.
+func LightSensor() *SensorV2 {
+	return sensorShim(
+		"Brightness",
+		pinBrightness,
+		nmea.Lux,
+		funcNone,
+		unitLux,
+		formRound1,
+	)
+}
+
 // ESP32BatterySensor returns a Battery Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
