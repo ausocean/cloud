@@ -1,0 +1,47 @@
+{
+  "device": "speaker",
+  "description": "Speaker Control Unit software package. Runs on Pi Zero (1) W with image pi-image-20240901 (buster). Built with: GOOS=linux GOARCH=arm GOARM=6. ",
+  "version": "v1.0.1",
+  "components": [
+    {
+      "name": "speaker",
+      "version": "v1.2.2",
+      "executable": true,
+      "dir": "/opt/ausocean/bin",
+      "checksum": "ffc9c069f72b2202909b2a873ed27766"
+    },
+    {
+      "name": "audio.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "0cc6e1b1bc89f4961ebf67c8d1aba51e"
+    },
+    {
+      "name": "license.txt",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/doc",
+      "checksum": "33510d84aed050b008d72cba9e6e5ea5"
+    },
+    {
+      "name": "speaker.json",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data",
+      "checksum": "e4df498632ecc8df8c9d0088261ece08"
+    },
+    {
+    "name": "run_pi_client.sh",
+    "shared": true,
+    "version": "v2.0.4",
+    "executable": true,
+    "dir": "/opt/ausocean/bin",
+    "checksum": "b7ca714c61804dc762fee3fd7ff08ca6"
+    },
+    {
+    "name": "ausocean_logo.txt",
+    "shared": true,
+    "version": "v1.0.0",
+    "dir": "/opt/ausocean/data",
+    "checksum": "ff68b94510423ff055b96148e769be74"
+    }
+  ]
+}
