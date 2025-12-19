@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.35.2"
+	version     = "v0.36.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -107,6 +107,7 @@ type commonData struct {
 	Pages      []page
 	PageData   interface{}
 	Profile    *gauth.Profile
+	SuperAdmin bool
 	LoginURL   string
 	LogoutURL  string
 	Users      []model.User
@@ -506,6 +507,7 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 // writeTemplate writes the given template with the supplied data,
 // populating some common properties.
 func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data interface{}, msg string) {
+	profile, _ := getProfile(w, r)
 	v := reflect.Indirect(reflect.ValueOf(data))
 	p := v.FieldByName("Standalone")
 	if p.IsValid() {
@@ -525,8 +527,13 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	}
 	p = v.FieldByName("Profile")
 	if p.IsValid() {
-		profile, _ := getProfile(w, r)
 		p.Set(reflect.ValueOf(profile))
+	}
+	p = v.FieldByName("SuperAdmin")
+	if p.IsValid() {
+		log.Println("p is valid, checking email:", profile.Email)
+		log.Println("I am superAdmin:", isSuperAdmin(profile.Email))
+		p.SetBool(isSuperAdmin(profile.Email))
 	}
 	p = v.FieldByName("LoginURL")
 	if p.IsValid() {
@@ -539,7 +546,7 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 
 	const footer = "footer.html"
 	var b bytes.Buffer
-	err := templates.ExecuteTemplate(&b, footer, nil)
+	err := templates.ExecuteTemplate(&b, footer, data)
 	if err != nil {
 		log.Fatalf("ExecuteTemplate failed on %s: %v", footer, err)
 	}
