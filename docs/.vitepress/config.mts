@@ -50,6 +50,16 @@ export default defineConfig({
                   },
                 ],
               },
+              {
+                text: "For SuperAdmins",
+                link: "oceanbench/super-admins/super-admins.md",
+                items: [
+                  {
+                    text: "TV Overview",
+                    link: "oceanbench/super-admins/tv-overview.md",
+                  },
+                ],
+              },
             ],
           },
         ],
