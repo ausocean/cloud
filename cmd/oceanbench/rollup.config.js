@@ -65,5 +65,21 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/tv-overview.ts',
+    output: {
+      file: 's/lit/tv-overview.js',
+      format: 'iife',
+      name: 'liveOverview',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      resolve(),
+      typescript()
+    ]
   }
 ];

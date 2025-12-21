@@ -30,6 +30,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,7 +42,9 @@ import (
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
+	"github.com/google/uuid"
 )
 
 type minimalSite struct {
@@ -76,6 +79,8 @@ func setupAPIRoutes() {
 	http.HandleFunc("/api/get/sites/public", wrapAPI(getPublicSitesHandler))
 	http.HandleFunc("/api/get/sites/user", wrapAPI(getUserSitesHandler))
 	http.HandleFunc("/api/get/profile/data", wrapAPI(getProfileDataHandler))
+	http.HandleFunc("/api/get/profile/tv-overview-config", wrapAPI(getProfileTVConfigHandler))
+	http.HandleFunc("/api/get/broadcast/config", wrapAPI(getBroadcastConfigHandler))
 	http.HandleFunc("/api/get/vars/site", wrapAPI(getVarsForSiteHandler))
 	http.HandleFunc("/api/get/sensor/data/", wrapAPI(getSensorDataHandler))
 	http.HandleFunc("/api/get/gpstrail/", wrapAPI(getGPSTrailHandler))
@@ -255,6 +260,94 @@ func getProfileDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, p.Data)
+}
+
+func getProfileTVConfigHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	// The request must be for a superadmin.
+	if !isSuperAdmin(p.Email) {
+		writeHttpError(w, http.StatusUnauthorized, "only available to superadmins")
+		return
+	}
+
+	// The variable scope of the config is the username of the email
+	// with fullstops replaced.
+	scope := strings.ReplaceAll(strings.Split(p.Email, "@")[0], ".", "")
+
+	ctx := r.Context()
+	existingCfg := true
+	configVar, err := model.GetVariable(ctx, settingsStore, 0, scope+".tvOverviewConfig")
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		// The user doesn't yet have a configuration, so we will need to make a new one.
+		existingCfg = false
+	} else if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get config")
+		return
+	}
+
+	if !existingCfg {
+		log.Println("no existing tv overview config found, creating blank config")
+		err = model.PutVariable(ctx, settingsStore, 0, scope+".tvOverviewConfig", "{}")
+		if err != nil {
+			writeHttpError(w, http.StatusInternalServerError, "unable to put blank config")
+		}
+		configVar = &model.Variable{Name: scope + ".tvOverviewConfig", Value: "{}"}
+	}
+
+	_, err = w.Write([]byte(configVar.Value))
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to write config to response")
+		return
+	}
+}
+
+// getBroadcastConfigHandler handles requests to get the broadcast config for a given broadcast.
+// The requester must have admin access to the site on which the broadcast configuration belongs.
+//
+// The API is expecting the following structure:
+//
+//	/api/get/broadcast/config
+//
+// With the following query parameters:
+//
+//	id: uuid of the broadcast to get
+func getBroadcastConfigHandler(w http.ResponseWriter, r *http.Request) {
+	p := requireProfile(w, r)
+	if p == nil {
+		return
+	}
+
+	id := r.FormValue("id")
+	if id == "" {
+		writeHttpError(w, http.StatusBadRequest, "api/get/broadcast/config got empty id query parameter")
+		return
+	}
+	if err := uuid.Validate(id); err != nil {
+		writeHttpError(w, http.StatusBadRequest, "invalid id: %v", err)
+		return
+	}
+
+	ctx := r.Context()
+	broadcastVar, err := model.GetBroadcastVarByUUID(ctx, settingsStore, id)
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to get broadcast with UUID (%s): %v", id, err)
+		return
+	}
+
+	// Check that the user has admin privileges to the site the broadcast lives on.
+	if !isAdmin(ctx, broadcastVar.Skey, p.Email) {
+		writeHttpError(w, http.StatusUnauthorized, "user does not have admin privileges")
+		return
+	}
+
+	_, err = w.Write([]byte(broadcastVar.Value))
+	if err != nil {
+		writeHttpError(w, http.StatusInternalServerError, "unable to write broadcast config to response: %v", err)
+	}
 }
 
 func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
