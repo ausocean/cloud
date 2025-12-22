@@ -42,6 +42,66 @@
     "version": "v1.0.0",
     "dir": "/opt/ausocean/data",
     "checksum": "ff68b94510423ff055b96148e769be74"
+    },
+    {
+      "name": "shrimp10p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "f4e03a67f36cff95b113e742fb604965"
+    },
+    {
+      "name": "shrimp20p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "efe2934e4bb23e45730481b379de9ea7"
+    },
+    {
+      "name": "shrimp30p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "c351ceb14f178f10b665ff5189a5a87a"
+    },
+    {
+      "name": "shrimp40p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "544782a9d8a73ffb4f4938822219bdd3"
+    },
+    {
+      "name": "shrimp50p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "722be5503fbcd60c712b19ceb1602bd4"
+    },
+    {
+      "name": "shrimp60p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "e8c343589b65d19691c036becc7f366b"
+    },
+    {
+      "name": "shrimp70p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "1f95de28f175f444d69dbfbdee79ccc5"
+    },
+    {
+      "name": "shrimp80p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "a37b2828ab84b4455e75db009afa91ed"
+    },
+    {
+      "name": "shrimp90p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "544ca6deb33943a89a4597ed2408795f"
+    },
+    {
+      "name": "shrimp100p.wav",
+      "version": "v1.0.0",
+      "dir": "/opt/ausocean/data/audio",
+      "checksum": "d904f275ca37e42d983a5fa18f43d2c1"
     }
   ]
 }
