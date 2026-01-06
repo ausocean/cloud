@@ -39,11 +39,11 @@ async function updateVars(event, deleteVar) {
   const vv = form.querySelectorAll("input[name=vv]");
   let values = [];
   vv.forEach((elem) => {
-    // Only use the value if the input is both shown, and checked.
+    // Only use the value if the input is both shown, and checked (if it is a radio button).
     if (elem.getAttribute("hidden") == "true") {
       return;
     }
-    if (!elem.checked) {
+    if (!elem.checked && elem.type == "radio") {
       return;
     }
     values.push(elem.value);
