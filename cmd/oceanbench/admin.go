@@ -41,9 +41,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // struct role maps NetReceiver and Ocean Bench permissions.

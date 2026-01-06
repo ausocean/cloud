@@ -28,7 +28,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // RegisterEntities is a convenience function that registers all of

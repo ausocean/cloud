@@ -66,9 +66,9 @@ import (
 	"sync"
 
 	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 

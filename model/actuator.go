@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // Actuator errors.

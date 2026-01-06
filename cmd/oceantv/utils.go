@@ -36,8 +36,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // logForBroadcast logs a message with the broadcast name and ID.

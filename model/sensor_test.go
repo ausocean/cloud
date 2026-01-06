@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // TestParseArgs tests the helper function parseArgs.

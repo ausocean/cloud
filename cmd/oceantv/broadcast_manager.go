@@ -35,8 +35,8 @@ import (
 
 	"github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
 	"github.com/google/uuid"
 )

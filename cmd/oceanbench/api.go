@@ -40,9 +40,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
 	"github.com/google/uuid"
 )

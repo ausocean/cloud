@@ -40,7 +40,7 @@ import (
 	"github.com/ausocean/av/container/mts"
 	"github.com/ausocean/av/container/mts/meta"
 	"github.com/ausocean/av/container/mts/psi"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
