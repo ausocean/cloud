@@ -35,9 +35,9 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // TestRemoveDate tests the removeDate helper function.

@@ -31,8 +31,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (

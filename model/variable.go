@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 const typeVariable = "Variable" // Variable datastore type.

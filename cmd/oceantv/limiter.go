@@ -34,8 +34,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // RateLimiter is an interface for a rate limiter.

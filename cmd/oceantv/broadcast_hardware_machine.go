@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 )
 
 func register(state registry.Named) struct{} {

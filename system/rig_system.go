@@ -29,9 +29,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/system/camera"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // RigSystem represents a controller device which has associated

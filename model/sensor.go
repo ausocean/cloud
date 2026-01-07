@@ -32,7 +32,7 @@ import (
 	"strings"
 
 	"github.com/Knetic/govaluate"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/utils/nmea"
 )
 

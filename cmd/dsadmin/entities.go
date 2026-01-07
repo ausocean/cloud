@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // This file contain definitions of legacty and temporary entities
@@ -457,5 +457,5 @@ func (s *Signal) GetCache() datastore.Cache {
 type SignalRange struct {
 	Mac, Pin string
 	From, To time.Time
-	Max int64
+	Max      int64
 }

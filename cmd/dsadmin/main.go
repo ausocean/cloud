@@ -61,8 +61,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
@@ -229,7 +229,7 @@ func main() {
 				log.Fatalf("migrateDevices failed with error: %v", err)
 			}
 		case "Signal":
-		        //  The following signal migrations was performed for Rapid Bay.
+			//  The following signal migrations was performed for Rapid Bay.
 			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
 			// 	Pin:  "A0",
 			// 	From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),

@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
@@ -594,7 +594,7 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-        default:
+	default:
 		writeError(w, errInvalidAPI)
 		return
 	}

@@ -23,8 +23,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // TimeStore is an interface for notification persistence.

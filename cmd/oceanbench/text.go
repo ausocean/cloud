@@ -34,8 +34,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // getText handles text data requests. The text data and mime type are returned.
