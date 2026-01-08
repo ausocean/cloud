@@ -73,7 +73,7 @@ import (
 )
 
 const (
-	version     = "v0.36.1"
+	version     = "v0.36.2"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -531,9 +531,11 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	}
 	p = v.FieldByName("SuperAdmin")
 	if p.IsValid() {
-		log.Println("p is valid, checking email:", profile.Email)
-		log.Println("I am superAdmin:", isSuperAdmin(profile.Email))
-		p.SetBool(isSuperAdmin(profile.Email))
+		if profile == nil {
+			p.SetBool(false)
+		} else {
+			p.SetBool(isSuperAdmin(profile.Email))
+		}
 	}
 	p = v.FieldByName("LoginURL")
 	if p.IsValid() {
