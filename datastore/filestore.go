@@ -623,6 +623,27 @@ func (q *FileQuery) Filter(filterStr string, value interface{}) error {
 		return nil
 	}
 
+	t, ok := value.(time.Time)
+	if ok {
+		n := t.UnixMilli()
+		q.value[idx] = append(q.value[idx], strconv.FormatInt(n, 10))
+		switch filterStr[i:] {
+		case "=":
+			q.cmp[idx] = append(q.cmp[idx], func(a, b string) bool { return toInt64(a) == toInt64(b) })
+		case "<":
+			q.cmp[idx] = append(q.cmp[idx], func(a, b string) bool { return toInt64(a) < toInt64(b) })
+		case ">":
+			q.cmp[idx] = append(q.cmp[idx], func(a, b string) bool { return toInt64(a) > toInt64(b) })
+		case "<=":
+			q.cmp[idx] = append(q.cmp[idx], func(a, b string) bool { return toInt64(a) <= toInt64(b) })
+		case ">=":
+			q.cmp[idx] = append(q.cmp[idx], func(a, b string) bool { return toInt64(a) >= toInt64(b) })
+		default:
+			return ErrInvalidOperator
+		}
+		return nil
+	}
+
 	return ErrInvalidValue
 }
 
