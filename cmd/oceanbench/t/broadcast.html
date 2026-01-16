@@ -289,7 +289,7 @@
           <div class="d-flex w-100 gap-2">
             <div class="w-25"></div>
             <button class="btn btn-primary" onclick="buttonClick(this)" value="broadcast-save">Save</button>
-            <button class="btn btn-primary" onclick="buttonClick(this)" value="broadcast-delete">Delete</button>
+            <button class="btn btn-primary" onclick="if (confirm('Are you sure you want to delete the broadcast?')) {buttonClick(this)}" value="broadcast-delete">Delete</button>
           </div>
           <div class="w-100 d-flex justify-content-end gap-1">
             <label for="adv-toggle">Advanced Options:</label>
