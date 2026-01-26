@@ -40,7 +40,6 @@ const typeLog = "Log"
 type Log struct {
 	UUID      string    // Log ID.
 	Skey      int64     // Site key.
-	Dkey      int64     // Device key.
 	DeviceMAC int64     // Encoded MAC address of a device.
 	Note      string    // Notes made about device or site.
 	Created   time.Time // Time the log was written.
