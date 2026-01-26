@@ -48,6 +48,7 @@ func RegisterEntities() {
 	datastore.RegisterEntity(typeText, func() datastore.Entity { return new(Text) })
 	datastore.RegisterEntity(typeUser, func() datastore.Entity { return new(User) })
 	datastore.RegisterEntity(typeVariable, func() datastore.Entity { return new(Variable) })
+	datastore.RegisterEntity(typeLog, func() datastore.Entity { return new(Log) })
 }
 
 // SetupDatastore sets up settings and media datastores.

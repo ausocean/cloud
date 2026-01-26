@@ -420,6 +420,7 @@ func TestAusoceanFileAccess(t *testing.T) {
 	testDevice(t, "file")
 	testVariable(t, "file")
 	testCron(t, "file")
+	testLog(t, "file")
 }
 
 func TestAusoceanCloudAccess(t *testing.T) {
@@ -1388,6 +1389,59 @@ func testCron(t *testing.T, kind string) {
 	err = DeleteCron(ctx, store, 1, "Test")
 	if err != nil {
 		t.Errorf("DeleteCron failed with error %v", err)
+	}
+}
+
+// testLog tests functionality of Log.
+func testLog(t *testing.T, kind string) {
+	ctx := context.Background()
+
+	// Local test constants for testLog.
+	const (
+		testDkey = 1
+		testSkey = 10000015
+		testNote = "testNote"
+	)
+
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
+	if err != nil {
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
+	}
+
+	log := &Log{Skey: testSkey, Dkey: testDkey, Note: testNote}
+	err = PutLog(ctx, store, log)
+	if err != nil {
+		t.Errorf("PutLog failed with error: %v", err)
+	}
+	logs, err := GetLogsByDevice(ctx, store, testDkey)
+	if err != nil {
+		t.Errorf("GetLogsByDevice failed with error: %v", err)
+	}
+	if len(logs) == 0 {
+		t.Errorf("GetLogsByDevice returned no values")
+	}
+	if logs[0].Dkey != testDkey || logs[0].Skey != testSkey || logs[0].Note != testNote {
+		t.Errorf("GetLogsByDevice returned wrong values; got %v", log)
+	}
+	logs, err = GetLogsBySite(ctx, store, testSkey)
+	if err != nil {
+		t.Errorf("GetLogsBySite failed with error: %v", err)
+	}
+	if len(logs) == 0 {
+		t.Errorf("GetLogsBySite returned no values")
+	}
+	if logs[0].Dkey != testDkey || logs[0].Skey != testSkey || logs[0].Note != testNote {
+		t.Errorf("GetLogsBySite returned wrong values; got %v", log)
+	}
+
+	// Test deletion.
+	err = DeleteLog(ctx, store, logs[0].UUID)
+	if err != nil {
+		t.Errorf("DeleteLog failed with error: %v", err)
+	}
+	logs, err = GetLogsByDevice(ctx, store, testDkey)
+	if len(logs) != 0 {
+		t.Errorf("GetLogsByDevice got log, expected none")
 	}
 }
 
