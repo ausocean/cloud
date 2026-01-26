@@ -1398,9 +1398,9 @@ func testLog(t *testing.T, kind string) {
 
 	// Local test constants for testLog.
 	const (
-		testDkey = 1
-		testSkey = 10000015
-		testNote = "testNote"
+		testDeviceMAC = 000000000001
+		testSkey      = 10000015
+		testNote      = "testNote"
 	)
 
 	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
@@ -1408,19 +1408,19 @@ func testLog(t *testing.T, kind string) {
 		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
-	log := &Log{Skey: testSkey, Dkey: testDkey, Note: testNote}
+	log := &Log{Skey: testSkey, DeviceMAC: testDeviceMAC, Note: testNote}
 	err = PutLog(ctx, store, log)
 	if err != nil {
 		t.Errorf("PutLog failed with error: %v", err)
 	}
-	logs, err := GetLogsByDevice(ctx, store, testDkey)
+	logs, err := GetLogsByDevice(ctx, store, testDeviceMAC)
 	if err != nil {
 		t.Errorf("GetLogsByDevice failed with error: %v", err)
 	}
 	if len(logs) == 0 {
 		t.Errorf("GetLogsByDevice returned no values")
 	}
-	if logs[0].Dkey != testDkey || logs[0].Skey != testSkey || logs[0].Note != testNote {
+	if logs[0].DeviceMAC != testDeviceMAC || logs[0].Skey != testSkey || logs[0].Note != testNote {
 		t.Errorf("GetLogsByDevice returned wrong values; got %v", log)
 	}
 	logs, err = GetLogsBySite(ctx, store, testSkey)
@@ -1430,8 +1430,8 @@ func testLog(t *testing.T, kind string) {
 	if len(logs) == 0 {
 		t.Errorf("GetLogsBySite returned no values")
 	}
-	if logs[0].Dkey != testDkey || logs[0].Skey != testSkey || logs[0].Note != testNote {
-		t.Errorf("GetLogsBySite returned wrong values; got %v", log)
+	if logs[0].DeviceMAC != testDeviceMAC || logs[0].Skey != testSkey || logs[0].Note != testNote {
+		t.Errorf("GetLogsBySite returned wrong values; got %+v", log)
 	}
 
 	// Test deletion.
@@ -1439,7 +1439,7 @@ func testLog(t *testing.T, kind string) {
 	if err != nil {
 		t.Errorf("DeleteLog failed with error: %v", err)
 	}
-	logs, err = GetLogsByDevice(ctx, store, testDkey)
+	logs, err = GetLogsByDevice(ctx, store, testDeviceMAC)
 	if len(logs) != 0 {
 		t.Errorf("GetLogsByDevice got log, expected none")
 	}

@@ -32,19 +32,19 @@ import (
 	"github.com/google/uuid"
 )
 
-// typeLog is the name of the datastore device type.
+// typeLog is the name of the datastore log type.
 const typeLog = "Log"
 
-// Logs are a way to store information about particular devices or
-// sites and help to keep track of where and when particular devices
-// have been used and how.
+// Log represents a logged note about a device or a site to help keep track of
+// where and when particular devices have been used and how.
 type Log struct {
-	UUID    string    // Log ID.
-	Skey    int64     // Site key.
-	Dkey    int64     // Device key.
-	Note    string    // Notes made about device or site.
-	Created time.Time // Time the log was written.
-	Level   string    // Log level of importance.
+	UUID      string    // Log ID.
+	Skey      int64     // Site key.
+	Dkey      int64     // Device key.
+	DeviceMAC int64     // Encoded MAC address of a device.
+	Note      string    // Notes made about device or site.
+	Created   time.Time // Time the log was written.
+	Level     string    // Log level of importance.
 }
 
 // Copy copies a log to dst, or returns a copy of the log when dst is nil.
@@ -68,7 +68,8 @@ func (log *Log) GetCache() datastore.Cache {
 	return nil
 }
 
-// PutLog creates a log.
+// PutLog puts the passed log into the datastore. The Created field will be filled with the current time,
+// and a unique ID is generated to fill the UUID field.
 func PutLog(ctx context.Context, store datastore.Store, log *Log) error {
 	log.Created = time.Now()
 	log.UUID = uuid.New().String()
@@ -77,16 +78,16 @@ func PutLog(ctx context.Context, store datastore.Store, log *Log) error {
 	return err
 }
 
-// GetLogsByDevice gets all logs for a device.
-func GetLogsByDevice(ctx context.Context, store datastore.Store, Dkey int64) ([]Log, error) {
+// GetLogsByDevice returns all logs for a device with the given MAC address.
+func GetLogsByDevice(ctx context.Context, store datastore.Store, DeviceMAC int64) ([]Log, error) {
 	q := store.NewQuery(typeLog, false, "UUID")
-	q.Filter("Dkey =", Dkey)
+	q.Filter("DeviceMAC =", DeviceMAC)
 	var logs []Log
 	_, err := store.GetAll(ctx, q, &logs)
 	return logs, err
 }
 
-// GetLogsBySite gets all logs for a site.
+// GetLogsBySite returns all logs for a site with the given Skey.
 func GetLogsBySite(ctx context.Context, store datastore.Store, Skey int64) ([]Log, error) {
 	q := store.NewQuery(typeLog, false, "UUID")
 	q.Filter("Skey =", Skey)
@@ -95,7 +96,7 @@ func GetLogsBySite(ctx context.Context, store datastore.Store, Skey int64) ([]Lo
 	return logs, err
 }
 
-// DeleteLog deletes a Log.
+// DeleteLog deletes a Log with the given UUID.
 func DeleteLog(ctx context.Context, store datastore.Store, UUID string) error {
 	key := store.NameKey(typeLog, UUID)
 	return store.DeleteMulti(ctx, []*datastore.Key{key})
