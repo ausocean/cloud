@@ -37,11 +37,15 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
+// createLogHandler creates a new log for the given device MAC and sitekey. The request parameters are:
+//
+//	sk: site key
+//	ma: device MAC address (encoded as int64)
+//	ld: log data.
 func createLogHandler(w http.ResponseWriter, r *http.Request) {
-
 	ctx := context.Background()
 
-	// Validate the user is logged in and should be allowed to create the log.
+	// Validate the user is logged in and has at least admin permissions to the site.
 	profile, err := getProfile(w, r)
 	if err != nil {
 		if err != gauth.TokenNotFound {
@@ -50,11 +54,30 @@ func createLogHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
 
-	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
-	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.WritePermission == 0) {
-		log.Println("user does not have write permissions")
+	// Parse the fields to be put into the log.
+	skStr := r.FormValue("sk")
+	maStr := r.FormValue("ma")
+	ld := r.FormValue("lg")
+
+	// Convert the site key and device MAC to int64.
+	sk, err := strconv.ParseInt(skStr, 10, 64)
+	if err != nil {
+		log.Printf("failed to parse site key: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ma, err := strconv.ParseInt(maStr, 10, 64)
+	if err != nil {
+		log.Printf("failed to parse device MAC: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Check the user has at least admin permissions for the site they are trying to create a log for.
+	user, err := model.GetUser(ctx, settingsStore, sk, profile.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.AdminPermission == 0) {
+		log.Println("user does not have admin permissions")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	} else if err != nil {
@@ -63,19 +86,13 @@ func createLogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the fields to be put into the log.
-	skStr := r.FormValue("sk")
-	maStr := r.FormValue("ma")
-	ld := r.FormValue("lg")
-
-	sk, _ := strconv.ParseInt(skStr, 10, 64)
-	ma, _ := strconv.ParseInt(maStr, 10, 64)
-
-	// Use the datastore functions that you created to _put_ the new log.
+	// Put the new Log into the datastore.
 	err = model.PutLog(ctx, settingsStore, &model.Log{Skey: sk, DeviceMAC: ma, Note: ld})
 
-	// Return any errors, or success code
+	// Return any errors from putting the log.
 	if err != nil {
 		log.Printf("failed to put Log: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
