@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <link href="/s/main.css" rel="stylesheet" type="text/css" />
+    <title>CloudBlue</title>
+    <script type="module" src="/s/lit/header-group.js"></script>
+    <script type="text/javascript" src="/s/main.js"></script>
+    <script type="text/javascript">
+        function preSubmit(form) {
+            form.querySelector("input[name='ma']").value = encodeMAC(form.querySelector("input[name='ma']").value);
+            form.submit();
+        }
+    </script>
+  </head>
+  <body>
+    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+      <nav-menu id="nav-menu" slot="nav-menu">
+        {{ range .Pages -}}
+        <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+        </li>
+        {{- end }}
+      </nav-menu>
+      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu"></site-menu>
+    </header-group>
+    <section id="main" class="main">
+      <h1 class="container-md">Log</h1>
+      <div class="border rounded p-4 container-md bg-white">
+        <form action="/api/set/log" method="post" novalidate>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="Skey">Site Key: </span>
+                <input type="text" class="form-control" name="sk" value="{{ .Skey }}" aria-label="Skey" aria-describedby="basic-addon1">
+            </div>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="DeviceMAC">Mac Address: </span>
+                <input type="text" class="form-control" name="ma" aria-label="DeviceMAC" aria-describedby="basic-addon1">
+            </div>
+            <div class="input-group">
+                <span class="input-group-text">Log Data: </span>
+                <textarea class="form-control" name="lg" aria-label="Log Data: "></textarea>
+            </div>
+            <hr />
+            <input class="btn btn-primary" type="button" onclick="preSubmit(this.form)" value="Submit">
+        </form>
+      </div>
+    </section>
+  </body>
+  {{ .Footer }}
+</html>
