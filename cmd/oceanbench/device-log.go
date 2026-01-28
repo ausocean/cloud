@@ -45,7 +45,7 @@ import (
 func createLogHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Validate the user is logged in and has at least admin permissions to the site.
+	// Validate the user is logged in.
 	profile, err := getProfile(w, r)
 	if err != nil {
 		if err != gauth.TokenNotFound {
