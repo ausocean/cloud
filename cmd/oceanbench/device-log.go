@@ -59,7 +59,6 @@ func setLogHandler(w http.ResponseWriter, r *http.Request) {
 	skStr := r.FormValue("sk")
 	maStr := r.FormValue("ma")
 	ld := r.FormValue("lg")
-	r.ParseForm()
 
 	// Convert the site key and device MAC to int64.
 	sk, err := strconv.ParseInt(skStr, 10, 64)
@@ -96,6 +95,9 @@ func setLogHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// Redirect to the log page.
+	http.Redirect(w, r, "/logs", http.StatusSeeOther)
 }
 
 // logPageHandler handles requests for the log page.
