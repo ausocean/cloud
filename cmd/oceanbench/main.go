@@ -244,6 +244,7 @@ func main() {
 	http.HandleFunc("/data/", dataHandler)
 	http.HandleFunc("/throughputs", throughputsHandler)
 	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/logs", logPageHandler)
 
 	// Setup routes for the API, ie. /api requests.
 	setupAPIRoutes()
@@ -636,6 +637,12 @@ func pages(selected string) []page {
 		{
 			Name:  "utilities",
 			URL:   "/admin/utils",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "logs",
+			URL:   "/logs",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},

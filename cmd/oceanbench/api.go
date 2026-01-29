@@ -86,6 +86,7 @@ func setupAPIRoutes() {
 	http.HandleFunc("/api/get/gpstrail/", wrapAPI(getGPSTrailHandler))
 
 	http.HandleFunc("/api/set/site/", wrapAPI(setSiteHandler))
+	http.HandleFunc("/api/set/log/", wrapAPI(setLogHandler))
 
 	http.HandleFunc("/api/test/upload/", wrapAPI(testUploadHandler))
 	http.HandleFunc("/api/test/download/", wrapAPI(testDownloadHandler))
