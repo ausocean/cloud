@@ -64,6 +64,25 @@ export default defineConfig({
           },
         ],
       },
+      {
+        text: "For Developers",
+        items: [
+          {
+            text: "Netsender",
+            link: "netsender/introduction",
+            items: [
+              {
+                text: "Technical Overview",
+                link: "netsender/technical-overview",
+              },
+              {
+                text: "Config",
+                link: "netsender/config",
+              },
+            ],
+          },
+        ],
+      },
     ],
 
     search: { provider: "local" },
