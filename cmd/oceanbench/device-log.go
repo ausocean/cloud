@@ -122,6 +122,8 @@ func logPageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
 		}
 		writeTemplate(w, r, "log.html", &data, "")
 		return

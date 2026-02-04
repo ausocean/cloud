@@ -33,7 +33,7 @@
         <form action="/api/set/log/" method="post" novalidate>
             <div class="input-group mb-3">
                 <span class="input-group-text" id="Skey">Site Key: </span>
-                <input type="text" class="form-control" name="sk" value="{{ .Skey }}" aria-label="Skey" aria-describedby="basic-addon1">
+                <input type="number" step="1" class="form-control" name="sk" value="{{ .Skey }}" aria-label="Skey" aria-describedby="basic-addon1">
             </div>
             <div class="input-group mb-3">
                 <span class="input-group-text" id="DeviceMAC">Mac Address: </span>
