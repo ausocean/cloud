@@ -5,6 +5,11 @@ Typically this results in the client making a request for new vars immediately, 
 
 There is no periodic querying of the vars endpoint, and this request will only be made in normal operation due to a change in varsum in order to conserve bandwidth more effectively.
 
+## Varsum calculation
+The NetSender variables feature is based off varsum changes. Since both the client and server are required to calculate the varsum it is important that it is standardised to prevent unintentional varsum mismatches.
+
+The varsum is an IEEE CRC checksum 32-bit signed integer of the name/value variable pairs concatenated with ampersands: `var1=val1&var2=val2&var3=val3...`
+
 ## Request
 **GET** ```/vars```
 

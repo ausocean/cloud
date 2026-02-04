@@ -26,7 +26,7 @@ If there are multiple Vector pins configured on the same device, a poll request 
 For example, a device with the Inputs, `A0,T1,B0`, may report two types of vector data in each poll request. Since `T1` is listed in the input list first, the vector data for the `T1` pin should appear first in the body, followed by the `B0` vector data.
 
 ## Response
-For a valid, successful poll request, the response is a JSON value, containing the current actuator state, as well as the current varsum and device MAC for confirmation.
+For a valid, successful poll request, the response is a JSON value, containing the current actuator state, as well as the current [varsum](./vars#varsum-calculation) and device MAC for confirmation.
 
 | Key  | Type     | Description |
 | --- | --- | --- |

@@ -37,7 +37,7 @@ For a valid, successful configuration request, the response is a JSON representa
 | `ap` | `int`    | Client Act Period, time in seconds between actuator updates via act request |
 | `ct` | `string` | Client Type as configured by NetReceiver service |
 | `cv` | `string` | Client Version |
-| `vs` | `int64`  | Server varsum, computed checksum of the current variables registered for a device |
+| `vs` | `int64`  | Server [varsum](./vars#varsum-calculation), computed checksum of the current variables registered for a device |
 | `ts` | `int64`  | Server Unix Timestamp, can be used to synchronise client clock to server time |
 | `dk` | `string` | Device Key, only returned for unconfigured devices |
 | `rc` | `int`    | Response code, used to trigger device behaviour |
