@@ -15,6 +15,7 @@ export default defineConfig({
 
     sidebar: [
       {
+        base: "/",
         text: "For Users:",
         items: [
           { text: "Introduction", link: "/introduction" },
@@ -65,6 +66,7 @@ export default defineConfig({
         ],
       },
       {
+        base: "/",
         text: "For Developers",
         items: [
           {
@@ -78,6 +80,18 @@ export default defineConfig({
               {
                 text: "Config",
                 link: "netsender/config",
+              },
+              {
+                text: "Poll",
+                link: "netsender/poll",
+              },
+              {
+                text: "Vars",
+                link: "netsender/vars",
+              },
+              {
+                text: "Response Codes",
+                link: "netsender/response-codes",
               },
             ],
           },
