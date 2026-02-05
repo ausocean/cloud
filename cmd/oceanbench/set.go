@@ -240,9 +240,9 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		case model.DevTypeTest:
 			fallthrough
 		case model.DevTypeHydrophone:
-			return errNotImplemented
+			fallthrough // This does not need to error.
 		default:
-			return model.ErrInvalidDevType
+			return nil
 		}
 		return nil
 	})
