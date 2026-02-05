@@ -1,7 +1,7 @@
-import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid({
   title: "Cloud",
   description: "Documentation for AusOcean's cloud services",
   head: [["link", { rel: "icon", href: "/favicon.ico" }]],
@@ -15,6 +15,7 @@ export default defineConfig({
 
     sidebar: [
       {
+        base: "/",
         text: "For Users:",
         items: [
           { text: "Introduction", link: "/introduction" },
@@ -64,6 +65,38 @@ export default defineConfig({
           },
         ],
       },
+      {
+        base: "/",
+        text: "For Developers",
+        items: [
+          {
+            text: "Netsender",
+            link: "netsender/introduction",
+            items: [
+              {
+                text: "Technical Overview",
+                link: "netsender/technical-overview",
+              },
+              {
+                text: "Config",
+                link: "netsender/config",
+              },
+              {
+                text: "Poll",
+                link: "netsender/poll",
+              },
+              {
+                text: "Vars",
+                link: "netsender/vars",
+              },
+              {
+                text: "Response Codes",
+                link: "netsender/response-codes",
+              },
+            ],
+          },
+        ],
+      },
     ],
 
     search: { provider: "local" },
@@ -75,5 +108,12 @@ export default defineConfig({
       { icon: "youtube", link: "https://youtube.com/ausocean" },
       { icon: "instagram", link: "https://instagram.com/ausocean" },
     ],
+  },
+  mermaid: {
+    // refer https://mermaid.js.org/config/setup/modules/mermaidAPI.html#mermaidapi-configuration-defaults for options
+  },
+  // optionally set additional config for plugin itself with MermaidPluginConfig
+  mermaidPlugin: {
+    class: "mermaid my-class", // set additional css classes for parent container
   },
 });
