@@ -79,3 +79,7 @@ yarn-error.log*
 
 # Misc.
 .history/ # VS Code local history
+
+# Firebase
+.firebase/
+.firebaserc

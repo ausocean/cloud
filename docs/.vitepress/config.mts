@@ -5,7 +5,7 @@ export default withMermaid({
   title: "Cloud",
   description: "Documentation for AusOcean's cloud services",
   head: [["link", { rel: "icon", href: "/favicon.ico" }]],
-  base: "/cloud/",
+  base: "/",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
