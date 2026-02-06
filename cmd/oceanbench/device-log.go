@@ -37,12 +37,12 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
-// createLogHandler creates a new log for the given device MAC and sitekey. The request parameters are:
+// setLogHandler creates a new log for the given device MAC and sitekey. The request parameters are:
 //
 //	sk: site key
 //	ma: device MAC address (encoded as int64)
 //	ld: log data.
-func createLogHandler(w http.ResponseWriter, r *http.Request) {
+func setLogHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Validate the user is logged in.
@@ -95,4 +95,39 @@ func createLogHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// Redirect to the log page.
+	http.Redirect(w, r, "/logs", http.StatusSeeOther)
+}
+
+// logPageHandler handles requests for the log page.
+func logPageHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	if r.URL.Path != "/logs" {
+		// Redirect all invalid URLs to the root homepage.
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	profile, err := getProfile(w, r)
+	skey, _ := profileData(profile)
+	data := adminData{
+		commonData: commonData{
+			Pages:   pages("logs"),
+			Profile: profile,
+		},
+		Skey: skey,
+	}
+	if err != nil {
+		if err != gauth.TokenNotFound {
+			log.Printf("authentication error: %v", err)
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
+		}
+		writeTemplate(w, r, "log.html", &data, "")
+		return
+	}
+
+	writeTemplate(w, r, "log.html", &data, "")
 }
