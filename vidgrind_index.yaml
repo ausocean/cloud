@@ -22,8 +22,20 @@ indexes:
 
 - kind: Action
   properties:
+  - name: SubscriberID
+  - name: Time
+    direction: desc
+
+- kind: Action
+  properties:
     - name: Type
     - name: Time
+
+- kind: Action
+  properties:
+  - name: Type
+  - name: Time
+    direction: desc
 
 - kind: ChatMessage
   properties:
