@@ -383,7 +383,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 	case !vid && !slate && !unhealthy && !starting && !isSecondary && inFailure:
 		newState = newDirectFailure(ctx, nil)
 	default:
-		panic(fmt.Sprintf("unknown state for broadcast, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", vid, active, slate, unhealthy, starting, isSecondary, transitioning))
+		panic(fmt.Sprintf("unknown state for broadcast %v, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", ctx.cfg.Name, vid, active, slate, unhealthy, starting, isSecondary, transitioning))
 	}
 
 	err := json.Unmarshal(ctx.cfg.StateData, &newState)

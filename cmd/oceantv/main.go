@@ -44,7 +44,7 @@ import (
 
 const (
 	projectID             = "oceantv"
-	version               = "v0.13.5"
+	version               = "v0.13.6"
 	projectURL            = "https://tv.cloudblue.org"
 	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
