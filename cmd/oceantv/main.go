@@ -44,7 +44,7 @@ import (
 
 const (
 	projectID             = "oceantv"
-	version               = "v0.13.4"
+	version               = "v0.13.5"
 	projectURL            = "https://tv.cloudblue.org"
 	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
@@ -102,12 +102,29 @@ func main() {
 		log.Fatalf("could not get mailjetPrivateKey, can't send panic recovery notification")
 	}
 
+	const (
+		limiterMaxTokens  = 3
+		limiterRefillRate = 1 // per hour
+		limiterID         = "panic_notification_limiter"
+	)
+	panicNotificationLimiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	if err != nil {
+		log.Fatalf("could not get panic notification limiter: %v", err)
+	}
+
 	mux := utils.NewRecoverableServeMux(
 		utils.NewConfigurableRecoveryHandler(
 			// Only consider handled if we can get a notification off.
 			utils.WithHandledConditions(utils.HandledConditions{HandledOnNotification: true}),
 			utils.WithLogOutput(log.Println),
-			utils.WithNotification(func(msg string) error { return sendPanicNotification(publicKey, privateKey, msg) }),
+			utils.WithNotification(
+				func(msg string) error {
+					if panicNotificationLimiter.RequestOK() {
+						return sendPanicNotification(publicKey, privateKey, msg)
+					}
+					return nil
+				},
+			),
 			utils.WithHttpError(http.StatusInternalServerError),
 			utils.WithHandlers(errNoGlobalNotifierHandler(secrets)),
 		),
