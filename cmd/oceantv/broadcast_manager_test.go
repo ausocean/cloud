@@ -5,10 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"bou.ke/monkey"
 	"github.com/ausocean/cloud/notify"
 )
 
 func TestBroadcastCanBeReused(t *testing.T) {
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
+
 	tests := []struct {
 		name          string
 		svc           BroadcastService

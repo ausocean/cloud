@@ -580,16 +580,16 @@ func TestHardwareStopAndRestart(t *testing.T) {
 
 			ctx, _ := context.WithCancel(context.Background())
 
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := &BroadcastConfig{}
 			tt.cfg(cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newHardwareOnlySystem(
 				ctx,

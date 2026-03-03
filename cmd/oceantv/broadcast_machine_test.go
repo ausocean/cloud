@@ -609,7 +609,9 @@ func TestHandleStartFailedEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -681,7 +683,9 @@ func TestHandleBadHealthEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -798,7 +802,9 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -913,7 +919,9 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 func TestHandleFinishEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1012,7 +1020,9 @@ func TestHandleFinishEvent(t *testing.T) {
 func TestHandleStartEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1117,7 +1127,9 @@ func TestHandleStartEvent(t *testing.T) {
 func TestHandleStartedEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1421,17 +1433,17 @@ func TestHandleCameraConfiguration(t *testing.T) {
 
 			ctx, _ := context.WithCancel(context.Background())
 
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialState, cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newBroadcastSystem(
 				ctx,
@@ -1826,17 +1838,17 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 
 			ctx, _ := context.WithCancel(context.Background())
 
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialBroadcastState, cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newBroadcastSystem(
 				ctx,
