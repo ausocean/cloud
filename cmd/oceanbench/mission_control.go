@@ -3,8 +3,6 @@ DESCRIPTION
   Ocean Bench site mission control handling.
 
 AUTHORS
-  Russell Stanley <russell@ausocean.org>
-  David Sutton <davidsutton@ausocean.org>
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
@@ -32,9 +30,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // missionControlHandler handles mission control page requests.

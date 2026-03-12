@@ -765,7 +765,9 @@ func writeHttpError(w http.ResponseWriter, code int, msg string, args ...interfa
 	}
 	if len(args) > 0 {
 		errorMsg += ": "
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code), args)
+		// Prepend the HTTP status text to the arguments array so it maps to the first %s
+		combinedArgs := append([]interface{}{http.StatusText(code)}, args...)
+		errorMsg = fmt.Sprintf(errorMsg, combinedArgs...)
 	} else {
 		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code))
 	}
