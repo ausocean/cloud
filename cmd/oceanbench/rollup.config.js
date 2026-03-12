@@ -81,5 +81,21 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/site-footer.ts',
+    output: {
+      file: 's/lit/site-footer.js',
+      format: 'iife',
+      name: 'siteFooter',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      resolve(),
+      typescript()
+    ]
   }
 ];
