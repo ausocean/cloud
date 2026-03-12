@@ -40,9 +40,9 @@ class SiteMenu extends LitElement {
             <select id="select" @change=${this.handleSiteChange}>
                 <option id="loading">
                   ${this.selectedData
-                    ?this.selectedData.split(":")[1]
-                    :"Select Site"
-                  }
+                ? this.selectedData.split(":")[1]
+                : "Select Site"
+            }
                 </option>
                 <optgroup style="display: none" id="read" label="Read"></optgroup>
                 <optgroup style="display: none" id="write" label="Write"></optgroup>
@@ -66,9 +66,19 @@ class SiteMenu extends LitElement {
         let r = new XMLHttpRequest();
         r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {
-                let sites = JSON.parse(r.response)
-                this.dispatchEvent(new CustomEvent('sites-loaded', {bubbles: true, composed: true, detail: {'len': sites.length}}))
-                var opts:HTMLOptionElement[][] = [[],[],[]]
+                if (r.status !== 200) {
+                    console.error("Failed to load sites: ", r.status, r.responseText);
+                    return;
+                }
+                let sites;
+                try {
+                    sites = JSON.parse(r.response);
+                } catch (e) {
+                    console.error("Failed to parse sites JSON: ", e);
+                    return;
+                }
+                this.dispatchEvent(new CustomEvent('sites-loaded', { bubbles: true, composed: true, detail: { 'len': sites.length } }))
+                var opts: HTMLOptionElement[][] = [[], [], []]
                 for (let site of sites) {
                     var opt = document.createElement("option");
                     opt.value = site.Skey
@@ -78,7 +88,7 @@ class SiteMenu extends LitElement {
                         opt.label += " (Public)"
                         opt.getAttribute("perm") == "0" ? opt.setAttribute("perm", "1") : null;
                     }
-                    switch (opt.getAttribute("perm")){
+                    switch (opt.getAttribute("perm")) {
                         case "1":
                             opts[0].push(opt);
                             break;
@@ -106,7 +116,7 @@ class SiteMenu extends LitElement {
                 }
             }
         }
-        r.open("GET", "/api/get/sites/user")
+        r.open("GET", "/api/v1/sites/user")
         r.send();
     }
 
@@ -120,8 +130,8 @@ class SiteMenu extends LitElement {
             return;
         }
         if (this.customHandling) {
-            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey+":"+selectedName} }));
-            this.selectedData = selectedKey+":"+selectedName;
+            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey + ":" + selectedName } }));
+            this.selectedData = selectedKey + ":" + selectedName;
         } else {
             let r = new XMLHttpRequest();
             r.onreadystatechange = () => {
@@ -139,7 +149,7 @@ class SiteMenu extends LitElement {
         }
 
         if (selectedOpt.slot != this.selectedPerm) {
-            this.selectedPerm = selectedOpt.hasAttribute("perm")?selectedOpt.getAttribute("perm")!:"0";
+            this.selectedPerm = selectedOpt.hasAttribute("perm") ? selectedOpt.getAttribute("perm")! : "0";
             console.log(this.selectedPerm)
             this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } }));
         }
@@ -152,7 +162,7 @@ class SiteMenu extends LitElement {
         let s = data.split(":");
         option.selected = Number(s[0]) == key;
         if (option.selected) {
-            this.selectedPerm = option.hasAttribute("perm")?option.getAttribute("perm")!:"0";
+            this.selectedPerm = option.hasAttribute("perm") ? option.getAttribute("perm")! : "0";
             console.log(this.selectedPerm)
             this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } })); //TODO: only trigger if changed.
             option.innerText = s[1];
@@ -194,7 +204,7 @@ class SiteMenu extends LitElement {
                         if (Number(s1[0]) != Number(s2[0])) {
                             let prevSite = this.selectedData;
                             this.selectedData = currentData;
-                            if (window.confirm("The selected site has changed from "+s2[1]+" to "+s1[1]+". Do you want to load the new site page? Unsaved changes may be lost.")) {
+                            if (window.confirm("The selected site has changed from " + s2[1] + " to " + s1[1] + ". Do you want to load the new site page? Unsaved changes may be lost.")) {
                                 if (this.customHandling) {
                                     this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: prevSite, newSite: this.selectedData } }));
                                 } else {
