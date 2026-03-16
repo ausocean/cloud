@@ -752,17 +752,6 @@ func writeError(w http.ResponseWriter, err error) {
 // httpError writes http errors to the response writer, in order to provide more detailed
 // response errors in a concise manner.
 func writeHttpError(w http.ResponseWriter, code int, msg string, args ...interface{}) {
-	errorMsg := "%s: "
-	if msg != "" {
-		errorMsg += msg
-	}
-	if len(args) > 0 {
-		errorMsg += ": "
-		// Prepend the HTTP status text to the arguments array so it maps to the first %s
-		combinedArgs := append([]interface{}{http.StatusText(code)}, args...)
-		errorMsg = fmt.Sprintf(errorMsg, combinedArgs...)
-	} else {
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code))
-	}
+	errorMsg := fmt.Sprintf("%s: ", http.StatusText(code)) + fmt.Sprintf(msg, args...)
 	http.Error(w, errorMsg, code)
 }
