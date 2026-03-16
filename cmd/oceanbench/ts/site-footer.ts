@@ -8,11 +8,6 @@ export class SiteFooter extends LitElement {
   @property({ type: String }) orgName = "Australian Ocean Laboratory Limited (AusOcean)";
   @property({ type: String }) licenseHref = "https://www.ausocean.org/license";
 
-  // Render into light DOM so global Tailwind classes apply.
-  protected createRenderRoot() {
-    return this;
-  }
-
   private yearRange(): string {
     const y = new Date().getFullYear();
     return this.startYear === y ? `${y}` : `${this.startYear}–${y}`;
