@@ -710,7 +710,7 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 			case "1":
 				err := model.PutDevice(ctx, settingsStore, &model.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
 				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "could not put devices: %v", err)
+					writeHttpErrorf(w, http.StatusInternalServerError, "could not put devices: %v", err)
 					return
 				}
 				fmt.Fprint(w, "OK")
@@ -749,18 +749,12 @@ func writeError(w http.ResponseWriter, err error) {
 	}
 }
 
-// httpError writes http errors to the response writer, in order to provide more detailed
-// response errors in a concise manner.
-func writeHttpError(w http.ResponseWriter, code int, msg string, args ...interface{}) {
-	errorMsg := "%s: "
-	if msg != "" {
-		errorMsg += msg
-	}
-	if len(args) > 0 {
-		errorMsg += ": "
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code), args)
-	} else {
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code))
-	}
-	http.Error(w, errorMsg, code)
+// writeHttpError writes an HTTP error response with the given status code and plain message.
+func writeHttpError(w http.ResponseWriter, code int, msg string) {
+	http.Error(w, fmt.Sprintf("%s: %s", http.StatusText(code), msg), code)
+}
+
+// writeHttpErrorf writes an HTTP error response with the given status code and a formatted message.
+func writeHttpErrorf(w http.ResponseWriter, code int, format string, args ...interface{}) {
+	http.Error(w, fmt.Sprintf("%s: ", http.StatusText(code))+fmt.Sprintf(format, args...), code)
 }
