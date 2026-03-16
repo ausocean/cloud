@@ -1,4 +1,3 @@
-// ts/admin-site-lists.ts
 import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
@@ -28,11 +27,6 @@ function fetchJSONWithTimeout<T>(url: string, ms = 10000): Promise<T> {
 
 @customElement("admin-site-lists")
 export class AdminSiteLists extends LitElement {
-  // Light DOM so global CSS applies.
-  protected createRenderRoot() {
-    return this;
-  }
-
   @state() private allSites: Site[] | null = null;
   @state() private publicSites: Site[] | null = null;
   @state() private userSites: Site[] | null = null;
@@ -148,7 +142,7 @@ export class AdminSiteLists extends LitElement {
         </div>
         <div class="list-group list-group-flush">
           ${sorted.map(
-            (s) => html`
+      (s) => html`
               <div class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center">
                 <div>
                   <div class="fw-semibold">${s.Name}</div>
@@ -156,19 +150,19 @@ export class AdminSiteLists extends LitElement {
                 </div>
                 <div class="mt-2 mt-sm-0">
                   ${s.Public
-                    ? html`
+          ? html`
                         <span class="badge bg-success">Public</span>
                       `
-                    : nothing}
+          : nothing}
                   ${s.Perm !== undefined
-                    ? html`
+          ? html`
                         <span class="badge bg-info ms-2">Perm: ${s.Perm}</span>
                       `
-                    : nothing}
+          : nothing}
                 </div>
               </div>
             `,
-          )}
+    )}
         </div>
       </div>
     `;
