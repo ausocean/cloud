@@ -6,7 +6,7 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2019-2026 the Australian Ocean Lab (AusOcean)
 
   This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -28,15 +28,39 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 )
 
 func setupAPIV1Routes() {
-	http.HandleFunc("/api/v1/sites/all", wrapAPI(getV1AllSitesHandler))
-	http.HandleFunc("/api/v1/sites/public", wrapAPI(getV1PublicSitesHandler))
-	http.HandleFunc("/api/v1/sites/user", wrapAPI(getV1UserSitesHandler))
+	http.HandleFunc("/api/v1/sites/all", wrapAPI(withProfileJSON(getV1AllSitesHandler)))
+	http.HandleFunc("/api/v1/sites/public", wrapAPI(withProfileJSON(getV1PublicSitesHandler)))
+	http.HandleFunc("/api/v1/sites/user", wrapAPI(withProfileJSON(getV1UserSitesHandler)))
+}
+
+// withProfileJSON is middleware that authenticates the request and passes the
+// profile to the handler. If authentication fails, it writes a JSON error
+// response. This keeps auth boilerplate out of individual handlers.
+func withProfileJSON(handler func(http.ResponseWriter, *http.Request, *gauth.Profile)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, err := getProfile(w, r)
+		if err != nil {
+			if err != gauth.TokenNotFound {
+				log.Printf("authentication error: %v", err)
+			}
+			writeJSONError(w, http.StatusUnauthorized, fmt.Sprintf("user could not be authenticated: %v", err))
+			return
+		}
+		if p == nil {
+			writeJSONError(w, http.StatusUnauthorized, "user could not be authenticated")
+			return
+		}
+		handler(w, r, p)
+	}
 }
 
 type minimalSiteV1 struct {
@@ -54,23 +78,20 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	}
 }
 
+func writeJSONError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}
+
 // /api/v1/sites/all → []minimalSiteV1 (SUPER ADMIN ONLY).
-func getV1AllSitesHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
-	if p == nil {
-		return
-	}
+func getV1AllSitesHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	if !isSuperAdmin(p.Email) {
-		// Return JSON 401 instead of redirecting for API ergonomics.
-		writeJSON(w, http.StatusUnauthorized, map[string]string{
-			"error": "super admin required",
-		})
+		writeJSONError(w, http.StatusUnauthorized, "super admin required")
 		return
 	}
 
 	sites, err := model.GetAllSites(r.Context(), settingsStore)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get all sites: %v", err))
 		return
 	}
 
@@ -80,7 +101,7 @@ func getV1AllSitesHandler(w http.ResponseWriter, r *http.Request) {
 			Skey:   s.Skey,
 			Name:   s.Name,
 			Public: s.Public,
-			// Perm intentionally 0 for “all sites”.
+			// Perm intentionally 0 for "all sites".
 		})
 	}
 
@@ -88,13 +109,10 @@ func getV1AllSitesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /api/v1/sites/public → []minimalSiteV1.
-func getV1PublicSitesHandler(w http.ResponseWriter, r *http.Request) {
-	if requireProfile(w, r) == nil {
-		return
-	}
+func getV1PublicSitesHandler(w http.ResponseWriter, r *http.Request, _ *gauth.Profile) {
 	sites, err := model.GetAllSites(r.Context(), settingsStore)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get public sites: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get public sites: %v", err))
 		return
 	}
 	out := make([]minimalSiteV1, 0, len(sites))
@@ -111,14 +129,10 @@ func getV1PublicSitesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /api/v1/sites/user → []minimalSiteV1 with Perm set.
-func getV1UserSitesHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
-	if p == nil {
-		return
-	}
+func getV1UserSitesHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	users, sites, err := model.GetUserSites(r.Context(), settingsStore, p.Email)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("unable to get sites for user: %v, err: %v", p.Email, err))
 		return
 	}
 	perms := make(map[int64]int64, len(users))
