@@ -119,13 +119,13 @@ func getSiteHandler(w http.ResponseWriter, r *http.Request) {
 
 	skey, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "could not parse site key: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "could not parse site key: %v", err)
 		return
 	}
 
 	site, err := model.GetSite(r.Context(), settingsStore, skey)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get site with site key: %d: %v", skey, err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not get site with site key: %d: %v", skey, err)
 		return
 	}
 
@@ -146,13 +146,13 @@ func getDevicesForSiteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	skey, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
+		writeHttpErrorf(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
 		return
 	}
 
 	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get user: %v", err)
 		return
 	}
 	if user.Perm&model.ReadPermission == 0 {
@@ -162,13 +162,13 @@ func getDevicesForSiteHandler(w http.ResponseWriter, r *http.Request) {
 
 	devices, err := model.GetDevicesBySite(r.Context(), settingsStore, skey)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
 		return
 	}
 
 	data, err := json.Marshal(devices)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to marshal devices: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal devices: %v", err)
 		return
 	}
 	w.Write(data)
@@ -182,7 +182,7 @@ func getAllSitesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sites, err := model.GetAllSites(r.Context(), settingsStore)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get all sites: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not get all sites: %v", err)
 		return
 	}
 
@@ -203,7 +203,7 @@ func getPublicSitesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sites, err := model.GetAllSites(r.Context(), settingsStore)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get public sites: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not get public sites: %v", err)
 		return
 	}
 
@@ -226,7 +226,7 @@ func getUserSitesHandler(w http.ResponseWriter, r *http.Request) {
 
 	users, sites, err := model.GetUserSites(r.Context(), settingsStore, p.Email)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
 		return
 	}
 
@@ -328,14 +328,14 @@ func getBroadcastConfigHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := uuid.Validate(id); err != nil {
-		writeHttpError(w, http.StatusBadRequest, "invalid id: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "invalid id: %v", err)
 		return
 	}
 
 	ctx := r.Context()
 	broadcastVar, err := model.GetBroadcastVarByUUID(ctx, settingsStore, id)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get broadcast with UUID (%s): %v", id, err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get broadcast with UUID (%s): %v", id, err)
 		return
 	}
 
@@ -347,7 +347,7 @@ func getBroadcastConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(broadcastVar.Value))
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to write broadcast config to response: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to write broadcast config to response: %v", err)
 	}
 }
 
@@ -365,14 +365,14 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	skey, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
+		writeHttpErrorf(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
 		return
 	}
 
 	// Check for read permission.
 	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get user: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get user: %v", err)
 		return
 	}
 	if user.Perm&model.ReadPermission == 0 {
@@ -383,7 +383,7 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 	// Get variables for the site.
 	siteVars, err := model.GetVariablesBySite(r.Context(), settingsStore, skey, "")
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
 		return
 	}
 
@@ -404,7 +404,7 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(filtered)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
 		return
 	}
 	w.Write(data)
@@ -430,7 +430,7 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	mac := model.MacEncode(r.FormValue("ma"))
 	if mac == 0 {
-		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", r.FormValue("ma"))
+		writeHttpErrorf(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", r.FormValue("ma"))
 		return
 	}
 
@@ -439,19 +439,19 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	sensor, err := model.GetSensorV2(ctx, settingsStore, mac, pin)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get sensor: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get sensor: %v", err)
 		return
 	}
 
 	start, err := strconv.ParseInt(r.FormValue("start"), 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
 		return
 	}
 
 	finish, err := strconv.ParseInt(r.FormValue("finish"), 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
 		return
 	}
 
@@ -471,7 +471,7 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the data for the sensor.
 	scalars, err := model.GetScalars(ctx, mediaStore, model.ToSID(model.MacDecode(mac), pin), []int64{start, finish})
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get scalars for sensor: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get scalars for sensor: %v", err)
 	}
 
 	type timedValue struct {
@@ -483,7 +483,7 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	for _, s := range scalars {
 		transformed, err := sensor.Transform(s.Value)
 		if err != nil {
-			writeHttpError(w, http.StatusInternalServerError, "error whilst transforming scalar value: %v", err)
+			writeHttpErrorf(w, http.StatusInternalServerError, "error whilst transforming scalar value: %v", err)
 			return
 		}
 		output = append(output, timedValue{Value: transformed, Timestamp: s.Timestamp})
@@ -495,7 +495,7 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(output)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to marshal response data to json: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal response data to json: %v", err)
 		return
 	}
 	w.Write(data)
@@ -509,7 +509,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	macStr := r.FormValue("ma")
 	mac := model.MacEncode(macStr)
 	if mac == 0 {
-		writeHttpError(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", macStr)
+		writeHttpErrorf(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", macStr)
 		return
 	}
 
@@ -523,7 +523,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	if sv := r.FormValue("start"); sv != "" {
 		v, err := strconv.ParseInt(sv, 10, 64)
 		if err != nil {
-			writeHttpError(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
+			writeHttpErrorf(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
 			return
 		}
 		startTS = v
@@ -531,7 +531,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	if fv := r.FormValue("finish"); fv != "" {
 		v, err := strconv.ParseInt(fv, 10, 64)
 		if err != nil {
-			writeHttpError(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
+			writeHttpErrorf(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
 			return
 		}
 		finishTS = v
@@ -546,7 +546,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 
 	texts, err := model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
 		return
 	}
 
@@ -589,7 +589,7 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(resp); err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to encode response: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "unable to encode response: %v", err)
 		return
 	}
 }
@@ -628,13 +628,13 @@ func setSiteHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate site key.
 	if _, err := strconv.ParseInt(parts[0], 10, 64); err != nil {
-		writeHttpError(w, http.StatusBadRequest, "could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)
 		return
 	}
 
 	// Update profile.
 	if err := putProfileData(w, r, val); err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not update profile data with site data: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not update profile data with site data: %v", err)
 		return
 	}
 
@@ -654,7 +654,7 @@ func testUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	n, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "could not parse value from /api/test/upload/<value>: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "could not parse value from /api/test/upload/<value>: %v", err)
 		return
 	}
 
@@ -685,7 +685,7 @@ func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	n, err := strconv.ParseInt(req[4], 10, 64)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, "could not parse value from /api/test/download/<n>: %v", err)
+		writeHttpErrorf(w, http.StatusBadRequest, "could not parse value from /api/test/download/<n>: %v", err)
 		return
 	}
 
@@ -693,7 +693,7 @@ func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if len(req) == 6 {
 		chunk, err = strconv.ParseInt(req[5], 10, 64)
 		if err != nil {
-			writeHttpError(w, http.StatusBadRequest, "could not parse chunk size from url: %v", err)
+			writeHttpErrorf(w, http.StatusBadRequest, "could not parse chunk size from url: %v", err)
 			return
 		}
 	}
@@ -701,7 +701,7 @@ func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	body := make([]byte, n)
 	_, err = rand.Read(body)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not generate random data: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not generate random data: %v", err)
 		return
 	}
 
@@ -735,7 +735,7 @@ func scalarPutHandler(w http.ResponseWriter, r *http.Request) {
 
 	args, err := splitNumbers(val)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "invalid arg: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "invalid arg: %v", err)
 		return
 	}
 	if len(args) != 3 {
@@ -749,7 +749,7 @@ func scalarPutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:     float64(args[2]),
 	})
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not put scalar: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not put scalar: %v", err)
 		return
 	}
 }
@@ -771,7 +771,7 @@ func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	args, err := splitNumbers(val)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "invalid arg: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "invalid arg: %v", err)
 		return
 	}
 	if len(args) != 3 {
@@ -781,13 +781,13 @@ func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	scalars, err := model.GetScalars(r.Context(), mediaStore, args[0], []int64{args[1], args[2]})
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "could not get scalar: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "could not get scalar: %v", err)
 		return
 	}
 
 	data, err := json.Marshal(scalars)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "error marshaling scalars: %v", err)
+		writeHttpErrorf(w, http.StatusInternalServerError, "error marshaling scalars: %v", err)
 		return
 	}
 	w.Write(data)
@@ -832,7 +832,7 @@ func requireProfile(w http.ResponseWriter, r *http.Request) *gauth.Profile {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeHttpError(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
+		writeHttpErrorf(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
 		return nil
 	}
 	return p
