@@ -6,7 +6,7 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2022-2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2022-2026 the Australian Ocean Lab (AusOcean)
 
   This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU

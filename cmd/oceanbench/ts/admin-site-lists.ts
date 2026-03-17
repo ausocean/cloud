@@ -1,5 +1,6 @@
-import { LitElement, html, nothing } from "lit";
+import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { TailwindElement } from "./shared/tailwind.element";
 
 type Site = {
   Skey: number;
@@ -8,173 +9,151 @@ type Site = {
   Perm?: number;
 };
 
-function fetchJSONWithTimeout<T>(url: string, ms = 10000): Promise<T> {
+/** Metadata for each site list category. */
+const listMeta = {
+  all: {
+    title: "All Sites",
+    info: "Every site that exists, including ones you don't have permissions for. Visible only because you are a super admin.",
+    url: "/api/v1/sites/all",
+  },
+  public: {
+    title: "Public Sites",
+    info: "Sites that are publicly visible to everyone, regardless of whether you have specific permissions for them.",
+    url: "/api/v1/sites/public",
+  },
+  user: {
+    title: "Your Sites",
+    info: "Sites you have been specifically granted permissions for. May include some public sites, but only the ones you have explicit permissions on.",
+    url: "/api/v1/sites/user",
+  },
+} as const;
+
+type ListKind = keyof typeof listMeta;
+
+type ListState = {
+  items: Site[] | null;
+  error: string;
+  loading: boolean;
+};
+
+async function fetchJSON<T>(url: string, ms = 15_000): Promise<T> {
   const ac = new AbortController();
   const id = setTimeout(() => ac.abort(), ms);
-  return fetch(url, { credentials: "same-origin", signal: ac.signal })
-    .then(async (r) => {
-      const ct = r.headers.get("content-type") || "";
-      const bodyText = await r
-        .clone()
-        .text()
-        .catch(() => "");
-      console.info("[admin-site-lists] GET", url, r.status, r.statusText, ct, bodyText.slice(0, 200));
-      if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${bodyText}`);
-      return JSON.parse(bodyText) as T;
-    })
-    .finally(() => clearTimeout(id));
+  try {
+    const r = await fetch(url, { credentials: "same-origin", signal: ac.signal });
+    const body = await r.text();
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${body}`);
+    return JSON.parse(body) as T;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 @customElement("admin-site-lists")
-export class AdminSiteLists extends LitElement {
-  @state() private allSites: Site[] | null = null;
-  @state() private publicSites: Site[] | null = null;
-  @state() private userSites: Site[] | null = null;
-
-  @state() private errorAll = "";
-  @state() private errorPublic = "";
-  @state() private errorUser = "";
-
-  @state() private loadingAll = true;
-  @state() private loadingPublic = true;
-  @state() private loadingUser = true;
+export class AdminSiteLists extends TailwindElement() {
+  @state() private lists: Record<ListKind, ListState> = {
+    all: { items: null, error: "", loading: true },
+    public: { items: null, error: "", loading: true },
+    user: { items: null, error: "", loading: true },
+  };
 
   connectedCallback() {
     super.connectedCallback();
-    // Defer to microtask to ensure element is fully upgraded before async work.
     queueMicrotask(() => this.loadAll());
   }
 
-  private async loadAll() {
-    // Kick off all three in parallel.
-    this.loadOne("/api/v1/sites/all", "all");
-    this.loadOne("/api/v1/sites/public", "public");
-    this.loadOne("/api/v1/sites/user", "user");
+  private loadAll() {
+    for (const kind of Object.keys(listMeta) as ListKind[]) {
+      this.loadOne(kind);
+    }
   }
 
-  private async loadOne(url: string, kind: "all" | "public" | "user") {
+  private async loadOne(kind: ListKind) {
     try {
-      const data = await fetchJSONWithTimeout<Site[]>(url, 15000);
-      switch (kind) {
-        case "all":
-          this.allSites = data ?? [];
-          this.loadingAll = false;
-          this.requestUpdate("allSites");
-          this.requestUpdate("loadingAll");
-          console.log("[admin-site-lists] allSites loaded:", this.allSites.length);
-          break;
-        case "public":
-          this.publicSites = data ?? [];
-          this.loadingPublic = false;
-          this.requestUpdate("publicSites");
-          this.requestUpdate("loadingPublic");
-          console.log("[admin-site-lists] publicSites loaded:", this.publicSites.length);
-          break;
-        case "user":
-          this.userSites = data ?? [];
-          this.loadingUser = false;
-          this.requestUpdate("userSites");
-          this.requestUpdate("loadingUser");
-          console.log("[admin-site-lists] userSites loaded:", this.userSites.length);
-          break;
-      }
+      const data = await fetchJSON<Site[]>(listMeta[kind].url);
+      this.lists = {
+        ...this.lists,
+        [kind]: { items: data ?? [], error: "", loading: false },
+      };
     } catch (e: any) {
-      const msg = e?.message ?? String(e);
-      switch (kind) {
-        case "all":
-          this.errorAll = msg;
-          this.loadingAll = false;
-          this.requestUpdate("errorAll");
-          this.requestUpdate("loadingAll");
-          console.warn("[admin-site-lists] allSites error:", msg);
-          break;
-        case "public":
-          this.errorPublic = msg;
-          this.loadingPublic = false;
-          this.requestUpdate("errorPublic");
-          this.requestUpdate("loadingPublic");
-          console.warn("[admin-site-lists] publicSites error:", msg);
-          break;
-        case "user":
-          this.errorUser = msg;
-          this.loadingUser = false;
-          this.requestUpdate("errorUser");
-          this.requestUpdate("loadingUser");
-          console.warn("[admin-site-lists] userSites error:", msg);
-          break;
-      }
+      this.lists = {
+        ...this.lists,
+        [kind]: { items: null, error: e?.message ?? String(e), loading: false },
+      };
     }
   }
 
-  private renderList(title: string, items: Site[] | null, loading: boolean, err: string) {
+  private renderList(kind: ListKind) {
+    const meta = listMeta[kind];
+    const { items, error, loading } = this.lists[kind];
+
+    const header = html`
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-gray-800 dark:text-gray-100">${meta.title}</span>
+          <span class="relative group">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <span class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded bg-gray-900 dark:bg-gray-700 px-3 py-2 text-xs text-white opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 shadow-lg">
+              ${meta.info}
+            </span>
+          </span>
+        </div>
+        ${items && !loading
+        ? html`<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">${items.length}</span>`
+        : nothing}
+      </div>
+    `;
+
+    let body;
     if (loading) {
-      return html`
-        <div class="card mb-3">
-          <div class="card-header">${title}</div>
-          <div class="card-body">
-            <div class="text-muted">Loading…</div>
-          </div>
-        </div>
-      `;
-    }
-    if (err) {
-      return html`
-        <div class="card mb-3 border-danger">
-          <div class="card-header">${title}</div>
-          <div class="card-body text-danger">${err}</div>
-        </div>
-      `;
-    }
-    if (!items || items.length === 0) {
-      return html`
-        <div class="card mb-3">
-          <div class="card-header">${title}</div>
-          <div class="card-body text-muted">No sites found.</div>
-        </div>
-      `;
-    }
-    const sorted = [...items].sort((a, b) => (a.Name || "").toLowerCase().localeCompare((b.Name || "").toLowerCase()));
-    return html`
-      <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span>${title}</span>
-          <span class="badge bg-secondary">${sorted.length}</span>
-        </div>
-        <div class="list-group list-group-flush">
+      body = html`<div class="px-4 py-6 text-sm text-gray-400">Loading…</div>`;
+    } else if (error) {
+      body = html`<div class="px-4 py-6 text-sm text-red-500">${error}</div>`;
+    } else if (!items || items.length === 0) {
+      body = html`<div class="px-4 py-6 text-sm text-gray-400">No sites found.</div>`;
+    } else {
+      const sorted = [...items].sort((a, b) =>
+        (a.Name ?? "").localeCompare(b.Name ?? "", undefined, { sensitivity: "base" }),
+      );
+      body = html`
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
           ${sorted.map(
-      (s) => html`
-              <div class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center">
+        (s) => html`
+              <li class="flex items-center justify-between px-4 py-2.5">
                 <div>
-                  <div class="fw-semibold">${s.Name}</div>
-                  <div class="text-muted small">Skey: ${s.Skey}</div>
+                  <div class="text-sm font-medium text-gray-800 dark:text-gray-100">${s.Name}</div>
+                  <div class="text-xs text-gray-400">Skey: ${s.Skey}</div>
                 </div>
-                <div class="mt-2 mt-sm-0">
+                <div class="flex items-center gap-1.5">
                   ${s.Public
-          ? html`
-                        <span class="badge bg-success">Public</span>
-                      `
-          : nothing}
-                  ${s.Perm !== undefined
-          ? html`
-                        <span class="badge bg-info ms-2">Perm: ${s.Perm}</span>
-                      `
-          : nothing}
+            ? html`<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Public</span>`
+            : nothing}
+                  ${s.Perm !== undefined && s.Perm !== 0
+            ? html`<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Perm: ${s.Perm}</span>`
+            : nothing}
                 </div>
-              </div>
+              </li>
             `,
-    )}
-        </div>
+      )}
+        </ul>
+      `;
+    }
+
+    return html`
+      <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+        ${header}${body}
       </div>
     `;
   }
 
   render() {
     return html`
-      <div class="container-md my-3">
-        <div class="row">
-          <div class="col-12 col-lg-4">${this.renderList("All Sites", this.allSites, this.loadingAll, this.errorAll)}</div>
-          <div class="col-12 col-lg-4">${this.renderList("Public Sites", this.publicSites, this.loadingPublic, this.errorPublic)}</div>
-          <div class="col-12 col-lg-4">${this.renderList("Your Sites", this.userSites, this.loadingUser, this.errorUser)}</div>
+      <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          ${(Object.keys(listMeta) as ListKind[]).map((k) => this.renderList(k))}
         </div>
       </div>
     `;
