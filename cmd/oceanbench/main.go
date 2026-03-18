@@ -114,6 +114,13 @@ type commonData struct {
 	Footer     template.HTML
 }
 
+// TestDataConfig defines the structure for injecting standalone datastore test configurations via JSON.
+type TestDataConfig struct {
+	Sites   []*model.Site   `json:"sites"`
+	Users   []*model.User   `json:"users"`
+	Devices []*model.Device `json:"devices"`
+}
+
 var (
 	setupMutex    sync.Mutex
 	templates     *template.Template
@@ -126,6 +133,7 @@ var (
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
 	storePath     string
+	testDataFile  string
 )
 
 var (
@@ -184,6 +192,7 @@ func main() {
 	flag.StringVar(&cronURL, "cronurl", cronServiceURL, "Cron service URL")
 	flag.StringVar(&tvURL, "tvurl", tvServiceURL, "TV service URL")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
+	flag.StringVar(&testDataFile, "testdata", "", "Path to a JSON file to populate the datastore")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -322,6 +331,41 @@ func setup(ctx context.Context) {
 // setupLocal creates a local site, user and device for use in standalone mode.
 // In standalone mode all data is associated with site 1.
 func setupLocal(ctx context.Context, store datastore.Store) error {
+	if testDataFile != "" {
+		data, err := os.ReadFile(testDataFile)
+		if err != nil {
+			return fmt.Errorf("could not read testdata file: %w", err)
+		}
+		var config TestDataConfig
+		if err := json.Unmarshal(data, &config); err != nil {
+			return fmt.Errorf("could not parse testdata file: %w", err)
+		}
+
+		for _, site := range config.Sites {
+			if err := model.PutSite(ctx, store, site); err != nil {
+				return err
+			}
+		}
+		for _, user := range config.Users {
+			if err := model.PutUser(ctx, store, user); err != nil {
+				return err
+			}
+		}
+		for _, device := range config.Devices {
+			if err := model.PutDevice(ctx, store, device); err != nil {
+				return err
+			}
+		}
+		// Set the active site to the first site in the config so adminHandler
+		// can resolve a valid skey from standaloneData.
+		if len(config.Sites) > 0 {
+			first := config.Sites[0]
+			standaloneData = strconv.FormatInt(first.Skey, 10) + ":" + first.Name
+		}
+		log.Printf("Successfully populated datastore from %s", testDataFile)
+		return nil
+	}
+
 	standaloneData = "1:" + localSite
 	err := model.PutSite(ctx, store, &model.Site{Skey: 1, Name: localSite, Enabled: true})
 	if err != nil {
