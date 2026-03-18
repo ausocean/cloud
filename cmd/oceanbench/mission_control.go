@@ -37,7 +37,7 @@ import (
 
 // missionControlHandler handles mission control page requests.
 func missionControlHandler(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
-	data := monitorData{commonData: commonData{Pages: pages("admin"), Profile: profile}}
+	data := monitorData{commonData: commonData{Pages: pages("mission control"), Profile: profile}}
 
 	ctx := r.Context()
 	skey, _ := profileData(profile)
