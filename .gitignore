@@ -57,6 +57,7 @@ __pycache__/
 *.ncb # Visual Studio
 *.opensdf # Visual Studio
 *.sdf # Visual Studio
+.agent/
 
 # OS generated files (more specific)
 .localized

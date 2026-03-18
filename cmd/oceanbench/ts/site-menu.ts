@@ -62,7 +62,6 @@ class SiteMenu extends LitElement {
         optGroups.push(this.renderRoot.querySelector("#admin")! as HTMLOptGroupElement)
         var loading = this.renderRoot.querySelector("#loading")! as HTMLOptionElement
 
-        // Make a request to /api/get/sites/user
         let r = new XMLHttpRequest();
         r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {

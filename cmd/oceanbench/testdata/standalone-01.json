@@ -41,17 +41,17 @@
         {
             "skey": 1,
             "email": "localuser@localhost",
-            "perm": 4
+            "perm": 7
         },
         {
             "skey": 3,
             "email": "localuser@localhost",
-            "perm": 4
+            "perm": 7
         },
         {
             "skey": 5,
             "email": "localuser@localhost",
-            "perm": 2
+            "perm": 3
         },
         {
             "skey": 6,
