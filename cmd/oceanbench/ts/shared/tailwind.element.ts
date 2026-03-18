@@ -1,12 +1,17 @@
-// See Also: https://github.com/butopen/web-components-tailwind-starter-kit
+// This follows https://github.com/butopen/web-components-tailwind-starter-kit —
+// the compiled tailwind.global.css is imported as a plain string at build time by
+// rollup-plugin-string (equivalent to ?inline syntax), then passed into
+// Lit's static styles so the browser uses efficient Constructable Stylesheets.
+// The build:css step must run before Rollup so the compiled CSS is available.
 
 import { LitElement, unsafeCSS } from "lit";
+import globalStyles from "../../s/dist/tailwind.global.css";
 
-import style from "./tailwind.global.css?inline";
-
-const tailwindElement = unsafeCSS(style);
+const tailwindStyles = unsafeCSS(globalStyles);
 
 export const TailwindElement = (style?: string) =>
   class extends LitElement {
-    static styles = [tailwindElement, style ? unsafeCSS(style) : []];
+    static styles = style
+      ? [tailwindStyles, unsafeCSS(style)]
+      : [tailwindStyles];
   };

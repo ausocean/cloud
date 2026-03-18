@@ -5,3 +5,4 @@ store
 node_modules
 .vscode
 s/lit
+s/dist
