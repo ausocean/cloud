@@ -158,7 +158,11 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case "/admin/missioncontrol":
-		missionControlHandler(w, r)
+		if !isSuperAdmin(p.Email) {
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
+		}
+		missionControlHandler(w, r, p)
 		return
 
 	case "/admin/utils":

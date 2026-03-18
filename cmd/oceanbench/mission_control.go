@@ -36,25 +36,7 @@ import (
 )
 
 // missionControlHandler handles mission control page requests.
-func missionControlHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-
-	profile, err := getProfile(w, r)
-	if err != nil {
-		if err != gauth.TokenNotFound {
-			log.Printf("authentication error: %v", err)
-		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
-	}
-
-	// Require super admin (same pattern as /admin/site/add).
-	if !isSuperAdmin(profile.Email) {
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
-	}
-
-	// Use the "admin" page set so the admin nav highlights correctly.
+func missionControlHandler(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
 	data := monitorData{commonData: commonData{Pages: pages("admin"), Profile: profile}}
 
 	ctx := r.Context()
