@@ -27,38 +27,14 @@ LICENSE
 package main
 
 import (
-	"log"
 	"net/http"
 
-	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
-	"github.com/ausocean/cloud/model"
 )
 
 // missionControlHandler handles mission control page requests.
 func missionControlHandler(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
 	data := monitorData{commonData: commonData{Pages: pages("mission control"), Profile: profile}}
-
-	ctx := r.Context()
-	skey, _ := profileData(profile)
-
-	// Check if user has write permissions to link to devices page.
-	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
-	if err == nil && user.Perm&model.WritePermission != 0 {
-		data.WritePerm = true
-	} else if err != nil && err != datastore.ErrNoSuchEntity {
-		log.Println("failed getting user permissions", err)
-	}
-
-	// Retain site context if your template uses timezone/lat/lon.
-	site, err := model.GetSite(ctx, settingsStore, skey)
-	if err != nil {
-		reportMonitorError(w, r, &data, "could not get devices: %v", err)
-		return
-	}
-	data.Timezone = site.Timezone
-	data.SiteLat = site.Latitude
-	data.SiteLon = site.Longitude
 
 	writeTemplate(w, r, "mission-control.html", &data, "")
 }

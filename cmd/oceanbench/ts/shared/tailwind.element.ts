@@ -9,7 +9,6 @@ import globalStyles from "../../s/dist/tailwind.global.css";
 
 const tailwindStyles = unsafeCSS(globalStyles);
 
-// A common workaround is to link the stylesheet inside the shadow DOM:
 export const TailwindElement = (style?: string) =>
   class extends LitElement {
     static styles = style
