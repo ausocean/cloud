@@ -100,9 +100,8 @@ export class AdminSiteLists extends LitElement {
         <div class="flex items-center gap-2">
           <span class="font-semibold text-gray-800 dark:text-gray-100">${meta.title}</span>
           <span class="relative group">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4M12 8h.01" />
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 cursor-default" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 4a1.25 1.25 0 1 1 0 2.5A1.25 1.25 0 0 1 12 6zm-1 4h2v8h-2v-8z" />
             </svg>
             <span class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded bg-gray-900 dark:bg-gray-700 px-3 py-2 text-xs text-white opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 shadow-lg">
               ${meta.info}
@@ -151,8 +150,9 @@ export class AdminSiteLists extends LitElement {
     }
 
     return html`
-      <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-        ${header}${body}
+      <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        ${header}
+        <div class="overflow-hidden">${body}</div>
       </div>
     `;
   }
