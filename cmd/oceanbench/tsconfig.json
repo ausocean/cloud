@@ -23,6 +23,7 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "ts/*.ts"
+    "ts/*.ts",
+    "ts/*.d.ts"
   ]
 }

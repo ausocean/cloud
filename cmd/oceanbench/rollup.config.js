@@ -1,5 +1,6 @@
 import typescript from 'rollup-plugin-typescript2';
 import resolve from '@rollup/plugin-node-resolve';
+import { string } from 'rollup-plugin-string';
 
 export default [
   {
@@ -14,6 +15,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -30,6 +32,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -46,6 +49,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -62,6 +66,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -78,6 +83,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -94,6 +100,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
