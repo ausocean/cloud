@@ -94,8 +94,13 @@ export default [
       file: 's/lit/site-footer.js',
       format: 'iife',
       name: 'siteFooter',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
