@@ -1,0 +1,62 @@
+{
+    "sites": [
+        {
+            "skey": 1,
+            "name": "localhost",
+            "enabled": true,
+            "public": false
+        },
+        {
+            "skey": 2,
+            "name": "Public Beach (No Perms)",
+            "enabled": true,
+            "public": true
+        },
+        {
+            "skey": 3,
+            "name": "Secret Base (With Perms)",
+            "enabled": true,
+            "public": false
+        },
+        {
+            "skey": 4,
+            "name": "Top Secret (No Perms)",
+            "enabled": true,
+            "public": false
+        },
+        {
+            "skey": 5,
+            "name": "Public Reef (With Perms)",
+            "enabled": true,
+            "public": true
+        }
+    ],
+    "users": [
+        {
+            "skey": 1,
+            "email": "localuser@localhost",
+            "perm": 7
+        },
+        {
+            "skey": 3,
+            "email": "localuser@localhost",
+            "perm": 1
+        },
+        {
+            "skey": 5,
+            "email": "localuser@localhost",
+            "perm": 3
+        }
+    ],
+    "devices": [
+        {
+            "skey": 1,
+            "mac": 1,
+            "dkey": 0,
+            "name": "localdevice",
+            "inputs": "A0,V0,S0",
+            "monitorPeriod": 60,
+            "enabled": true
+        }
+    ]
+}
