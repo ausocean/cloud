@@ -5,4 +5,4 @@ store
 node_modules
 .vscode
 s/lit
-s/dist
+s/distts/shared/tailwind.global.css
