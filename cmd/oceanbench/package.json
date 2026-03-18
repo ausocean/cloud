@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "build:css": "npx -y @tailwindcss/cli -i ./ts/tailwind.css -o ./ts/shared/tailwind.global.css && cp ./ts/shared/tailwind.global.css ./s/dist/tailwind.global.css",
+    "build:css": "npx -y @tailwindcss/cli -i ./ts/tailwind.css -o ./s/dist/tailwind.global.css",
     "build": "npm run build:css && rollup -c",
     "build:watch": "npm run build:css -- --watch & rollup -c --watch",
     "format": "prettier --write \"**/*.html\"",
