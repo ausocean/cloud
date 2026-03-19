@@ -1,5 +1,6 @@
-import { LitElement, html, nothing } from "lit";
+import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { TailwindElement } from "./shared/tailwind.element";
 
 type Site = {
   Skey: number;
@@ -49,7 +50,7 @@ async function fetchJSON<T>(url: string, ms = 15_000): Promise<T> {
 }
 
 @customElement("admin-site-lists")
-export class AdminSiteLists extends LitElement {
+export class AdminSiteLists extends TailwindElement() {
   @state() private lists: Record<ListKind, ListState> = {
     all: { items: null, error: "", loading: true },
     public: { items: null, error: "", loading: true },
@@ -58,15 +59,6 @@ export class AdminSiteLists extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-
-    // Inject compiled Tailwind CSS into shadow DOM
-    if (!this.shadowRoot?.querySelector('link[href="/s/dist/tailwind.global.css"]')) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/s/dist/tailwind.global.css";
-      this.shadowRoot?.appendChild(link);
-    }
-
     queueMicrotask(() => this.loadAll());
   }
 
