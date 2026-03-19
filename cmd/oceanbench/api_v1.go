@@ -31,7 +31,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 )
@@ -40,6 +45,7 @@ func setupAPIV1Routes() {
 	http.HandleFunc("/api/v1/sites/all", wrapAPI(withProfileJSON(getV1AllSitesHandler)))
 	http.HandleFunc("/api/v1/sites/public", wrapAPI(withProfileJSON(getV1PublicSitesHandler)))
 	http.HandleFunc("/api/v1/sites/user", wrapAPI(withProfileJSON(getV1UserSitesHandler)))
+	http.HandleFunc("/api/v1/media", wrapAPI(withProfileJSON(mediaV1Handler)))
 }
 
 // withProfileJSON is middleware that authenticates the request and passes the
@@ -149,4 +155,242 @@ func getV1UserSitesHandler(w http.ResponseWriter, r *http.Request, p *gauth.Prof
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// minimalMediaV1 is the metadata-only DTO for an MtsMedia entity.
+// The Clip field is intentionally omitted to keep responses small.
+type minimalMediaV1 struct {
+	KeyID       uint64    `json:"key_id"`
+	MID         int64     `json:"mid"`
+	MAC         string    `json:"mac"`
+	Pin         string    `json:"pin"`
+	Timestamp   int64     `json:"timestamp"`
+	DurationSec float64   `json:"duration_sec"`
+	Type        string    `json:"type"`
+	Geohash     string    `json:"geohash,omitempty"`
+	Date        time.Time `json:"date"`
+	ClipSize    int       `json:"clip_size_bytes"`
+}
+
+// mediaV1Handler dispatches GET and DELETE requests for /api/v1/media.
+func mediaV1Handler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
+	switch r.Method {
+	case http.MethodGet:
+		getV1MediaHandler(w, r, p)
+	case http.MethodDelete:
+		deleteV1MediaHandler(w, r, p)
+	default:
+		writeJSONError(w, http.StatusMethodNotAllowed, "only GET and DELETE are supported")
+	}
+}
+
+// getV1MediaHandler handles GET /api/v1/media.
+//
+// Super-admin only. Returns metadata for all MtsMedia belonging to the
+// currently selected site. Clip bytes are never returned.
+//
+// Optional query parameters:
+//
+//	mid=<MID>               filter by a specific Media ID
+//	from=<unix-timestamp>   filter to media at or after this time
+//	to=<unix-timestamp>     filter to media before this time
+func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
+	if !isSuperAdmin(p.Email) {
+		writeJSONError(w, http.StatusUnauthorized, "super admin required")
+		return
+	}
+
+	skey, err := skeyFromProfile(p)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("could not resolve site: %v", err))
+		return
+	}
+
+	ctx := r.Context()
+
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get devices: %v", err))
+		return
+	}
+
+	// Optional filters.
+	var filterMID int64
+	if midStr := r.URL.Query().Get("mid"); midStr != "" {
+		filterMID, err = strconv.ParseInt(midStr, 10, 64)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid mid: %v", err))
+			return
+		}
+	}
+	var ts []int64
+	if fromStr := r.URL.Query().Get("from"); fromStr != "" {
+		fromTS, err := strconv.ParseInt(fromStr, 10, 64)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid from: %v", err))
+			return
+		}
+		ts = append(ts, fromTS)
+	}
+	if toStr := r.URL.Query().Get("to"); toStr != "" {
+		toTS, err := strconv.ParseInt(toStr, 10, 64)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid to: %v", err))
+			return
+		}
+		ts = append(ts, toTS)
+	}
+
+	// Collect MID entries for all devices on this site.
+	type midEntry struct {
+		mid int64
+		mac string
+		pin string
+	}
+	var mids []midEntry
+	for _, dev := range devices {
+		for _, pin := range parsePins(dev.Inputs) {
+			mid := model.ToMID(dev.MAC(), pin)
+			if filterMID != 0 && mid != filterMID {
+				continue
+			}
+			mids = append(mids, midEntry{mid: mid, mac: dev.MAC(), pin: pin})
+		}
+	}
+
+	var out []minimalMediaV1
+	for _, entry := range mids {
+		clips, err := model.GetMtsMedia(ctx, mediaStore, entry.mid, nil, ts)
+		if err != nil {
+			continue // No media for this MID is normal.
+		}
+		for i := range clips {
+			c := &clips[i]
+			item := minimalMediaV1{
+				MID:         c.MID,
+				MAC:         entry.mac,
+				Pin:         entry.pin,
+				Timestamp:   c.Timestamp,
+				DurationSec: model.PTSToSeconds(c.Duration),
+				Type:        c.Type,
+				Geohash:     c.Geohash,
+				Date:        c.Date,
+				ClipSize:    len(c.Clip),
+			}
+			if c.Key != nil {
+				item.KeyID = uint64(c.Key.ID)
+			}
+			out = append(out, item)
+		}
+	}
+
+	// Sort newest first.
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Timestamp > out[j].Timestamp
+	})
+
+	writeJSON(w, http.StatusOK, out)
+}
+
+// deleteV1MediaHandler handles DELETE /api/v1/media.
+//
+// Super-admin only. Expects JSON body {"key_ids": [<uint64>, ...]}.
+// Verifies each key belongs to the current site before deletion.
+// At most 500 keys may be deleted per request.
+func deleteV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
+	if !isSuperAdmin(p.Email) {
+		writeJSONError(w, http.StatusUnauthorized, "super admin required")
+		return
+	}
+
+	skey, err := skeyFromProfile(p)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("could not resolve site: %v", err))
+		return
+	}
+
+	var body struct {
+		KeyIDs []uint64 `json:"key_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON body: %v", err))
+		return
+	}
+	if len(body.KeyIDs) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "key_ids must not be empty")
+		return
+	}
+	const maxDelete = 500
+	if len(body.KeyIDs) > maxDelete {
+		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("too many key_ids (max %d)", maxDelete))
+		return
+	}
+
+	ctx := r.Context()
+
+	// Build set of MIDs belonging to this site.
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get devices: %v", err))
+		return
+	}
+	siteMIDs := make(map[int64]struct{})
+	for _, dev := range devices {
+		for _, pin := range parsePins(dev.Inputs) {
+			siteMIDs[model.ToMID(dev.MAC(), pin)] = struct{}{}
+		}
+	}
+
+	// Verify ownership then build keys to delete.
+	var validKeys []*datastore.Key
+	for _, kid := range body.KeyIDs {
+		m, err := model.GetMtsMediaByKey(ctx, mediaStore, kid)
+		if err != nil {
+			log.Printf("deleteV1MediaHandler: key %d not found, skipping: %v", kid, err)
+			continue
+		}
+		if _, ok := siteMIDs[m.MID]; !ok {
+			log.Printf("deleteV1MediaHandler: key %d MID %d not in site %d, skipping", kid, m.MID, skey)
+			continue
+		}
+		validKeys = append(validKeys, mediaStore.IDKey("MtsMedia", int64(kid)))
+	}
+
+	if len(validKeys) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "no valid key_ids found for current site")
+		return
+	}
+
+	if err := mediaStore.DeleteMulti(ctx, validKeys); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not delete media: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"deleted": len(validKeys),
+	})
+}
+
+// skeyFromProfile extracts the site key from the profile's Data field ("skey:name").
+func skeyFromProfile(p *gauth.Profile) (int64, error) {
+	parts := strings.SplitN(p.Data, ":", 2)
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("no site selected in profile")
+	}
+	return strconv.ParseInt(parts[0], 10, 64)
+}
+
+// parsePins splits a comma-separated pin string (e.g. "A0,V0,S0") into a slice of pin names.
+func parsePins(inputs string) []string {
+	if inputs == "" {
+		return nil
+	}
+	var pins []string
+	for _, p := range strings.Split(inputs, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			pins = append(pins, p)
+		}
+	}
+	return pins
 }

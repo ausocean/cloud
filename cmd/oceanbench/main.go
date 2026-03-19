@@ -116,9 +116,10 @@ type commonData struct {
 
 // TestDataConfig defines the structure for injecting standalone datastore test configurations via JSON.
 type TestDataConfig struct {
-	Sites   []*model.Site   `json:"sites"`
-	Users   []*model.User   `json:"users"`
-	Devices []*model.Device `json:"devices"`
+	Sites    []*model.Site     `json:"sites"`
+	Users    []*model.User     `json:"users"`
+	Devices  []*model.Device   `json:"devices"`
+	MtsMedia []*model.MtsMedia `json:"mtsmedia"`
 }
 
 var (
@@ -248,6 +249,7 @@ func main() {
 	http.HandleFunc("/admin/broadcast", adminHandler)
 	http.HandleFunc("/admin/tv-overview", tvOverviewHandler)
 	http.HandleFunc("/admin/missioncontrol", adminHandler)
+	http.HandleFunc("/admin/mediamanager", adminHandler)
 	http.HandleFunc("/admin/sandbox", sandboxHandler)
 	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
 	http.HandleFunc("/admin/utils", adminHandler)
@@ -355,6 +357,12 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 		for _, device := range config.Devices {
 			if err := model.PutDevice(ctx, store, device); err != nil {
 				return err
+			}
+		}
+		for _, media := range config.MtsMedia {
+			key := mediaStore.IDKey("MtsMedia", datastore.IDKey(media.MID, media.Timestamp, 0))
+			if _, err := mediaStore.Put(ctx, key, media); err != nil {
+				return fmt.Errorf("could not put MtsMedia: %w", err)
 			}
 		}
 		// Set the active site to the first site in the config so adminHandler
@@ -676,6 +684,12 @@ func pages(selected string) []page {
 		{
 			Name:  "mission control",
 			URL:   "/admin/missioncontrol",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "media manager",
+			URL:   "/admin/mediamanager",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
