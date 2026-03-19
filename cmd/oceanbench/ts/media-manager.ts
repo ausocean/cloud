@@ -5,16 +5,16 @@ import { TailwindElement } from "./shared/tailwind.element";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MediaItem = {
-    key_id: number;
-    mid: number;
-    mac: string;
-    pin: string;
-    timestamp: number;
-    duration_sec: number;
-    type: string;
-    geohash?: string;
-    date: string;
-    clip_size_bytes: number;
+  key_id: number;
+  mid: number;
+  mac: string;
+  pin: string;
+  timestamp: number;
+  duration_sec: number;
+  type: string;
+  geohash?: string;
+  date: string;
+  clip_size_bytes: number;
 };
 
 type UIState = "loading" | "idle" | "deleting" | "error";
@@ -22,159 +22,183 @@ type UIState = "loading" | "idle" | "deleting" | "error";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function fetchJSON<T>(url: string, options?: RequestInit, ms = 20_000): Promise<T> {
-    const ac = new AbortController();
-    const id = setTimeout(() => ac.abort(), ms);
-    try {
-        const r = await fetch(url, { credentials: "same-origin", signal: ac.signal, ...options });
-        const body = await r.text();
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${body}`);
-        return JSON.parse(body) as T;
-    } finally {
-        clearTimeout(id);
-    }
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), ms);
+  try {
+    const r = await fetch(url, { credentials: "same-origin", signal: ac.signal, ...options });
+    const body = await r.text();
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${body}`);
+    return JSON.parse(body) as T;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 function fmtDate(iso: string): string {
-    try {
-        return new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" });
-    } catch {
-        return iso;
-    }
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" });
+  } catch {
+    return iso;
+  }
 }
 
 function fmtDuration(sec: number): string {
-    if (!sec) return "—";
-    if (sec < 60) return `${sec.toFixed(1)} s`;
-    const m = Math.floor(sec / 60);
-    const s = Math.round(sec % 60);
-    return `${m}m ${s}s`;
+  if (!sec) return "—";
+  if (sec < 60) return `${sec.toFixed(1)} s`;
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}m ${s}s`;
 }
 
 function fmtBytes(n: number): string {
-    if (n === 0) return "0 B";
-    if (n < 1024) return `${n} B`;
-    if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1048576).toFixed(2)} MB`;
+  if (n === 0) return "0 B";
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1048576).toFixed(2)} MB`;
 }
 
 function playURL(item: MediaItem): string {
-    return `/play?id=${item.mid}&ts=${item.timestamp}`;
+  return `/play?id=${item.mid}&ts=${item.timestamp}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 @customElement("media-manager")
 export class MediaManager extends TailwindElement() {
-    @state() private items: MediaItem[] = [];
-    @state() private uiState: UIState = "loading";
-    @state() private errorMsg = "";
-    @state() private selected = new Set<number>(); // key_ids
-    @state() private showModal = false;
-    @state() private filterMac = "";
-    @state() private filterPin = "";
-    @state() private filterFrom = "";
-    @state() private filterTo = "";
-    @state() private deleteCount = 0;
-    @state() private deleteOk = false;
+  @state() private items: MediaItem[] = [];
+  @state() private uiState: UIState = "loading";
+  @state() private errorMsg = "";
+  @state() private selected = new Set<number>(); // key_ids
+  @state() private showModal = false;
+  @state() private lastCheckedIndex = -1;
+  @state() private filterMac = "";
+  @state() private filterPin = "";
+  @state() private filterFrom = "";
+  @state() private filterTo = "";
+  @state() private deleteCount = 0;
+  @state() private deleteOk = false;
 
-    connectedCallback() {
-        super.connectedCallback();
-        queueMicrotask(() => this.load());
+  connectedCallback() {
+    super.connectedCallback();
+    queueMicrotask(() => this.load());
+  }
+
+  // ── Data loading ────────────────────────────────────────────────────────────
+
+  private async load() {
+    this.uiState = "loading";
+    this.errorMsg = "";
+    try {
+      const params = new URLSearchParams();
+      if (this.filterFrom) params.set("from", String(Math.floor(new Date(this.filterFrom).getTime() / 1000)));
+      if (this.filterTo) params.set("to", String(Math.floor(new Date(this.filterTo).getTime() / 1000)));
+      const url = "/api/v1/media" + (params.toString() ? "?" + params : "");
+      const data = await fetchJSON<MediaItem[]>(url);
+      this.items = data ?? [];
+      this.selected = new Set();
+      this.lastCheckedIndex = -1;
+      this.uiState = "idle";
+    } catch (e: any) {
+      this.errorMsg = e?.message ?? String(e);
+      this.uiState = "error";
     }
+  }
 
-    // ── Data loading ────────────────────────────────────────────────────────────
+  // ── Filtering ────────────────────────────────────────────────────────────────
 
-    private async load() {
-        this.uiState = "loading";
-        this.errorMsg = "";
-        try {
-            const params = new URLSearchParams();
-            if (this.filterFrom) params.set("from", String(Math.floor(new Date(this.filterFrom).getTime() / 1000)));
-            if (this.filterTo) params.set("to", String(Math.floor(new Date(this.filterTo).getTime() / 1000)));
-            const url = "/api/v1/media" + (params.toString() ? "?" + params : "");
-            const data = await fetchJSON<MediaItem[]>(url);
-            this.items = data ?? [];
-            this.selected = new Set();
-            this.uiState = "idle";
-        } catch (e: any) {
-            this.errorMsg = e?.message ?? String(e);
-            this.uiState = "error";
-        }
-    }
+  private get visibleItems(): MediaItem[] {
+    return this.items.filter((item) => {
+      if (this.filterMac && !item.mac.toLowerCase().includes(this.filterMac.toLowerCase())) return false;
+      if (this.filterPin && item.pin.toLowerCase() !== this.filterPin.toLowerCase()) return false;
+      return true;
+    });
+  }
 
-    // ── Filtering ────────────────────────────────────────────────────────────────
+  private get uniqueMacs(): string[] {
+    return [...new Set(this.items.map((i) => i.mac))].sort();
+  }
 
-    private get visibleItems(): MediaItem[] {
-        return this.items.filter((item) => {
-            if (this.filterMac && !item.mac.toLowerCase().includes(this.filterMac.toLowerCase())) return false;
-            if (this.filterPin && item.pin.toLowerCase() !== this.filterPin.toLowerCase()) return false;
-            return true;
-        });
-    }
+  private get uniquePins(): string[] {
+    return [...new Set(this.items.map((i) => i.pin))].sort();
+  }
 
-    private get uniqueMacs(): string[] {
-        return [...new Set(this.items.map((i) => i.mac))].sort();
-    }
+  // ── Selection ────────────────────────────────────────────────────────────────
 
-    private get uniquePins(): string[] {
-        return [...new Set(this.items.map((i) => i.pin))].sort();
-    }
+  private toggleSelect(e: MouseEvent, index: number, keyId: number) {
+    const target = e.target as HTMLInputElement;
+    const isChecked = target.checked;
+    const s = new Set(this.selected);
 
-    // ── Selection ────────────────────────────────────────────────────────────────
+    // If shift is held, perform range selection between the last clicked and this one
+    if (e.shiftKey && this.lastCheckedIndex >= 0 && this.lastCheckedIndex < this.visibleItems.length) {
+      const start = Math.min(this.lastCheckedIndex, index);
+      const end = Math.max(this.lastCheckedIndex, index);
+      const visible = this.visibleItems;
 
-    private toggleSelect(keyId: number) {
-        const s = new Set(this.selected);
-        if (s.has(keyId)) s.delete(keyId);
-        else s.add(keyId);
-        this.selected = s;
-    }
-
-    private toggleAll() {
-        const visible = this.visibleItems;
-        const allSelected = visible.every((i) => this.selected.has(i.key_id));
-        const s = new Set(this.selected);
-        if (allSelected) {
-            visible.forEach((i) => s.delete(i.key_id));
+      for (let i = start; i <= end; i++) {
+        if (isChecked) {
+          s.add(visible[i].key_id);
         } else {
-            visible.forEach((i) => s.add(i.key_id));
+          s.delete(visible[i].key_id);
         }
-        this.selected = s;
+      }
+    } else {
+      // Normal toggle
+      if (isChecked) s.add(keyId);
+      else s.delete(keyId);
+      this.lastCheckedIndex = index;
     }
 
-    // ── Delete flow ──────────────────────────────────────────────────────────────
+    this.selected = s;
+  }
 
-    private openDeleteModal() {
-        this.showModal = true;
-        this.deleteOk = false;
+  private toggleAll() {
+    const visible = this.visibleItems;
+    const allSelected = visible.length > 0 && visible.every((i) => this.selected.has(i.key_id));
+    const s = new Set(this.selected);
+    if (allSelected) {
+      visible.forEach((i) => s.delete(i.key_id));
+    } else {
+      visible.forEach((i) => s.add(i.key_id));
     }
+    this.selected = s;
+    this.lastCheckedIndex = -1;
+  }
 
-    private closeModal() {
-        this.showModal = false;
+  // ── Delete flow ──────────────────────────────────────────────────────────────
+
+  private openDeleteModal() {
+    this.showModal = true;
+    this.deleteOk = false;
+  }
+
+  private closeModal() {
+    this.showModal = false;
+  }
+
+  private async confirmDelete() {
+    this.uiState = "deleting";
+    this.showModal = false;
+    try {
+      const keyIds = [...this.selected];
+      await fetchJSON<{ deleted: number }>("/api/v1/media", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key_ids: keyIds }),
+      });
+      this.deleteCount = keyIds.length;
+      this.deleteOk = true;
+      await this.load();
+    } catch (e: any) {
+      this.errorMsg = `Delete failed: ${e?.message ?? e}`;
+      this.uiState = "error";
     }
+  }
 
-    private async confirmDelete() {
-        this.uiState = "deleting";
-        this.showModal = false;
-        try {
-            const keyIds = [...this.selected];
-            await fetchJSON<{ deleted: number }>("/api/v1/media", {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ key_ids: keyIds }),
-            });
-            this.deleteCount = keyIds.length;
-            this.deleteOk = true;
-            await this.load();
-        } catch (e: any) {
-            this.errorMsg = `Delete failed: ${e?.message ?? e}`;
-            this.uiState = "error";
-        }
-    }
+  // ── Render ───────────────────────────────────────────────────────────────────
 
-    // ── Render ───────────────────────────────────────────────────────────────────
-
-    render() {
-        return html`
+  render() {
+    return html`
       <div class="max-w-screen-xl mx-auto px-4 py-6 space-y-4">
         ${this.renderBanner()}
         ${this.renderFilters()}
@@ -183,32 +207,32 @@ export class MediaManager extends TailwindElement() {
         ${this.showModal ? this.renderModal() : nothing}
       </div>
     `;
-    }
+  }
 
-    private renderBanner() {
-        if (this.uiState === "error") {
-            return html`
+  private renderBanner() {
+    if (this.uiState === "error") {
+      return html`
         <div class="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-11.25a.75.75 0 011.5 0v4a.75.75 0 01-1.5 0v-4zm.75 7a1 1 0 110-2 1 1 0 010 2z" clip-rule="evenodd"/></svg>
           <span>${this.errorMsg}</span>
           <button @click=${() => this.load()} class="ml-auto text-xs underline">Retry</button>
         </div>
       `;
-        }
-        if (this.deleteOk) {
-            return html`
+    }
+    if (this.deleteOk) {
+      return html`
         <div class="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700 px-4 py-3 text-sm text-green-700 dark:text-green-300">
           <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
           <span>Successfully deleted ${this.deleteCount} clip${this.deleteCount === 1 ? "" : "s"}.</span>
           <button @click=${() => { this.deleteOk = false; }} class="ml-auto text-xs underline">Dismiss</button>
         </div>
       `;
-        }
-        return nothing;
     }
+    return nothing;
+  }
 
-    private renderFilters() {
-        return html`
+  private renderFilters() {
+    return html`
       <div class="flex flex-wrap gap-3 items-end">
         <div class="flex flex-col gap-1">
           <label class="text-xs font-medium text-gray-500 dark:text-gray-400">MAC</label>
@@ -262,41 +286,41 @@ export class MediaManager extends TailwindElement() {
         </span>
       </div>
     `;
-    }
+  }
 
-    private renderTable() {
-        const visible = this.visibleItems;
-        const allSelected = visible.length > 0 && visible.every((i) => this.selected.has(i.key_id));
+  private renderTable() {
+    const visible = this.visibleItems;
+    const allSelected = visible.length > 0 && visible.every((i) => this.selected.has(i.key_id));
 
-        if (this.uiState === "loading") {
-            return html`
+    if (this.uiState === "loading") {
+      return html`
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div class="px-4 py-10 text-center text-sm text-gray-400">Loading clips…</div>
         </div>
       `;
-        }
+    }
 
-        if (this.uiState === "deleting") {
-            return html`
+    if (this.uiState === "deleting") {
+      return html`
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div class="px-4 py-10 text-center text-sm text-gray-400">Deleting…</div>
         </div>
       `;
-        }
+    }
 
-        if (visible.length === 0 && this.uiState === "idle") {
-            return html`
+    if (visible.length === 0 && this.uiState === "idle") {
+      return html`
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div class="px-4 py-10 text-center text-sm text-gray-400">No clips found for the current site and filters.</div>
         </div>
       `;
-        }
+    }
 
-        const thCls = "px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap";
-        const tdCls = "px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 whitespace-nowrap";
-        const tdMkd = "px-3 py-1.5 text-xs font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap";
+    const thCls = "px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap";
+    const tdCls = "px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 whitespace-nowrap";
+    const tdMkd = "px-3 py-1.5 text-xs font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap";
 
-        return html`
+    return html`
       <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto bg-white dark:bg-gray-800">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-left">
           <thead class="bg-gray-50 dark:bg-gray-900/40">
@@ -321,15 +345,15 @@ export class MediaManager extends TailwindElement() {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-            ${visible.map((item) => {
-            const sel = this.selected.has(item.key_id);
-            return html`
+            ${visible.map((item, index) => {
+      const sel = this.selected.has(item.key_id);
+      return html`
                 <tr class="${sel ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-700/30"} transition-colors">
                   <td class="px-3 py-1.5">
                     <input
                       type="checkbox"
                       .checked=${sel}
-                      @change=${() => this.toggleSelect(item.key_id)}
+                      @click=${(e: MouseEvent) => this.toggleSelect(e, index, item.key_id)}
                       class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
@@ -352,17 +376,17 @@ export class MediaManager extends TailwindElement() {
                   </td>
                 </tr>
               `;
-        })}
+    })}
           </tbody>
         </table>
       </div>
     `;
-    }
+  }
 
-    private renderDeleteBar() {
-        const count = this.selected.size;
-        if (count === 0) return nothing;
-        return html`
+  private renderDeleteBar() {
+    const count = this.selected.size;
+    if (count === 0) return nothing;
+    return html`
       <div class="sticky bottom-4 flex items-center justify-between rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-gray-800 shadow-lg px-4 py-3">
         <span class="text-sm text-gray-700 dark:text-gray-200 font-medium">
           ${count} clip${count === 1 ? "" : "s"} selected
@@ -376,11 +400,11 @@ export class MediaManager extends TailwindElement() {
         </button>
       </div>
     `;
-    }
+  }
 
-    private renderModal() {
-        const count = this.selected.size;
-        return html`
+  private renderModal() {
+    const count = this.selected.size;
+    return html`
       <!-- Backdrop -->
       <div
         class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
@@ -433,11 +457,11 @@ export class MediaManager extends TailwindElement() {
         </div>
       </div>
     `;
-    }
+  }
 }
 
 declare global {
-    interface HTMLElementTagNameMap {
-        "media-manager": MediaManager;
-    }
+  interface HTMLElementTagNameMap {
+    "media-manager": MediaManager;
+  }
 }

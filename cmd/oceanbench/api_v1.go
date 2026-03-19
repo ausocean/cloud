@@ -242,11 +242,15 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 	}
 
 	// Collect MID entries for all devices on this site.
+	// We deduplicate by MID because some pin types (e.g. A0 and V0) encode
+	// to the same MID via model.ToMID, and querying the same MID twice
+	// would produce duplicate results.
 	type midEntry struct {
 		mid int64
 		mac string
 		pin string
 	}
+	seenMIDs := make(map[int64]bool)
 	var mids []midEntry
 	for _, dev := range devices {
 		for _, pin := range parsePins(dev.Inputs) {
@@ -254,6 +258,10 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 			if filterMID != 0 && mid != filterMID {
 				continue
 			}
+			if seenMIDs[mid] {
+				continue
+			}
+			seenMIDs[mid] = true
 			mids = append(mids, midEntry{mid: mid, mac: dev.MAC(), pin: pin})
 		}
 	}
@@ -274,7 +282,7 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 				DurationSec: model.PTSToSeconds(c.Duration),
 				Type:        c.Type,
 				Geohash:     c.Geohash,
-				Date:        c.Date,
+				Date:        time.Unix(c.Timestamp, 0).UTC(),
 				ClipSize:    len(c.Clip),
 			}
 			if c.Key != nil {
