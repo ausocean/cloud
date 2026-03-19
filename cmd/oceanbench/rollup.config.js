@@ -104,5 +104,22 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/admin-site-lists.ts',
+    output: {
+      file: 's/lit/admin-site-lists.js',
+      format: 'iife',
+      name: 'adminSiteLists',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
   }
 ];

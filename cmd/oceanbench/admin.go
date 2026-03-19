@@ -121,7 +121,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	// Require POST method, except for admin landing pages.
 	if r.Method != "POST" {
 		switch r.URL.Path {
-		case "/admin/site", "/admin/broadcast", "/admin/utils":
+		case "/admin/site", "/admin/broadcast", "/admin/missioncontrol", "/admin/utils":
 			// Okay.
 		default:
 			http.Redirect(w, r, "/", http.StatusMethodNotAllowed)
@@ -155,6 +155,14 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/admin/broadcast":
 		broadcastHandler(w, r)
+		return
+
+	case "/admin/missioncontrol":
+		if !isSuperAdmin(p.Email) {
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
+		}
+		missionControlHandler(w, r, p)
 		return
 
 	case "/admin/utils":
