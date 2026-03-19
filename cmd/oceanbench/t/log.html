@@ -10,10 +10,10 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript">
-        function preSubmit(form) {
-            form.querySelector("input[name='ma']").value = encodeMAC(form.querySelector("input[name='ma']").value);
-            form.submit();
-        }
+      function preSubmit(form) {
+        form.querySelector("input[name='ma']").value = encodeMAC(form.querySelector("input[name='ma']").value);
+        form.submit();
+      }
     </script>
   </head>
   <body>
@@ -31,20 +31,20 @@
       <h1 class="container-md">Log</h1>
       <div class="border rounded p-4 container-md bg-white">
         <form action="/api/set/log/" method="post" novalidate>
-            <div class="input-group mb-3">
-                <span class="input-group-text" id="Skey">Site Key: </span>
-                <input type="number" step="1" class="form-control" name="sk" value="{{ .Skey }}" aria-label="Skey" aria-describedby="basic-addon1">
-            </div>
-            <div class="input-group mb-3">
-                <span class="input-group-text" id="DeviceMAC">Mac Address: </span>
-                <input type="text" class="form-control" name="ma" aria-label="DeviceMAC" aria-describedby="basic-addon1">
-            </div>
-            <div class="input-group">
-                <span class="input-group-text">Log Data: </span>
-                <textarea class="form-control" name="lg" aria-label="Log Data: "></textarea>
-            </div>
-            <hr />
-            <input class="btn btn-primary" type="button" onclick="preSubmit(this.form)" value="Submit">
+          <div class="input-group mb-3">
+            <span class="input-group-text" id="Skey">Site Key:</span>
+            <input type="number" step="1" class="form-control" name="sk" value="{{ .Skey }}" aria-label="Skey" aria-describedby="basic-addon1" />
+          </div>
+          <div class="input-group mb-3">
+            <span class="input-group-text" id="DeviceMAC">Mac Address:</span>
+            <input type="text" class="form-control" name="ma" aria-label="DeviceMAC" aria-describedby="basic-addon1" />
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">Log Data:</span>
+            <textarea class="form-control" name="lg" aria-label="Log Data: "></textarea>
+          </div>
+          <hr />
+          <input class="btn btn-primary" type="button" onclick="preSubmit(this.form)" value="Submit" />
         </form>
       </div>
     </section>
