@@ -1,41 +1,71 @@
-# Readme
+# Ocean Bench
 
-Ocean Bench, part of Ausocean's [Cloud Blue](https://www.cloudblue.org),
-is a cloud service for analyzing ocean data.
-
-Ocean Bench is written in Go and runs on Google App Engine
-Standard Edition (part of Google Cloud.)
+Ocean Bench, part of AusOcean's [Cloud Blue](https://www.cloudblue.org), is a cloud service for analyzing ocean data. It is written in Go and designed to run on Google App Engine Standard Edition.
 
 ## Installation and Usage
 
-Before you begin, make sure you have git, go and npm installed. If not, you 
-can follow the official guides:
+Before you begin, ensure you have **git**, **go**, and **npm** installed.
 
-* [git website](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [go website](https://go.dev/doc/install)
-* [npm website](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-
-1.  Clone the repository:
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/ausocean/cloud.git
-2.  Change to the project directory:
-    ```bash
     cd cmd/oceanbench
-3.  Install node dependencies from package.json:
+    ```
+
+2.  **Install dependencies:**
     ```bash
     npm install
-4.  Compile typescript:
+    ```
+
+3.  **Build the project:**
+    This command compiles the TypeScript/Lit components and generates the global Tailwind CSS bundle (`s/dist/tailwind.global.css`).
     ```bash
     npm run build
-5.  Compile Go:
+    ```
+
+4.  **Compile the Go server:**
     ```bash
     go build
-6.  Run a local instance:
+    ```
+
+5.  **Run a local instance:**
     ```bash
-    ./vidgrind --standalone
+    ./oceanbench --standalone
+    ```
 
-# See Also
+### Command-Line Flags
 
+The following flags are available when running the `oceanbench` binary, particularly in standalone mode:
+
+| Flag | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--standalone` | bool | `false` | Run in standalone mode without App Engine. |
+| `--debug` | bool | `false` | Enable verbose output for debugging. |
+| `--port` | int | `8080` | Port to listen on (can also be set via `PORT` env var). |
+| `--host` | string | `localhost` | Hostname for the server. |
+| `--filestore` | string | `store` | Path to the local file store. |
+| `--testdata` | string | | Path to a JSON file to populate the standalone datastore. |
+| `--loc` | string | | Latitude,longitude pair (e.g., `--loc -34.92,138.62`). |
+| `--alt` | float | `0` | Altitude of the receiver (negative for depth). |
+| `--gps` | string | | GPS receiver serial port (e.g., `/dev/ttyUSB0`). |
+| `--baud` | int | `9600` | Baud rate for the GPS serial device. |
+| `--cronurl` | string | | URL for the cron service. |
+| `--tvurl` | string | | URL for the TV service. |
+
+## Development
+
+### Tailwind CSS
+We use **Tailwind CSS v4** for styling. The main entry point is `ts/tailwind.css`.
+- To build CSS separately: `npm run build:css`
+- To watch for changes: `npm run build:watch` (this watches both TS and CSS)
+
+### Project Structure
+- `ts/`: TypeScript source files for Lit components.
+- `s/`: Static files, including the generated `dist/` and `lit/` directories.
+- `t/`: HTML templates used by the Go server.
+- `*.go`: Go source files for the backend API and server.
+
+## See Also
 * [Ocean Bench service](https://bench.cloudblue.org)
 * [AusOcean](https://www.ausocean.org)
 
