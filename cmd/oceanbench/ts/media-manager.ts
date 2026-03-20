@@ -19,9 +19,16 @@ type MediaItem = {
 
 type UIState = "loading" | "idle" | "deleting" | "error";
 
+type PaginatedResponse = {
+  items: MediaItem[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function fetchJSON<T>(url: string, options?: RequestInit, ms = 20_000): Promise<T> {
+async function fetchJSON<T>(url: string, options?: RequestInit, ms = 60_000): Promise<T> {
   const ac = new AbortController();
   const id = setTimeout(() => ac.abort(), ms);
   try {
@@ -32,6 +39,13 @@ async function fetchJSON<T>(url: string, options?: RequestInit, ms = 20_000): Pr
   } finally {
     clearTimeout(id);
   }
+}
+
+function getLocalISOStringOffsetDays(daysOffset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
 }
 
 function fmtDate(iso: string): string {
@@ -73,10 +87,14 @@ export class MediaManager extends TailwindElement() {
   @state() private lastCheckedIndex = -1;
   @state() private filterMac = "";
   @state() private filterPin = "";
-  @state() private filterFrom = "";
+  // Default to 7 days ago to prevent massive production data from crashing the request
+  @state() private filterFrom = getLocalISOStringOffsetDays(-7);
   @state() private filterTo = "";
   @state() private deleteCount = 0;
   @state() private deleteOk = false;
+  @state() private currentPage = 1;
+  @state() private totalItems = 0;
+  @state() private pageSize = 500;
 
   connectedCallback() {
     super.connectedCallback();
@@ -92,9 +110,12 @@ export class MediaManager extends TailwindElement() {
       const params = new URLSearchParams();
       if (this.filterFrom) params.set("from", String(Math.floor(new Date(this.filterFrom).getTime() / 1000)));
       if (this.filterTo) params.set("to", String(Math.floor(new Date(this.filterTo).getTime() / 1000)));
-      const url = "/api/v1/media" + (params.toString() ? "?" + params : "");
-      const data = await fetchJSON<MediaItem[]>(url);
-      this.items = data ?? [];
+      params.set("page", String(this.currentPage));
+      params.set("limit", String(this.pageSize));
+      const url = "/api/v1/media?" + params;
+      const data = await fetchJSON<PaginatedResponse>(url);
+      this.items = data.items ?? [];
+      this.totalItems = data.total;
       this.selected = new Set();
       this.lastCheckedIndex = -1;
       this.uiState = "idle";
@@ -165,6 +186,18 @@ export class MediaManager extends TailwindElement() {
     this.lastCheckedIndex = -1;
   }
 
+  // ── Pagination ──────────────────────────────────────────────────────────────
+
+  private get totalPages(): number {
+    return Math.max(1, Math.ceil(this.totalItems / this.pageSize));
+  }
+
+  private goToPage(p: number) {
+    if (p < 1 || p > this.totalPages || p === this.currentPage) return;
+    this.currentPage = p;
+    this.load();
+  }
+
   // ── Delete flow ──────────────────────────────────────────────────────────────
 
   private openDeleteModal() {
@@ -203,6 +236,7 @@ export class MediaManager extends TailwindElement() {
         ${this.renderBanner()}
         ${this.renderFilters()}
         ${this.renderTable()}
+        ${this.renderPagination()}
         ${this.renderDeleteBar()}
         ${this.showModal ? this.renderModal() : nothing}
       </div>
@@ -275,14 +309,14 @@ export class MediaManager extends TailwindElement() {
         </div>
 
         <button
-          @click=${() => this.load()}
+          @click=${() => { this.currentPage = 1; this.load(); }}
           class="text-sm rounded bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 font-medium transition-colors"
         >
           Apply
         </button>
 
         <span class="ml-auto text-xs text-gray-400 self-end pb-0.5">
-          ${this.uiState === "loading" ? "Loading…" : `${this.visibleItems.length} of ${this.items.length} clips`}
+          ${this.uiState === "loading" ? "Loading…" : `Showing ${this.visibleItems.length} of ${this.totalItems} total clips (page ${this.currentPage})`}
         </span>
       </div>
     `;
@@ -379,6 +413,61 @@ export class MediaManager extends TailwindElement() {
     })}
           </tbody>
         </table>
+      </div>
+    `;
+  }
+
+  private renderPagination() {
+    const tp = this.totalPages;
+    if (tp <= 1) return nothing;
+
+    const cp = this.currentPage;
+    const btnBase = "px-3 py-1.5 text-sm font-medium rounded transition-colors";
+    const btnActive = "bg-blue-600 text-white";
+    const btnInactive = "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700";
+    const btnDisabled = "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border border-gray-200 dark:border-gray-700 cursor-not-allowed";
+
+    // Show a window of page numbers around the current page.
+    const windowSize = 5;
+    let startPage = Math.max(1, cp - Math.floor(windowSize / 2));
+    let endPage = Math.min(tp, startPage + windowSize - 1);
+    if (endPage - startPage + 1 < windowSize) {
+      startPage = Math.max(1, endPage - windowSize + 1);
+    }
+
+    const pages: number[] = [];
+    for (let i = startPage; i <= endPage; i++) pages.push(i);
+
+    return html`
+      <div class="flex items-center justify-center gap-1.5 pt-2">
+        <button
+          class="${cp <= 1 ? btnDisabled : btnInactive} ${btnBase}"
+          ?disabled=${cp <= 1}
+          @click=${() => this.goToPage(cp - 1)}
+        >← Prev</button>
+
+        ${startPage > 1 ? html`
+          <button class="${btnInactive} ${btnBase}" @click=${() => this.goToPage(1)}>1</button>
+          ${startPage > 2 ? html`<span class="px-1 text-gray-400">…</span>` : nothing}
+        ` : nothing}
+
+        ${pages.map((p) => html`
+          <button
+            class="${p === cp ? btnActive : btnInactive} ${btnBase}"
+            @click=${() => this.goToPage(p)}
+          >${p}</button>
+        `)}
+
+        ${endPage < tp ? html`
+          ${endPage < tp - 1 ? html`<span class="px-1 text-gray-400">…</span>` : nothing}
+          <button class="${btnInactive} ${btnBase}" @click=${() => this.goToPage(tp)}>${tp}</button>
+        ` : nothing}
+
+        <button
+          class="${cp >= tp ? btnDisabled : btnInactive} ${btnBase}"
+          ?disabled=${cp >= tp}
+          @click=${() => this.goToPage(cp + 1)}
+        >Next →</button>
       </div>
     `;
   }

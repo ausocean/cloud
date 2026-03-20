@@ -184,6 +184,14 @@ func mediaV1Handler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	}
 }
 
+// paginatedMediaV1 wraps a page of media items with pagination metadata.
+type paginatedMediaV1 struct {
+	Items []minimalMediaV1 `json:"items"`
+	Total int              `json:"total"`
+	Page  int              `json:"page"`
+	Limit int              `json:"limit"`
+}
+
 // getV1MediaHandler handles GET /api/v1/media.
 //
 // Super-admin only. Returns metadata for all MtsMedia belonging to the
@@ -194,6 +202,8 @@ func mediaV1Handler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 //	mid=<MID>               filter by a specific Media ID
 //	from=<unix-timestamp>   filter to media at or after this time
 //	to=<unix-timestamp>     filter to media before this time
+//	page=<int>              1-indexed page number (default 1)
+//	limit=<int>             items per page (default 500, max 500)
 func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	if !isSuperAdmin(p.Email) {
 		writeJSONError(w, http.StatusUnauthorized, "super admin required")
@@ -241,6 +251,23 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 		ts = append(ts, toTS)
 	}
 
+	// Pagination params.
+	page := 1
+	limit := 500
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
 	// Collect MID entries for all devices on this site.
 	// We deduplicate by MID because some pin types (e.g. A0 and V0) encode
 	// to the same MID via model.ToMID, and querying the same MID twice
@@ -266,38 +293,80 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 		}
 	}
 
-	var out []minimalMediaV1
+	type keyWithMeta struct {
+		key       *datastore.Key
+		timestamp int64
+		mac       string
+		pin       string
+		mid       int64
+	}
+	var allKeys []keyWithMeta
+
 	for _, entry := range mids {
-		clips, err := model.GetMtsMedia(ctx, mediaStore, entry.mid, nil, ts)
+		keys, err := model.GetMtsMediaKeys(ctx, mediaStore, entry.mid, nil, ts)
 		if err != nil {
 			continue // No media for this MID is normal.
 		}
-		for i := range clips {
-			c := &clips[i]
-			item := minimalMediaV1{
-				MID:         c.MID,
-				MAC:         entry.mac,
-				Pin:         entry.pin,
-				Timestamp:   c.Timestamp,
-				DurationSec: model.PTSToSeconds(c.Duration),
-				Type:        c.Type,
-				Geohash:     c.Geohash,
-				Date:        time.Unix(c.Timestamp, 0).UTC(),
-				ClipSize:    len(c.Clip),
-			}
-			if c.Key != nil {
-				item.KeyID = uint64(c.Key.ID)
-			}
-			out = append(out, item)
+		for _, k := range keys {
+			_, tstamp, _ := datastore.SplitIDKey(k.ID)
+			allKeys = append(allKeys, keyWithMeta{
+				key:       k,
+				timestamp: tstamp,
+				mac:       entry.mac,
+				pin:       entry.pin,
+				mid:       entry.mid,
+			})
 		}
 	}
 
 	// Sort newest first.
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Timestamp > out[j].Timestamp
+	sort.Slice(allKeys, func(i, j int) bool {
+		return allKeys[i].timestamp > allKeys[j].timestamp
 	})
 
-	writeJSON(w, http.StatusOK, out)
+	// Apply pagination.
+	total := len(allKeys)
+	start := (page - 1) * limit
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+
+	pageKeys := allKeys[start:end]
+
+	items := make([]minimalMediaV1, 0, len(pageKeys))
+	for _, km := range pageKeys {
+		c, err := model.GetMtsMediaByKey(ctx, mediaStore, uint64(km.key.ID))
+		if err != nil {
+			log.Printf("getV1MediaHandler: failed to fetch key %v: %v", km.key.ID, err)
+			continue
+		}
+		item := minimalMediaV1{
+			MID:         c.MID,
+			MAC:         km.mac,
+			Pin:         km.pin,
+			Timestamp:   c.Timestamp,
+			DurationSec: model.PTSToSeconds(c.Duration),
+			Type:        c.Type,
+			Geohash:     c.Geohash,
+			Date:        time.Unix(c.Timestamp, 0).UTC(),
+			ClipSize:    len(c.Clip),
+		}
+		if c.Key != nil {
+			item.KeyID = uint64(c.Key.ID)
+		}
+		items = append(items, item)
+	}
+
+	writeJSON(w, http.StatusOK, paginatedMediaV1{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
 }
 
 // deleteV1MediaHandler handles DELETE /api/v1/media.
