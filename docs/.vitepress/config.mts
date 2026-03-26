@@ -93,11 +93,11 @@ export default withMermaid({
                 text: "Response Codes",
                 link: "netsender/response-codes",
               },
-              {
-                text: "MPEG-TS Media",
-                link: "netsender/mpeg-ts-media",
-              },
             ],
+          },
+          {
+            text: "MPEG-TS Media",
+            link: "data-models/mpeg-ts-media",
           },
         ],
       },
