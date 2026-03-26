@@ -544,9 +544,11 @@ func FromMID(mid int64) (string, string) {
 	return MacDecode(mid >> 4), getMtsPin(byte(mid & 0x0f))
 }
 
-// putMtsPin encodes a pin string, such as "V0" or "S3", into a nibble.
-// Bits 0-1 represent the pin number and bits 2-3 represents the pin
-// type.
+// putMtsPin encodes a pin string, such as "V0" or "S3", into a 4-bit nibble.
+// Bits 0-1 hold the pin number (0-3). Bits 2-3 hold the pin type (V=0, S=1, T=2, B=3).
+// Shifting the 2-bit type left by 2 bits gives base values of 0x00, 0x04, 0x08, and 0x0C.
+// Example: "S3" combines type 'S' (binary 0100 / 0x04) with number 3 (binary 0011)
+// to produce binary 0111 (0x07).
 func putMtsPin(pin string) byte {
 	var b byte
 	switch pin[0] {

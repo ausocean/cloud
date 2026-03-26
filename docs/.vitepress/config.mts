@@ -18,18 +18,18 @@ export default withMermaid({
         base: "/",
         text: "For Users:",
         items: [
-          { text: "Introduction", link: "/introduction" },
+          { text: "Introduction", link: "introduction" },
           {
             text: "OceanBench",
-            link: "/oceanbench/oceanbench",
+            link: "oceanbench/oceanbench",
             items: [
               {
                 text: "Configuration",
-                link: "/oceanbench/device-configuration",
+                link: "oceanbench/device-configuration",
                 items: [
                   {
                     text: "Auto Configuration",
-                    link: "/oceanbench/autoconfiguration",
+                    link: "oceanbench/autoconfiguration",
                   },
                 ],
               },
@@ -94,6 +94,15 @@ export default withMermaid({
                 link: "netsender/response-codes",
               },
             ],
+          },
+          {
+            text: "Data Models",
+            items: [
+              {
+                text: "Media ID (MID)",
+                link: "data-models/media-id",
+              },
+            ]
           },
         ],
       },
