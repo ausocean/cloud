@@ -4,7 +4,7 @@ This repository contains AusOcean's cloud services and support packages.
 
 ## Ocean Bench
 
-Ocean Bench is AusOcean's cloud service for analyzing ocean data.
+Ocean Bench is AusOcean's cloud service for analyzing and managing ocean data, and managing AusOcean devices.
 
 Instructions for building Ocean Bench can be found under cmd/oceanbench.
 
@@ -40,3 +40,24 @@ To clean up indexes:
 cp vidgrind_index.yaml index.yaml
 gcloud datastore indexes cleanup --project vidgrind index.yaml
 ```
+
+## Documentation
+
+Service documentation is built using [VitePress](https://vitepress.dev/) and is located in the `docs` directory.
+
+To run the documentation locally:
+
+1.  Navigate to the `docs` directory:
+    ```bash
+    cd docs
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Start the development server:
+    ```bash
+    npm run docs:dev
+    ```
+
+The documentation will be available at `http://localhost:5173`.
