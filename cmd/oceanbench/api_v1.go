@@ -27,7 +27,6 @@ LICENSE
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,7 +38,6 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
@@ -55,7 +53,8 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/all", getV1AllSitesHandler)
 	v1.Get("/sites/public", getV1PublicSitesHandler)
 	v1.Get("/sites/user", getV1UserSitesHandler)
-	v1.Get("/media", adaptor.HTTPHandlerFunc(mediaV1Handler))
+	v1.Get("/media", getV1MediaHandler)
+	v1.Delete("/media", deleteV1MediaHandler)
 }
 
 // withProfileJSON is Fiber middleware that authenticates the request and stores
@@ -98,18 +97,6 @@ type minimalSiteV1 struct {
 	Perm   int64  `json:"Perm,omitempty"`
 	Name   string `json:"Name"`
 	Public bool   `json:"Public"`
-}
-
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, `{"error":"encode failure"}`, http.StatusInternalServerError)
-	}
-}
-
-func writeJSONError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 // /api/v1/sites/all → []minimalSiteV1 (SUPER ADMIN ONLY).
@@ -194,18 +181,6 @@ type minimalMediaV1 struct {
 	ClipSize    int       `json:"clip_size_bytes"`
 }
 
-// mediaV1Handler dispatches GET and DELETE requests for /api/v1/media.
-func mediaV1Handler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
-	switch r.Method {
-	case http.MethodGet:
-		getV1MediaHandler(w, r, p)
-	case http.MethodDelete:
-		deleteV1MediaHandler(w, r, p)
-	default:
-		writeJSONError(w, http.StatusMethodNotAllowed, "only GET and DELETE are supported")
-	}
-}
-
 // getV1MediaHandler handles GET /api/v1/media.
 //
 // Super-admin only. Returns metadata for all MtsMedia belonging to the
@@ -216,49 +191,44 @@ func mediaV1Handler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 //	mid=<MID>               filter by a specific Media ID
 //	from=<unix-timestamp>   filter to media at or after this time
 //	to=<unix-timestamp>     filter to media before this time
-func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
+func getV1MediaHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
-		writeJSONError(w, http.StatusUnauthorized, "super admin required")
-		return
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
 	}
 
 	skey, err := skeyFromProfile(p)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("could not resolve site: %v", err))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
 	}
 
-	ctx := r.Context()
+	ctx := c.Context()
 
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get devices: %v", err))
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
 	}
 
 	// Optional filters.
 	var filterMID int64
-	if midStr := r.URL.Query().Get("mid"); midStr != "" {
+	if midStr := c.Query("mid"); midStr != "" {
 		filterMID, err = strconv.ParseInt(midStr, 10, 64)
 		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid mid: %v", err))
-			return
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid mid: %v", err)})
 		}
 	}
 	var ts []int64
-	if fromStr := r.URL.Query().Get("from"); fromStr != "" {
+	if fromStr := c.Query("from"); fromStr != "" {
 		fromTS, err := strconv.ParseInt(fromStr, 10, 64)
 		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid from: %v", err))
-			return
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid from: %v", err)})
 		}
 		ts = append(ts, fromTS)
 	}
-	if toStr := r.URL.Query().Get("to"); toStr != "" {
+	if toStr := c.Query("to"); toStr != "" {
 		toTS, err := strconv.ParseInt(toStr, 10, 64)
 		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid to: %v", err))
-			return
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid to: %v", err)})
 		}
 		ts = append(ts, toTS)
 	}
@@ -319,7 +289,7 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 		return out[i].Timestamp > out[j].Timestamp
 	})
 
-	writeJSON(w, http.StatusOK, out)
+	return c.JSON(out)
 }
 
 // deleteV1MediaHandler handles DELETE /api/v1/media.
@@ -327,42 +297,37 @@ func getV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile)
 // Super-admin only. Expects JSON body {"key_ids": [<uint64>, ...]}.
 // Verifies each key belongs to the current site before deletion.
 // At most 500 keys may be deleted per request.
-func deleteV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
+func deleteV1MediaHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
-		writeJSONError(w, http.StatusUnauthorized, "super admin required")
-		return
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
 	}
 
 	skey, err := skeyFromProfile(p)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("could not resolve site: %v", err))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
 	}
 
 	var body struct {
 		KeyIDs []uint64 `json:"key_ids"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON body: %v", err))
-		return
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid JSON body: %v", err)})
 	}
 	if len(body.KeyIDs) == 0 {
-		writeJSONError(w, http.StatusBadRequest, "key_ids must not be empty")
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "key_ids must not be empty"})
 	}
 	const maxDelete = 500
 	if len(body.KeyIDs) > maxDelete {
-		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("too many key_ids (max %d)", maxDelete))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("too many key_ids (max %d)", maxDelete)})
 	}
 
-	ctx := r.Context()
+	ctx := c.Context()
 
 	// Build set of MIDs belonging to this site.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not get devices: %v", err))
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
 	}
 	siteMIDs := make(map[int64]struct{})
 	for _, dev := range devices {
@@ -387,16 +352,14 @@ func deleteV1MediaHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profi
 	}
 
 	if len(validKeys) == 0 {
-		writeJSONError(w, http.StatusBadRequest, "no valid key_ids found for current site")
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no valid key_ids found for current site"})
 	}
 
 	if err := mediaStore.DeleteMulti(ctx, validKeys); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not delete media: %v", err))
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not delete media: %v", err)})
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	return c.JSON(fiber.Map{
 		"deleted": len(validKeys),
 	})
 }
