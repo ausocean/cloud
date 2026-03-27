@@ -10,7 +10,8 @@ require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/utils v0.4.1
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/adaptor/v2 v2.2.1
+	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.2
@@ -21,6 +22,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
+	github.com/valyala/fasthttp v1.51.0
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.17.0
@@ -63,7 +65,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.38.0 // indirect

@@ -44,6 +44,8 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/nmea"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
@@ -53,7 +55,7 @@ type minimalSite struct {
 	Public     bool
 }
 
-// setupAPIRoutes registers all HTTP handlers for API endpoints.
+// setupAPIRoutes registers all Fiber handlers for API endpoints.
 //
 // API requests follow the form:
 //
@@ -66,45 +68,52 @@ type minimalSite struct {
 //
 // Example routes:
 //
-//	/api/get/site/123            → Get site by key
-//	/api/get/devices/site        → Get devices for the current profile’s site
-//	/api/get/profile/data        → Get current user’s profile data
-//	/api/set/site/123:MySite     → Set profile site data
+//	/api/get/site/*id            → Get site by key
+//	/api/get/devices/site        → Get devices for the current profile's site
+//	/api/get/profile/data        → Get current user's profile data
+//	/api/set/site/*data          → Set profile site data
 //
 // Only some endpoints require authentication. These checks are handled per handler.
-func setupAPIRoutes() {
+// All routes under /api automatically go through the wrapAPI middleware.
+func setupAPIRoutes(app *fiber.App) {
+	// Create /api group; wrapAPI middleware is applied to every route in the group.
+	api := app.Group("/api", wrapAPI)
 
-	setupAPIV1Routes()
+	api.Get("/get/site/*", adaptor.HTTPHandlerFunc(getSiteHandler))
+	api.Get("/get/devices/site", adaptor.HTTPHandlerFunc(getDevicesForSiteHandler))
+	api.Get("/get/sites/all", adaptor.HTTPHandlerFunc(getAllSitesHandler))
+	api.Get("/get/sites/public", adaptor.HTTPHandlerFunc(getPublicSitesHandler))
+	api.Get("/get/sites/user", adaptor.HTTPHandlerFunc(getUserSitesHandler))
+	api.Get("/get/profile/data", adaptor.HTTPHandlerFunc(getProfileDataHandler))
+	api.Get("/get/profile/tv-overview-config", adaptor.HTTPHandlerFunc(getProfileTVConfigHandler))
+	api.Get("/get/broadcast/config", adaptor.HTTPHandlerFunc(getBroadcastConfigHandler))
+	api.Get("/get/vars/site", adaptor.HTTPHandlerFunc(getVarsForSiteHandler))
+	api.Get("/get/sensor/data/*", adaptor.HTTPHandlerFunc(getSensorDataHandler))
+	api.Get("/get/gpstrail/*", adaptor.HTTPHandlerFunc(getGPSTrailHandler))
 
-	http.HandleFunc("/api/get/site/", wrapAPI(getSiteHandler))
-	http.HandleFunc("/api/get/devices/site", wrapAPI(getDevicesForSiteHandler))
-	http.HandleFunc("/api/get/sites/all", wrapAPI(getAllSitesHandler))
-	http.HandleFunc("/api/get/sites/public", wrapAPI(getPublicSitesHandler))
-	http.HandleFunc("/api/get/sites/user", wrapAPI(getUserSitesHandler))
-	http.HandleFunc("/api/get/profile/data", wrapAPI(getProfileDataHandler))
-	http.HandleFunc("/api/get/profile/tv-overview-config", wrapAPI(getProfileTVConfigHandler))
-	http.HandleFunc("/api/get/broadcast/config", wrapAPI(getBroadcastConfigHandler))
-	http.HandleFunc("/api/get/vars/site", wrapAPI(getVarsForSiteHandler))
-	http.HandleFunc("/api/get/sensor/data/", wrapAPI(getSensorDataHandler))
-	http.HandleFunc("/api/get/gpstrail/", wrapAPI(getGPSTrailHandler))
+	api.All("/set/site/*", adaptor.HTTPHandlerFunc(setSiteHandler))
+	api.All("/set/log/*", adaptor.HTTPHandlerFunc(setLogHandler))
 
-	http.HandleFunc("/api/set/site/", wrapAPI(setSiteHandler))
-	http.HandleFunc("/api/set/log/", wrapAPI(setLogHandler))
-
-	http.HandleFunc("/api/test/upload/", wrapAPI(testUploadHandler))
-	http.HandleFunc("/api/test/download/", wrapAPI(testDownloadHandler))
+	api.All("/test/upload/*", adaptor.HTTPHandlerFunc(testUploadHandler))
+	api.All("/test/download/*", adaptor.HTTPHandlerFunc(testDownloadHandler))
 
 	// TODO: change these to the form /api/get/scalar and /api/set/scalar.
-	http.HandleFunc("/api/scalar/put/", wrapAPI(scalarPutHandler))
-	http.HandleFunc("/api/scalar/get/", wrapAPI(scalarGetHandler))
+	api.All("/scalar/put/*", adaptor.HTTPHandlerFunc(scalarPutHandler))
+	api.All("/scalar/get/*", adaptor.HTTPHandlerFunc(scalarGetHandler))
+
+	setupAPIV1Routes(api)
 }
 
-// wrapAPI does things that are common for all api requests, such as log the request.
-func wrapAPI(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		logRequest(r)
-		handler(w, r)
+// wrapAPI is Fiber middleware that logs every API request.
+func wrapAPI(c *fiber.Ctx) error {
+	path := string(c.Request().URI().Path())
+	query := string(c.Request().URI().QueryString())
+	if query == "" {
+		log.Println(path)
+	} else {
+		log.Println(path + "?" + query)
 	}
+	return c.Next()
 }
 
 func getSiteHandler(w http.ResponseWriter, r *http.Request) {

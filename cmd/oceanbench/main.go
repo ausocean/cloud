@@ -70,6 +70,8 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/sliceutils"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -199,10 +201,13 @@ func main() {
 	ctx := context.Background()
 	setup(ctx)
 
+	// Build the Fiber application.
+	app := fiber.New()
+
 	// Serve static files from the "s" directory.
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
+	app.Static("/s", "./s")
 	// Except for favicon.ico.
-	http.HandleFunc("/favicon.ico", faviconHandler)
+	app.Get("/favicon.ico", adaptor.HTTPHandlerFunc(faviconHandler))
 
 	// Get shared cronSecret.
 	var err error
@@ -212,52 +217,53 @@ func main() {
 	}
 
 	// Warmup handler.
-	http.HandleFunc("/_ah/warmup", func(w http.ResponseWriter, r *http.Request) {
+	app.Get("/_ah/warmup", func(c *fiber.Ctx) error {
 		log.Println("warmup request received, version: " + version)
+		return nil
 	})
 
 	// User requests.
-	http.HandleFunc("/search", searchHandler)
-	http.HandleFunc("/play", playHandler)
-	http.HandleFunc("/learn/mooring", mooringHandler)
-	http.HandleFunc("/upload", uploadHandler)
-	http.HandleFunc("/set/devices/edit/var", editVarHandler)
-	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
-	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
-	http.HandleFunc("/set/devices/edit/calibrate", calibrateDevicesHandler)
-	http.HandleFunc("/set/devices/edit", editDevicesHandler)
-	http.HandleFunc("/set/devices/vars", setDevicesVars)
-	http.HandleFunc("/set/devices/", setDevicesHandler)
-	http.HandleFunc("/set/crons/edit", editCronsHandler)
-	http.HandleFunc("/set/crons/", setCronsHandler)
-	http.HandleFunc("/get", getHandler)
-	http.HandleFunc("/test/", testHandler)
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/logout", logoutHandler)
-	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
-	http.HandleFunc("/live/", liveHandler)
-	http.HandleFunc("/monitor", monitorHandler)
-	http.HandleFunc("/play/audiorequest", filterHandler)
-	http.HandleFunc("/admin/site/add", adminHandler)
-	http.HandleFunc("/admin/site/update", adminHandler)
-	http.HandleFunc("/admin/site/delete", adminHandler)
-	http.HandleFunc("/admin/user/add", adminHandler)
-	http.HandleFunc("/admin/user/update", adminHandler)
-	http.HandleFunc("/admin/user/delete", adminHandler)
-	http.HandleFunc("/admin/site", adminHandler)
-	http.HandleFunc("/admin/broadcast", adminHandler)
-	http.HandleFunc("/admin/tv-overview", tvOverviewHandler)
-	http.HandleFunc("/admin/missioncontrol", adminHandler)
-	http.HandleFunc("/admin/sandbox", sandboxHandler)
-	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
-	http.HandleFunc("/admin/utils", adminHandler)
-	http.HandleFunc("/data/", dataHandler)
-	http.HandleFunc("/throughputs", throughputsHandler)
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/logs", logPageHandler)
+	app.All("/search", adaptor.HTTPHandlerFunc(searchHandler))
+	app.All("/play/audiorequest", adaptor.HTTPHandlerFunc(filterHandler))
+	app.All("/play", adaptor.HTTPHandlerFunc(playHandler))
+	app.All("/learn/mooring", adaptor.HTTPHandlerFunc(mooringHandler))
+	app.All("/upload", adaptor.HTTPHandlerFunc(uploadHandler))
+	app.All("/set/devices/edit/var", adaptor.HTTPHandlerFunc(editVarHandler))
+	app.All("/set/devices/edit/sensor", adaptor.HTTPHandlerFunc(editSensorHandler))
+	app.All("/set/devices/edit/actuator", adaptor.HTTPHandlerFunc(editActuatorHandler))
+	app.All("/set/devices/edit/calibrate", adaptor.HTTPHandlerFunc(calibrateDevicesHandler))
+	app.All("/set/devices/edit", adaptor.HTTPHandlerFunc(editDevicesHandler))
+	app.All("/set/devices/vars", adaptor.HTTPHandlerFunc(setDevicesVars))
+	app.All("/set/devices/*", adaptor.HTTPHandlerFunc(setDevicesHandler))
+	app.All("/set/crons/edit", adaptor.HTTPHandlerFunc(editCronsHandler))
+	app.All("/set/crons/*", adaptor.HTTPHandlerFunc(setCronsHandler))
+	app.All("/get", adaptor.HTTPHandlerFunc(getHandler))
+	app.All("/test/*", adaptor.HTTPHandlerFunc(testHandler))
+	app.All("/login", adaptor.HTTPHandlerFunc(loginHandler))
+	app.All("/logout", adaptor.HTTPHandlerFunc(logoutHandler))
+	app.All("/oauth2callback", adaptor.HTTPHandlerFunc(oauthCallbackHandler))
+	app.All("/live/*", adaptor.HTTPHandlerFunc(liveHandler))
+	app.All("/monitor", adaptor.HTTPHandlerFunc(monitorHandler))
+	app.All("/admin/site/add", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site/update", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site/delete", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/add", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/update", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/delete", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/broadcast", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/tv-overview", adaptor.HTTPHandlerFunc(tvOverviewHandler))
+	app.All("/admin/missioncontrol", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/sandbox/configure", adaptor.HTTPHandlerFunc(configDevicesHandler))
+	app.All("/admin/sandbox", adaptor.HTTPHandlerFunc(sandboxHandler))
+	app.All("/admin/utils", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/data/*", adaptor.HTTPHandlerFunc(dataHandler))
+	app.All("/throughputs", adaptor.HTTPHandlerFunc(throughputsHandler))
+	app.All("/logs", adaptor.HTTPHandlerFunc(logPageHandler))
+	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
 
 	// Setup routes for the API, ie. /api requests.
-	setupAPIRoutes()
+	setupAPIRoutes(app)
 
 	if standalone {
 		// Location and GPS only apply in standalone mode.
@@ -293,7 +299,7 @@ func main() {
 	log.Printf("Listening on %s:%d", host, port)
 	log.Printf("Sending cron requests to %s", cronURL)
 	log.Printf("Sending TV requests to %s", tvURL)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+	log.Fatal(app.Listen(fmt.Sprintf("%s:%d", host, port)))
 }
 
 // setup executes per-instance one-time warmup and is used to
