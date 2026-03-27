@@ -1,0 +1,17 @@
+{
+    "output_file": "../standalone-auto.json",
+    "seed": 54321,
+    "sites": 4,
+    "devices_per_site": 5,
+    "media_per_device": 250,
+    "media_config": {
+        "days_in_past": 30,
+        "pins": [
+            "V0",
+            "S0",
+            "T0"
+        ],
+        "duration_sec_min": 3,
+        "duration_sec_max": 90
+    }
+}
