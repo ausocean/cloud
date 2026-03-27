@@ -27,11 +27,15 @@ LICENSE
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
@@ -49,6 +53,8 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/all", getV1AllSitesHandler)
 	v1.Get("/sites/public", getV1PublicSitesHandler)
 	v1.Get("/sites/user", getV1UserSitesHandler)
+	v1.Get("/media", getV1MediaHandler)
+	v1.Delete("/media", deleteV1MediaHandler)
 }
 
 // withProfileJSON is Fiber middleware that authenticates the request and stores
@@ -91,18 +97,6 @@ type minimalSiteV1 struct {
 	Perm   int64  `json:"Perm,omitempty"`
 	Name   string `json:"Name"`
 	Public bool   `json:"Public"`
-}
-
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, `{"error":"encode failure"}`, http.StatusInternalServerError)
-	}
-}
-
-func writeJSONError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 // /api/v1/sites/all → []minimalSiteV1 (SUPER ADMIN ONLY).
@@ -170,4 +164,226 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(out)
+}
+
+// minimalMediaV1 is the metadata-only DTO for an MtsMedia entity.
+// The Clip field is intentionally omitted to keep responses small.
+type minimalMediaV1 struct {
+	KeyID       uint64    `json:"key_id"`
+	MID         int64     `json:"mid"`
+	MAC         string    `json:"mac"`
+	Pin         string    `json:"pin"`
+	Timestamp   int64     `json:"timestamp"`
+	DurationSec float64   `json:"duration_sec"`
+	Type        string    `json:"type"`
+	Geohash     string    `json:"geohash,omitempty"`
+	Date        time.Time `json:"date"`
+	ClipSize    int       `json:"clip_size_bytes"`
+}
+
+// getV1MediaHandler handles GET /api/v1/media.
+//
+// Super-admin only. Returns metadata for all MtsMedia belonging to the
+// currently selected site. Clip bytes are never returned.
+//
+// Optional query parameters:
+//
+//	mid=<MID>               filter by a specific Media ID
+//	from=<unix-timestamp>   filter to media at or after this time
+//	to=<unix-timestamp>     filter to media before this time
+func getV1MediaHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
+	if !isSuperAdmin(p.Email) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
+	}
+
+	skey, err := skeyFromProfile(p)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
+	}
+
+	ctx := c.Context()
+
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
+	}
+
+	// Optional filters.
+	var filterMID int64
+	if midStr := c.Query("mid"); midStr != "" {
+		filterMID, err = strconv.ParseInt(midStr, 10, 64)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid mid: %v", err)})
+		}
+	}
+	var ts []int64
+	if fromStr := c.Query("from"); fromStr != "" {
+		fromTS, err := strconv.ParseInt(fromStr, 10, 64)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid from: %v", err)})
+		}
+		ts = append(ts, fromTS)
+	}
+	if toStr := c.Query("to"); toStr != "" {
+		toTS, err := strconv.ParseInt(toStr, 10, 64)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid to: %v", err)})
+		}
+		ts = append(ts, toTS)
+	}
+
+	// Collect MID entries for all devices on this site.
+	// We deduplicate by MID because some pin types (e.g. A0 and V0) encode
+	// to the same MID via model.ToMID, and querying the same MID twice
+	// would produce duplicate results.
+	type midEntry struct {
+		mid int64
+		mac string
+		pin string
+	}
+	seenMIDs := make(map[int64]bool)
+	var mids []midEntry
+	for _, dev := range devices {
+		for _, pin := range parsePins(dev.Inputs) {
+			mid := model.ToMID(dev.MAC(), pin)
+			if filterMID != 0 && mid != filterMID {
+				continue
+			}
+			if seenMIDs[mid] {
+				continue
+			}
+			seenMIDs[mid] = true
+			mids = append(mids, midEntry{mid: mid, mac: dev.MAC(), pin: pin})
+		}
+	}
+
+	var out []minimalMediaV1
+	for _, entry := range mids {
+		clips, err := model.GetMtsMedia(ctx, mediaStore, entry.mid, nil, ts)
+		if err != nil {
+			continue // No media for this MID is normal.
+		}
+		for i := range clips {
+			c := &clips[i]
+			item := minimalMediaV1{
+				MID:         c.MID,
+				MAC:         entry.mac,
+				Pin:         entry.pin,
+				Timestamp:   c.Timestamp,
+				DurationSec: model.PTSToSeconds(c.Duration),
+				Type:        c.Type,
+				Geohash:     c.Geohash,
+				Date:        time.Unix(c.Timestamp, 0).UTC(),
+				ClipSize:    len(c.Clip),
+			}
+			if c.Key != nil {
+				item.KeyID = uint64(c.Key.ID)
+			}
+			out = append(out, item)
+		}
+	}
+
+	// Sort newest first.
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Timestamp > out[j].Timestamp
+	})
+
+	return c.JSON(out)
+}
+
+// deleteV1MediaHandler handles DELETE /api/v1/media.
+//
+// Super-admin only. Expects JSON body {"key_ids": [<uint64>, ...]}.
+// Verifies each key belongs to the current site before deletion.
+// At most 500 keys may be deleted per request.
+func deleteV1MediaHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
+	if !isSuperAdmin(p.Email) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
+	}
+
+	skey, err := skeyFromProfile(p)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
+	}
+
+	var body struct {
+		KeyIDs []uint64 `json:"key_ids"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid JSON body: %v", err)})
+	}
+	if len(body.KeyIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "key_ids must not be empty"})
+	}
+	const maxDelete = 500
+	if len(body.KeyIDs) > maxDelete {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("too many key_ids (max %d)", maxDelete)})
+	}
+
+	ctx := c.Context()
+
+	// Build set of MIDs belonging to this site.
+	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
+	}
+	siteMIDs := make(map[int64]struct{})
+	for _, dev := range devices {
+		for _, pin := range parsePins(dev.Inputs) {
+			siteMIDs[model.ToMID(dev.MAC(), pin)] = struct{}{}
+		}
+	}
+
+	// Verify ownership then build keys to delete.
+	var validKeys []*datastore.Key
+	for _, kid := range body.KeyIDs {
+		m, err := model.GetMtsMediaByKey(ctx, mediaStore, kid)
+		if err != nil {
+			log.Printf("deleteV1MediaHandler: key %d not found, skipping: %v", kid, err)
+			continue
+		}
+		if _, ok := siteMIDs[m.MID]; !ok {
+			log.Printf("deleteV1MediaHandler: key %d MID %d not in site %d, skipping", kid, m.MID, skey)
+			continue
+		}
+		validKeys = append(validKeys, mediaStore.IDKey("MtsMedia", int64(kid)))
+	}
+
+	if len(validKeys) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no valid key_ids found for current site"})
+	}
+
+	if err := mediaStore.DeleteMulti(ctx, validKeys); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not delete media: %v", err)})
+	}
+
+	return c.JSON(fiber.Map{
+		"deleted": len(validKeys),
+	})
+}
+
+// skeyFromProfile extracts the site key from the profile's Data field ("skey:name").
+func skeyFromProfile(p *gauth.Profile) (int64, error) {
+	parts := strings.SplitN(p.Data, ":", 2)
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("no site selected in profile")
+	}
+	return strconv.ParseInt(parts[0], 10, 64)
+}
+
+// parsePins splits a comma-separated pin string (e.g. "A0,V0,S0") into a slice of pin names.
+func parsePins(inputs string) []string {
+	if inputs == "" {
+		return nil
+	}
+	var pins []string
+	for _, p := range strings.Split(inputs, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			pins = append(pins, p)
+		}
+	}
+	return pins
 }
