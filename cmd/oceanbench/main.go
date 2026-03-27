@@ -223,6 +223,8 @@ func main() {
 	})
 
 	// User requests.
+	// TODO: convert these handlers to fiber handlers instead of just adapting them.
+	// New handlers should be fiber handlers.
 	app.All("/search", adaptor.HTTPHandlerFunc(searchHandler))
 	app.All("/play/audiorequest", adaptor.HTTPHandlerFunc(filterHandler))
 	app.All("/play", adaptor.HTTPHandlerFunc(playHandler))

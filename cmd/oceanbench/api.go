@@ -79,6 +79,8 @@ func setupAPIRoutes(app *fiber.App) {
 	// Create /api group; wrapAPI middleware is applied to every route in the group.
 	api := app.Group("/api", wrapAPI)
 
+	// TODO: convert these handlers to fiber handlers instead of just adapting them.
+	// New handlers should be fiber handlers.
 	api.Get("/get/site/*", adaptor.HTTPHandlerFunc(getSiteHandler))
 	api.Get("/get/devices/site", adaptor.HTTPHandlerFunc(getDevicesForSiteHandler))
 	api.Get("/get/sites/all", adaptor.HTTPHandlerFunc(getAllSitesHandler))
