@@ -53,7 +53,7 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/all", getV1AllSitesHandler)
 	v1.Get("/sites/public", getV1PublicSitesHandler)
 	v1.Get("/sites/user", getV1UserSitesHandler)
-	v1.Get("/media", getMediaBatchHandler)
+	v1.Get("/media", getMediaKeysHandler)
 	v1.Delete("/media", deleteV1MediaHandler)
 }
 
@@ -166,17 +166,18 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 	return c.JSON(out)
 }
 
-// getMediaBatchHandler handles GET /api/v1/media.
+// getMediaKeysHandler handles GET /api/v1/media.
 //
 // Super-admin only. Returns an array of MtsMedia key IDs for the currently
 // selected site for the past month.
-func getMediaBatchHandler(c *fiber.Ctx) error {
+func getMediaKeysHandler(c *fiber.Ctx) error {
 	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
 	}
 
 	// Get site key.
+	// TODO: Change this to be part of the query, profile may move away from containing the selected site.
 	skey, err := skeyFromProfile(p)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
@@ -202,10 +203,19 @@ func getMediaBatchHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	// Default to last 30 days if no ts provided
 	if len(ts) == 0 {
-		ts = append(ts, time.Now().AddDate(0, -1, 0).Unix())
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "time range (ts) is required"})
 	}
+
+	deviceFilterStr := c.Query("device")
+	var deviceFilter int64 = -1
+	if deviceFilterStr != "" {
+		if d, err := strconv.ParseInt(deviceFilterStr, 10, 64); err == nil {
+			deviceFilter = d
+		}
+	}
+
+	pinFilterStr := c.Query("pin")
 
 	limit := 50000
 	if limitStr := c.Query("limit"); limitStr != "" {
@@ -219,18 +229,24 @@ func getMediaBatchHandler(c *fiber.Ctx) error {
 		if loc, err := time.LoadLocation(tzStr); err == nil {
 			location = loc
 		} else {
-			log.Printf("getMediaBatchHandler: failed to load location %q: %v", tzStr, err)
+			log.Printf("getMediaKeysHandler: failed to load location %q: %v", tzStr, err)
 		}
 	}
 
 	start := time.Now()
-	log.Printf("getMediaBatchHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
+	log.Printf("getMediaKeysHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
 
 	// Collect unique MIDs for all devices on this site.
 	seenMIDs := make(map[int64]bool)
 	var mids []int64
 	for _, dev := range devices {
+		if deviceFilter != -1 && dev.Mac != deviceFilter {
+			continue
+		}
 		for _, pin := range parsePins(dev.Inputs) {
+			if pinFilterStr != "" && !strings.EqualFold(pin, pinFilterStr) {
+				continue
+			}
 			mid := model.ToMID(dev.MAC(), pin)
 			if seenMIDs[mid] {
 				continue
@@ -254,10 +270,10 @@ func getMediaBatchHandler(c *fiber.Ctx) error {
 		midStart := time.Now()
 		keys, err := model.GetMtsMediaKeysLimit(ctx, mediaStore, mid, nil, ts, limit)
 		if err != nil {
-			log.Printf("getMediaBatchHandler: Error fetching keys for MID %d: %v", mid, err)
+			log.Printf("getMediaKeysHandler: Error fetching keys for MID %d: %v", mid, err)
 			continue // No media keys for this MID is normal.
 		}
-		log.Printf("getMediaBatchHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
+		log.Printf("getMediaKeysHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
 		for _, k := range keys {
 			out.Keys = append(out.Keys, strconv.FormatUint(uint64(k.ID), 10))
 			_, tsec, _ := datastore.SplitIDKey(k.ID)
@@ -266,7 +282,7 @@ func getMediaBatchHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	log.Printf("getMediaBatchHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
+	log.Printf("getMediaKeysHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
 
 	return c.JSON(out)
 }

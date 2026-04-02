@@ -4,6 +4,12 @@ import { TailwindElement } from "./shared/tailwind.element";
 
 type UIState = "loading" | "idle" | "deleting" | "error";
 
+interface Device {
+  Mac: number;
+  Name: string;
+  Inputs: string;
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit, ms = 300_000): Promise<T> {
   const ac = new AbortController();
   const id = setTimeout(() => ac.abort(), ms);
@@ -24,6 +30,9 @@ async function fetchJSON<T>(url: string, options?: RequestInit, ms = 300_000): P
 
 @customElement("media-manager")
 export class MediaManager extends TailwindElement() {
+  @state() private devices: Device[] = [];
+  @state() private selectedDeviceMac: string = "";
+  @state() private selectedPin: string = "";
   @state() private keys: string[] = [];
   @state() private summary: Record<string, number> = {};
   @state() private uiState: UIState = "loading";
@@ -42,7 +51,15 @@ export class MediaManager extends TailwindElement() {
 
   connectedCallback() {
     super.connectedCallback();
-    queueMicrotask(() => this.load());
+    queueMicrotask(() => this.fetchDevices().then(() => this.load()));
+  }
+
+  private async fetchDevices() {
+    try {
+      this.devices = await fetchJSON<Device[]>("/api/get/devices/site");
+    } catch (e) {
+      console.error("Failed to load devices", e);
+    }
   }
 
   private async load() {
@@ -56,6 +73,9 @@ export class MediaManager extends TailwindElement() {
         // Fallback for older browsers
       }
       if (this.selectedLimit) params.set("limit", this.selectedLimit);
+
+      if (this.selectedDeviceMac) params.set("device", this.selectedDeviceMac);
+      if (this.selectedPin) params.set("pin", this.selectedPin);
 
       if (this.selectedMonth) {
         const [year, month] = this.selectedMonth.split('-').map(Number);
@@ -140,6 +160,19 @@ export class MediaManager extends TailwindElement() {
     this.selectedLimit = (e.target as HTMLSelectElement).value;
   }
 
+  private getAvailablePins(): string[] {
+    const pins = new Set<string>();
+    for (const dev of this.devices) {
+      if (this.selectedDeviceMac && String(dev.Mac) !== this.selectedDeviceMac) continue;
+      if (!dev.Inputs) continue;
+      for (const p of dev.Inputs.split(",")) {
+        const trimmed = p.trim();
+        if (trimmed) pins.add(trimmed);
+      }
+    }
+    return Array.from(pins).sort();
+  }
+
   render() {
     const [year, month] = this.selectedMonth ? this.selectedMonth.split('-').map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -181,6 +214,33 @@ export class MediaManager extends TailwindElement() {
               <option value="100000">100,000 clips</option>
               <option value="250000">250,000 clips (May time out)</option>
               <option value="0">All clips (Likely to time out)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Device:</label>
+            <select
+              .value=${this.selectedDeviceMac}
+              @change=${(e: Event) => {
+                this.selectedDeviceMac = (e.target as HTMLSelectElement).value;
+                this.selectedPin = ""; // reset pin when device changes
+              }}
+              class="text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            >
+              <option value="">All Devices</option>
+              ${this.devices.map(d => html`<option value="${d.Mac}">${d.Name}</option>`)}
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Pin:</label>
+            <select
+              .value=${this.selectedPin}
+              @change=${(e: Event) => this.selectedPin = (e.target as HTMLSelectElement).value}
+              class="text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            >
+              <option value="">All Pins</option>
+              ${this.getAvailablePins().map(p => html`<option value="${p}">${p}</option>`)}
             </select>
           </div>
           
