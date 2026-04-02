@@ -1,7 +1,4 @@
 /*
-DESCRIPTION
-  Ocean Bench media manager page handling.
-
 AUTHORS
   Trek Hopton <trek@ausocean.org>
 

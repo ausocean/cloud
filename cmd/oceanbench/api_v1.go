@@ -53,7 +53,7 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/all", getV1AllSitesHandler)
 	v1.Get("/sites/public", getV1PublicSitesHandler)
 	v1.Get("/sites/user", getV1UserSitesHandler)
-	v1.Get("/media", getV1MediaHandler)
+	v1.Get("/media", getMediaBatchHandler)
 	v1.Delete("/media", deleteV1MediaHandler)
 }
 
@@ -166,16 +166,17 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 	return c.JSON(out)
 }
 
-// getV1MediaHandler handles GET /api/v1/media.
+// getMediaBatchHandler handles GET /api/v1/media.
 //
 // Super-admin only. Returns an array of MtsMedia key IDs for the currently
 // selected site for the past month.
-func getV1MediaHandler(c *fiber.Ctx) error {
+func getMediaBatchHandler(c *fiber.Ctx) error {
 	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
 	}
 
+	// Get site key.
 	skey, err := skeyFromProfile(p)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
@@ -218,12 +219,12 @@ func getV1MediaHandler(c *fiber.Ctx) error {
 		if loc, err := time.LoadLocation(tzStr); err == nil {
 			location = loc
 		} else {
-			log.Printf("getV1MediaHandler: failed to load location %q: %v", tzStr, err)
+			log.Printf("getMediaBatchHandler: failed to load location %q: %v", tzStr, err)
 		}
 	}
-	
+
 	start := time.Now()
-	log.Printf("getV1MediaHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
+	log.Printf("getMediaBatchHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
 
 	// Collect unique MIDs for all devices on this site.
 	seenMIDs := make(map[int64]bool)
@@ -253,10 +254,10 @@ func getV1MediaHandler(c *fiber.Ctx) error {
 		midStart := time.Now()
 		keys, err := model.GetMtsMediaKeysLimit(ctx, mediaStore, mid, nil, ts, limit)
 		if err != nil {
-			log.Printf("getV1MediaHandler: Error fetching keys for MID %d: %v", mid, err)
+			log.Printf("getMediaBatchHandler: Error fetching keys for MID %d: %v", mid, err)
 			continue // No media keys for this MID is normal.
 		}
-		log.Printf("getV1MediaHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
+		log.Printf("getMediaBatchHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
 		for _, k := range keys {
 			out.Keys = append(out.Keys, strconv.FormatUint(uint64(k.ID), 10))
 			_, tsec, _ := datastore.SplitIDKey(k.ID)
@@ -265,7 +266,7 @@ func getV1MediaHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	log.Printf("getV1MediaHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
+	log.Printf("getMediaBatchHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
 
 	return c.JSON(out)
 }
@@ -325,7 +326,7 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 	// Verify ownership securely using bitwise properties of the Key ID,
 	// eliminating thousands of manual datastore lookups.
 	var validKeys []*datastore.Key
-	
+
 	log.Printf("deleteV1MediaHandler: Memory-validating %d keys...", len(body.KeyIDs))
 	validStart := time.Now()
 
@@ -335,10 +336,10 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 			log.Printf("deleteV1MediaHandler: invalid key %q, skipping", kidStr)
 			continue
 		}
-		
+
 		// The datastore ID encodes the lower 32 bits of the MID.
 		lower32, _, _ := datastore.SplitIDKey(int64(kid))
-		
+
 		if _, ok := siteLowerMIDs[lower32]; !ok {
 			log.Printf("deleteV1MediaHandler: key %d lower_mid %d not in site %d, skipping", kid, lower32, skey)
 			continue
