@@ -121,5 +121,22 @@ export default [
       resolve(),
       typescript()
     ]
+  },
+  {
+    input: 'ts/media-manager.ts',
+    output: {
+      file: 's/lit/media-manager.js',
+      format: 'iife',
+      name: 'mediaManager',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
   }
 ];

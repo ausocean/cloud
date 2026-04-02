@@ -362,9 +362,18 @@ func GetMtsMedia(ctx context.Context, store datastore.Store, mid int64, gh []str
 // GetMtsMediaKeys retrieves MtsMedia keys for a given Media ID,
 // optionally filtered by timestamp(s) and geohash(es).
 func GetMtsMediaKeys(ctx context.Context, store datastore.Store, mid int64, gh []string, ts []int64) ([]*datastore.Key, error) {
+	return GetMtsMediaKeysLimit(ctx, store, mid, gh, ts, 0)
+}
+
+// GetMtsMediaKeysLimit retrieves MtsMedia keys for a given Media ID
+// with an optional cap on the number of returned keys (if limit > 0).
+func GetMtsMediaKeysLimit(ctx context.Context, store datastore.Store, mid int64, gh []string, ts []int64, limit int) ([]*datastore.Key, error) {
 	q, err := newMtsMediaQuery(store, mid, gh, ts, true)
 	if err != nil {
 		return nil, err
+	}
+	if limit > 0 {
+		q.Limit(limit)
 	}
 	return store.GetAll(ctx, q, nil)
 }
