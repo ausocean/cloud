@@ -27,10 +27,10 @@ LICENSE
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -166,31 +166,10 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 	return c.JSON(out)
 }
 
-// minimalMediaV1 is the metadata-only DTO for an MtsMedia entity.
-// The Clip field is intentionally omitted to keep responses small.
-type minimalMediaV1 struct {
-	KeyID       uint64    `json:"key_id"`
-	MID         int64     `json:"mid"`
-	MAC         string    `json:"mac"`
-	Pin         string    `json:"pin"`
-	Timestamp   int64     `json:"timestamp"`
-	DurationSec float64   `json:"duration_sec"`
-	Type        string    `json:"type"`
-	Geohash     string    `json:"geohash,omitempty"`
-	Date        time.Time `json:"date"`
-	ClipSize    int       `json:"clip_size_bytes"`
-}
-
 // getV1MediaHandler handles GET /api/v1/media.
 //
-// Super-admin only. Returns metadata for all MtsMedia belonging to the
-// currently selected site. Clip bytes are never returned.
-//
-// Optional query parameters:
-//
-//	mid=<MID>               filter by a specific Media ID
-//	from=<unix-timestamp>   filter to media at or after this time
-//	to=<unix-timestamp>     filter to media before this time
+// Super-admin only. Returns an array of MtsMedia key IDs for the currently
+// selected site for the past month.
 func getV1MediaHandler(c *fiber.Ctx) error {
 	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
@@ -202,92 +181,91 @@ func getV1MediaHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
 	}
 
-	ctx := c.Context()
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Minute)
+	defer cancel()
 
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
 	}
 
-	// Optional filters.
-	var filterMID int64
-	if midStr := c.Query("mid"); midStr != "" {
-		filterMID, err = strconv.ParseInt(midStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid mid: %v", err)})
-		}
-	}
 	var ts []int64
 	if fromStr := c.Query("from"); fromStr != "" {
-		fromTS, err := strconv.ParseInt(fromStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid from: %v", err)})
+		if fromTS, err := strconv.ParseInt(fromStr, 10, 64); err == nil {
+			ts = append(ts, fromTS)
 		}
-		ts = append(ts, fromTS)
 	}
 	if toStr := c.Query("to"); toStr != "" {
-		toTS, err := strconv.ParseInt(toStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid to: %v", err)})
+		if toTS, err := strconv.ParseInt(toStr, 10, 64); err == nil {
+			ts = append(ts, toTS)
 		}
-		ts = append(ts, toTS)
 	}
 
-	// Collect MID entries for all devices on this site.
-	// We deduplicate by MID because some pin types (e.g. A0 and V0) encode
-	// to the same MID via model.ToMID, and querying the same MID twice
-	// would produce duplicate results.
-	type midEntry struct {
-		mid int64
-		mac string
-		pin string
+	// Default to last 30 days if no ts provided
+	if len(ts) == 0 {
+		ts = append(ts, time.Now().AddDate(0, -1, 0).Unix())
 	}
+
+	limit := 50000
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l >= 0 {
+			limit = l
+		}
+	}
+
+	location := time.UTC
+	if tzStr := c.Query("tz"); tzStr != "" {
+		if loc, err := time.LoadLocation(tzStr); err == nil {
+			location = loc
+		} else {
+			log.Printf("getV1MediaHandler: failed to load location %q: %v", tzStr, err)
+		}
+	}
+	
+	start := time.Now()
+	log.Printf("getV1MediaHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
+
+	// Collect unique MIDs for all devices on this site.
 	seenMIDs := make(map[int64]bool)
-	var mids []midEntry
+	var mids []int64
 	for _, dev := range devices {
 		for _, pin := range parsePins(dev.Inputs) {
 			mid := model.ToMID(dev.MAC(), pin)
-			if filterMID != 0 && mid != filterMID {
-				continue
-			}
 			if seenMIDs[mid] {
 				continue
 			}
 			seenMIDs[mid] = true
-			mids = append(mids, midEntry{mid: mid, mac: dev.MAC(), pin: pin})
+			mids = append(mids, mid)
 		}
 	}
 
-	var out []minimalMediaV1
-	for _, entry := range mids {
-		clips, err := model.GetMtsMedia(ctx, mediaStore, entry.mid, nil, ts)
+	type mediaSummaryV1 struct {
+		Keys    []string       `json:"keys"`
+		Summary map[string]int `json:"summary"`
+	}
+
+	out := mediaSummaryV1{
+		Keys:    make([]string, 0),
+		Summary: make(map[string]int),
+	}
+
+	for _, mid := range mids {
+		midStart := time.Now()
+		keys, err := model.GetMtsMediaKeysLimit(ctx, mediaStore, mid, nil, ts, limit)
 		if err != nil {
-			continue // No media for this MID is normal.
+			log.Printf("getV1MediaHandler: Error fetching keys for MID %d: %v", mid, err)
+			continue // No media keys for this MID is normal.
 		}
-		for i := range clips {
-			c := &clips[i]
-			item := minimalMediaV1{
-				MID:         c.MID,
-				MAC:         entry.mac,
-				Pin:         entry.pin,
-				Timestamp:   c.Timestamp,
-				DurationSec: model.PTSToSeconds(c.Duration),
-				Type:        c.Type,
-				Geohash:     c.Geohash,
-				Date:        time.Unix(c.Timestamp, 0).UTC(),
-				ClipSize:    len(c.Clip),
-			}
-			if c.Key != nil {
-				item.KeyID = uint64(c.Key.ID)
-			}
-			out = append(out, item)
+		log.Printf("getV1MediaHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
+		for _, k := range keys {
+			out.Keys = append(out.Keys, strconv.FormatUint(uint64(k.ID), 10))
+			_, tsec, _ := datastore.SplitIDKey(k.ID)
+			dateStr := time.Unix(tsec, 0).In(location).Format("2006-01-02")
+			out.Summary[dateStr]++
 		}
 	}
 
-	// Sort newest first.
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Timestamp > out[j].Timestamp
-	})
+	log.Printf("getV1MediaHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
 
 	return c.JSON(out)
 }
@@ -309,7 +287,7 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		KeyIDs []uint64 `json:"key_ids"`
+		KeyIDs []string `json:"key_ids"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("invalid JSON body: %v", err)})
@@ -322,7 +300,8 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("too many key_ids (max %d)", maxDelete)})
 	}
 
-	ctx := c.Context()
+	ctx, cancel := context.WithTimeout(c.Context(), 2*time.Minute)
+	defer cancel()
 
 	// Build set of MIDs belonging to this site.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
@@ -336,31 +315,70 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	// Verify ownership then build keys to delete.
+	// Extract the lower 32 bits of the site's MIDs for fast key ownership validation
+	siteLowerMIDs := make(map[int64]struct{})
+	for mid := range siteMIDs {
+		lower32 := int64(uint64(mid) & 0xffffffff)
+		siteLowerMIDs[lower32] = struct{}{}
+	}
+
+	// Verify ownership securely using bitwise properties of the Key ID,
+	// eliminating thousands of manual datastore lookups.
 	var validKeys []*datastore.Key
-	for _, kid := range body.KeyIDs {
-		m, err := model.GetMtsMediaByKey(ctx, mediaStore, kid)
+	
+	log.Printf("deleteV1MediaHandler: Memory-validating %d keys...", len(body.KeyIDs))
+	validStart := time.Now()
+
+	for _, kidStr := range body.KeyIDs {
+		kid, err := strconv.ParseUint(kidStr, 10, 64)
 		if err != nil {
-			log.Printf("deleteV1MediaHandler: key %d not found, skipping: %v", kid, err)
+			log.Printf("deleteV1MediaHandler: invalid key %q, skipping", kidStr)
 			continue
 		}
-		if _, ok := siteMIDs[m.MID]; !ok {
-			log.Printf("deleteV1MediaHandler: key %d MID %d not in site %d, skipping", kid, m.MID, skey)
+		
+		// The datastore ID encodes the lower 32 bits of the MID.
+		lower32, _, _ := datastore.SplitIDKey(int64(kid))
+		
+		if _, ok := siteLowerMIDs[lower32]; !ok {
+			log.Printf("deleteV1MediaHandler: key %d lower_mid %d not in site %d, skipping", kid, lower32, skey)
 			continue
 		}
+
 		validKeys = append(validKeys, mediaStore.IDKey("MtsMedia", int64(kid)))
 	}
+	log.Printf("deleteV1MediaHandler: Validated %d keys cleanly in %v", len(validKeys), time.Since(validStart))
 
 	if len(validKeys) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no valid key_ids found for current site"})
 	}
 
-	if err := mediaStore.DeleteMulti(ctx, validKeys); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not delete media: %v", err)})
+	deleteStart := time.Now()
+	log.Printf("deleteV1MediaHandler: Deleting %d keys from datastore in sub-batches...", len(validKeys))
+
+	const subBatchSize = 50
+	deleted := 0
+	for i := 0; i < len(validKeys); i += subBatchSize {
+		end := i + subBatchSize
+		if end > len(validKeys) {
+			end = len(validKeys)
+		}
+		batch := validKeys[i:end]
+
+		batchStart := time.Now()
+		if err := mediaStore.DeleteMulti(ctx, batch); err != nil {
+			log.Printf("deleteV1MediaHandler: DeleteMulti sub-batch %d-%d failed after %v: %v", i, end, time.Since(batchStart), err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   fmt.Sprintf("could not delete media: %v", err),
+				"deleted": deleted,
+			})
+		}
+		deleted += len(batch)
+		log.Printf("deleteV1MediaHandler: Sub-batch %d-%d (%d keys) deleted in %v", i, end, len(batch), time.Since(batchStart))
 	}
+	log.Printf("deleteV1MediaHandler: Finished deleting %d keys in %v", deleted, time.Since(deleteStart))
 
 	return c.JSON(fiber.Map{
-		"deleted": len(validKeys),
+		"deleted": deleted,
 	})
 }
 
