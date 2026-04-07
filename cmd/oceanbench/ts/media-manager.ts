@@ -33,7 +33,8 @@ export class MediaManager extends TailwindElement() {
   @state() private devices: Device[] = [];
   @state() private selectedDeviceMac: string = "";
   @state() private selectedPin: string = "";
-  @state() private keys: string[] = [];
+  @state() private keysByDate: Record<string, string[]> = {};
+  @state() private selectedDates: Set<string> = new Set();
   @state() private summary: Record<string, number> = {};
   @state() private uiState: UIState = "loading";
   @state() private errorMsg = "";
@@ -94,9 +95,10 @@ export class MediaManager extends TailwindElement() {
       }
 
       const url = `/api/v1/media?${params.toString()}`;
-      const data = await fetchJSON<{keys: string[], summary: Record<string, number>}>(url);
-      this.keys = data?.keys ?? [];
+      const data = await fetchJSON<{keysByDate: Record<string, string[]>, summary: Record<string, number>}>(url);
+      this.keysByDate = data?.keysByDate ?? {};
       this.summary = data?.summary ?? {};
+      this.selectedDates = new Set();
       this.uiState = "idle";
     } catch (e: any) {
       this.errorMsg = e?.message ?? String(e);
@@ -111,12 +113,18 @@ export class MediaManager extends TailwindElement() {
   private async confirmDelete() {
     this.showDeleteModal = false;
     this.uiState = "deleting";
-    this.deleteProgress = { current: 0, total: this.keys.length };
+    
+    const pendingKeys: string[] = [];
+    for (const date of this.selectedDates) {
+      if (this.keysByDate[date]) {
+        pendingKeys.push(...this.keysByDate[date]);
+      }
+    }
+
+    this.deleteProgress = { current: 0, total: pendingKeys.length };
     this.errorMsg = "";
 
     try {
-      // Create a copy of keys to delete
-      const pendingKeys = [...this.keys];
 
       while (pendingKeys.length > 0) {
         // Pop up to 500 keys (datastore limit)
@@ -301,7 +309,7 @@ export class MediaManager extends TailwindElement() {
       `;
     }
 
-    if (this.uiState === "error" && this.keys.length === 0) {
+    if (this.uiState === "error" && Object.keys(this.keysByDate).length === 0) {
       return html`
         <div class="text-sm text-gray-500 dark:text-gray-400 font-medium">
           No data loaded. Change limit and try again.
@@ -309,9 +317,32 @@ export class MediaManager extends TailwindElement() {
       `;
     }
 
-    const count = this.keys.length;
+    const count = Object.values(this.keysByDate).reduce((acc, keys) => acc + keys.length, 0);
 
     const dates = Object.keys(this.summary).sort((a, b) => b.localeCompare(a));
+    const allSelected = dates.length > 0 && dates.every(d => this.selectedDates.has(d));
+
+    const toggleAll = (e: Event) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      const newSelections = new Set(this.selectedDates);
+      if (checked) {
+        dates.forEach(d => newSelections.add(d));
+      } else {
+        newSelections.clear();
+      }
+      this.selectedDates = newSelections;
+    };
+
+    const toggleDate = (date: string, e: Event) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      const newSelections = new Set(this.selectedDates);
+      if (checked) {
+        newSelections.add(date);
+      } else {
+        newSelections.delete(date);
+      }
+      this.selectedDates = newSelections;
+    };
 
     return html`
       <div class="text-center w-full">
@@ -321,11 +352,20 @@ export class MediaManager extends TailwindElement() {
       
       ${count > 0 ? html`
         <div class="w-full max-w-sm mt-4 text-left">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">Clips by Day</div>
+          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <span>Clips by Day</span>
+            <label class="flex items-center gap-1.5 cursor-pointer text-gray-600 dark:text-gray-300">
+              <input type="checkbox" .checked=${allSelected} @change=${toggleAll} class="rounded text-blue-600 focus:ring-blue-500 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+              <span class="normal-case">Select All</span>
+            </label>
+          </div>
           <div class="max-h-48 overflow-y-auto pr-2 space-y-1">
             ${dates.map(d => html`
               <div class="flex justify-between items-center text-sm py-1">
-                <span class="text-gray-700 dark:text-gray-300 font-medium">${d}</span>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" .checked=${this.selectedDates.has(d)} @change=${(e: Event) => toggleDate(d, e)} class="rounded text-blue-600 focus:ring-blue-500 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                  <span class="text-gray-700 dark:text-gray-300 font-medium">${d}</span>
+                </label>
                 <span class="text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-2 py-0.5 rounded-full text-xs">${this.summary[d]} clips</span>
               </div>
             `)}
@@ -334,10 +374,11 @@ export class MediaManager extends TailwindElement() {
 
         <button
           @click=${this.promptDelete}
-          class="mt-4 flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 font-semibold transition-colors shadow-sm"
+          ?disabled=${this.selectedDates.size === 0}
+          class="mt-4 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 font-semibold transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-full max-w-sm"
         >
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd"/></svg>
-          Delete All
+          ${this.selectedDates.size === 0 ? "Select days to delete" : "Delete Selected"}
         </button>
         ${Number(this.selectedLimit) > 0 && count >= Number(this.selectedLimit) ? html`
         <div class="mt-4 text-xs text-gray-500 dark:text-gray-400 max-w-sm">
@@ -353,7 +394,13 @@ export class MediaManager extends TailwindElement() {
   }
 
   private renderModal() {
-    const count = this.keys.length;
+    let count = 0;
+    for (const date of this.selectedDates) {
+      if (this.keysByDate[date]) {
+        count += this.keysByDate[date].length;
+      }
+    }
+
     return html`
       <div 
         class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
@@ -376,7 +423,8 @@ export class MediaManager extends TailwindElement() {
           <div class="px-6 py-4 space-y-3">
             <p class="text-sm text-gray-700 dark:text-gray-300">
               You are about to permanently delete
-              <span class="font-semibold text-red-600 dark:text-red-400">${count} media clip${count === 1 ? "" : "s"}</span>.
+              <span class="font-semibold text-red-600 dark:text-red-400">${count} media clip${count === 1 ? "" : "s"}</span>
+              from ${this.selectedDates.size} selected day${this.selectedDates.size === 1 ? "" : "s"}.
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
           </div>

@@ -257,14 +257,16 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 	}
 
 	type mediaSummaryV1 struct {
-		Keys    []string       `json:"keys"`
-		Summary map[string]int `json:"summary"`
+		KeysByDate map[string][]string `json:"keysByDate"`
+		Summary    map[string]int      `json:"summary"`
 	}
 
 	out := mediaSummaryV1{
-		Keys:    make([]string, 0),
-		Summary: make(map[string]int),
+		KeysByDate: make(map[string][]string),
+		Summary:    make(map[string]int),
 	}
+
+	totalKeys := 0
 
 	for _, mid := range mids {
 		midStart := time.Now()
@@ -275,14 +277,19 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 		}
 		log.Printf("getMediaKeysHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
 		for _, k := range keys {
-			out.Keys = append(out.Keys, strconv.FormatUint(uint64(k.ID), 10))
+			keyStr := strconv.FormatUint(uint64(k.ID), 10)
 			_, tsec, _ := datastore.SplitIDKey(k.ID)
 			dateStr := time.Unix(tsec, 0).In(location).Format("2006-01-02")
 			out.Summary[dateStr]++
+			if out.KeysByDate[dateStr] == nil {
+				out.KeysByDate[dateStr] = make([]string, 0)
+			}
+			out.KeysByDate[dateStr] = append(out.KeysByDate[dateStr], keyStr)
+			totalKeys++
 		}
 	}
 
-	log.Printf("getMediaKeysHandler: Finished. Found %d total keys in %v", len(out.Keys), time.Since(start))
+	log.Printf("getMediaKeysHandler: Finished. Found %d total keys in %v", totalKeys, time.Since(start))
 
 	return c.JSON(out)
 }
