@@ -78,6 +78,11 @@ class SiteMenu extends LitElement {
             }
         }
 
+        const activeSessionSite = sessionStorage.getItem('site');
+        if (activeSessionSite) {
+            this.selectedData = activeSessionSite;
+        }
+
         this.loadSites();
     }
 
@@ -157,6 +162,7 @@ class SiteMenu extends LitElement {
         if (this.customHandling) {
             this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey + ":" + selectedName } }));
             this.selectedData = selectedKey + ":" + selectedName;
+        } else {
             sessionStorage.setItem('site', selectedKey);
             let targetUrl = new URL(window.location.href);
             if (Number(selectedKey) == SandboxSkey) {
@@ -184,41 +190,20 @@ class SiteMenu extends LitElement {
             this.selectedPerm = option.hasAttribute("perm") ? option.getAttribute("perm")! : "0";
             console.log(this.selectedPerm)
             this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } })); //TODO: only trigger if changed.
-            option.innerText = s[1];
+            if (s.length > 1) {
+                option.innerText = s[1];
+            } else {
+                option.innerText = option.label;
+            }
         }
     }
 
     connectedCallback() {
         super.connectedCallback();
-
-        // Intercept clicks on links to ensure they carry over the site parameter if present.
-        this._clickListener = (e: MouseEvent) => {
-            const anchor = (e.target as Element).closest('a');
-            if (anchor && anchor.href && anchor.origin === window.location.origin) {
-                // Some links shouldn't have site appended
-                if (anchor.getAttribute('href')?.startsWith('mailto:') || anchor.getAttribute('href')?.startsWith('tel:')) return;
-                
-                const siteKey = sessionStorage.getItem('site');
-                if (siteKey) {
-                    try {
-                        let url = new URL(anchor.href);
-                        if (!url.searchParams.has('site') && !url.pathname.startsWith('/api/')) {
-                            url.searchParams.set('site', siteKey);
-                            anchor.href = url.toString();
-                        }
-                    } catch (err) {}
-                }
-            }
-        };
-        document.addEventListener('click', this._clickListener);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-
-        if (this._clickListener) {
-            document.removeEventListener('click', this._clickListener);
-        }
     }
 }
 

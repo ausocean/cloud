@@ -267,7 +267,7 @@
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
         <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
-          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+          <a {{ if .URL }}href="{{ .URL }}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
         {{- end }}
       </nav-menu>
