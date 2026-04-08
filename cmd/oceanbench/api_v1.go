@@ -178,9 +178,9 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 
 	// Get site key.
 	// TODO: Change this to be part of the query, profile may move away from containing the selected site.
-	skey, err := skeyFromProfile(p)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
+	skey, _ := profileData(p)
+	if skey == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "could not resolve site: no site selected in profile"})
 	}
 
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Minute)
@@ -305,9 +305,9 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "super admin required"})
 	}
 
-	skey, err := skeyFromProfile(p)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("could not resolve site: %v", err)})
+	skey, _ := profileData(p)
+	if skey == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "could not resolve site: no site selected in profile"})
 	}
 
 	var body struct {
@@ -406,14 +406,7 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 	})
 }
 
-// skeyFromProfile extracts the site key from the profile's Data field ("skey:name").
-func skeyFromProfile(p *gauth.Profile) (int64, error) {
-	parts := strings.SplitN(p.Data, ":", 2)
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("no site selected in profile")
-	}
-	return strconv.ParseInt(parts[0], 10, 64)
-}
+
 
 // parsePins splits a comma-separated pin string (e.g. "A0,V0,S0") into a slice of pin names.
 func parsePins(inputs string) []string {
