@@ -5,6 +5,7 @@ export const SandboxSkey: Number = 3;
 
 @customElement('site-menu')
 class SiteMenu extends LitElement {
+    private _clickListener?: (e: MouseEvent) => void;
 
     @property({ type: String, attribute: 'selected-data' })
     selectedData;
@@ -52,7 +53,32 @@ class SiteMenu extends LitElement {
     }
 
     firstUpdated() {
-        this.loadSites()
+        // Handle init logic for tab site selection
+        const urlParams = new URLSearchParams(window.location.search);
+        let siteParams = urlParams.get('site');
+
+        if (siteParams) {
+            sessionStorage.setItem('site', siteParams);
+        } else {
+            let sessionSite = sessionStorage.getItem('site');
+            if (sessionSite) {
+                // Apply the session site by redirecting to include the parameter
+                let currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('site', sessionSite);
+                window.location.replace(currentUrl.toString());
+                return;
+            }
+        }
+
+        // If no URL or session site is present, set session to the backend fallback.
+        if (!sessionStorage.getItem('site') && this.selectedData) {
+            let s = this.selectedData.split(":");
+            if (s.length > 0 && containsInt(s[0])) {
+                sessionStorage.setItem('site', s[0]);
+            }
+        }
+
+        this.loadSites();
     }
 
     async loadSites() {
@@ -131,20 +157,14 @@ class SiteMenu extends LitElement {
         if (this.customHandling) {
             this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey + ":" + selectedName } }));
             this.selectedData = selectedKey + ":" + selectedName;
-        } else {
-            let r = new XMLHttpRequest();
-            r.onreadystatechange = () => {
-                if (r.readyState == XMLHttpRequest.DONE) {
-                    console.log("response from set site request: ", r.responseText);
-                    if (Number(selectedKey) == SandboxSkey) {
-                        window.location.assign("/admin/sandbox")
-                        return
-                    }
-                    window.location.reload();
-                }
+            sessionStorage.setItem('site', selectedKey);
+            let targetUrl = new URL(window.location.href);
+            if (Number(selectedKey) == SandboxSkey) {
+                window.location.assign("/admin/sandbox");
+                return;
             }
-            r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
-            r.send();
+            targetUrl.searchParams.set("site", selectedKey);
+            window.location.assign(targetUrl.toString());
         }
 
         if (selectedOpt.slot != this.selectedPerm) {
@@ -171,62 +191,33 @@ class SiteMenu extends LitElement {
     connectedCallback() {
         super.connectedCallback();
 
-        // Add event listener for tab change.
-        document.addEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.addEventListener("focus", this.checkSiteChange.bind(this));
+        // Intercept clicks on links to ensure they carry over the site parameter if present.
+        this._clickListener = (e: MouseEvent) => {
+            const anchor = (e.target as Element).closest('a');
+            if (anchor && anchor.href && anchor.origin === window.location.origin) {
+                // Some links shouldn't have site appended
+                if (anchor.getAttribute('href')?.startsWith('mailto:') || anchor.getAttribute('href')?.startsWith('tel:')) return;
+                
+                const siteKey = sessionStorage.getItem('site');
+                if (siteKey) {
+                    try {
+                        let url = new URL(anchor.href);
+                        if (!url.searchParams.has('site') && !url.pathname.startsWith('/api/')) {
+                            url.searchParams.set('site', siteKey);
+                            anchor.href = url.toString();
+                        }
+                    } catch (err) {}
+                }
+            }
+        };
+        document.addEventListener('click', this._clickListener);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
 
-        // Remove tab event listener when the element is disconnected from the DOM.
-        document.removeEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.removeEventListener("focus", this.checkSiteChange.bind(this));
-    }
-
-    // Check if the user's selected site is different compared to the menu.
-    // This can happen if the site is changed in another tab.
-    checkSiteChange() {
-        // Check if the tab is visible.
-        if (!document.hidden) {
-            console.log("Checking if the site has changed...");
-            let r = new XMLHttpRequest();
-            r.onreadystatechange = () => {
-                if (r.readyState == XMLHttpRequest.DONE) {
-                    if (r.status == 200) {
-                        // Compare the newly fetched selected site key with the menu's selected site key.
-                        const currentData = r.responseText;
-                        let s1 = currentData.split(":");
-                        let s2 = this.selectedData.split(":");
-                        // If there's not a match, and no custom handling, ask the user if they want to reload.
-                        // If the user clicks 'OK' in the confirmation dialog, reload the page.
-                        if (Number(s1[0]) != Number(s2[0])) {
-                            let prevSite = this.selectedData;
-                            this.selectedData = currentData;
-                            if (window.confirm("The selected site has changed from " + s2[1] + " to " + s1[1] + ". Do you want to load the new site page? Unsaved changes may be lost.")) {
-                                if (this.customHandling) {
-                                    this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: prevSite, newSite: this.selectedData } }));
-                                } else {
-                                    window.location.reload();
-                                }
-                            } else {
-                                let r = new XMLHttpRequest();
-                                r.onreadystatechange = () => {
-                                    if (r.readyState == XMLHttpRequest.DONE) {
-                                        console.log("response from set site request: ", r.responseText);
-                                    }
-                                }
-                                r.open("GET", "/api/set/site/" + prevSite, true);
-                                r.send();
-                            }
-                        }
-                    } else {
-                        console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
-                    }
-                }
-            };
-            r.open("GET", "/api/get/profile/data", true);
-            r.send();
+        if (this._clickListener) {
+            document.removeEventListener('click', this._clickListener);
         }
     }
 }

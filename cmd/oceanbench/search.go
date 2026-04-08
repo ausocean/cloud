@@ -132,7 +132,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	// searchData struct is used by the template.
 	sd := searchData{

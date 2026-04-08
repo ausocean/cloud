@@ -202,7 +202,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	sKey, _ := profileData(profile)
+	sKey, _ := requestSiteData(r, profile)
 
 	req := broadcastRequest{
 		commonData: commonData{

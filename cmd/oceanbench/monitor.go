@@ -107,7 +107,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	// Check if user has write permissions to link to devices page.
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)

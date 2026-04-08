@@ -111,7 +111,7 @@ func logPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile, err := getProfile(w, r)
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 	data := adminData{
 		commonData: commonData{
 			Pages:   pages("logs"),

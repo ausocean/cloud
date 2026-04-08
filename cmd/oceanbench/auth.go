@@ -117,3 +117,17 @@ func profileData(profile *gauth.Profile) (int64, string) {
 	}
 	return key, p[1]
 }
+
+// requestSiteData gets the site key from the request URL if present,
+// otherwise falls back to the user's profile data.
+func requestSiteData(r *http.Request, profile *gauth.Profile) (int64, string) {
+	if siteStr := r.URL.Query().Get("site"); siteStr != "" {
+		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
+			// A valid site key is in the URL.
+			// Ideally we would return the name as well, but we don't have it here
+			// unless we do a DB lookup. The name isn't critical for data retrieval.
+			return siteKey, ""
+		}
+	}
+	return profileData(profile)
+}
