@@ -130,6 +130,7 @@ class SiteMenu extends LitElement {
                             break;
                     }
                 }
+                let anySelected = false;
                 for (let i = 0; i < 3; i++) {
                     if (opts[i].length <= 0) {
                         continue;
@@ -137,10 +138,29 @@ class SiteMenu extends LitElement {
                     opts[i].sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()))
                     optGroups[i].style.display = 'block'
                     opts[i].forEach(option => {
-                        this.checkSelected(option, optGroups[i], this.selectedData)
+                        if (this.checkSelected(option, optGroups[i], this.selectedData)) {
+                            anySelected = true;
+                        }
                         optGroups[i].appendChild(option);
                     });
                 }
+                
+                // If a site key is present in the session or URL but the loaded profile does not have access
+                // to it (or it does not exist), no options will be selected dynamically. We prepend a placeholder
+                // "Unknown Site" option so the dropdown accurately reflects the current unknown state
+                // without the browser implicitly selecting the first item in the list incorrectly.
+                if (!anySelected && this.selectedData) {
+                    let s = this.selectedData.split(":");
+                    if (s.length > 0 && containsInt(s[0])) {
+                        let unknownOpt = document.createElement("option");
+                        unknownOpt.value = s[0];
+                        unknownOpt.innerText = "Unknown Site (" + s[0] + ")";
+                        unknownOpt.selected = true;
+                        let select = this.renderRoot.querySelector("select");
+                        if (select) select.insertBefore(unknownOpt, select.firstChild);
+                    }
+                }
+
                 if (this.selectedData != '') {
                     loading.remove()
                 }
@@ -182,7 +202,7 @@ class SiteMenu extends LitElement {
 
     // checkSelected compares the option's key to the profile's selected site key.
     // If it's a match the option is selected.
-    checkSelected(option: HTMLOptionElement, optGroup: HTMLOptGroupElement, data: string) {
+    checkSelected(option: HTMLOptionElement, optGroup: HTMLOptGroupElement, data: string): boolean {
         let key = Number(option.value);
         let s = data.split(":");
         option.selected = Number(s[0]) == key;
@@ -195,7 +215,9 @@ class SiteMenu extends LitElement {
             } else {
                 option.innerText = option.label;
             }
+            return true;
         }
+        return false;
     }
 
     connectedCallback() {
