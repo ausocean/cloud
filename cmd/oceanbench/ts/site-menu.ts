@@ -27,6 +27,9 @@ class SiteMenu extends LitElement {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            width: 424px;
+            max-width: 100%;
+            box-sizing: border-box;
         }
     `;
 
@@ -40,9 +43,9 @@ class SiteMenu extends LitElement {
         return html`
             <select id="select" @change=${this.handleSiteChange}>
                 <option id="loading">
-                  ${this.selectedData
+                  ${this.selectedData && this.selectedData.includes(":")
                 ? this.selectedData.split(":")[1]
-                : "Select Site"
+                : "Loading Sites..."
             }
                 </option>
                 <optgroup style="display: none" id="read" label="Read"></optgroup>
