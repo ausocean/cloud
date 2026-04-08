@@ -168,6 +168,31 @@ export class MediaManager extends TailwindElement() {
     this.selectedLimit = (e.target as HTMLSelectElement).value;
   }
 
+  private get computedMID(): string {
+    if (!this.selectedDeviceMac || !this.selectedPin) return "";
+    try {
+      const mac = BigInt(this.selectedDeviceMac);
+      let typeVal = 0n;
+      const typeChar = this.selectedPin.charAt(0).toUpperCase();
+      switch (typeChar) {
+        case 'V': typeVal = 0x00n; break;
+        case 'S': typeVal = 0x04n; break;
+        case 'T': typeVal = 0x08n; break;
+        case 'B': typeVal = 0x0Cn; break;
+      }
+      let numVal = 0n;
+      const numChar = this.selectedPin.charAt(1);
+      if (numChar >= '0' && numChar <= '9') {
+        numVal = BigInt(numChar);
+      }
+      const pinEncoded = typeVal | numVal;
+      const mid = (mac << 4n) | pinEncoded;
+      return mid.toString();
+    } catch {
+      return "";
+    }
+  }
+
   private getAvailablePins(): string[] {
     const pins = new Set<string>();
     for (const dev of this.devices) {
@@ -252,6 +277,20 @@ export class MediaManager extends TailwindElement() {
             </select>
           </div>
           
+          ${this.computedMID ? html`
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">MID:</label>
+              <input
+                type="text"
+                readonly
+                .value=${this.computedMID}
+                @focus=${(e: Event) => (e.target as HTMLInputElement).select()}
+                class="text-sm rounded border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-44 font-mono select-all"
+                title="Click to select for copying"
+              />
+            </div>
+          ` : nothing}
+
           <button
             @click=${this.load}
             ?disabled=${this.uiState === "loading"}
