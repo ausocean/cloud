@@ -108,7 +108,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	data := devicesData{
 		commonData: commonData{
@@ -314,7 +314,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	ma := r.FormValue("ma")
 	dn := r.FormValue("dn")
@@ -588,7 +588,7 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Calibrate the alarm voltage and alarm recovery voltage variables.
-		skey, _ := profileData(p)
+		skey, _ := requestSiteData(r, p)
 		if va > 0 {
 			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, fmt.Sprintf("%d", int(va/scaleFactor)))
 			if err != nil {
@@ -780,7 +780,7 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 	ctx := r.Context()
 	setup(ctx)
 
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
@@ -838,7 +838,7 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	id := r.FormValue("ci")
 	ct := strings.Trim(r.FormValue("ct"), " ")

@@ -130,7 +130,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The following tasks all require admin privilege.
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	if !isAdmin(ctx, skey, p.Email) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -299,7 +299,7 @@ func parseLocation(s string) (location, error) {
 // vn: version
 // er: error (results in a client-side netsender.ServerError)
 func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	name := r.FormValue("sn")
 	if name == "" {
 		return errors.New("empty site name")
@@ -353,7 +353,7 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // deleteSite deletes the current site and all associated users.
 func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	ctx := r.Context()
 
 	err := model.DeleteSite(ctx, settingsStore, skey)
@@ -380,7 +380,7 @@ func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // updateUser creates or updates a site user.
 func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	email := r.FormValue("email")
 	perm, err := strconv.ParseInt(r.FormValue("perm"), 10, 64)
@@ -398,7 +398,7 @@ func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // deleteUser deletes a site user.
 func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	email := r.FormValue("email")
 	err := model.DeleteUser(r.Context(), settingsStore, skey, email)
@@ -411,7 +411,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // writeAdmin writes the admin page.
 func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err error) {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	data := adminData{
 		commonData: commonData{
@@ -460,7 +460,7 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 // utilsHandler handles admin utils requests.
 func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	ctx := r.Context()
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	var msg string
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
@@ -509,7 +509,7 @@ func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 // utilsTaskHandler handles an admin utils task
 func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, data *utilsData) error {
 	ctx := r.Context()
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	task := r.FormValue("task")
 

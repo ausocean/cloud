@@ -112,8 +112,9 @@ type commonData struct {
 	SuperAdmin bool
 	LoginURL   string
 	LogoutURL  string
-	Users      []model.User
-	Footer     template.HTML
+	Users          []model.User
+	Footer         template.HTML
+	CurrentSiteKey int64
 }
 
 // TestDataConfig defines the structure for injecting standalone datastore test configurations via JSON.
@@ -582,6 +583,11 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	p = v.FieldByName("Profile")
 	if p.IsValid() {
 		p.Set(reflect.ValueOf(profile))
+	}
+	skey, _ := requestSiteData(r, profile)
+	p = v.FieldByName("CurrentSiteKey")
+	if p.IsValid() {
+		p.SetInt(skey)
 	}
 	p = v.FieldByName("SuperAdmin")
 	if p.IsValid() {

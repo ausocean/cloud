@@ -47,7 +47,7 @@ func setDevicesVars(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	data := devicesData{
 		commonData: commonData{},
@@ -94,7 +94,7 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	ma := r.FormValue("ma")
 	vn := strings.TrimSpace(r.FormValue("vn"))
