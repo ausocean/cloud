@@ -69,5 +69,139 @@
             "monitorPeriod": 60,
             "enabled": true
         }
+    ],
+    "mtsmedia": [
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740787200,
+            "PTS": 0,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-01T00:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740798000,
+            "PTS": 8100000,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-01T03:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740808800,
+            "PTS": 16200000,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-01T06:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740819600,
+            "PTS": 24300000,
+            "Duration": 8100000,
+            "Continues": false,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-01T09:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740830400,
+            "PTS": 32400000,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-01T12:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740873600,
+            "PTS": 40500000,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-02T00:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740884400,
+            "PTS": 48600000,
+            "Duration": 8100000,
+            "Continues": true,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-02T03:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 20,
+            "Geohash": "r1f9",
+            "Timestamp": 1740895200,
+            "PTS": 56700000,
+            "Duration": 8100000,
+            "Continues": false,
+            "Type": "audio/wav",
+            "Metadata": "",
+            "Date": "2025-03-02T06:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 16,
+            "Geohash": "r1f9",
+            "Timestamp": 1740787200,
+            "PTS": 0,
+            "Duration": 27000000,
+            "Continues": true,
+            "Type": "video/mp2t",
+            "Metadata": "",
+            "Date": "2025-03-01T00:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 16,
+            "Geohash": "r1f9",
+            "Timestamp": 1740819600,
+            "PTS": 27000000,
+            "Duration": 27000000,
+            "Continues": true,
+            "Type": "video/mp2t",
+            "Metadata": "",
+            "Date": "2025-03-01T09:00:00Z",
+            "Clip": ""
+        },
+        {
+            "MID": 16,
+            "Geohash": "r1f9",
+            "Timestamp": 1740873600,
+            "PTS": 54000000,
+            "Duration": 27000000,
+            "Continues": false,
+            "Type": "video/mp2t",
+            "Metadata": "",
+            "Date": "2025-03-02T00:00:00Z",
+            "Clip": ""
+        }
     ]
 }
