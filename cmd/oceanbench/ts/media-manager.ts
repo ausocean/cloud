@@ -75,7 +75,7 @@ export class MediaManager extends TailwindElement() {
       }
       if (this.selectedLimit) params.set("limit", this.selectedLimit);
 
-      if (this.selectedDeviceMac) params.set("device", this.selectedDeviceMac);
+      if (this.selectedDeviceMac) params.set("mac", this.selectedDeviceMac);
       if (this.selectedPin) params.set("pin", this.selectedPin);
 
       if (this.selectedMonth) {

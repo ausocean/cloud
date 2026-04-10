@@ -169,7 +169,15 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 // getMediaKeysHandler handles GET /api/v1/media.
 //
 // Super-admin only. Returns an array of MtsMedia key IDs for the currently
-// selected site for the past month.
+// selected site.
+//
+// Query Parameters:
+//   - from: Start unix timestamp in seconds (optional, but 'from' or 'to' is required)
+//   - to: End unix timestamp in seconds (optional, but 'from' or 'to' is required)
+//   - mac: Filter by encoded device MAC address (optional)
+//   - pin: Filter by specific pin (e.g., "S0") (optional)
+//   - limit: Maximum number of keys per MID, default 50000 (optional)
+//   - tz: Timezone location for date grouping, default "UTC" (optional)
 func getMediaKeysHandler(c *fiber.Ctx) error {
 	p := c.Locals(profileKey).(*gauth.Profile)
 	if !isSuperAdmin(p.Email) {
@@ -183,6 +191,31 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "could not resolve site: no site selected in profile"})
 	}
 
+	var query struct {
+		From  *int64 `query:"from"`
+		To    *int64 `query:"to"`
+		Mac   *int64 `query:"mac"`
+		Pin   string `query:"pin"`
+		Limit *int   `query:"limit"`
+		TZ    string `query:"tz"`
+	}
+
+	if err := c.QueryParser(&query); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid query parameters: " + err.Error()})
+	}
+
+	var ts []int64
+	if query.From != nil {
+		ts = append(ts, *query.From)
+	}
+	if query.To != nil {
+		ts = append(ts, *query.To)
+	}
+
+	if len(ts) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "time range (ts) is required"})
+	}
+
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Minute)
 	defer cancel()
 
@@ -191,45 +224,25 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
 	}
 
-	var ts []int64
-	if fromStr := c.Query("from"); fromStr != "" {
-		if fromTS, err := strconv.ParseInt(fromStr, 10, 64); err == nil {
-			ts = append(ts, fromTS)
-		}
-	}
-	if toStr := c.Query("to"); toStr != "" {
-		if toTS, err := strconv.ParseInt(toStr, 10, 64); err == nil {
-			ts = append(ts, toTS)
-		}
+	deviceFilter := int64(-1)
+	if query.Mac != nil {
+		deviceFilter = *query.Mac
 	}
 
-	if len(ts) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "time range (ts) is required"})
-	}
-
-	deviceFilterStr := c.Query("device")
-	var deviceFilter int64 = -1
-	if deviceFilterStr != "" {
-		if d, err := strconv.ParseInt(deviceFilterStr, 10, 64); err == nil {
-			deviceFilter = d
-		}
-	}
-
-	pinFilterStr := c.Query("pin")
+	pinFilterStr := query.Pin
 
 	limit := 50000
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l >= 0 {
-			limit = l
-		}
+	if query.Limit != nil && *query.Limit >= 0 {
+		limit = *query.Limit
 	}
 
 	location := time.UTC
-	if tzStr := c.Query("tz"); tzStr != "" {
-		if loc, err := time.LoadLocation(tzStr); err == nil {
+	if query.TZ != "" {
+		if loc, err := time.LoadLocation(query.TZ); err == nil {
 			location = loc
 		} else {
-			log.Printf("getMediaKeysHandler: failed to load location %q: %v", tzStr, err)
+			log.Printf("getMediaKeysHandler: failed to load location %q: %v", query.TZ, err)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("failed to load location %q: %v", query.TZ, err)})
 		}
 	}
 
@@ -237,8 +250,7 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 	log.Printf("getMediaKeysHandler: Fetching media keys for site %d with timestamp filter %v", skey, ts)
 
 	// Collect unique MIDs for all devices on this site.
-	seenMIDs := make(map[int64]bool)
-	var mids []int64
+	mids := make(map[int64]bool)
 	for _, dev := range devices {
 		if deviceFilter != -1 && dev.Mac != deviceFilter {
 			continue
@@ -248,11 +260,7 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 				continue
 			}
 			mid := model.ToMID(dev.MAC(), pin)
-			if seenMIDs[mid] {
-				continue
-			}
-			seenMIDs[mid] = true
-			mids = append(mids, mid)
+			mids[mid] = true
 		}
 	}
 
@@ -268,7 +276,7 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 
 	totalKeys := 0
 
-	for _, mid := range mids {
+	for mid := range mids {
 		midStart := time.Now()
 		keys, err := model.GetMtsMediaKeysLimit(ctx, mediaStore, mid, nil, ts, limit)
 		if err != nil {
@@ -276,6 +284,7 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 			continue // No media keys for this MID is normal.
 		}
 		log.Printf("getMediaKeysHandler: Found %d keys for MID %d in %v", len(keys), mid, time.Since(midStart))
+		totalKeys += len(keys)
 		for _, k := range keys {
 			keyStr := strconv.FormatUint(uint64(k.ID), 10)
 			_, tsec, _ := datastore.SplitIDKey(k.ID)
@@ -285,7 +294,6 @@ func getMediaKeysHandler(c *fiber.Ctx) error {
 				out.KeysByDate[dateStr] = make([]string, 0)
 			}
 			out.KeysByDate[dateStr] = append(out.KeysByDate[dateStr], keyStr)
-			totalKeys++
 		}
 	}
 
@@ -332,18 +340,18 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get devices: %v", err)})
 	}
-	siteMIDs := make(map[int64]struct{})
+	siteMIDs := make(map[int64]bool)
 	for _, dev := range devices {
 		for _, pin := range parsePins(dev.Inputs) {
-			siteMIDs[model.ToMID(dev.MAC(), pin)] = struct{}{}
+			siteMIDs[model.ToMID(dev.MAC(), pin)] = true
 		}
 	}
 
 	// Extract the lower 32 bits of the site's MIDs for fast key ownership validation
-	siteLowerMIDs := make(map[int64]struct{})
+	siteLowerMIDs := make(map[int64]bool)
 	for mid := range siteMIDs {
 		lower32 := int64(uint64(mid) & 0xffffffff)
-		siteLowerMIDs[lower32] = struct{}{}
+		siteLowerMIDs[lower32] = true
 	}
 
 	// Verify ownership securely using bitwise properties of the Key ID,
@@ -363,7 +371,7 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 		// The datastore ID encodes the lower 32 bits of the MID.
 		lower32, _, _ := datastore.SplitIDKey(int64(kid))
 
-		if _, ok := siteLowerMIDs[lower32]; !ok {
+		if !siteLowerMIDs[lower32] {
 			log.Printf("deleteV1MediaHandler: key %d lower_mid %d not in site %d, skipping", kid, lower32, skey)
 			continue
 		}
@@ -405,8 +413,6 @@ func deleteV1MediaHandler(c *fiber.Ctx) error {
 		"deleted": deleted,
 	})
 }
-
-
 
 // parsePins splits a comma-separated pin string (e.g. "A0,V0,S0") into a slice of pin names.
 func parsePins(inputs string) []string {
