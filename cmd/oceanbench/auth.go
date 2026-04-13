@@ -104,6 +104,9 @@ func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 
 // profileData extracts site key and name from the given profile.
 func profileData(profile *gauth.Profile) (int64, string) {
+	if profile == nil {
+		return 0, ""
+	}
 	p := strings.SplitN(profile.Data, ":", 2)
 	if len(p) == 0 {
 		return 0, ""
