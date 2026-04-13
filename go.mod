@@ -1,6 +1,6 @@
 module github.com/ausocean/cloud
 
-go 1.24.0
+go 1.26.0
 
 require (
 	bou.ke/monkey v1.0.2
