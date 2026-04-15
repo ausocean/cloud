@@ -38,6 +38,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 )
@@ -88,21 +90,26 @@ func TestPutScalars(t *testing.T) {
 
 	ts := int64(datastore.EpochStart)
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(50)
 	for i := 0; i < minutesInDay; i++ {
-		err := model.PutScalar(ctx, store, &model.Scalar{
-			ID:        id,
-			Timestamp: ts,
-			Value:     float64(samples[i]),
+		currentTS := ts
+		g.Go(func() error {
+			return model.PutScalar(gCtx, store, &model.Scalar{
+				ID:        id,
+				Timestamp: currentTS,
+				Value:     float64(samples[i]),
+			})
 		})
-		if err != nil {
-			t.Errorf("PutScalar failed with error: %v", err)
-		}
 		ts += 60
 
 		// Print progress every 10%.
 		if i%(minutesInDay/10) == 0 {
-			t.Logf("put %d/%d scalars", i, minutesInDay)
+			t.Logf("queued %d/%d scalars", i, minutesInDay)
 		}
+	}
+	if err := g.Wait(); err != nil {
+		t.Errorf("PutScalar failed with error: %v", err)
 	}
 }
 
@@ -138,21 +145,26 @@ func TestGetScalars(t *testing.T) {
 	t.Log("inserting fresh scalars for test")
 	ts := int64(datastore.EpochStart)
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(50)
 	for i := 0; i < minutesInDay; i++ {
-		err := model.PutScalar(ctx, store, &model.Scalar{
-			ID:        id,
-			Timestamp: ts,
-			Value:     float64(samples[i]),
+		currentTS := ts
+		g.Go(func() error {
+			return model.PutScalar(gCtx, store, &model.Scalar{
+				ID:        id,
+				Timestamp: currentTS,
+				Value:     float64(samples[i]),
+			})
 		})
-		if err != nil {
-			t.Fatalf("PutScalar failed with error: %v", err)
-		}
 		ts += 60
 
 		// Print progress every 10%.
 		if i%(minutesInDay/10) == 0 {
-			t.Logf("put %d/%d scalars", i, minutesInDay)
+			t.Logf("queued %d/%d scalars", i, minutesInDay)
 		}
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("PutScalar failed with error: %v", err)
 	}
 
 	t.Log("fetching scalars from datastore")
@@ -205,20 +217,25 @@ func TestFetchScalars(t *testing.T) {
 	t.Log("inserting fresh scalars for test.")
 	ts := int64(datastore.EpochStart)
 	samples := sampleSinusoid(amplitude, offset, minutesInDay)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(50)
 	for i := 0; i < minutesInDay; i++ {
-		err := model.PutScalar(ctx, store, &model.Scalar{
-			ID:        id,
-			Timestamp: ts,
-			Value:     float64(samples[i]),
+		currentTS := ts
+		g.Go(func() error {
+			return model.PutScalar(gCtx, store, &model.Scalar{
+				ID:        id,
+				Timestamp: currentTS,
+				Value:     float64(samples[i]),
+			})
 		})
-		if err != nil {
-			t.Fatalf("PutScalar failed with error: %v", err)
-		}
 		ts += 60
 
 		if i%(minutesInDay/10) == 0 {
-			t.Logf("inserted %d/%d scalars", i, minutesInDay)
+			t.Logf("queued %d/%d scalars", i, minutesInDay)
 		}
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("PutScalar failed with error: %v", err)
 	}
 
 	t.Log("creating request to /data endpoint")
