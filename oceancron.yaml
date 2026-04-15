@@ -1,5 +1,5 @@
 # gcloud app deploy --project oceancron --version 2 oceancron.yaml
-runtime: go121
+runtime: go126
 
 env_variables:
   AUSOCEAN_CREDENTIALS: gs://ausocean/AusOcean-ef9cd79f81a8.json
