@@ -27,7 +27,7 @@ package model
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -40,7 +40,9 @@ import (
 	"github.com/ausocean/av/container/mts"
 	"github.com/ausocean/av/container/mts/meta"
 	"github.com/ausocean/av/container/mts/psi"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -73,6 +75,7 @@ const (
 	testDevMac2      = "00:00:00:00:00:0F"
 	testDevMac3      = "1A:2B:3C:4F:50:61"
 	testDevMa2       = 15
+	testDevDkey2     = 10000015
 	testMID2         = testDevMa2 << 4
 	testMIDAll       = 0
 	testDevPin       = "V0"
@@ -411,35 +414,32 @@ func init() {
 	RegisterEntities()
 }
 
-// TestNetreceiverAccess tests access to NetReceiver's datastore.
-func TestNetreceiverFileAccess(t *testing.T) {
+// TestAusoceanAccess tests access to AusOcean's datastore.
+func TestAusoceanFileAccess(t *testing.T) {
 	testEntities(t, "file")
 	testDevice(t, "file")
 	testVariable(t, "file")
 	testCron(t, "file")
-	testSubscriber(t, "file")
-	testSubscription(t, "file")
+	testLog(t, "file")
 }
 
-func TestNetreceiverCloudAccess(t *testing.T) {
-	if os.Getenv("NETRECEIVER_CREDENTIALS") == "" {
-		t.Skip("NETRECEIVER_CREDENTIALS required to access NetReceiver datastore")
+func TestAusoceanCloudAccess(t *testing.T) {
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS required to access AusOcean datastore")
 	}
 	testEntities(t, "cloud")
 	testDevice(t, "cloud")
 	testVariable(t, "cloud")
 	testCron(t, "cloud")
-	testSubscriber(t, "cloud")
-	testSubscription(t, "cloud")
 }
 
-// testEntities tests access to various entities in NetReceiver's datastore.
+// testEntities tests access to various entities in AusOcean's datastore.
 func testEntities(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	// If we're testing FileStore we first need to create some entities.
@@ -502,36 +502,46 @@ func testEntities(t *testing.T, kind string) {
 func testDevice(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	// Local test constants for testDevice.
+	const (
+		testSiteKey      = 1
+		testDeviceKey    = 10000015
+		testDeviceInputs = "A0,V0"
+		testDeviceID     = "TestDevice15"
+		testDeviceMac    = "00:00:00:00:00:0F"
+		testDeviceEncMac = 15
+	)
+
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
-	dev := &Device{Skey: testSiteKey, Dkey: testDevDkey, Mac: testDevMa, Name: testDevID, Inputs: testDevInputs, Enabled: true}
+	dev := &Device{Skey: testSiteKey, Dkey: testDeviceKey, Mac: testDeviceEncMac, Name: testDeviceID, Inputs: testDeviceInputs, Enabled: true}
 	err = PutDevice(ctx, store, dev)
 	if err != nil {
 		t.Errorf("PutDevice failed with error: %v", err)
 	}
-	dev, err = GetDevice(ctx, store, testDevMa)
+	dev, err = GetDevice(ctx, store, testDeviceEncMac)
 	if err != nil {
 		t.Errorf("GetDevice failed with error: %v", err)
 	}
-	if dev.Skey != testSiteKey || dev.Dkey != testDevDkey || dev.Inputs != testDevInputs || !dev.Enabled {
+	if dev.Skey != testSiteKey || dev.Dkey != testDeviceKey || dev.Inputs != testDeviceInputs || !dev.Enabled {
 		t.Errorf("GetDevice returned wrong values; got %v", dev)
 	}
 
 	// Test checking
-	_, err = CheckDevice(ctx, store, testDevMac, strconv.Itoa(testDevDkey))
+	_, err = CheckDevice(ctx, store, testDeviceMac, strconv.Itoa(testDeviceKey))
 	if err != nil {
 		t.Errorf("checkDevice failed with error: %v", err)
 	}
 
 	// Test deletion.
-	err = DeleteDevice(ctx, store, testDevMa)
+	err = DeleteDevice(ctx, store, testDeviceEncMac)
 	if err != nil {
 		t.Errorf("DeleteDevice failed with error: %v", err)
 	}
-	dev, err = GetDevice(ctx, store, testDevMa)
+	_, err = GetDevice(ctx, store, testDeviceEncMac)
 	if err == nil {
 		t.Errorf("GetDevice failed to fail")
 	}
@@ -541,9 +551,9 @@ func testDevice(t *testing.T, kind string) {
 func testVariable(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "netreceiver", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, netreceiver) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -616,10 +626,16 @@ func testVariable(t *testing.T, kind string) {
 	}
 
 	vars, err := GetVariablesBySite(ctx, store, 0, "dev")
+	if err != nil {
+		t.Errorf("unable to get variables by site with scope dev: %v", err)
+	}
 	if len(vars) != 1 {
 		t.Errorf("GetVariablesBySite(dev) returned wrong number of variables; expected 1, got %d", len(vars))
 	}
 	vars, err = GetVariablesBySite(ctx, store, 0, "_sys")
+	if err != nil {
+		t.Errorf("unable to get variables by site with scope _sys: %v", err)
+	}
 	if len(vars) != 2 {
 		t.Errorf("GetVariablesBySite(.sys) returned wrong number of variables; expected 2, got %d", len(vars))
 	}
@@ -627,6 +643,13 @@ func testVariable(t *testing.T, kind string) {
 	if len(vars) < len(tests) {
 		t.Errorf("GetVariablesBySite() returned wrong number of variables; expected at least %d, got %d", len(tests), len(vars))
 	}
+	if err != nil {
+		t.Errorf("unable to get variables by site: %v", err)
+	}
+
+	t.Run("getBroadcastVarByUUID", func(t *testing.T) {
+		testBroadcastVarByUUID(t, ctx, store, kind)
+	})
 
 	for i, test := range tests[:2] {
 		err = DeleteVariable(ctx, store, 0, test.name)
@@ -640,20 +663,57 @@ func testVariable(t *testing.T, kind string) {
 	}
 }
 
-// TestVidgrindAccess tests access to VidGrind's datastore.
-// VIDGRIND_CREDENTIALS is required in order to access the datastore.
+func testBroadcastVarByUUID(t *testing.T, ctx context.Context, store datastore.Store, kind string) {
+	// id is a constant UUID that will always be the same.
+	id := uuid.NameSpaceURL.String()
+	const broadcastScope = "Broadcast"
+
+	type config struct {
+		UUID string
+	}
+
+	// Since we don't want a circular import, we will generate a dummy broadcast config.
+	data, err := json.Marshal(config{UUID: id})
+	if err != nil {
+		t.Errorf("failed to marshal dummy config into JSON: %v", err)
+	}
+
+	// Put the variable into the store.
+	err = PutVariable(ctx, store, testSiteKey, broadcastScope+"."+id, string(data))
+	if err != nil {
+		t.Errorf("failed to put dummy config into store: %v", err)
+	}
+
+	// Get the broadcast var.
+	broadcastVar, err := GetBroadcastVarByUUID(ctx, store, id)
+	if err != nil {
+		t.Errorf("unable to get broadcast var by uuid (%s): %v", id, err)
+	}
+
+	// Unmarshal to compare expected vs stored values.
+	cfg := &config{}
+	err = json.Unmarshal([]byte(broadcastVar.Value), cfg)
+	if err != nil {
+		t.Errorf("unable to unmarhal broadcastVar value: %v", err)
+	}
+	assert.Equal(t, id, cfg.UUID, "dummy config from store does not match stored object", cfg.UUID, id)
+}
+
+// TestVidgrindAccess tests access to AusOcean's datastore.
+// AUSOCEAN_CREDENTIALS is required in order to access the datastore.
+//
+// TODO: Merge this with Ausocean tests.
 func TestVidgrindFileAccess(t *testing.T) {
 	testMtsMedia(t, "file")
 	testText(t, "file")
 	testScalar(t, "file")
 	testActuator(t, "file")
 	testMtsDurations(t, "file")
-	testSubscriber(t, "file")
 }
 
 func TestVidgrindCloudAccess(t *testing.T) {
-	if os.Getenv("VIDGRIND_CREDENTIALS") == "" {
-		t.Skip("VIDGRIND_CREDENTIALS required to test VidGrind datastore")
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS required to test VidGrind datastore")
 	}
 
 	testMtsMedia(t, "cloud")
@@ -661,16 +721,15 @@ func TestVidgrindCloudAccess(t *testing.T) {
 	testScalar(t, "cloud")
 	testActuator(t, "cloud")
 	testMtsDurations(t, "cloud")
-	testSubscriber(t, "cloud")
 }
 
 // testMtsMedia tests MtsMedia methods.
 func testMtsMedia(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	// Write MtsMedia.
@@ -955,9 +1014,9 @@ func testGeohashes(t *testing.T, store datastore.Store) {
 func testText(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	texts := []Text{
@@ -1010,9 +1069,9 @@ func testText(t *testing.T, kind string) {
 // testActuator checks that we successfully add actuators to the datastore and then get them.
 func testActuator(t *testing.T, kind string) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -1053,9 +1112,9 @@ func testActuator(t *testing.T, kind string) {
 // testScalar tests scalars.
 func testScalar(t *testing.T, kind string) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Errorf("datastore.NewStore(%s, vidgrind) failed with error: %v", kind, err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
 	tests := []struct {
@@ -1138,7 +1197,7 @@ func testMtsDurations(t *testing.T, kind string) {
 		return
 	}
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
 		t.Fatalf("could not create new store: %v", err)
 	}
@@ -1305,7 +1364,7 @@ func TestGotsPacket(t *testing.T) {
 func testCron(t *testing.T, kind string) {
 	ctx := context.Background()
 
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
 		t.Fatalf("could not create new store: %v", err)
 	}
@@ -1333,127 +1392,57 @@ func testCron(t *testing.T, kind string) {
 	}
 }
 
-// testSubscriber tests Subscriber methods.
-func testSubscriber(t *testing.T, kind string) {
+// testLog tests functionality of Log.
+func testLog(t *testing.T, kind string) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
+
+	// Local test constants for testLog.
+	const (
+		testDeviceMAC = 000000000001
+		testSkey      = 10000015
+		testNote      = "testNote"
+	)
+
+	store, err := datastore.NewStore(ctx, kind, "ausocean/test", "")
 	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
+		t.Errorf("datastore.NewStore(%s, ausocean/test) failed with error: %v", kind, err)
 	}
 
-	// Since we will create a new subscriber, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.IDKey(typeSubscriber, testSubscriberID))
-
-	// Remove the monotonic time element from the Created field.
-	s1 := &Subscriber{testSubscriberID, "", testUserEmail, "first", "last", nil, "", "", time.Now().Round(time.Second).UTC()}
-
-	err = CreateSubscriber(ctx, store, s1)
+	log := &Log{Skey: testSkey, DeviceMAC: testDeviceMAC, Note: testNote}
+	err = PutLog(ctx, store, log)
 	if err != nil {
-		t.Errorf("CreateSubscriber failed with error: %v", err)
+		t.Errorf("PutLog failed with error: %v", err)
 	}
-
-	s2, err := GetSubscriber(ctx, store, s1.ID)
+	logs, err := GetLogsByDevice(ctx, store, testDeviceMAC)
 	if err != nil {
-		t.Errorf("GetSubscriber failed with error: %v", err)
+		t.Errorf("GetLogsByDevice failed with error: %v", err)
 	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than created (by ID), got: \n%+v, wanted \n%+v", s2, s1)
+	if len(logs) == 0 {
+		t.Errorf("GetLogsByDevice returned no values")
 	}
-
-	s2, err = GetSubscriberByEmail(ctx, store, testUserEmail)
+	if logs[0].DeviceMAC != testDeviceMAC || logs[0].Skey != testSkey || logs[0].Note != testNote {
+		t.Errorf("GetLogsByDevice returned wrong values; got %v", log)
+	}
+	logs, err = GetLogsBySite(ctx, store, testSkey)
 	if err != nil {
-		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+		t.Errorf("GetLogsBySite failed with error: %v", err)
+	}
+	if len(logs) == 0 {
+		t.Errorf("GetLogsBySite returned no values")
+	}
+	if logs[0].DeviceMAC != testDeviceMAC || logs[0].Skey != testSkey || logs[0].Note != testNote {
+		t.Errorf("GetLogsBySite returned wrong values; got %+v", log)
 	}
 
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than created (by Email), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-
-	s1.FamilyName = "New-Name"
-	err = UpdateSubscriber(ctx, store, s1)
+	// Test deletion.
+	err = DeleteLog(ctx, store, logs[0].UUID)
 	if err != nil {
-		t.Errorf("UpdateSubscriber failed with error: %v", err)
+		t.Errorf("DeleteLog failed with error: %v", err)
 	}
-
-	s2, err = GetSubscriber(ctx, store, testSubscriberID)
-	if err != nil {
-		t.Errorf("GetSubscriberByEmail failed with error: %v", err)
+	logs, err = GetLogsByDevice(ctx, store, testDeviceMAC)
+	if len(logs) != 0 {
+		t.Errorf("GetLogsByDevice got log, expected none")
 	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscriber than updated (by ID), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-}
-
-// testSubscriber tests Subscription methods.
-func testSubscription(t *testing.T, kind string) {
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
-	}
-
-	// Since we will create a new subscription, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.NameKey(typeSubscription, fmt.Sprintf("%d.%d", testSubscriberID, testFeedID)))
-
-	start := time.Now().Truncate(24 * time.Hour).UTC()
-	finish := start.AddDate(0, 0, 1)
-	s1 := &Subscription{SubscriberID: testSubscriberID, FeedID: testFeedID, Class: SubscriptionDay, Prefs: "", Start: start, Finish: finish, Renew: true}
-
-	err = CreateSubscription(ctx, store, testSubscriberID, testFeedID, "", true, WithSubscriptionClass(SubscriptionDay))
-	if err != nil {
-		t.Errorf("CreateSubscription failed with error: %v", err)
-	}
-
-	s2, err := GetSubscription(ctx, store, testSubscriberID, testFeedID)
-	if err != nil {
-		t.Errorf("GetSubscription failed with error: %v", err)
-	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscription than created (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-
-	subs, err := GetSubscriptions(ctx, store, testSubscriberID)
-	if err != nil {
-		t.Errorf("GetSubscriptions failed with error: %v", err)
-	}
-
-	if len(subs) != 1 {
-		t.Errorf("got incorrect number of subscriptions, got %d, wanted 1", len(subs))
-	}
-
-	if !reflect.DeepEqual(s1, &subs[0]) {
-		t.Errorf("Got different subscription than created, got: \n%+v, wanted \n%+v", &subs[0], s1)
-	}
-
-	s1.Renew = false
-	err = UpdateSubscription(ctx, store, s1)
-	if err != nil {
-		t.Errorf("UpdateSubscriber failed with error: %v", err)
-	}
-
-	s2, err = GetSubscription(ctx, store, testSubscriberID, testFeedID)
-	if err != nil {
-		t.Errorf("GetSubscription failed with error: %v", err)
-	}
-
-	if !reflect.DeepEqual(s1, s2) {
-		t.Errorf("Got different subscription than updated (by IDs), got: \n%+v, wanted \n%+v", s2, s1)
-	}
-
-}
-
-func testFeed(t *testing.T, kind string) {
-	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, kind, "vidgrind", "")
-	if err != nil {
-		t.Fatalf("could not create new store: %v", err)
-	}
-
-	// Since we will create a new Feed, we need to make sure to delete the existing one if it exists
-	store.Delete(ctx, store.IDKey(typeFeed, testFeedID))
 }
 
 // Benchmarks follow.
@@ -1472,7 +1461,7 @@ func BenchmarkSiteWithoutCaching(b *testing.B) {
 
 func benchmarkSite(b *testing.B) {
 	ctx := context.Background()
-	store, err := datastore.NewStore(ctx, "cloud", "vidgrind", "")
+	store, err := datastore.NewStore(ctx, "cloud", "ausocean/test", "")
 	if err != nil {
 		b.Errorf("could not get store: %v", err)
 	}

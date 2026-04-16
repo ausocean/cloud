@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/notify"
 )
 
 func register(state registry.Named) struct{} {
@@ -152,7 +154,7 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 	case *hardwareStopping:
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareStopFailedEvent{"hardware stop timed out"})
+			s.bus.publish(hardwareStopFailedEvent{errors.New("hardware stop timed out")})
 			return
 		}
 
@@ -160,7 +162,7 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 	case *hardwareStarting:
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareStartFailedEvent{"exceeded starting timeout during hardware restart"})
+			s.bus.publish(hardwareStartFailedEvent{errors.New("exceeded starting timeout during hardware restart")})
 			return
 		}
 
@@ -197,9 +199,9 @@ func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(event hardwareShu
 }
 
 func (s *hardwareRestarting) cameraIsReporting() bool {
-	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
-		s.bus.publish(invalidConfigurationEvent{fmt.Sprintf("could not get camera reporting status: %v", err)})
+		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
 	}
 	return up
@@ -228,38 +230,67 @@ func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
 	// A MAC of 0 indicates it is invalid or unset, proceed with starting the camera.
 	if s.cfg.ControllerMAC == 0 {
-		s.camera.start(s.broadcastContext)
+		s.hardware.start(s.broadcastContext)
 		return
 	}
 
-	voltage, err := s.camera.voltage(s.broadcastContext)
+	// The first check for any known hardware error states.
+	hwErr, err := s.hardware.error(s.broadcastContext)
 	if err != nil {
-		msg := fmt.Sprintf("could not get hardware voltage: %v", err)
-		s.log(msg)
-		s.bus.publish(invalidConfigurationEvent{msg})
+		errWrapped := fmt.Errorf("could not get hardware error state: %w", err)
+		s.log(errWrapped.Error())
+		// NOTE here we could do this, however it's not certain that all ESPs
+		// will have the latest firmware that supports this, and so it's not
+		// necessarily a showstopper.
+		// s.bus.publish(invalidConfigurationEvent{errWrapped})
+		// return
+	}
+
+	switch {
+	case errors.Is(hwErr, LowVoltageAlarm):
+		s.log("controller voltage is low, waiting for recovery before starting")
+		s.bus.publish(lowVoltageEvent{})
+		return
+	case errors.Is(hwErr, None):
+		// Continue other checks, this is good.
+	case hwErr != nil:
+		errWrapped := fmt.Errorf("unhandled controller hardware error: %w", hwErr)
+		s.log(errWrapped.Error())
+		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		return
+	default:
+		// This means we failed to get hwErr, which at this stage just means
+		// we have a controller that doesn't have the latest firmware.
+	}
+
+	voltage, err := s.hardware.voltage(s.broadcastContext)
+	if err != nil {
+		errWrapped := fmt.Errorf("could not get hardware voltage: %w", err)
+		s.log(errWrapped.Error())
+		s.bus.publish(invalidConfigurationEvent{errWrapped})
 		return
 	}
 
-	alarmVoltage, err := s.camera.alarmVoltage(s.broadcastContext)
+	alarmVoltage, err := s.hardware.alarmVoltage(s.broadcastContext)
 	if err != nil {
-		msg := fmt.Sprintf("could not get alarm voltage: %v", err)
-		s.log(msg)
-		s.bus.publish(invalidConfigurationEvent{msg})
+		errWrapped := fmt.Errorf("could not get alarm voltage: %w", err)
+		s.log(errWrapped.Error())
+		s.bus.publish(invalidConfigurationEvent{errWrapped})
 		return
 	}
 
-	controllerIsOn, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.ControllerMAC))
+	controllerIsOn, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.ControllerMAC))
 	if err != nil {
-		msg := fmt.Sprintf("could not get controller status: %v", err)
-		s.log(msg)
-		s.bus.publish(invalidConfigurationEvent{msg})
+		errWrapped := fmt.Errorf("could not get controller status: %w", err)
+		s.log(errWrapped.Error())
+		s.bus.publish(invalidConfigurationEvent{errWrapped})
 		return
 	}
 
 	if voltage <= alarmVoltage {
 		if controllerIsOn {
 			s.log("voltage less than alarm voltage but controller is on, something is configured incorrectly")
-			s.bus.publish(invalidConfigurationEvent{"voltage less than alarm voltage but controller is on"})
+			s.bus.publish(invalidConfigurationEvent{errors.New("voltage less than alarm voltage but controller is on")})
 			return
 		}
 		s.log("controller voltage is low, waiting for recovery before starting")
@@ -270,8 +301,7 @@ func (s *hardwareStarting) enter() {
 	// Not below alarm voltage, but controller is not responding.
 	// This is a critical failure.
 	if !controllerIsOn {
-		s.log("controller not responding above alarm voltage")
-		s.bus.publish(controllerFailureEvent{})
+		s.bus.publish(controllerFailureEvent{errors.New("controller not responding above alarm voltage")})
 		return
 	}
 
@@ -284,8 +314,8 @@ func (s *hardwareStarting) enter() {
 	}
 
 	// Controller is reporting and we're above streaming voltage, let's power
-	// on the camera.
-	s.camera.start(s.broadcastContext)
+	// on the hardware.
+	s.hardware.start(s.broadcastContext)
 }
 
 func (s *hardwareStarting) exit() {}
@@ -340,12 +370,46 @@ func sanatisedVoltageRecoveryTimeout(ctx *broadcastContext) int {
 	return ctx.cfg.VoltageRecoveryTimeout
 }
 
-type hardwareShutdownFailedEvent struct{ string }
+type hardwareShutdownFailedEvent struct{ error }
 
 var _ = registerEvent(hardwareShutdownFailedEvent{})
 
 func (e hardwareShutdownFailedEvent) String() string { return "hardwareShutdownFailedEvent" }
-func (e hardwareShutdownFailedEvent) Error() string  { return e.string }
+func (e hardwareShutdownFailedEvent) Error() string {
+	if e.error == nil {
+		return "(" + e.String() + ") <nil>"
+	}
+	return "(" + e.String() + ") " + e.error.Error()
+}
+func (e hardwareShutdownFailedEvent) New(args ...any) (any, error) {
+	var err error = nil
+	if len(args) != 0 {
+		err = args[0].(error)
+	}
+	return hardwareShutdownFailedEvent{err}, nil
+}
+
+// Kind implements the errorEvent interface.
+func (e hardwareShutdownFailedEvent) Kind() notify.Kind {
+	if errEvent, ok := e.error.(errorEvent); ok {
+		return errEvent.Kind()
+	}
+
+	if unwrapped := unwrapErrEvent(e.error, nil); unwrapped != nil {
+		return unwrapped.Kind()
+	}
+
+	return broadcastHardware
+}
+
+func (e hardwareShutdownFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwareShutdownFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwareShutdownFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
+}
 
 type hardwareShutdownEvent struct{}
 
@@ -372,16 +436,50 @@ func newHardwareShuttingDown(ctx *broadcastContext) *hardwareShuttingDown {
 }
 func (s *hardwareShuttingDown) enter() {
 	s.LastEntered = time.Now()
-	s.camera.shutdown(s.broadcastContext)
+	s.hardware.shutdown(s.broadcastContext)
 }
 func (s *hardwareShuttingDown) exit() {}
 
-type hardwarePowerOffFailedEvent struct{ string }
+type hardwarePowerOffFailedEvent struct{ error }
 
 var _ = registerEvent(hardwarePowerOffFailedEvent{})
 
 func (e hardwarePowerOffFailedEvent) String() string { return "hardwarePowerOffFailedEvent" }
-func (e hardwarePowerOffFailedEvent) Error() string  { return e.string }
+func (e hardwarePowerOffFailedEvent) Error() string {
+	if e.error == nil {
+		return "(" + e.String() + ") <nil>"
+	}
+	return "(" + e.String() + ") " + e.error.Error()
+}
+func (e hardwarePowerOffFailedEvent) New(args ...any) (any, error) {
+	var err error = nil
+	if len(args) != 0 {
+		err = args[0].(error)
+	}
+	return hardwarePowerOffFailedEvent{err}, nil
+}
+
+// Kind implements the errorEvent interface.
+func (e hardwarePowerOffFailedEvent) Kind() notify.Kind {
+	if errEvent, ok := e.error.(errorEvent); ok {
+		return errEvent.Kind()
+	}
+
+	if unwrapped := unwrapErrEvent(e.error, nil); unwrapped != nil {
+		return unwrapped.Kind()
+	}
+
+	return broadcastHardware
+}
+
+func (e hardwarePowerOffFailedEvent) Unwrap() error { return e.error }
+
+func (e hardwarePowerOffFailedEvent) Is(target error) bool {
+	if _, ok := target.(hardwarePowerOffFailedEvent); ok {
+		return true
+	}
+	return errors.Is(e.error, target)
+}
 
 type hardwarePoweringOff struct {
 	stateWithTimeoutFields
@@ -402,7 +500,7 @@ func newHardwarePoweringOff(ctx *broadcastContext) *hardwarePoweringOff {
 }
 func (s *hardwarePoweringOff) enter() {
 	s.LastEntered = time.Now()
-	s.camera.stop(s.broadcastContext)
+	s.hardware.stop(s.broadcastContext)
 }
 func (s *hardwarePoweringOff) exit() {}
 
@@ -524,9 +622,10 @@ func (s *hardwareStopping) transition() {
 func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
+		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwareShuttingDown")
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareShutdownFailedEvent{"hardware shutdown timed out"})
+			s.bus.publish(hardwareShutdownFailedEvent{errors.New("hardware shutdown timed out")})
 			return
 		}
 
@@ -535,11 +634,13 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			s.transition()
 			return
 		}
+		s.log("(hardwareStopping) camera is still reporting, waiting for shutdown to complete")
 
 	case *hardwarePoweringOff:
+		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwarePoweringOff")
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwarePowerOffFailedEvent{"hardware power off timed out"})
+			s.bus.publish(hardwarePowerOffFailedEvent{errors.New("hardware power off timed out")})
 			return
 		}
 
@@ -547,6 +648,7 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 			s.bus.publish(hardwareStoppedEvent{})
 			return
 		}
+		s.log("(hardwareStopping) camera is still reporting, waiting for power off to complete")
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
@@ -558,17 +660,32 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
 	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
-		s.logAndNotify(broadcastHardware, "shutdown failed during hardware stop, skipping to power off: %v", event.Error())
+		// We want to get notified for failures and misconfigured configs, and log
+		// when shutdown is skipped.
+		if errors.Is(event, warnSkipShutdown) {
+			s.log("skipping shutdown: %v:", event.Error)
+		} else if errors.Is(event, errNoShutdownActions) {
+			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())
+		}
 		s.transition()
 	default:
 		// Ignore.
 	}
 }
 
+func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch s.Substate.(type) {
+	case *hardwarePoweringOff:
+		s.bus.publish(hardwareStopFailedEvent{event})
+	default:
+		// Ignore.
+	}
+}
+
 func (s *hardwareStopping) cameraIsReporting() bool {
-	up, err := s.camera.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
-		s.bus.publish(invalidConfigurationEvent{fmt.Sprintf("could not get camera reporting status: %v", err)})
+		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
 	}
 	return up
@@ -606,21 +723,50 @@ func newHardwareOff() *hardwareOff { return &hardwareOff{} }
 func (s *hardwareOff) enter()      {}
 func (s *hardwareOff) exit()       {}
 
-type hardwareFailure struct{ reason string }
+type hardwareFailure struct {
+	*broadcastContext `json:"-"`
+	err               error
+}
 
 var _ = register(hardwareFailure{})
 
-func newHardwareFailure(reason string) *hardwareFailure { return &hardwareFailure{reason} }
+func newHardwareFailure(ctx *broadcastContext, err error) *hardwareFailure {
+	return &hardwareFailure{ctx, err}
+}
 
 func (s hardwareFailure) Name() string { return "hardwareFailure" }
+
+func (s hardwareFailure) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct{ Err string }{Err: s.err.Error()})
+}
+
+func (s *hardwareFailure) UnmarshalJSON(data []byte) error {
+	aux := struct{ Err string }{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	s.err = errors.New(aux.Err)
+	return nil
+}
 
 // New implements registry.Newable for creating a fresh value of
 // hardwareFailure from an existing value.
 func (s hardwareFailure) New(args ...interface{}) (any, error) {
-	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareFailure("") }, args...)
+	return newableWithContext(func(ctx *broadcastContext) any { return newHardwareFailure(ctx, nil) }, args...)
 }
-func (s *hardwareFailure) enter() {}
-func (s *hardwareFailure) exit()  {}
+func (s *hardwareFailure) enter() {
+	notifyMsg := "entering hardware failure state"
+	notifyKind := broadcastGeneric
+	if s.err != nil {
+		if errEvent, ok := s.err.(errorEvent); ok {
+			notifyKind = errEvent.Kind()
+		}
+		notifyMsg = fmt.Sprintf("entering hardware failure state due to: %v", s.err)
+	}
+	s.logAndNotify(notifyKind, notifyMsg)
+}
+func (s *hardwareFailure) exit() {}
 
 type hardwareStateMachine struct {
 	currentState state
@@ -674,6 +820,8 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 		sm.handleHardwareResetRequestEvent(event.(hardwareResetRequestEvent))
 	case hardwareShutdownFailedEvent:
 		sm.handleHardwareShutdownFailedEvent(event.(hardwareShutdownFailedEvent))
+	case hardwarePowerOffFailedEvent:
+		sm.handleHardwarePowerOffFailedEvent(event.(hardwarePowerOffFailedEvent))
 	case hardwareStoppedEvent:
 		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
 	case hardwareStartRequestEvent:
@@ -695,13 +843,13 @@ func (sm *hardwareStateMachine) handleEvent(event event) error {
 func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	sm.log("handling time event")
 	eventIfStatus := func(e event, status bool) {
-		sm.ctx.camera.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			sm.ctx.bus.publish(hardwareStartFailedEvent{})
+			sm.ctx.bus.publish(hardwareStartFailedEvent{errors.New("exceed timeout during hardware starting")})
 			sm.transition(newHardwareOff())
 			return
 		}
@@ -713,17 +861,16 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	case *hardwareRecoveringVoltage:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			sm.ctx.logAndNotify(broadcastHardware, "voltage recovery timed out")
-			sm.ctx.bus.publish(hardwareStartFailedEvent{})
+			sm.ctx.bus.publish(hardwareStartFailedEvent{errors.New("voltage recovery timed out")})
 			sm.transition(newHardwareOff())
 			return
 		}
 
-		voltage, err := sm.ctx.camera.voltage(sm.ctx)
+		voltage, err := sm.ctx.hardware.voltage(sm.ctx)
 		if err != nil {
-			msg := fmt.Sprintf("could not get hardware voltage: %v", err)
-			sm.log(msg)
-			sm.ctx.bus.publish(invalidConfigurationEvent{msg})
+			errWrapped := fmt.Errorf("could not get hardware voltage: %v", err)
+			sm.log(errWrapped.Error())
+			sm.ctx.bus.publish(invalidConfigurationEvent{errWrapped})
 			return
 		}
 
@@ -777,8 +924,16 @@ func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStopped
 func (sm *hardwareStateMachine) handleHardwareStopFailedEvent(event hardwareStopFailedEvent) {
 	switch sm.currentState.(type) {
 	case *hardwareStopping, *hardwareRestarting:
-		sm.log("handling hardware stop failed event")
-		sm.transition(newHardwareFailure(fmt.Sprintf("hardware stop failed: %v", event.Error())))
+		sm.transition(newHardwareFailure(sm.ctx, event))
+	}
+}
+
+func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+	switch sm.currentState.(type) {
+	case *hardwareStopping:
+		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(event)
+	default:
+		sm.unexpectedEvent(event, sm.currentState)
 	}
 }
 
@@ -786,7 +941,7 @@ func (sm *hardwareStateMachine) handleHardwareStartFailedEvent(event hardwareSta
 	switch sm.currentState.(type) {
 	case *hardwareStarting, *hardwareRestarting:
 		sm.log("handling hardware start failed event")
-		sm.transition(newHardwareFailure(fmt.Sprintf("hardware start failed: %v", event.Error())))
+		sm.transition(newHardwareFailure(sm.ctx, event))
 	}
 }
 
@@ -808,7 +963,7 @@ func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(event hardwareSt
 	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
-		sm.ctx.camera.publishEventIfStatus(sm.ctx, hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
 	case *hardwareStopping:
 		// Ignore and log.
 		sm.log("ignoring hardware start request event since hardware is still stopping")
@@ -846,7 +1001,7 @@ func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareRe
 }
 
 func (sm *hardwareStateMachine) handleControllerFailureEvent(event controllerFailureEvent) {
-	sm.transition(newHardwareFailure(fmt.Sprintf("got controller failure event: %v", event.Error())))
+	sm.transition(newHardwareFailure(sm.ctx, event))
 }
 
 func (sm *hardwareStateMachine) handleLowVoltageEvent(event lowVoltageEvent) {
@@ -901,22 +1056,54 @@ type hardwareManager interface {
 	shutdown(ctx *broadcastContext)
 	stop(ctx *broadcastContext)
 	publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event))
+	error(ctx *broadcastContext) (error, error)
 }
 
 type revidCameraClient struct{}
+
+type ControllerError string
+
+const (
+	None            ControllerError = ""
+	LowVoltageAlarm ControllerError = "LowVoltage"
+)
+
+func (e ControllerError) Error() string {
+	return string(e)
+}
+
+func (e ControllerError) Is(target error) bool {
+	if target == nil {
+		return false
+	}
+	if t, ok := target.(ControllerError); ok {
+		return e == t
+	}
+	return false
+}
 
 func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
 	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, ctx.cfg.BatteryVoltagePin)
 	if err != nil {
-		return 0, fmt.Errorf("could not get battery voltage sensor (%s.%s): %v", model.MacDecode(ctx.cfg.ControllerMAC), ctx.cfg.BatteryVoltagePin, err)
+		return 0, fmt.Errorf("could not get battery voltage sensor (%s.%s): %w", model.MacDecode(ctx.cfg.ControllerMAC), ctx.cfg.BatteryVoltagePin, err)
 	}
 
 	// Get current battery voltage.
 	voltage, err := model.GetSensorValue(context.Background(), ctx.store, sensor)
-	if err != nil {
-		return 0, fmt.Errorf("could not get current battery voltage: %v", err)
+	switch {
+	case errors.Is(err, datastore.ErrNoSuchEntity):
+		// We'll get this if the controller is off from low voltage, so just
+		// assume we have alarm voltage.
+		alarmVoltage, err := c.alarmVoltage(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("could not get alarm voltage: %w", err)
+		}
+		return alarmVoltage, nil
+	case err != nil:
+		return 0, fmt.Errorf("could not get current battery voltage: %w", err)
 	}
+
 	return voltage, nil
 }
 
@@ -926,13 +1113,13 @@ func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error)
 	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
 	alarmVoltageVar, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".AlarmVoltage")
 	if err != nil {
-		return 0, fmt.Errorf("could not get alarm voltage variable: %v", err)
+		return 0, fmt.Errorf("could not get alarm voltage variable: %w", err)
 	}
 	ctx.log("got AlarmVoltage for %s: %s", controllerMACHex, alarmVoltageVar.Value)
 
 	uncalibratedAlarmVoltage, err := strconv.Atoi(alarmVoltageVar.Value)
 	if err != nil {
-		return 0, fmt.Errorf("could not convert uncalibrated alarm voltage from string: %v", err)
+		return 0, fmt.Errorf("could not convert uncalibrated alarm voltage from string: %w", err)
 	}
 
 	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
@@ -943,13 +1130,13 @@ func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error)
 	}
 	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
 	if err != nil {
-		return 0, fmt.Errorf("could not get battery voltage sensor: %v", err)
+		return 0, fmt.Errorf("could not get battery voltage sensor: %w", err)
 	}
 
 	// Transform the alarm voltage to the actual voltage.
 	alarmVoltage, err := sensor.Transform(float64(uncalibratedAlarmVoltage))
 	if err != nil {
-		return 0, fmt.Errorf("could not transform alarm voltage: %v", err)
+		return 0, fmt.Errorf("could not transform alarm voltage: %w", err)
 	}
 
 	return alarmVoltage, nil
@@ -958,7 +1145,7 @@ func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error)
 func (c *revidCameraClient) isUp(ctx *broadcastContext, mac string) (bool, error) {
 	deviceIsUp, err := model.DeviceIsUp(context.Background(), ctx.store, mac)
 	if err != nil {
-		return false, fmt.Errorf("could not get controller status: %v", err)
+		return false, fmt.Errorf("could not get controller status: %w", err)
 	}
 	return deviceIsUp, nil
 }
@@ -967,7 +1154,7 @@ func (c *revidCameraClient) start(ctx *broadcastContext) {
 	err := extStart(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not start external hardware: %v", err)
-		ctx.bus.publish(hardwareStartFailedEvent{})
+		ctx.bus.publish(hardwareStartFailedEvent{fmt.Errorf("external hardware start actions failed: %w", err)})
 		return
 	}
 }
@@ -975,8 +1162,7 @@ func (c *revidCameraClient) start(ctx *broadcastContext) {
 func (c *revidCameraClient) shutdown(ctx *broadcastContext) {
 	err := extShutdown(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
-		ctx.log("could not shutdown external hardware: %v", err)
-		ctx.bus.publish(hardwareShutdownFailedEvent{err.Error()})
+		ctx.bus.publish(hardwareShutdownFailedEvent{fmt.Errorf("could not perform shutdown actions: %w", err)})
 		return
 	}
 }
@@ -985,15 +1171,14 @@ func (c *revidCameraClient) stop(ctx *broadcastContext) {
 	err := extStop(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not stop external hardware: %v", err)
-		ctx.bus.publish(hardwareStopFailedEvent{})
+		ctx.bus.publish(hardwareStopFailedEvent{fmt.Errorf("could not perform stop actions: %w", err)})
 		return
 	}
 }
 
 func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(event event)) {
 	if mac == 0 {
-		log("camera is not set in configuration")
-		publish(invalidConfigurationEvent{"camera mac is empty"})
+		publish(invalidConfigurationEvent{errors.New("camera mac is empty")})
 		return
 	}
 	log("checking status of device with mac: %d", mac)
@@ -1007,6 +1192,15 @@ func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, event ev
 		publish(event)
 		return
 	}
+}
+
+func (c *revidCameraClient) error(ctx *broadcastContext) (error, error) {
+	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
+	devErr, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".error")
+	if err != nil {
+		return nil, fmt.Errorf("could not get controller error variable: %w", err)
+	}
+	return ControllerError(devErr.Value), nil
 }
 
 func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {

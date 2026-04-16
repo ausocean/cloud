@@ -42,8 +42,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // M3U tokens. Tokens ending with a colon are followed by values.

@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // typeDevice is the name of the datastore device type.

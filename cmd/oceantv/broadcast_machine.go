@@ -12,6 +12,15 @@ import (
 type broadcastStateMachine struct {
 	currentState state
 	ctx          *broadcastContext
+	stateHandler func(state)
+}
+
+func (sm *broadcastStateMachine) registerStateHandler(handler func(state)) {
+	prev := sm.stateHandler
+	sm.stateHandler = func(s state) {
+		prev(s)
+		handler(s)
+	}
 }
 
 func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, error) {
@@ -40,7 +49,7 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 		return nil, fmt.Errorf("could not update config start and end times in transaction: %w", err)
 	}
 
-	sm := &broadcastStateMachine{currentState: broadcastCfgToState(ctx), ctx: ctx}
+	sm := &broadcastStateMachine{currentState: broadcastCfgToState(ctx), ctx: ctx, stateHandler: func(s state) {}}
 	sm.log("got broadcast state machine; initial state: %s, start: %v, end: %v, cfg: %v", stateToString(sm.currentState), ctx.cfg.Start, ctx.cfg.End, provideConfig(ctx.cfg))
 	return sm, nil
 }
@@ -160,13 +169,6 @@ func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueE
 }
 
 func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidConfigurationEvent) {
-	sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
-	try(
-		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
-		"could not disable broadcast after invalid configuration",
-		sm.logAndNotifySoftware,
-	)
-
 	switch sm.currentState.(type) {
 	case
 		*vidforwardPermanentStarting,
@@ -178,12 +180,28 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		*vidforwardPermanentTransitionSlateToLive,
 		*vidforwardPermanentFailure:
 
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 
 	case
 		*vidforwardSecondaryStarting,
 		*vidforwardSecondaryLive,
 		*vidforwardSecondaryLiveUnhealthy:
+
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
 
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 
@@ -192,7 +210,7 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		*directLive,
 		*directLiveUnhealthy:
 
-		sm.transition(newDirectIdle(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -226,7 +244,7 @@ func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailur
 		// will subsequently be in a failure state.
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	case *directStarting:
-		sm.transition(newDirectFailure(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -237,7 +255,7 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 	sm.log("handling hardware start failed event")
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("hardware start failed"))
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(event)
 	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
 		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
@@ -296,19 +314,16 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 	return nil
 }
 
-var errControllerFailure = errors.New("controller not reporting")
-
 func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFailureEvent) error {
 	sm.log("handling controller failure event")
 	switch sm.currentState.(type) {
 	case *directStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
-		sm.transition(newDirectIdle(sm.ctx))
+		sm.transition(newDirectFailure(sm.ctx, event))
 	case *vidforwardPermanentStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case *vidforwardSecondaryStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(errControllerFailure)
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	default:
 		// Do nothing.
@@ -344,6 +359,8 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		if sm.startIsDue(event) {
 			sm.ctx.bus.publish(startEvent{})
 			return
+		} else {
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), event.Time.Format("15:04"))
 		}
 	case *vidforwardPermanentTransitionLiveToSlate:
 		withTimeout := sm.currentState.(stateWithTimeout)
@@ -376,6 +393,8 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		if withTimeout.timedOut(event.Time) {
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
+	case *directFailure:
+		// Do nothing.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -386,6 +405,8 @@ func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) er
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentLiveUnhealthy:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case *directLiveUnhealthy:
+		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
 	}
@@ -525,6 +546,7 @@ func (sm *broadcastStateMachine) transition(newState state) {
 	sm.currentState.exit()
 	sm.currentState = newState
 	sm.currentState.enter()
+	sm.stateHandler(newState)
 }
 
 func (sm *broadcastStateMachine) unexpectedEvent(event event, state state) {

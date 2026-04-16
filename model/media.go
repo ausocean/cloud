@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // typeMedia is the name of our datastore type.

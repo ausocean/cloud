@@ -41,10 +41,11 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/google/uuid"
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -68,6 +69,7 @@ const (
 	broadcastToken
 	broadcastDelete
 	broadcastSelect
+	broadcastResetState
 
 	// Vidforward control API request actions.
 	vidforwardCreate
@@ -92,13 +94,14 @@ const (
 
 // broadcastRequest is used by the broadcastHandler to hold broadcast information.
 type broadcastRequest struct {
-	BroadcastVars      []model.Variable // Holds prior saved broadcast configs.
-	CurrentBroadcast   BroadcastConfig  // Holds configuration data for broadcast config in form.
-	Cameras            []model.Device   // Slice of all the cameras on the site.
-	Controllers        []model.Device   // Slice of all the controllers on the site.
-	Settings           Settings         // A struct containing options for some settings that have limited options.
-	Action             string           // Holds value of any button pressed.
-	ListingSecondaries bool             // Are we listing secondary broadcasts?
+	BroadcastVars      []model.Variable   // Holds prior saved broadcast configs.
+	ParsedBroadcasts   []*BroadcastConfig // Holds broadcast configs, in the struct, parsed from the JSON in the BroadcastVars.
+	CurrentBroadcast   BroadcastConfig    // Holds configuration data for broadcast config in form.
+	Cameras            []model.Device     // Slice of all the cameras on the site.
+	Controllers        []model.Device     // Slice of all the controllers on the site.
+	Settings           Settings           // A struct containing options for some settings that have limited options.
+	Action             string             // Holds value of any button pressed.
+	ListingSecondaries bool               // Are we listing secondary broadcasts?
 	Site               *model.Site
 	commonData
 }
@@ -111,9 +114,10 @@ type Settings struct {
 
 // BroadcastConfig holds configuration data for a YouTube broadcast.
 type BroadcastConfig struct {
+	UUID                     string        // The immutable unique key of the broadcast.
 	SKey                     int64         // The key of the site this broadcast belongs to.
 	Name                     string        // The name of the broadcast.
-	ID                       string        // Broadcast identification.
+	BID                      string        // Broadcast identification.
 	SID                      string        // Stream ID for any currently associated stream.
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
@@ -158,6 +162,7 @@ type BroadcastConfig struct {
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
 	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string        // The capture source to register the stream to.
+	NotifySuppressRules      string        // Suppression rules for notifications.
 }
 
 func (b *BroadcastConfig) PrettyHardwareStateData() string {
@@ -197,16 +202,17 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	sKey, _ := profileData(profile)
+	sKey, _ := requestSiteData(r, profile)
 
 	req := broadcastRequest{
 		commonData: commonData{
 			Pages: pages("broadcast"),
 		},
 		CurrentBroadcast: BroadcastConfig{
+			UUID:                  r.FormValue("broadcast-uuid"),
 			SKey:                  sKey,
 			Name:                  r.FormValue("broadcast-name"),
-			ID:                    r.FormValue("broadcast-id"),
+			BID:                   r.FormValue("broadcast-id"),
 			StreamName:            r.FormValue("stream-name"),
 			Description:           r.FormValue("description"),
 			LivePrivacy:           r.FormValue("live-privacy"),
@@ -230,6 +236,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			RegisterOpenFish:      r.FormValue("register-openfish") == "register-openfish",
 			OpenFishCaptureSource: r.FormValue("openfish-capturesource"),
 			BatteryVoltagePin:     r.FormValue("battery-voltage-pin"),
+			NotifySuppressRules:   r.FormValue("notify-suppress-rules"),
 		},
 		Action:             r.FormValue("action"),
 		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
@@ -282,6 +289,21 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		reportError(w, r, req, "could not get broadcast configs variable: %v", err)
 		return
+	}
+
+	for _, v := range req.BroadcastVars {
+		cfg := &BroadcastConfig{}
+		err := json.Unmarshal([]byte(v.Value), cfg)
+		if err != nil {
+			reportError(w, r, req, "could not unmarshal broadcast variables: %v", err)
+			return
+		}
+
+		// Handle older version broadcasts which don't have a UUID.
+		if cfg.UUID == "" {
+			cfg.UUID = cfg.Name
+		}
+		req.ParsedBroadcasts = append(req.ParsedBroadcasts, cfg)
 	}
 
 	// If we're not listing secondaries, we need to filter out any secondary broadcasts.
@@ -364,20 +386,23 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		// Check if we've just pulled the hardware out of a failure state.
 		// We do this by checking if the hardware was in a failure state and
 		// now it's not.
-		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.Name)
+		curBroadcast, err := broadcastFromVars(req.BroadcastVars, cfg.UUID)
 		if errors.Is(err, ErrBroadcastNotFound{}) {
 			// Assume the broadcast is newly saved.
 		} else if err != nil {
 			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
 			return
-		} else if r.FormValue("hardware-in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+		} else if r.FormValue("in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
 			cfg.HardwareState = "hardwareOff"
 		}
 
 		// If we haven't just generated a token we should keep the same account
 		// that the config previously had.
 		cfg.Account, err = getExistingAccount(req.BroadcastVars, cfg)
-		if err != nil {
+		if errors.Is(err, ErrBroadcastNotFound{}) {
+			// If the broadcast doesn't exist, we will be creating a new broadcast.
+			// Do nothing.
+		} else if err != nil {
 			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
 			return
 		}
@@ -390,16 +415,23 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		msg = "broadcast saved successfully"
 
 		// Ensure that the CheckBroadcast cron exists.
-		c := &model.Cron{Skey: cfg.SKey, ID: "Broadcast Check", TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
-		err = model.PutCron(context.Background(), settingsStore, c)
-		if err != nil {
-			reportError(w, r, req, "warning: failed to verify checkbroadcasts cron: %v", err)
-			return
-		}
+		const broadcastCheckCronID = "Broadcast Check"
+		_, err = model.GetCron(ctx, settingsStore, cfg.SKey, broadcastCheckCronID)
+		if errors.Is(err, datastore.ErrNoSuchEntity) {
+			c := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
+			err = model.PutCron(context.Background(), settingsStore, c)
+			if err != nil {
+				reportError(w, r, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
+				return
+			}
 
-		err = cronScheduler.Set(c)
-		if err != nil {
-			reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
+			err = cronScheduler.Set(c)
+			if err != nil {
+				reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
+				return
+			}
+		} else if err != nil {
+			reportError(w, r, req, "unexpected error when checking for the broadcast check cron: %v", err)
 			return
 		}
 
@@ -426,6 +458,23 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 		}
 		msg = "slate uploaded successfully"
+	case broadcastResetState:
+		err = resetState(ctx, &req.CurrentBroadcast)
+		if err != nil {
+			reportError(w, r, req, "could not reset state: %v", err)
+			return
+		}
+
+		v, err := model.GetVariable(ctx, settingsStore, sKey, broadcastScope+"."+cfg.UUID)
+		if err != nil {
+			reportError(w, r, req, "could not load saved broadcast: %v", err)
+			return
+		}
+		err = json.Unmarshal([]byte(v.Value), cfg)
+		if err != nil {
+			reportError(w, r, req, "could not unmarshal broadcast: %v", err)
+			return
+		}
 	}
 
 	writeTemplate(w, r, "broadcast.html", &req, msg)
@@ -441,6 +490,7 @@ func stringToAction(s string, req broadcastRequest) Action {
 			"broadcast-token":         broadcastToken,
 			"broadcast-delete":        broadcastDelete,
 			"broadcast-select":        broadcastSelect,
+			"broadcast-reset-state":   broadcastResetState,
 			"vidforward-create":       vidforwardCreate,
 			"vidforward-play":         vidforwardPlay,
 			"vidforward-slate":        vidforwardSlate,
@@ -458,6 +508,13 @@ func stringToAction(s string, req broadcastRequest) Action {
 // saveBroadcast sends a request to save a broadcast to the broadcast manager service (oceantv).
 // TODO: Add JWT signing.
 func saveBroadcast(ctx context.Context, cfg *Cfg) error {
+	if cfg.UUID == "" {
+		// The config is new, and should be assigned a UUID.
+		cfg.UUID = uuid.NewString()
+	} else if err := uuid.Validate(cfg.UUID); err != nil {
+		return fmt.Errorf("broadcast config has invalid UUID: %w", err)
+	}
+
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
@@ -486,11 +543,42 @@ func saveBroadcast(ctx context.Context, cfg *Cfg) error {
 	return nil
 }
 
+// resetState sends a request to reset the state of a broadcast to the broadcast manager service (oceantv).
+// TODO: Add JWT signing.
+func resetState(ctx context.Context, cfg *Cfg) error {
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
+	}
+
+	const resetStateEndpoint = "/broadcast/reset-state"
+	url := tvURL + resetStateEndpoint
+	reader := bytes.NewReader(data)
+	req, err := http.NewRequest("POST", url, reader)
+	if err != nil {
+		return fmt.Errorf("error creating %s request: %w", resetStateEndpoint, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	clt := &http.Client{}
+	resp, err := clt.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending %s request: %w", resetStateEndpoint, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s request failed with status code: %s", resetStateEndpoint, http.StatusText(resp.StatusCode))
+	}
+
+	log.Printf("%s OK", resetStateEndpoint)
+	return nil
+}
+
 // deleteBroadcast deletes a broadcast from the datastore and also updates the BroadcastVars
 // list and CurrentBroadcast config to clear the form on next page write.
 func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore.Store) error {
 	cfg := &req.CurrentBroadcast
-	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name)
+	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.UUID)
 	if err != nil {
 		return fmt.Errorf("could not delete broadcast: %v", err)
 	}
@@ -529,16 +617,13 @@ func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) 
 
 // getExistingAccount will return the current associated account of the broadcast with the current config
 // name. This should be used to ensure that the associated account is only updated using the generate token method.
-// If no broadcast/account is found, then an empty string will be returned
+// If no broadcast/account is found, then an empty string will be returned, along with an error.
 func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) (string, error) {
-	cfg, err := broadcastFromVars(broadcasts, cfg.Name)
-	if errors.Is(err, ErrBroadcastNotFound{}) {
-		return "", nil
-	}
+	_cfg, err := broadcastFromVars(broadcasts, cfg.UUID)
 	if err != nil {
 		return "", err
 	}
-	return cfg.Account, nil
+	return _cfg.Account, nil
 }
 
 func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Request, store datastore.Store) error {

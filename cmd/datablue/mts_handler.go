@@ -33,8 +33,8 @@ import (
 
 	"github.com/ausocean/av/container/mts"
 	"github.com/ausocean/av/container/mts/pes"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // mtsHandler receives audio/video data from devices in the form of
@@ -49,7 +49,7 @@ import (
 // clip in the same body or multiple video or audio clips.
 //
 // The supplied MAC address (ma) must correspond to a valid
-// NetReceiver device and the supplied device key (dk) must to match
+// ausocean device and the supplied device key (dk) must to match
 // the device's. The pin type (pn) must be either V(ideo) or S(ound).
 func mtsHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)

@@ -37,10 +37,12 @@ const humidityScaleFactor Arg = 0.1
 
 var tempLinearArgs []Arg = []Arg{0.1, -273.15}
 
+const NameBatterySensor = "Battery Voltage"
+
 // BatteryVoltageSensor returns a default calibrated battery sensor.
 func BatteryVoltageSensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Battery Voltage",
+		NameBatterySensor,
 		pinBatteryVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -101,11 +103,23 @@ func WaterTemperatureSensor() *SensorV2 {
 	)
 }
 
+// LightSensor returns a light brightness sensor.
+func LightSensor() *SensorV2 {
+	return sensorShim(
+		"Brightness",
+		pinBrightness,
+		nmea.Lux,
+		funcNone,
+		unitLux,
+		formRound1,
+	)
+}
+
 // ESP32BatterySensor returns a Battery Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Battery Voltage",
+		NameBatterySensor,
 		pinESP32BatteryVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -115,11 +129,13 @@ func ESP32BatterySensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP1Voltage = "Power 1 Voltage"
+
 // ESP32Power1Sensor returns a Power 1 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 1 Voltage",
+		NameP1Voltage,
 		pinESP32Power1Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -129,11 +145,13 @@ func ESP32Power1Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP2Voltage = "Power 2 Voltage"
+
 // ESP32Power2Sensor returns a Power 2 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power2Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 2 Voltage",
+		NameP2Voltage,
 		pinESP32Power2Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -143,11 +161,13 @@ func ESP32Power2Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameP3Voltage = "Power 3 Voltage"
+
 // ESP32Power3Sensor returns a Power 3 Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32Power3Sensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Power 3 Voltage",
+		NameP3Voltage,
 		pinESP32Power3Voltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -157,11 +177,13 @@ func ESP32Power3Sensor(scaleFactor float64) *SensorV2 {
 	)
 }
 
+const NameNWVoltage = "Network Voltage"
+
 // ESP32NetworkSensor returns a Network Voltage sensor for an ESP32 with
 // the given scale factor.
 func ESP32NetworkSensor(scaleFactor float64) *SensorV2 {
 	return sensorShim(
-		"Network Voltage",
+		NameNWVoltage,
 		pinESP32NetworkVoltage,
 		nmea.DCVoltage,
 		funcScale,
@@ -203,20 +225,24 @@ func NewAlarmPeriodVar(duration time.Duration) *Variable {
 	}
 }
 
+const NameAlarmRecoveryVoltage = "AlarmRecoveryVoltage"
+
 // NewAlarmRecoveryVoltageVar returns a new AlarmRecoveryVoltage var with the
 // passed threshold as its value.
 func NewAlarmRecoveryVoltageVar(threshold int) *Variable {
 	return &Variable{
-		Name:  "AlarmRecoveryVoltage",
+		Name:  NameAlarmRecoveryVoltage,
 		Value: strconv.Itoa(threshold),
 	}
 }
+
+const NameAlarmVoltage = "AlarmVoltage"
 
 // NewAlarmVoltageVar returns a new AlarmVoltage var with the
 // passed threshold as its value.
 func NewAlarmVoltageVar(threshold int) *Variable {
 	return &Variable{
-		Name:  "AlarmVoltage",
+		Name:  NameAlarmVoltage,
 		Value: strconv.Itoa(threshold),
 	}
 }
@@ -290,6 +316,126 @@ func NewPulseSuppressVar(suppress bool) *Variable {
 	return &Variable{
 		Name:  "PulseSuppress",
 		Value: strconv.FormatBool(suppress),
+	}
+}
+
+// NewAutoWhiteBalanceVar returns a new AutoWhiteBalance var.
+func NewAutoWhiteBalanceVar(setting string) *Variable {
+	return &Variable{
+		Name:  "AutoWhiteBalance",
+		Value: setting,
+	}
+}
+
+// NewBitrateVar returns a new Bitrate var.
+func NewBitrateVar(bitrate int) *Variable {
+	return &Variable{
+		Name:  "Bitrate",
+		Value: strconv.Itoa(bitrate),
+	}
+}
+
+// NewContrastVar returns a new Contrast var.
+func NewContrastVar(contrast int) *Variable {
+	return &Variable{
+		Name:  "Contrast",
+		Value: strconv.Itoa(contrast),
+	}
+}
+
+// NewFrameRateVar returns a new FrameRate var.
+func NewFrameRateVar(frameRate int) *Variable {
+	return &Variable{
+		Name:  "FrameRate",
+		Value: strconv.Itoa(frameRate),
+	}
+}
+
+// NewHDRVar returns a new HDR var.
+func NewHDRVar(HDRMode string) *Variable {
+	return &Variable{
+		Name:  "HDR",
+		Value: HDRMode,
+	}
+}
+
+// NewHeightVar returns a new Height var.
+func NewHeightVar(height int) *Variable {
+	return &Variable{
+		Name:  "Height",
+		Value: strconv.Itoa(height),
+	}
+}
+
+// NewInputVar returns a new Input var.
+func NewInputVar(input string) *Variable {
+	return &Variable{
+		Name:  "Input",
+		Value: input,
+	}
+}
+
+// NewOutputVar returns a new Output var.
+func NewOutputVar(output string) *Variable {
+	return &Variable{
+		Name:  "Output",
+		Value: output,
+	}
+}
+
+// NewRTMPURLVar returns a new RTMPURL var.
+func NewRTMPURLVar(url string) *Variable {
+	return &Variable{
+		Name:  "RTMPURL",
+		Value: url,
+	}
+}
+
+// NewRotationVar returns a new Rotation var.
+func NewRotationVar(rotation int) *Variable {
+	return &Variable{
+		Name:  "Rotation",
+		Value: strconv.Itoa(rotation),
+	}
+}
+
+// NewSaturationVar returns a new Saturation var.
+func NewSaturationVar(saturation int) *Variable {
+	return &Variable{
+		Name:  "Saturation",
+		Value: strconv.Itoa(saturation),
+	}
+}
+
+// NewSharpnessVar returns a new Sharpness var.
+func NewSharpnessVar(sharpness int) *Variable {
+	return &Variable{
+		Name:  "Sharpness",
+		Value: strconv.Itoa(sharpness),
+	}
+}
+
+// NewWidthVar returns a new Width var.
+func NewWidthVar(width int) *Variable {
+	return &Variable{
+		Name:  "Width",
+		Value: strconv.Itoa(width),
+	}
+}
+
+// NewloggingVar returns a new logging var.
+func NewLoggingVar(level string) *Variable {
+	return &Variable{
+		Name:  "logging",
+		Value: level,
+	}
+}
+
+// NewmodeVar returns a new mode var.
+func NewModeVar(mode string) *Variable {
+	return &Variable{
+		Name:  "mode",
+		Value: mode,
 	}
 }
 

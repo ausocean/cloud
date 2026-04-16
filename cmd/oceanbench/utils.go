@@ -116,11 +116,11 @@ func (e ErrBroadcastNotFound) Is(target error) bool {
 }
 
 // broadcastFromVars searches a slice of broadcast variables for a broadcast
-// config with the provided name and returns if found, otherwise an error is
+// config with the provided uuid and returns if found, otherwise an error is
 // returned.
-func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConfig, error) {
+func broadcastFromVars(broadcasts []model.Variable, uuid string) (*BroadcastConfig, error) {
 	for _, v := range broadcasts {
-		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcastScope+".") {
+		if uuid == v.Name || uuid == strings.TrimPrefix(v.Name, broadcastScope+".") {
 			var cfg BroadcastConfig
 			err := json.Unmarshal([]byte(v.Value), &cfg)
 			if err != nil {
@@ -129,7 +129,7 @@ func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConf
 			return &cfg, nil
 		}
 	}
-	return nil, ErrBroadcastNotFound{name}
+	return nil, ErrBroadcastNotFound{uuid}
 }
 
 // isTimeStr returns true if the provided string is a valid 24hr time in format

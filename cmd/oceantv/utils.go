@@ -36,8 +36,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // logForBroadcast logs a message with the broadcast name and ID.
@@ -47,9 +47,9 @@ func logForBroadcast(cfg *BroadcastConfig, output func(v ...any), msg string, ar
 }
 
 func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) string {
-	idArgs := []interface{}{cfg.Name, cfg.ID}
+	idArgs := []interface{}{cfg.Name, cfg.BroadcastState, cfg.HardwareState, cfg.BID}
 	idArgs = append(idArgs, args...)
-	return fmt.Sprintf("(name: %s, id: %s) "+msg, idArgs...)
+	return fmt.Sprintf("(name: %s, broadcast state: %s, hardware state: %s, id: %s) "+msg, idArgs...)
 }
 
 func try(err error, msg string, log func(string, ...interface{})) bool {

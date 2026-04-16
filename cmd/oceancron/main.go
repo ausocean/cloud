@@ -32,16 +32,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (
 	projectID          = "oceancron"
-	version            = "v0.1.3"
-	cronServiceURL     = "https://oceancron.appspot.com"
+	version            = "v0.2.0"
+	cronServiceURL     = "https://cron.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
 
@@ -112,17 +112,10 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	if standalone {
-		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-	} else {
-		log.Printf("Running in App Engine mode")
-		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-	}
+	settingsStore, _, err = model.SetupDatastore(standalone, storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	model.RegisterEntities()
 
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {

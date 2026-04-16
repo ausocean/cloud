@@ -1,7 +1,7 @@
 /*
 DESCRIPTION
   graph.js provides javascript functionality for making data requests to
-  netreceiver and then graphing the acquired data.
+  the provided host and then graphing the acquired data.
 
   This file requires the following dependencies, to be included in the template:
   https://cdn.amcharts.com/lib/4/core.js
@@ -44,39 +44,38 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
   // HTTP client callback this handler function.
   const tzUnix = parseFloat(tz) * 3600;
 
-  if(pin == "throughput"){
+  if (pin == "throughput") {
     query = throughputQuery(host, mac, pin, s, f, tz);
     console.debug("query: %s", query);
-    fetch(query).then((resp) => {
-      if (resp.status == 200) {
-        return resp.text();
-      } else {
-        document.getElementById("graph-error").innerHTML =
-          "HTTP error, status: " +
-          resp.statusText +
-          " for URL: " +
-          resp.responseURL;
-      }
-    }).then((text) => {
-      var lines = text.split("\n");
-      for (var j = 0; j < lines.length; j++) {
-        var sub = lines[j].split(",");
-        var date = timeFormatToDate(sub[0], tzUnix);
-        var value = sub[1];
-        data.push({
-          date: date,
-          value: value,
-        });
-      }
-      graph();
-      data = [];
-      queries = [];
-      qCnt = 0;
-      err = false;
-    }).catch((err) => {
-      console.error('There was a problem with the fetch operation:', err);
-    });
-    return
+    fetch(query)
+      .then((resp) => {
+        if (resp.status == 200) {
+          return resp.text();
+        } else {
+          document.getElementById("graph-error").innerHTML = "HTTP error, status: " + resp.statusText + " for URL: " + resp.responseURL;
+        }
+      })
+      .then((text) => {
+        var lines = text.split("\n");
+        for (var j = 0; j < lines.length; j++) {
+          var sub = lines[j].split(",");
+          var date = timeFormatToDate(sub[0], tzUnix);
+          var value = sub[1];
+          data.push({
+            date: date,
+            value: value,
+          });
+        }
+        graph();
+        data = [];
+        queries = [];
+        qCnt = 0;
+        err = false;
+      })
+      .catch((err) => {
+        console.error("There was a problem with the fetch operation:", err);
+      });
+    return;
   }
 
   document.getElementById("graph-error").innerHTML = "";
@@ -98,11 +97,7 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
         if (resp.status == 200) {
           return resp.text();
         } else {
-          document.getElementById("graph-error").innerHTML =
-            "HTTP error, status: " +
-            resp.statusText +
-            " for URL: " +
-            resp.responseURL;
+          document.getElementById("graph-error").innerHTML = "HTTP error, status: " + resp.statusText + " for URL: " + resp.responseURL;
         }
       })
       .then((text) => {
@@ -137,12 +132,12 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
   qCnt = 0;
   done = 0;
   err = false;
-  
+
   // Remove progress bar.
-  bar.destroy(); 
+  bar.destroy();
 }
 
-function throughputQuery(host, mac, pin, s, f, tz){
+function throughputQuery(host, mac, pin, s, f, tz) {
   // Query URL characteristics.
   const request = "/throughputs";
   const exportFormat = "csv";
@@ -160,7 +155,7 @@ function throughputQuery(host, mac, pin, s, f, tz){
 
   var queryParams = encodeQuery(params);
   var url = baseURL + "?" + queryParams;
-  return url
+  return url;
 }
 
 // prepQueries prepares a string array of the required queries to be made to get
@@ -231,7 +226,7 @@ function graph() {
     // Create axes
     var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
     dateAxis.renderer.minGridDistance = 60;
-    
+
     const isChecked = document.getElementById("groupDataToggle").checked;
     if (isChecked) {
       dateAxis.groupData = true;
@@ -247,7 +242,7 @@ function graph() {
     // battery voltage over large spans of time.
     dateAxis.groupCount = 500;
     dateAxis.groupIntervals.setAll([
-      { timeUnit: "millisecond", count: 1},
+      { timeUnit: "millisecond", count: 1 },
       { timeUnit: "millisecond", count: 10 },
       { timeUnit: "millisecond", count: 100 },
       { timeUnit: "second", count: 1 },
@@ -258,7 +253,7 @@ function graph() {
       { timeUnit: "minute", count: 10 },
       { timeUnit: "minute", count: 20 },
       { timeUnit: "hour", count: 1 },
-      { timeUnit: "hour", count: 3 }
+      { timeUnit: "hour", count: 3 },
     ]);
 
     var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());
@@ -281,7 +276,7 @@ function graph() {
 }
 
 function toggleGrouping() {
-  if (chart){
+  if (chart) {
     chart.invalidateRawData();
     graph();
   } else {
@@ -311,8 +306,7 @@ function asyncHTTPGet(theUrl, callback, errCallback) {
 // encodeQuery simply encodes a series of query parameters into a single string.
 function encodeQuery(data) {
   const ret = [];
-  for (let d in data)
-    ret.push(encodeURIComponent(d) + "=" + encodeURIComponent(data[d]));
+  for (let d in data) ret.push(encodeURIComponent(d) + "=" + encodeURIComponent(data[d]));
   return ret.join("&");
 }
 

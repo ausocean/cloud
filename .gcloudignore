@@ -1,5 +1,6 @@
 .git/
 .github/
+
 # datablue
 cmd/datablue/.git
 cmd/datablue/.gitignore
@@ -50,16 +51,12 @@ cmd/vidforward/.circleci
 cmd/vidforward/vidforward
 cmd/vidforward/*~
 cmd/vidforward/#*
-# ausoceantv
-cmd/ausoceantv/.git
-cmd/ausoceantv/.gitignore
-cmd/ausoceantv/node_modules/
-cmd/ausoceantv/webapp/node_modules/
-# roadmap
-cmd/roadmap/.git
-cmd/roadmap/.gitignore
-cmd/roadmap/node_modules/
-cmd/roadmap/webapp/node_modules/
 
-cmd/cloudblue/webapp/node_modules/
+cmd/decode/*
+cmd/cloudblue/*
+cmd/oceancast/*
+cmd/roadmap/*
 
+docs/*
+
+datastore/store/*

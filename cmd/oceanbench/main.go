@@ -8,7 +8,7 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2018-2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2018-2026 the Australian Ocean Lab (AusOcean)
 
   This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -66,14 +66,16 @@ import (
 	"sync"
 
 	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
-	version     = "v0.30.4"
+	version     = "v0.36.4"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -83,8 +85,8 @@ const (
 	projectID          = "oceanbench"
 	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
-	tvServiceURL       = "https://oceantv.appspot.com"
-	cronServiceURL     = "https://oceancron.appspot.com"
+	tvServiceURL       = "https://tv.cloudblue.org"
+	cronServiceURL     = "https://cron.cloudblue.org"
 	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
 )
 
@@ -107,10 +109,20 @@ type commonData struct {
 	Pages      []page
 	PageData   interface{}
 	Profile    *gauth.Profile
+	SuperAdmin bool
 	LoginURL   string
 	LogoutURL  string
-	Users      []model.User
-	Footer     template.HTML
+	Users          []model.User
+	Footer         template.HTML
+	CurrentSiteKey int64
+}
+
+// TestDataConfig defines the structure for injecting standalone datastore test configurations via JSON.
+type TestDataConfig struct {
+	Sites    []*model.Site     `json:"sites"`
+	Users    []*model.User     `json:"users"`
+	Devices  []*model.Device   `json:"devices"`
+	MtsMedia []*model.MtsMedia `json:"mtsmedia"`
 }
 
 var (
@@ -125,6 +137,7 @@ var (
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
 	storePath     string
+	testDataFile  string
 )
 
 var (
@@ -183,16 +196,20 @@ func main() {
 	flag.StringVar(&cronURL, "cronurl", cronServiceURL, "Cron service URL")
 	flag.StringVar(&tvURL, "tvurl", tvServiceURL, "TV service URL")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
+	flag.StringVar(&testDataFile, "testdata", "", "Path to a JSON file to populate the datastore")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
 	ctx := context.Background()
 	setup(ctx)
 
+	// Build the Fiber application.
+	app := fiber.New()
+
 	// Serve static files from the "s" directory.
-	http.Handle("/s/", http.StripPrefix("/s", http.FileServer(http.Dir("s"))))
+	app.Static("/s", "./s")
 	// Except for favicon.ico.
-	http.HandleFunc("/favicon.ico", faviconHandler)
+	app.Get("/favicon.ico", adaptor.HTTPHandlerFunc(faviconHandler))
 
 	// Get shared cronSecret.
 	var err error
@@ -202,45 +219,56 @@ func main() {
 	}
 
 	// Warmup handler.
-	http.HandleFunc("/_ah/warmup", func(w http.ResponseWriter, r *http.Request) {
+	app.Get("/_ah/warmup", func(c *fiber.Ctx) error {
 		log.Println("warmup request received, version: " + version)
+		return nil
 	})
 
 	// User requests.
-	http.HandleFunc("/search", searchHandler)
-	http.HandleFunc("/play", playHandler)
-	http.HandleFunc("/learn/mooring", mooringHandler)
-	http.HandleFunc("/upload", uploadHandler)
-	http.HandleFunc("/set/devices/edit/var", editVarHandler)
-	http.HandleFunc("/set/devices/edit/sensor", editSensorHandler)
-	http.HandleFunc("/set/devices/edit/actuator", editActuatorHandler)
-	http.HandleFunc("/set/devices/edit", editDevicesHandler)
-	http.HandleFunc("/set/devices/", setDevicesHandler)
-	http.HandleFunc("/set/crons/edit", editCronsHandler)
-	http.HandleFunc("/set/crons/", setCronsHandler)
-	http.HandleFunc("/get", getHandler)
-	http.HandleFunc("/api/", apiHandler)
-	http.HandleFunc("/test/", testHandler)
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/logout", logoutHandler)
-	http.HandleFunc("/oauth2callback", oauthCallbackHandler)
-	http.HandleFunc("/live/", liveHandler)
-	http.HandleFunc("/monitor", monitorHandler)
-	http.HandleFunc("/play/audiorequest", filterHandler)
-	http.HandleFunc("/admin/site/add", adminHandler)
-	http.HandleFunc("/admin/site/update", adminHandler)
-	http.HandleFunc("/admin/site/delete", adminHandler)
-	http.HandleFunc("/admin/user/add", adminHandler)
-	http.HandleFunc("/admin/user/update", adminHandler)
-	http.HandleFunc("/admin/user/delete", adminHandler)
-	http.HandleFunc("/admin/site", adminHandler)
-	http.HandleFunc("/admin/broadcast", adminHandler)
-	http.HandleFunc("/admin/sandbox", sandboxHandler)
-	http.HandleFunc("/admin/sandbox/configure", configDevicesHandler)
-	http.HandleFunc("/admin/utils", adminHandler)
-	http.HandleFunc("/data/", dataHandler)
-	http.HandleFunc("/throughputs", throughputsHandler)
-	http.HandleFunc("/", indexHandler)
+	// TODO: convert these handlers to fiber handlers instead of just adapting them.
+	// New handlers should be fiber handlers.
+	app.All("/search", adaptor.HTTPHandlerFunc(searchHandler))
+	app.All("/play/audiorequest", adaptor.HTTPHandlerFunc(filterHandler))
+	app.All("/play", adaptor.HTTPHandlerFunc(playHandler))
+	app.All("/learn/mooring", adaptor.HTTPHandlerFunc(mooringHandler))
+	app.All("/upload", adaptor.HTTPHandlerFunc(uploadHandler))
+	app.All("/set/devices/edit/var", adaptor.HTTPHandlerFunc(editVarHandler))
+	app.All("/set/devices/edit/sensor", adaptor.HTTPHandlerFunc(editSensorHandler))
+	app.All("/set/devices/edit/actuator", adaptor.HTTPHandlerFunc(editActuatorHandler))
+	app.All("/set/devices/edit/calibrate", adaptor.HTTPHandlerFunc(calibrateDevicesHandler))
+	app.All("/set/devices/edit", adaptor.HTTPHandlerFunc(editDevicesHandler))
+	app.All("/set/devices/vars", adaptor.HTTPHandlerFunc(setDevicesVars))
+	app.All("/set/devices/*", adaptor.HTTPHandlerFunc(setDevicesHandler))
+	app.All("/set/crons/edit", adaptor.HTTPHandlerFunc(editCronsHandler))
+	app.All("/set/crons/*", adaptor.HTTPHandlerFunc(setCronsHandler))
+	app.All("/get", adaptor.HTTPHandlerFunc(getHandler))
+	app.All("/test/*", adaptor.HTTPHandlerFunc(testHandler))
+	app.All("/login", adaptor.HTTPHandlerFunc(loginHandler))
+	app.All("/logout", adaptor.HTTPHandlerFunc(logoutHandler))
+	app.All("/oauth2callback", adaptor.HTTPHandlerFunc(oauthCallbackHandler))
+	app.All("/live/*", adaptor.HTTPHandlerFunc(liveHandler))
+	app.All("/monitor", adaptor.HTTPHandlerFunc(monitorHandler))
+	app.All("/admin/site/add", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site/update", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site/delete", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/add", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/update", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/user/delete", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/site", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/broadcast", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/tv-overview", adaptor.HTTPHandlerFunc(tvOverviewHandler))
+	app.All("/admin/missioncontrol", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/mediamanager", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/admin/sandbox/configure", adaptor.HTTPHandlerFunc(configDevicesHandler))
+	app.All("/admin/sandbox", adaptor.HTTPHandlerFunc(sandboxHandler))
+	app.All("/admin/utils", adaptor.HTTPHandlerFunc(adminHandler))
+	app.All("/data/*", adaptor.HTTPHandlerFunc(dataHandler))
+	app.All("/throughputs", adaptor.HTTPHandlerFunc(throughputsHandler))
+	app.All("/logs", adaptor.HTTPHandlerFunc(logPageHandler))
+	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
+
+	// Setup routes for the API, ie. /api requests.
+	setupAPIRoutes(app)
 
 	if standalone {
 		// Location and GPS only apply in standalone mode.
@@ -276,16 +304,11 @@ func main() {
 	log.Printf("Listening on %s:%d", host, port)
 	log.Printf("Sending cron requests to %s", cronURL)
 	log.Printf("Sending TV requests to %s", tvURL)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil))
+	log.Fatal(app.Listen(fmt.Sprintf("%s:%d", host, port)))
 }
 
 // setup executes per-instance one-time warmup and is used to
-// initialize datastores. In standalone mode we use a file store for
-// storing both media and settings. In App Engine mode we use
-// the netreceiver datastore for settings and the vidgrind datastore for
-// media.
-//
-// In standalone mode all data is associated with site 1.
+// initialize datastores.
 func setup(ctx context.Context) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
@@ -295,25 +318,13 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	if standalone {
-		log.Printf("Running in standalone mode")
-		mediaStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-		if err == nil {
-			settingsStore = mediaStore
-			err = setupLocal(ctx, settingsStore)
-		}
-	} else {
-		log.Printf("Running in App Engine mode")
-		mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
-		if err == nil {
-			settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		}
+	settingsStore, mediaStore, err = model.SetupDatastore(standalone, storePath, ctx)
+	if err == nil && standalone {
+		err = setupLocal(ctx, settingsStore)
 	}
 	if err != nil {
-		log.Fatalf("setup failed due to datastore.NewStore error: %v", err)
+		log.Fatalf("could not set up datastore: %v", err)
 	}
-
-	model.RegisterEntities()
 
 	templateDir := "cmd/oceanbench/t"
 	if standalone || os.Getenv("GAE_ENV") == "" {
@@ -330,7 +341,49 @@ func setup(ctx context.Context) {
 }
 
 // setupLocal creates a local site, user and device for use in standalone mode.
+// In standalone mode all data is associated with site 1.
 func setupLocal(ctx context.Context, store datastore.Store) error {
+	if testDataFile != "" {
+		data, err := os.ReadFile(testDataFile)
+		if err != nil {
+			return fmt.Errorf("could not read testdata file: %w", err)
+		}
+		var config TestDataConfig
+		if err := json.Unmarshal(data, &config); err != nil {
+			return fmt.Errorf("could not parse testdata file: %w", err)
+		}
+
+		for _, site := range config.Sites {
+			if err := model.PutSite(ctx, store, site); err != nil {
+				return err
+			}
+		}
+		for _, user := range config.Users {
+			if err := model.PutUser(ctx, store, user); err != nil {
+				return err
+			}
+		}
+		for _, device := range config.Devices {
+			if err := model.PutDevice(ctx, store, device); err != nil {
+				return err
+			}
+		}
+		for _, media := range config.MtsMedia {
+			key := mediaStore.IDKey("MtsMedia", datastore.IDKey(media.MID, media.Timestamp, 0))
+			if _, err := mediaStore.Put(ctx, key, media); err != nil {
+				return fmt.Errorf("could not put MtsMedia: %w", err)
+			}
+		}
+		// Set the active site to the first site in the config so adminHandler
+		// can resolve a valid skey from standaloneData.
+		if len(config.Sites) > 0 {
+			first := config.Sites[0]
+			standaloneData = strconv.FormatInt(first.Skey, 10) + ":" + first.Name
+		}
+		log.Printf("Successfully populated datastore from %s", testDataFile)
+		return nil
+	}
+
 	standaloneData = "1:" + localSite
 	err := model.PutSite(ctx, store, &model.Site{Skey: 1, Name: localSite, Enabled: true})
 	if err != nil {
@@ -351,7 +404,7 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // indexHandler handles requests for the home page and unimplemented pages.
-// Signed-in users are presented with a list of their NetReceiver sites.
+// Signed-in users are presented with a list of their sites.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
@@ -517,6 +570,7 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 // writeTemplate writes the given template with the supplied data,
 // populating some common properties.
 func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data interface{}, msg string) {
+	profile, _ := getProfile(w, r)
 	v := reflect.Indirect(reflect.ValueOf(data))
 	p := v.FieldByName("Standalone")
 	if p.IsValid() {
@@ -536,8 +590,20 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	}
 	p = v.FieldByName("Profile")
 	if p.IsValid() {
-		profile, _ := getProfile(w, r)
 		p.Set(reflect.ValueOf(profile))
+	}
+	skey, _ := requestSiteData(r, profile)
+	p = v.FieldByName("CurrentSiteKey")
+	if p.IsValid() {
+		p.SetInt(skey)
+	}
+	p = v.FieldByName("SuperAdmin")
+	if p.IsValid() {
+		if profile == nil {
+			p.SetBool(false)
+		} else {
+			p.SetBool(isSuperAdmin(profile.Email))
+		}
 	}
 	p = v.FieldByName("LoginURL")
 	if p.IsValid() {
@@ -550,7 +616,7 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 
 	const footer = "footer.html"
 	var b bytes.Buffer
-	err := templates.ExecuteTemplate(&b, footer, nil)
+	err := templates.ExecuteTemplate(&b, footer, data)
 	if err != nil {
 		log.Fatalf("ExecuteTemplate failed on %s: %v", footer, err)
 	}
@@ -630,6 +696,18 @@ func pages(selected string) []page {
 			Perm:  model.AdminPermission,
 		},
 		{
+			Name:  "mission control",
+			URL:   "/admin/missioncontrol",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "media manager",
+			URL:   "/admin/mediamanager",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
 			Name:  "configuration",
 			URL:   "/admin/sandbox",
 			Level: 1,
@@ -638,6 +716,12 @@ func pages(selected string) []page {
 		{
 			Name:  "utilities",
 			URL:   "/admin/utils",
+			Level: 1,
+			Perm:  model.AdminPermission,
+		},
+		{
+			Name:  "logs",
+			URL:   "/logs",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
@@ -705,7 +789,7 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 			case "1":
 				err := model.PutDevice(ctx, settingsStore, &model.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
 				if err != nil {
-					writeHttpError(w, http.StatusInternalServerError, "could not put devices: %v", err)
+					writeHttpErrorf(w, http.StatusInternalServerError, "could not put devices: %v", err)
 					return
 				}
 				fmt.Fprint(w, "OK")
@@ -744,18 +828,12 @@ func writeError(w http.ResponseWriter, err error) {
 	}
 }
 
-// httpError writes http errors to the response writer, in order to provide more detailed
-// response errors in a concise manner.
-func writeHttpError(w http.ResponseWriter, code int, msg string, args ...interface{}) {
-	errorMsg := "%s: "
-	if msg != "" {
-		errorMsg += msg
-	}
-	if len(args) > 0 {
-		errorMsg += ": "
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code), args)
-	} else {
-		errorMsg = fmt.Sprintf(errorMsg, http.StatusText(code))
-	}
-	http.Error(w, errorMsg, code)
+// writeHttpError writes an HTTP error response with the given status code and plain message.
+func writeHttpError(w http.ResponseWriter, code int, msg string) {
+	http.Error(w, fmt.Sprintf("%s: %s", http.StatusText(code), msg), code)
+}
+
+// writeHttpErrorf writes an HTTP error response with the given status code and a formatted message.
+func writeHttpErrorf(w http.ResponseWriter, code int, format string, args ...interface{}) {
+	http.Error(w, fmt.Sprintf("%s: ", http.StatusText(code))+fmt.Sprintf(format, args...), code)
 }

@@ -6,7 +6,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2019-2024 the Australian Ocean Lab (AusOcean).
+  Copyright (C) 2019-2025 the Australian Ocean Lab (AusOcean).
 
   This file is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -40,6 +40,9 @@ LICENSE
 // To delete Site entities.
 // - dsadmin --task delete --kind Site
 //
+// To delete Scalars of a given ID and more recent than a given timestamp that are out of range.
+// - dsadmin -task delete -kind Scalar -ds vidgrind -id 53161121647783356 -ts 1
+//
 // To copy SiteV3 to Site (preserving the ID key), i.e, to complete a migration:
 // - dsadmin --task copy --idkey --kind1 SiteV3 --kind2 Site
 
@@ -48,47 +51,53 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
+const celsius30 int64 = int64((273.2 + 30) * 10) // ~30 degrees Celsius
+
 func main() {
 	var task, kind, kind2, ds, ds2, input, output string
-	var key int64
+	var key, ts int64
 	var idKey bool
 
-	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy or migrate)")
+	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy, transfer, or migrate)")
 	flag.StringVar(&kind, "kind", "", "Datastore kind")
-	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as --kind)")
+	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as -kind)")
 	flag.StringVar(&kind2, "kind2", "", "Datastore kind 2")
-	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver or vidgrind)")
-	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver or vidgrind)")
+	flag.StringVar(&ds, "ds", "netreceiver", "Datastore (netreceiver, vidgrind, or ausocean)")
+	flag.StringVar(&ds2, "ds2", "", "Datastore (netreceiver, vidgrind, or ausocean)")
 	flag.StringVar(&input, "input", "", "Input file or file store.")
 	flag.StringVar(&output, "output", "output", "Output file or file store")
-	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey, MID, etc.")
-	flag.BoolVar(&idKey, "idkey", false, "True for and ID key, false for a name key")
+	flag.Int64Var(&key, "key", 0, "Datastore key, e.g., Skey")
+	flag.Int64Var(&key, "id", 0, "Datastore ID (same as -key")
+	flag.BoolVar(&idKey, "idkey", false, "True for an ID key, false for a name key")
+	flag.Int64Var(&ts, "ts", 0, "Timestamp")
 	flag.Parse()
 
 	log.SetFlags(0) // Minimise log messages.
 	log.SetPrefix("ERROR: ")
 
 	switch ds {
-	case "netreceiver", "vidgrind":
+	case "netreceiver", "vidgrind", "ausocean":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds) missing or invalid")
 	}
 	switch ds2 {
-	case "netreceiver", "vidgrind", "":
+	case "netreceiver", "vidgrind", "ausocean":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds2) invalid")
@@ -133,7 +142,15 @@ func main() {
 
 	switch task {
 	case "count":
-		err = count(store, kind)
+		switch kind {
+		case typeScalar:
+			err = countScalars(store, key)
+		default:
+			err = count(store, kind)
+		}
+
+	case "list":
+		err = list(store, kind)
 
 	case "dump":
 		err = dump(store, kind, output)
@@ -149,13 +166,27 @@ func main() {
 		}
 
 	case "delete":
-		err = delete(store, kind)
+		switch kind {
+		case typeScalar:
+			if ts == 0 {
+				log.Fatalf("-ts required")
+			}
+			err = deleteScalars(store, key, ts, float64(celsius30))
+		default:
+			err = delete(store, kind, true) // Set count to false to actually delete.
+		}
 
 	case "copy":
 		if kind == "" || kind2 == "" {
 			log.Fatal("copy requires kind and kind2 options")
 		}
 		err = copy(store, kind, kind2, idKey, key)
+
+	case "transfer":
+		if ds == "" || ds2 == "" {
+			log.Fatal("transfer requires ds and ds2 options")
+		}
+		err = transfer(store, store2, kind, idKey)
 
 	case "migrate":
 		// Functions for one-time datastore migrations.
@@ -198,10 +229,53 @@ func main() {
 				log.Fatalf("migrateDevices failed with error: %v", err)
 			}
 		case "Signal":
-			err = migrateSignals(store, store2)
+			//  The following signal migrations was performed for Rapid Bay.
+			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC)),
+			// }
+			// The following signal migrations were performed for Rapid Bay on 15 May 2025.
+			// sr := SignalRange{Mac: "BC:DD:C2:2B:AD:6D",
+			// 	Pin:  "X60",
+			//      Pin:  "A0",
+			// 	From: time.Time(time.Date(2021, 8, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2022, 8, 1, 0, 0, 0, 0, time.UTC)),
+			//	Max:  celsius30,
+			// }
+			// The following signal migration was performed for Rapid Bay on 18 May 2025.
+			// sr := SignalRange{Mac: "5C:CF:7F:19:89:42",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2021, 4, 1, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2021, 8, 15, 0, 0, 0, 0, time.UTC)),
+			// 	Max:  celsius30,
+			// }
+			// The following signal migration was performed for Windara Reef on 18 May 2025.
+			// sr := SignalRange{Mac: "DC:4F:22:0A:86:18",
+			// 	Pin:  "A0",
+			// 	From: time.Time(time.Date(2019, 2, 25, 0, 0, 0, 0, time.UTC)),
+			// 	To:   time.Time(time.Date(2020, 2, 25, 0, 0, 0, 0, time.UTC)),
+			// 	Max:  celsius30,
+			// }
+			// The following signal migration wasd performed for Glenelg on 19 May 2025.
+			sr := SignalRange{Mac: "A4:E5:7C:2C:D6:88",
+				Pin:  "X60",
+				From: time.Time(time.Date(2022, 7, 1, 0, 0, 0, 0, time.UTC)),
+				To:   time.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				Max:  celsius30,
+			}
+			err = migrateSignals(store, store2, sr, false) // Set count to false to actually migrate.
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
 			}
+		default:
+			log.Fatalf("invalid kind %s", kind)
+		}
+
+	case "analyze":
+		switch kind {
+		case "Site":
+			err = analyzeSite(store, key)
 		default:
 			log.Fatalf("invalid kind %s", kind)
 		}
@@ -225,6 +299,52 @@ func count(store datastore.Store, kind string) error {
 		return err
 	}
 	fmt.Printf("Counted %d entities of kind %s\n", len(keys), kind)
+	return nil
+}
+
+// countSclars counts scalars with the given ID.
+func countScalars(store datastore.Store, id int64) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(typeScalar, true, "ID")
+	q.Filter("ID =", id)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Counted %d scalars with ID=%d\n", len(keys), id)
+	return nil
+}
+
+// list outputs names of entities of the given kind.
+// NB: The given kind of entity must have a Name field, e.g., a Site or Device.
+func list(store datastore.Store, kind string) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(kind, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d entities of kind %s\n", len(keys), kind)
+	for _, k := range keys {
+		e, err := datastore.NewEntity(kind)
+		if err != nil {
+			return err
+		}
+		err = store.Get(ctx, k, e)
+		if err != nil {
+			return err
+		}
+
+		eValue := reflect.ValueOf(e).Elem()
+		f := eValue.FieldByName("Name")
+		if !f.IsValid() {
+			return errors.New(kind + " has no Name field\n")
+		}
+		fmt.Printf("%s\n", f.String())
+	}
+
 	return nil
 }
 
@@ -327,8 +447,10 @@ func extractVars(store datastore.Store, skey int64, output string) error {
 	return nil
 }
 
-// delete deletes all entities of the given kind.
-func delete(store datastore.Store, kind string) error {
+// delete deletes ALL entities of the given kind.
+// If count is true, the number of potential deletions is printed,
+// without actually performing actual deletions.
+func delete(store datastore.Store, kind string, count bool) error {
 	ctx := context.Background()
 
 	q := store.NewQuery(kind, true)
@@ -336,6 +458,13 @@ func delete(store datastore.Store, kind string) error {
 	if err != nil {
 		return err
 	}
+
+	if count {
+		fmt.Printf("Would delete %d entities of kind %s.\n", len(keys), kind)
+		return nil
+	}
+
+	fmt.Printf("Deleting %d entities of kind %s...\n", len(keys), kind)
 	n := 0
 	for sz := len(keys); sz > 0; sz = len(keys) {
 		if sz > datastore.MaxKeys {
@@ -349,6 +478,34 @@ func delete(store datastore.Store, kind string) error {
 		keys = keys[sz:]
 	}
 	fmt.Printf("Deleted %d entities of kind %s\n", n, kind)
+	return nil
+}
+
+// deleteScalars deletes scalars with the given ID from the given timestamp that are out of range.
+func deleteScalars(store datastore.Store, id, ts int64, max float64) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(typeScalar, false, "ID", "Timestamp")
+	q.Filter("ID =", id)
+	q.Filter("Timestamp >", ts)
+
+	var scalars []model.Scalar
+	_, err := store.GetAll(ctx, q, &scalars)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d scalars with ID=%d, Timestamp>%d\n", len(scalars), id, ts)
+
+	deleted := 0
+	for _, s := range scalars {
+		// Delete scalars with values that are out of range.
+		if s.Value < 0 || s.Value > max {
+			store.Delete(ctx, store.IDKey(typeScalar, datastore.IDKey(s.ID, s.Timestamp, 0)))
+			deleted++
+		}
+	}
+
+	fmt.Printf("Deleted %d scalars\n", deleted)
 	return nil
 }
 
@@ -399,6 +556,60 @@ func copy(store datastore.Store, kind1, kind2 string, idKey bool, key int64) err
 	}
 
 	fmt.Printf("Copied %d %s to %s\n", n, kind1, kind2)
+	return nil
+}
+
+// transfer transfers all entities of type kind from store1 to store2.
+// The following transfers happended on 4 Nov 2025.
+/*
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Cron
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Device -idkey
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Site -idkey
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind ActuatorV2
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind SensorV2
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind User
+  dsadmin -task transfer -ds netreceiver -ds2 ausocean -kind Variable
+*/
+func transfer(store1, store2 datastore.Store, kind string, idKey bool) error {
+	ctx := context.Background()
+
+	q := store1.NewQuery(kind, true)
+	keys, err := store1.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	if idKey {
+		fmt.Printf("Transferring %s using ID key\n", kind)
+	} else {
+		fmt.Printf("Transferring %s using name key\n", kind)
+	}
+
+	n := 0
+	for _, k1 := range keys {
+		e, err := datastore.NewEntity(kind)
+		if err != nil {
+			return fmt.Errorf("NewEntity returned error: %w", err)
+		}
+		err = store1.Get(ctx, k1, e)
+		if err != nil {
+			return err
+		}
+
+		var k2 *datastore.Key
+		if idKey {
+			k2 = store2.IDKey(kind, k1.ID)
+		} else {
+			k2 = store2.NameKey(kind, k1.Name)
+		}
+
+		_, err = store2.Put(ctx, k2, e)
+		if err != nil {
+			return err
+		}
+		n += 1
+	}
+
+	fmt.Printf("Transferred %d %s\n", n, kind)
 	return nil
 }
 
@@ -821,34 +1032,45 @@ func migrateDevices(store datastore.Store) error {
 	return nil
 }
 
-// migrateSignals migrates a range of signals, specified below.
-func migrateSignals(store, store2 datastore.Store) error {
+// migrateSignals migrates a range of signals, specified by the given SignalRange.
+// Only counts signals without performing the migration when count is true.
+func migrateSignals(store, store2 datastore.Store, sr SignalRange, count bool) error {
 	ctx := context.Background()
 
-	ma := "BC:DD:C2:2B:AD:6D"
-	mac := model.MacEncode(ma)
-	pin := "A0"
-	from := time.Time(time.Date(2023, 7, 1, 0, 0, 0, 0, time.UTC))
-	to := time.Time(time.Date(2023, 7, 31, 0, 0, 0, 0, time.UTC))
+	mac := model.MacEncode(sr.Mac)
 
-	fmt.Printf("ma=%s, pin=%s, from=%v, to=%v\n", ma, pin, from, to)
+	fmt.Printf("mac=%s, pin=%s, from=%v, to=%v\n", sr.Mac, sr.Pin, sr.From, sr.To)
 
-	q := store.NewQuery(typeSignal, false)
+	q := store.NewQuery(typeSignal, count)
 	q.Filter("mac =", mac)
-	q.Filter("pin =", pin)
-	q.Filter("date >", from)
-	q.Filter("date <=", to)
+	q.Filter("pin =", sr.Pin)
+	q.Filter("date >", sr.From)
+	q.Filter("date <=", sr.To)
 
+	if count {
+		fmt.Printf("Counting signals...\n")
+		keys, err := store.GetAll(ctx, q, nil)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Counted %d signals\n", len(keys))
+		return nil
+	}
+
+	fmt.Printf("Getting signals...\n")
 	var signals []Signal
 	_, err := store.GetAll(ctx, q, &signals)
 	if err != nil {
 		return err
 	}
 
-	id := model.ToSID(ma, pin)
+	id := model.ToSID(sr.Mac, sr.Pin)
+	fmt.Printf("Writing %d scalars (ID=%d)...\n", len(signals), id)
 	n := 0
 	for _, s := range signals {
-		n += 1
+		if s.Value < 0 || (sr.Max > 0 && s.Value > sr.Max) {
+			continue
+		}
 		s2 := new(model.Scalar)
 		s2.ID = id
 		s2.Timestamp = s.Date.Unix()
@@ -858,8 +1080,26 @@ func migrateSignals(store, store2 datastore.Store) error {
 		if err != nil {
 			return err
 		}
+		n++
 	}
 
-	fmt.Printf("Migrated %d signals\n", n)
+	fmt.Printf("Migrated %d signals, ignored %d invalid signals\n", n, len(signals)-n)
+	return nil
+}
+
+// analyzeSite lists the devices for a given site.
+func analyzeSite(store datastore.Store, skey int64) error {
+	ctx := context.Background()
+
+	devices, err := model.GetDevicesBySite(ctx, store, skey)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d devices for site %d\n", len(devices), skey)
+
+	for _, dev := range devices {
+		fmt.Printf("%s, %s\n", dev.MAC(), dev.Name)
+	}
+
 	return nil
 }

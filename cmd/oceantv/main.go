@@ -36,20 +36,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (
-	projectID          = "oceantv"
-	version            = "v0.7.9"
-	projectURL         = "https://oceantv.appspot.com"
-	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
-	locationID         = "Australia/Adelaide" // TODO: Use site location.
+	projectID             = "oceantv"
+	version               = "v0.13.6"
+	projectURL            = "https://tv.cloudblue.org"
+	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
+	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
+	locationID            = "Australia/Adelaide" // TODO: Use site location.
+	AusOceanTVServiceURL  = "https://ausocean.tv"
 )
 
 var (
@@ -58,9 +58,10 @@ var (
 	debug      bool
 	standalone bool
 	notifier   notify.Notifier
-	ofsvc      openfish.OpenfishService
 	cronSecret []byte
+	tvSecret   []byte
 	storePath  string
+	aotvURL    = AusOceanTVServiceURL
 )
 
 func main() {
@@ -80,6 +81,7 @@ func main() {
 	flag.StringVar(&host, "host", "localhost", "Host we run on in standalone mode")
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
+	flag.StringVar(&aotvURL, "aotvurl", AusOceanTVServiceURL, "AusOceanTV Service URL")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -100,23 +102,49 @@ func main() {
 		log.Fatalf("could not get mailjetPrivateKey, can't send panic recovery notification")
 	}
 
+	const (
+		limiterMaxTokens  = 3
+		limiterRefillRate = 1 // per hour
+		limiterID         = "panic_notification_limiter"
+	)
+	panicNotificationLimiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	if err != nil {
+		log.Fatalf("could not get panic notification limiter: %v", err)
+	}
+
 	mux := utils.NewRecoverableServeMux(
 		utils.NewConfigurableRecoveryHandler(
 			// Only consider handled if we can get a notification off.
 			utils.WithHandledConditions(utils.HandledConditions{HandledOnNotification: true}),
 			utils.WithLogOutput(log.Println),
-			utils.WithNotification(func(msg string) error { return sendPanicNotification(publicKey, privateKey, msg) }),
+			utils.WithNotification(
+				func(msg string) error {
+					if panicNotificationLimiter.RequestOK() {
+						return sendPanicNotification(publicKey, privateKey, msg)
+					}
+					return nil
+				},
+			),
 			utils.WithHttpError(http.StatusInternalServerError),
 			utils.WithHandlers(errNoGlobalNotifierHandler(secrets)),
 		),
 	)
 
+	otv, err := newOceanTVService(
+		withEventHooks(openfishEventHook),
+		withStateHooks(ausoceanTVWebhook),
+	)
+	if err != nil {
+		log.Fatalf("could not create oceanTV service: %v", err)
+	}
+
 	mux.HandleFunc("/_ah/warmup", warmupHandler)
 	mux.HandleFunc("/broadcast/", broadcastHandler)
-	mux.HandleFunc("/checkbroadcasts", checkBroadcastsHandler)
+	mux.HandleFunc("/checkbroadcasts", otv.checkBroadcastsHandler)
 	mux.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
+	log.Printf("Sending AusOceanTV webhooks to %s", aotvURL)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux))
 }
 
@@ -183,33 +211,21 @@ func setup(ctx context.Context) {
 		return
 	}
 
-	var (
-		err                       error
-		settingsStore, mediaStore datastore.Store
-	)
-	if standalone {
-		log.Printf("Running in standalone mode")
-		settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", storePath)
-		if err != nil {
-			mediaStore = settingsStore
-		}
-	} else {
-		log.Printf("Running in App Engine mode")
-		settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-		if err == nil {
-			mediaStore, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
-		}
-	}
+	settingsStore, mediaStore, err := model.SetupDatastore(standalone, storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	model.RegisterEntities()
 
 	store = ausOceanCompositeStore(settingsStore, mediaStore)
 
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
 		log.Printf("could not get cronSecret: %v", err)
+	}
+
+	tvSecret, err = gauth.GetHexSecret(ctx, projectID, "tvSecret")
+	if err != nil || tvSecret == nil {
+		log.Printf("could not get tvSecret: %v", err)
 	}
 
 	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
@@ -224,11 +240,6 @@ func setup(ctx context.Context) {
 	)
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
-	}
-
-	ofsvc, err = openfish.New()
-	if err != nil {
-		log.Fatalf("could not setup openfish service: %v", err)
 	}
 }
 
@@ -273,7 +284,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	op := req[2]
-	if op != "save" {
+	const resetState string = "reset-state"
+	if op != "save" && op != resetState {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid operation: %s", op))
 		return
 	}
@@ -305,7 +317,96 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the broadcast manager to save the broadcast.
 	// We can provide a nil BroadcastService given that Save
 	// won't need this.
-	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, nil)
+	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, func(_cfg *Cfg) {
+		// Update only the fields that can be updated via the UI.
+		// NOTE: This needs to be kept in sync with the UI. To aid this, the fields
+		// have been updated in the same order which they're currently being updated on oceanbench.
+
+		// Reset State.
+		if op == resetState {
+			_cfg.InFailure = false
+			_cfg.StartFailures = 0
+			_cfg.AttemptingToStart = false
+			_cfg.Enabled = true
+			_cfg.Events = []string{}
+			_cfg.Issues = 0
+
+			if cfg.UsingVidforward {
+				if strings.Contains(cfg.Name, secondaryBroadcastPostfix) {
+					_cfg.BroadcastState = stateToString(&vidforwardSecondaryIdle{})
+				} else {
+					_cfg.BroadcastState = stateToString(&vidforwardPermanentIdle{})
+				}
+			} else {
+				_cfg.BroadcastState = stateToString(&directIdle{})
+			}
+			_cfg.StateData = nil
+			_cfg.HardwareState = hardwareStateToString(&hardwareOff{})
+			_cfg.HardwareStateData = nil
+			return
+		}
+
+		// Values parsed initially from the form submission.
+		_cfg.UUID = cfg.UUID
+		_cfg.SKey = cfg.SKey
+		_cfg.Name = cfg.Name
+		_cfg.BID = cfg.BID
+		_cfg.StreamName = cfg.StreamName
+		_cfg.Description = cfg.Description
+		_cfg.LivePrivacy = cfg.LivePrivacy
+		_cfg.PostLivePrivacy = cfg.PostLivePrivacy
+		_cfg.Resolution = cfg.Resolution
+		_cfg.StartTimestamp = cfg.StartTimestamp
+		_cfg.EndTimestamp = cfg.EndTimestamp
+		_cfg.RTMPVar = cfg.RTMPVar
+		_cfg.RTMPKey = cfg.RTMPKey
+		_cfg.VidforwardHost = cfg.VidforwardHost
+		_cfg.CameraMac = cfg.CameraMac
+		_cfg.ControllerMAC = cfg.ControllerMAC
+		_cfg.OnActions = cfg.OnActions
+		_cfg.OffActions = cfg.OffActions
+		_cfg.ShutdownActions = cfg.ShutdownActions
+		_cfg.SendMsg = cfg.SendMsg
+		_cfg.UsingVidforward = cfg.UsingVidforward
+		_cfg.CheckingHealth = cfg.CheckingHealth
+		_cfg.Enabled = cfg.Enabled
+		_cfg.InFailure = cfg.InFailure
+		_cfg.RegisterOpenFish = cfg.RegisterOpenFish
+		_cfg.OpenFishCaptureSource = cfg.OpenFishCaptureSource
+		_cfg.BatteryVoltagePin = cfg.BatteryVoltagePin
+		_cfg.NotifySuppressRules = cfg.NotifySuppressRules
+
+		// Values that are parsed into floats from their form values.
+		_cfg.RequiredStreamingVoltage = cfg.RequiredStreamingVoltage
+		_cfg.VoltageRecoveryTimeout = cfg.VoltageRecoveryTimeout
+
+		// Calculated based on the Start and End timestamps.
+		_cfg.Start = cfg.Start
+		_cfg.End = cfg.End
+
+		// Only updated if coming out of failure.
+		if cfg.HardwareState == "hardwareOff" {
+			_cfg.HardwareState = cfg.HardwareState
+		}
+
+		// Either stays the same or is updated via a authentication pipeline.
+		_cfg.Account = cfg.Account
+
+		// Currently not updated via the UI.
+		// Active
+		// Slate
+		// Issues
+		// SensorList
+		// AttemptingToStart
+		// Events
+		// Unhealthy
+		// BroadcastState
+		// StartFailures
+		// Transitioning
+		// StateData
+		// HardwareStateData
+		// RecoveringVoltage
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -316,7 +417,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 // writeError writes HTTP errors to the response writer.
 func writeError(w http.ResponseWriter, code int, err error) {
-	log.Printf(err.Error())
+	log.Printf("%s", err.Error())
 	http.Error(w, http.StatusText(code)+":"+err.Error(), code)
 }
 

@@ -1,6 +1,6 @@
 /*
 LICENSE
-  Copyright (C) 2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2024-2025 the Australian Ocean Lab (AusOcean)
 
   This file is part of Data Blue. This is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/sliceutils"
 )
 
@@ -59,6 +59,8 @@ var (
 // - ut: Uptime.
 // - la: Local (IP) address.
 // - vt: Var types present in body when non-zero.
+// - md: Device mode
+// - er: Device error, if any.
 func configHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := r.Context()
@@ -150,6 +152,12 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		dev.Status = model.DeviceStatusOK
 	}
 
+	// Update variables supplied by the client that are included in the varsum.
+	if md != "" {
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
+		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
+	}
+
 	vs, err := model.GetVarSum(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		log.Printf("could not get var sum for device %s: %v", ma, err)
@@ -173,10 +181,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	model.PutDevice(ctx, settingsStore, dev)
 
 	// Update the variables corresponding to the client's uptime, local address and var types.
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
-	}
 	if ut != "" {
 		model.PutVariable(ctx, settingsStore, dev.Skey, "_"+dev.Hex()+".uptime", ut)
 	}
@@ -233,6 +237,7 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Type          string `json:"ct"`
 		Version       string `json:"cv"`
 		Vs            int64  `json:"vs"`
+		Ts            int64  `json:"ts"`
 		DK            string `json:"dk,omitempty"`
 		RC            int    `json:"rc,omitempty"`
 	}{
@@ -245,6 +250,7 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 		Type:          dev.Type,
 		Version:       dev.Version,
 		Vs:            vs,
+		Ts:            time.Now().Unix(),
 		DK:            dk,
 		RC:            int(dev.Status),
 	}
@@ -486,7 +492,7 @@ func actHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // varsHandler returns vars for a given device (except for system variables).
-// NB: Format vs as a string, not an int.
+// NB: Format vs, rc, and ts as strings, not numbers.
 func varsHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 	ctx := r.Context()
@@ -494,8 +500,6 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	ma := q.Get("ma")
 	dk := q.Get("dk")
-	md := q.Get("md")
-	er := q.Get("er")
 
 	// Is this request for a valid device?
 	setup(ctx)
@@ -505,10 +509,6 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if md != "" {
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".mode", md)
-		model.PutVariable(ctx, settingsStore, dev.Skey, dev.Hex()+".error", er)
-	}
 	vars, err := model.GetVariablesBySite(ctx, settingsStore, dev.Skey, dev.Hex())
 	if err != nil {
 		writeError(w, err)
@@ -516,6 +516,11 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := `{"id":"` + dev.Hex() + `",`
+	if dev.Status != model.DeviceStatusOK {
+		resp += `"rc":"` + strconv.Itoa(int(dev.Status)) + `",`
+	}
+	resp += `"ts":"` + strconv.Itoa(int(time.Now().Unix())) + `",`
+
 	for _, v := range vars {
 		if v.IsSystemVariable() {
 			continue

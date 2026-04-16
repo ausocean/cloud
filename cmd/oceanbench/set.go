@@ -26,6 +26,7 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -35,10 +36,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/system/camera"
+	"github.com/ausocean/cloud/system/controller"
 	"github.com/ausocean/utils/nmea"
+	"github.com/ausocean/utils/sliceutils"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -77,7 +82,7 @@ type devicesData struct {
 	Vars       []model.Variable
 	Sensors    []model.SensorV2
 	Actuators  []model.ActuatorV2
-	VarTypes   []model.Variable
+	VarTypes   []model.VarType
 	DevTypes   []string
 	Quantities []nmea.Quantity
 	Funcs      []string
@@ -103,7 +108,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	data := devicesData{
 		commonData: commonData{
@@ -120,13 +125,15 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	ctx := r.Context()
 	setup(ctx)
 
-	siteChanged := false
+	// If a MAC is present, fetch once here and reuse later.
+	var siteChanged bool
 	if model.IsMacAddress(data.Mac) {
-		data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
+		d, err := model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
 		if err != nil {
 			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
 			return
 		}
+		data.Device = d
 		if data.Device.Skey != skey && r.FormValue("sk") == "auto" {
 			skey = data.Device.Skey
 			siteChanged = true
@@ -135,7 +142,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
-	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
+	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.WritePermission == 0) {
 		log.Println("user does not have write permissions")
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -145,54 +152,130 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		return
 	}
 
-	site, err := model.GetSite(ctx, settingsStore, skey)
-	if err != nil {
-		reportDevicesError(w, r, data, "get site error: %v", err)
+	// Fetch site and devices concurrently.
+	g, gctx := errgroup.WithContext(ctx)
+
+	var site *model.Site
+	g.Go(func() error {
+		s, err := model.GetSite(gctx, settingsStore, skey)
+		if err != nil {
+			return fmt.Errorf("get site error: %v", err)
+		}
+		site = s
+		return nil
+	})
+
+	g.Go(func() error {
+		ds, err := model.GetDevicesBySite(gctx, settingsStore, skey)
+		if err != nil {
+			return fmt.Errorf("get devices by site error: %v", err)
+		}
+		data.Devices = ds
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		reportDevicesError(w, r, data, "site or device list error: %v", err)
 		return
 	}
+
 	if siteChanged {
 		err := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
 		if err != nil {
 			log.Printf("could not put profile data: %v", err)
 		}
 	}
-
 	data.Timezone = site.Timezone
-
-	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
-	if err != nil {
-		reportDevicesError(w, r, data, "get devices by site error: %v", err)
-		return
-	}
 
 	if msg != "" {
 		reportDevicesError(w, r, data, msg, args...)
 		return
 	}
 
+	// If no MAC, render the selection page early. Avoid extra calls.
 	if !model.IsMacAddress(data.Mac) {
 		writeTemplate(w, r, "set/device.html", &data, "")
 		return
 	}
 
-	data.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
-	if err != nil {
-		reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
+	// Parallelize per-device lookups.
+	var (
+		uptimeVar    *model.Variable
+		localAddrVar *model.Variable
+		varTypes     []model.VarType
+		sensors      []model.SensorV2
+		actuators    []model.ActuatorV2
+	)
+
+	g, gctx2 := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		v, err := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
+		if err == nil {
+			uptimeVar = v
+		} else if !errors.Is(err, datastore.ErrNoSuchEntity) {
+			return fmt.Errorf("get uptime variable error: %v", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		v, err := model.GetVariable(gctx2, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
+		if err == nil {
+			localAddrVar = v
+		} else if !errors.Is(err, datastore.ErrNoSuchEntity) {
+			return fmt.Errorf("get localaddr variable error: %v", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		switch data.Device.Type {
+		case model.DevTypeCamera:
+			varTypes = camera.VarTypes()
+		case model.DevTypeController:
+			varTypes = controller.VarTypes()
+		case model.DevTypeAligner:
+			fallthrough
+		case model.DevTypeSpeaker:
+			fallthrough
+		case model.DevTypeTest:
+			fallthrough
+		case model.DevTypeHydrophone:
+			fallthrough // This does not need to error.
+		default:
+			return nil
+		}
+		return nil
+	})
+	g.Go(func() error {
+		ss, err := model.GetSensorsV2(gctx2, settingsStore, data.Device.Mac)
+		if err != nil {
+			return fmt.Errorf("get sensors error: %v", err)
+		}
+		sensors = ss
+		return nil
+	})
+	g.Go(func() error {
+		aa, err := model.GetActuatorsV2(gctx2, settingsStore, data.Device.Mac)
+		if err != nil {
+			return fmt.Errorf("get actuators error: %v", err)
+		}
+		actuators = aa
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		reportDevicesError(w, r, data, "per-device data error: %v", err)
 		return
 	}
 
 	// Provide uptime and device status information.
-	v, err := model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".uptime")
+	thresh := time.Duration(2*int(data.Device.MonitorPeriod)) * time.Second
 	switch {
-	case errors.Is(err, datastore.ErrNoSuchEntity):
+	case uptimeVar == nil:
 		data.Device.SetOther("sending", "black")
-	case err != nil:
-		reportDevicesError(w, r, data, "get uptime error: %v", err)
-		return
-	case time.Since(v.Updated) < time.Duration(2*int(data.Device.MonitorPeriod))*time.Second:
+	case time.Since(uptimeVar.Updated) < thresh:
 		data.Device.SetOther("sending", "green")
-		ut, err := strconv.Atoi(v.Value)
-		if err == nil {
+		if ut, err := strconv.Atoi(uptimeVar.Value); err == nil {
 			data.Device.SetOther("uptime", (time.Duration(ut) * time.Second).String())
 		}
 	default:
@@ -200,34 +283,13 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	}
 
 	// Get the local address only if available.
-	v, err = model.GetVariable(ctx, settingsStore, data.Device.Skey, "_"+data.Device.Hex()+".localaddr")
-	if err == nil {
-		data.Device.SetOther("localaddr", v.Value)
+	if localAddrVar != nil {
+		data.Device.SetOther("localaddr", localAddrVar.Value)
 	}
 
-	data.Vars, err = model.GetVariablesBySite(ctx, settingsStore, skey, data.Device.Hex())
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variables error: %v", err)
-		return
-	}
-
-	data.VarTypes, err = model.GetVariablesBySite(ctx, settingsStore, skey, "_type")
-	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
-		reportDevicesError(w, r, data, "get device variable types error: %v", err)
-		return
-	}
-
-	data.Sensors, err = model.GetSensorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get sensors error: %v", err)
-		return
-	}
-
-	data.Actuators, err = model.GetActuatorsV2(ctx, settingsStore, data.Device.Mac)
-	if err != nil {
-		reportDevicesError(w, r, data, "get actuators error: %v", err)
-		return
-	}
+	data.VarTypes = varTypes
+	data.Sensors = sensors
+	data.Actuators = actuators
 
 	writeTemplate(w, r, "set/device.html", &data, msg)
 }
@@ -252,7 +314,7 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	ma := r.FormValue("ma")
 	dn := r.FormValue("dn")
@@ -269,11 +331,11 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	if task != "Add" {
 		dev, err = model.GetDevice(ctx, settingsStore, mac)
 		if err != nil {
-			writeDevices(w, r, err.Error())
+			writeDevices(w, r, "%s", err.Error())
 			return
 		}
 		if dev.Skey != skey {
-			writeDevices(w, r, errPermissionDenied.Error())
+			writeDevices(w, r, "%s", errPermissionDenied.Error())
 			return
 		}
 	}
@@ -361,24 +423,36 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = model.PutDevice(ctx, settingsStore, dev)
 	if err != nil {
-		writeDevices(w, r, err.Error())
+		writeDevices(w, r, "%s", err.Error())
 		return
 	}
 
 	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
 }
 
-// editVarHandler handles per-device variable update/deletion requests.
-// Query params:
+// calibrateDevicesHandler handles calibration of controller-type
+// device voltages.
 //
-//   - ma: MAC address
-//   - vn: variable name
-//   - vv: variable value
-//   - vd: variable delete
-func editVarHandler(w http.ResponseWriter, r *http.Request) {
+// Query params:
+//   - ma:  MAC address
+//   - vb:  Battery Voltage
+//   - vnw: Network Voltage
+//   - vp1: Power 1 Voltage
+//   - vp2: Power 2 Voltage
+//   - vp3: Power 3 Voltage
+//   - va:  Alarm Voltage
+//   - vr:  Alarm Recovery Voltage
+//
+// NOTE: All voltages are parsed in Volts.
+func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+	if r.Method != http.MethodPost {
+		log.Println("calibration request must use POST action")
+		http.Redirect(w, r, "/set/devices?ma="+r.FormValue("ma"), http.StatusSeeOther)
+		return
+	}
+	ctx := context.Background()
+	p, err := getProfile(w, r)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -386,43 +460,156 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
 
-	ma := r.FormValue("ma")
-	vn := strings.TrimSpace(r.FormValue("vn"))
-	vv := strings.Join(r.Form["vv"], ",")
-	vd := r.FormValue("vd")
-
-	mac := model.MacEncode(ma)
-	if mac == 0 {
-		writeDevices(w, r, "MAC address missing")
+	mac := r.FormValue("ma")
+	vb, err := strconv.ParseFloat(r.FormValue("vb"), 64)
+	if err != nil && vb != 0 {
+		writeDevices(w, r, "unable to parse battery voltage: %v", err)
+		return
+	}
+	vnw, err := strconv.ParseFloat(r.FormValue("vnw"), 64)
+	if err != nil && vnw != 0 {
+		writeDevices(w, r, "unable to parse network voltage: %v", err)
+		return
+	}
+	vp1, err := strconv.ParseFloat(r.FormValue("vp1"), 64)
+	if err != nil && vp1 != 0 {
+		writeDevices(w, r, "unable to parse power 1 voltage: %v", err)
+		return
+	}
+	vp2, err := strconv.ParseFloat(r.FormValue("vp2"), 64)
+	if err != nil && vp2 != 0 {
+		writeDevices(w, r, "unable to parse power 2 voltage: %v", err)
+		return
+	}
+	vp3, err := strconv.ParseFloat(r.FormValue("vp3"), 64)
+	if err != nil && vp3 != 0 {
+		writeDevices(w, r, "unable to parse power 3 voltage: %v", err)
+		return
+	}
+	va, err := strconv.ParseFloat(r.FormValue("va"), 64)
+	if err != nil && va != 0 {
+		writeDevices(w, r, "unable to parse alarm voltage: %v", err)
+		return
+	}
+	vr, err := strconv.ParseFloat(r.FormValue("vr"), 64)
+	if err != nil && vr != 0 {
+		writeDevices(w, r, "unable to parse alarm recovery voltage: %v", err)
 		return
 	}
 
-	if vn == "" {
-		writeDevices(w, r, "Name missing")
-		return
-	}
-
-	setup(ctx)
-	dev, err := model.GetDevice(ctx, settingsStore, mac)
+	device, err := model.GetDevice(ctx, settingsStore, model.MacEncode(mac))
 	if err != nil {
-		writeDevices(w, r, err.Error())
+		writeDevices(w, r, "unable to get device to calibrate (%s): %v", mac, err)
 		return
 	}
 
-	if vd == "true" {
-		err = model.DeleteVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn)
-	} else {
-		err = model.PutVariable(ctx, settingsStore, skey, dev.Hex()+"."+vn, vv)
+	// Names of the voltage sensors to calibrate.
+	var voltageSensors = []string{
+		model.NameBatterySensor,
+		model.NameNWVoltage,
+		model.NameP1Voltage,
+		model.NameP2Voltage,
+		model.NameP3Voltage,
 	}
 
+	// Load the most recent sensor values.
+	sensors, err := model.GetSensorsV2(ctx, settingsStore, model.MacEncode(mac))
 	if err != nil {
-		writeDevices(w, r, err.Error())
+		writeDevices(w, r, "unable to get sensors (%s): %v", mac, err)
 		return
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	// Calibrate each of the voltage sensors.
+	var msgs []string
+	for _, sensor := range sensors {
+		if !sliceutils.ContainsString(voltageSensors, sensor.Name) {
+			continue
+		}
+
+		scalar, err := model.GetLatestScalar(ctx, mediaStore, model.ToSID(mac, sensor.Pin))
+		if err != nil {
+			msgs = append(msgs, fmt.Sprintf("unable to get latest scalar for %s: %v", sensor.Name, err))
+			continue
+		}
+		reportedTime := time.Unix(scalar.Timestamp, 0)
+
+		// Check if the scalar was recently reported (last 2 monitor periods).
+		if reportedTime.Before(time.Now().Add(-2 * time.Duration(device.MonitorPeriod) * time.Second)) {
+			msgs = append(msgs, fmt.Sprintf("scalar (%s) is out of date (timestamp: %s)(current time: %s)",
+				sensor.Name, reportedTime.Format(time.ANSIC), time.Now().Format(time.ANSIC)))
+
+			// Continue to calibrate other sensors that are still reporting.
+			continue
+		}
+
+		var actual float64
+		switch sensor.Name {
+		case model.NameBatterySensor:
+			actual = vb
+		case model.NameNWVoltage:
+			actual = vnw
+		case model.NameP1Voltage:
+			actual = vp1
+		case model.NameP2Voltage:
+			actual = vp2
+		case model.NameP3Voltage:
+			actual = vp3
+		default:
+			// This shouldn't be possible with the ContainsString check.
+			log.Panicln("cannot handle unexpected sensor name")
+		}
+
+		// This most likely means the field was left blank. This is not a
+		// meaningful way of calibrating the system.
+		if actual == 0 {
+			continue
+		}
+
+		// If the scalar value is zero, the division calculation will result in a
+		// divide by zero calculation. Return a message to the user, and do not
+		// calibrate this sensor.
+		const nearZeroValue = 0.05
+		if scalar.Value <= nearZeroValue {
+			msgs = append(msgs, "cannot calibrate sensor reading 0")
+			continue
+		}
+
+		// Calculate the new scale value.
+		scaleFactor := actual / scalar.Value
+		sensor.Args = strconv.FormatFloat(scaleFactor, 'f', -1, 64)
+		log.Printf("calibrated sensor value for %s: %s", sensor.Name, sensor.Args)
+
+		// Save the sensor with the new scale factor.
+		model.PutSensorV2(ctx, settingsStore, &sensor)
+
+		if sensor.Name != model.NameBatterySensor {
+			continue
+		}
+
+		// Calibrate the alarm voltage and alarm recovery voltage variables.
+		skey, _ := requestSiteData(r, p)
+		if va > 0 {
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, fmt.Sprintf("%d", int(va/scaleFactor)))
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("unable to set alarm voltage: %v", err))
+			}
+		}
+		if vr > 0 {
+			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmRecoveryVoltage, fmt.Sprintf("%d", int(vr/scaleFactor)))
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("unable to set alarm recovery voltage: %v", err))
+			}
+		}
+
+	}
+
+	msg := strings.Join(msgs, ",")
+	if msg != "" {
+		writeDevices(w, r, "errors during calibration: %s", msg)
+		return
+	}
+	writeDevices(w, r, "Device Calibrated")
 }
 
 // editSensorHandler handles requests to /set/device/edit/sensor.
@@ -593,7 +780,7 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 	ctx := r.Context()
 	setup(ctx)
 
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
@@ -651,7 +838,7 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	id := r.FormValue("ci")
 	ct := strings.Trim(r.FormValue("ct"), " ")
@@ -662,7 +849,7 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 	task := r.FormValue("task")
 
 	if id == "" {
-		writeCrons(w, r, errInvalidID.Error())
+		writeError(w, errInvalidID)
 		return
 	}
 
@@ -685,28 +872,26 @@ func editCronsHandler(w http.ResponseWriter, r *http.Request) {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not get site: %v", err))
+		writeError(w, fmt.Errorf("could not get site: %v", err))
 		return
 	}
 
 	c := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
 	err = c.ParseTime(ct, site.Timezone)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not parse time: %v", err))
+		writeError(w, fmt.Errorf("could not parse time: %v", err))
 		return
 	}
 
 	err = model.PutCron(ctx, settingsStore, &c)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not put cron in datastore: %v", err))
+		writeError(w, fmt.Errorf("could not put cron in datastore: %v", err))
 		return
 	}
 
 	err = cronScheduler.Set(&c)
 	if err != nil {
-		writeCrons(w, r, fmt.Sprintf("could not schedule cron: %v", err))
+		writeError(w, fmt.Errorf("could not schedule cron: %v", err))
 		return
 	}
-
-	writeCrons(w, r, "")
 }

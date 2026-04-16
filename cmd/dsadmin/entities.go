@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // This file contain definitions of legacty and temporary entities
@@ -194,7 +194,7 @@ const (
 	typeDeviceV2 = "DeviceV2"
 )
 
-// DeviceV1 represents a V1 device.
+// DeviceV1 represents a V1 device (deprecated).
 type DeviceV1 struct {
 	Skey          int64             // Site key.
 	Dkey          int64             // Device key.
@@ -279,6 +279,8 @@ func (dev *DeviceV2) Copy(datastore.Entity) (datastore.Entity, error) {
 func (dev *DeviceV2) GetCache() datastore.Cache {
 	return nil
 }
+
+// TODO: DeviceV3 add two date fields to DeviceV2, namely Deployed and Retired
 
 // Cron entities.
 const (
@@ -394,9 +396,11 @@ func (c *CronV2) GetCache() datastore.Cache {
 	return nil
 }
 
-const typeSignal = "Signal"
+const (
+	typeSignal = "Signal" // Data type that NetReceiver uses for implementing scalar values.
+	typeScalar = "Scalar" // Data type that VidGrind uses for implementing scalar values.
+)
 
-// Signal is the original data type that NetReceiver used for implementing scalar values.
 type Signal struct {
 	Mac   int64     // Was mac
 	Pin   string    // Was pin
@@ -446,4 +450,12 @@ func (s *Signal) Copy(datastore.Entity) (datastore.Entity, error) {
 
 func (s *Signal) GetCache() datastore.Cache {
 	return nil
+}
+
+// SignalRange describes of range of signals to be migrated.
+// NB: Not persistent
+type SignalRange struct {
+	Mac, Pin string
+	From, To time.Time
+	Max      int64
 }

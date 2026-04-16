@@ -35,9 +35,10 @@ import (
 
 	"github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/nmea"
+	"github.com/google/uuid"
 )
 
 // BroadcastManager is an interface for managing broadcasts.
@@ -90,8 +91,13 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 ) error {
 	// Only create a new broadcast if a valid one doesn't already exist.
 	if m.broadcastCanBeReused(cfg, svc) {
-		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.ID, cfg.SID)
-		err := m.Save(nil, func(_cfg *Cfg) { _cfg.ID = cfg.ID; _cfg.SID = cfg.SID; _cfg.CID = cfg.CID; _cfg.RTMPKey = cfg.RTMPKey })
+		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.BID, cfg.SID)
+		err := m.Save(nil, func(_cfg *Cfg) {
+			_cfg.BID = cfg.BID
+			_cfg.SID = cfg.SID
+			_cfg.CID = cfg.CID
+			_cfg.RTMPKey = cfg.RTMPKey
+		})
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
 		}
@@ -135,7 +141,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
 	}
 	err = m.Save(nil, func(_cfg *Cfg) {
-		_cfg.ID = ids.BID
+		_cfg.BID = ids.BID
 		_cfg.SID = ids.SID
 		_cfg.CID = ids.CID
 		_cfg.RTMPKey = rtmpKey
@@ -169,7 +175,7 @@ func (m *OceanBroadcastManager) StartBroadcast(
 	go func() {
 		err := svc.StartBroadcast(
 			cfg.Name,
-			cfg.ID,
+			cfg.BID,
 			cfg.SID,
 			saveLinkFunc(),
 			func() error { return nil }, // This is now handled by the hardware state machine.
@@ -187,7 +193,33 @@ func (m *OceanBroadcastManager) StartBroadcast(
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
 func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error {
-	return stopBroadcast(ctx, cfg, store, svc, m.log)
+	m.log("stopping broadcast")
+
+	status, err := svc.BroadcastStatus(ctx, cfg.BID)
+	if err != nil {
+		return fmt.Errorf("could not get broadcast status: %w", err)
+	}
+
+	if status != broadcast.StatusComplete && status != "" {
+		err := svc.CompleteBroadcast(ctx, cfg.BID)
+		if err != nil {
+			return fmt.Errorf("could not complete broadcast: %w", err)
+		}
+	}
+
+	err = m.Save(ctx, func(_cfg *Cfg) { _cfg.Active = false })
+	if err != nil {
+		return fmt.Errorf("could not save broadcast config, to update Active state: %w", err)
+	}
+
+	// Change privacy to post live privacy.
+	// This will also set the privacy of the video after the broadcast has ended.
+	err = svc.SetBroadcastPrivacy(ctx, cfg.BID, cfg.PostLivePrivacy)
+	if err != nil {
+		return fmt.Errorf("could not update broadcast privacy: %w", err)
+	}
+
+	return nil
 }
 
 // Save performs broadcast configuration update operations.
@@ -208,14 +240,53 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 			*m.cfg = *_cfg
 		}
 	}
-	return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
+
+	// Reference by UUID if we have one.
+	if uuid.Validate(m.cfg.UUID) == nil {
+		return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.UUID, _update)
+	}
+
+	// If we don't have a UUID, we will follow the following steps:
+	//   1. Add a UUID to the config
+	//   2. Run the transaction to update the config
+	//   3. Copy the config, and index it by the UUID
+	//   4. Delete the old config
+	origUpdate := _update
+
+	_update = func(_cfg *Cfg) {
+		_cfg.UUID = uuid.NewString()
+		origUpdate(_cfg)
+	}
+
+	err := updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
+	if err != nil {
+		return fmt.Errorf("unable to update config: %w", err)
+	}
+	oldName := broadcastScope + "." + m.cfg.Name
+	v, err := model.GetVariable(ctx, m.store, m.cfg.SKey, oldName)
+	if err != nil {
+		return fmt.Errorf("unable to get variable for updated config: %w", err)
+	}
+
+	newName := broadcastScope + "." + m.cfg.UUID
+	err = model.PutVariable(ctx, m.store, m.cfg.SKey, newName, v.Value)
+	if err != nil {
+		return fmt.Errorf("unable to put config indexed with UUID: %w", err)
+	}
+
+	err = model.DeleteVariable(ctx, m.store, m.cfg.SKey, oldName)
+	if err != nil {
+		return fmt.Errorf("unable to delete config indexed by name: %w", err)
+	}
+
+	return nil
 }
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
 func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, noBroadcastCallBack BroadcastCallback) error {
 	m.log("handling status check")
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
+	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
 		if !errors.Is(err, broadcast.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
@@ -367,13 +438,15 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		_cfg.Enabled = true
 	}
 
-	_, err = broadcastByName(cfg.SKey, secondaryName)
+	secondary, err := broadcastByName(cfg.SKey, secondaryName)
 	switch {
 	// Broadcast not found, so we need to create it.
 	case errors.Is(err, ErrBroadcastNotFound{}):
 		secondaryCfg := *cfg
 		populateFields(&secondaryCfg)
-		err = saveBroadcast(ctx, &secondaryCfg, store, m.log)
+
+		// Create a temporary OceanBroadcastManager for the secondary broadcast and create it (no update func required).
+		err = newOceanBroadcastManager(nil, &secondaryCfg, store, m.log).Save(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
 		}
@@ -382,7 +455,8 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 	// Broadcast found so we need to update it with a transaction.
 	default:
-		err = m.Save(nil, populateFields)
+		// Create a temporary OceanBroadcastManager for the secondary broadcast and update it.
+		err = newOceanBroadcastManager(nil, secondary, store, m.log).Save(ctx, populateFields)
 		if err != nil {
 			return fmt.Errorf("could not update secondary broadcast: %w", err)
 		}
@@ -403,7 +477,7 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 // is, if it has been revoked or completed, and if its IDs have been set.
 func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
 	// Check if the broadcast was created today. Don't reuse an old broadcast.
-	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.ID)
+	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast start time: %v", err)
 		return false
@@ -415,11 +489,11 @@ func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc B
 		return false
 	}
 
-	status, err := svc.BroadcastStatus(context.Background(), cfg.ID)
+	status, err := svc.BroadcastStatus(context.Background(), cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast status: %v", err)
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return cfg.ID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
+	return cfg.BID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
 }

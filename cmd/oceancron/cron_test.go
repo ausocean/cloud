@@ -26,10 +26,10 @@ import (
 	"math"
 	"testing"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 )
 
 var cronSpecTests = []struct {

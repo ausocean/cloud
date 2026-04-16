@@ -5,3 +5,7 @@ store
 node_modules
 .vscode
 s/lit
+s/dist
+
+testdata/standalone-auto.json
+testdata/standalone-large.json

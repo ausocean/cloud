@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 const typeVariable = "Variable" // Variable datastore type.
@@ -53,6 +53,21 @@ type Variable struct {
 	Value   string    `datastore:",noindex"` // Variable value.
 	Updated time.Time // Date/time last updated.
 }
+
+// VarType holds the type information about a variable with a given name.
+type VarType struct {
+	Name string
+	Type string
+}
+
+// Variable types.
+const (
+	VarTypeInt    = "int"
+	VarTypeUint   = "uint"
+	VarTypeFloat  = "float"
+	VarTypeBool   = "bool"
+	VarTypeString = "string"
+)
 
 // Encode serializes a Variable into tab-separated values.
 func (v *Variable) Encode() []byte {
@@ -248,6 +263,27 @@ func DeleteVariables(ctx context.Context, store datastore.Store, skey int64, sco
 		return err
 	}
 	return store.DeleteMulti(ctx, keys)
+}
+
+// GetBroadcastVarByUUID gets the variable associated with a given broadcast UUID.
+func GetBroadcastVarByUUID(ctx context.Context, store datastore.Store, uuid string) (*Variable, error) {
+	const broadcastScope = "Broadcast"
+	q := store.NewQuery(typeVariable, false)
+	q.FilterField("Name", "=", broadcastScope+"."+uuid)
+
+	var vars []Variable
+	_, err := store.GetAll(ctx, q, &vars)
+	if err != nil {
+		return nil, fmt.Errorf("error getting variables: %w", err)
+	}
+
+	if len(vars) > 1 {
+		return nil, fmt.Errorf("duplicate broadcasts with uuid: %s", uuid)
+	} else if len(vars) <= 0 {
+		return nil, datastore.ErrNoSuchEntity
+	}
+
+	return &vars[0], nil
 }
 
 // ComputeVarSum computes the var sum from a slice of variables. The

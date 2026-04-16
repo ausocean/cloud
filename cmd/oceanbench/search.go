@@ -40,9 +40,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -57,6 +57,7 @@ var pinMap = map[string]string{
 	"V0":  "video",
 	"S0":  "sound",
 	"T0":  "logs",
+	"T1":  "gps",
 	"A0":  "battery voltage",
 	"A4":  "battery voltage",
 	"A2":  "24v current draw",
@@ -131,7 +132,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	// searchData struct is used by the template.
 	sd := searchData{
@@ -227,7 +228,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	sd.PinType = sd.Pn[0]
 	switch sd.PinType {
 	case 'T':
-		sd.Log = true
+		sd.Log = (sd.Pn == "T0")
 		fallthrough
 
 	case 'S', 'V':

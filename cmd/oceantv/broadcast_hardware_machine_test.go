@@ -21,7 +21,7 @@ func TestGetHardwareStateStorage(t *testing.T) {
 	}{
 		{"test hardware off", newHardwareOff()},
 		{"test hardware on", newHardwareOn()},
-		{"test hardware starting", newHardwareStarting(&broadcastContext{camera: &dummyHardwareManager{}, logOutput: t.Log, notifier: newMockNotifier()})},
+		{"test hardware starting", newHardwareStarting(&broadcastContext{hardware: &dummyHardwareManager{}, logOutput: t.Log, notifier: newMockNotifier()})},
 		{"test hardware stopping", newHardwareStopping(minimalMockBroadcastContext(t))},
 		{"test hardware restarting", newHardwareRestarting(minimalMockBroadcastContext(t))},
 	}
@@ -361,7 +361,7 @@ func (h hardwareSystem) withForwardingService(fs ForwardingService) hardwareSyst
 
 func (h hardwareSystem) withHardwareManager(hm hardwareManager) hardwareSystemOption {
 	return func(bs *hardwareSystem) error {
-		bs.ctx.camera = hm
+		bs.ctx.hardware = hm
 		return nil
 	}
 }
@@ -580,16 +580,16 @@ func TestHardwareStopAndRestart(t *testing.T) {
 
 			ctx, _ := context.WithCancel(context.Background())
 
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := &BroadcastConfig{}
 			tt.cfg(cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newHardwareOnlySystem(
 				ctx,
@@ -620,7 +620,12 @@ func TestHardwareStopAndRestart(t *testing.T) {
 				}
 
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current state: %s, wanted state: %s",
+						maxTicks,
+						stateToString(sys.hsm.currentState),
+						stateToString(tt.finalHardwareState),
+					)
 					return
 				}
 

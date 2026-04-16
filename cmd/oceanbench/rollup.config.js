@@ -1,5 +1,6 @@
 import typescript from 'rollup-plugin-typescript2';
 import resolve from '@rollup/plugin-node-resolve';
+import { string } from 'rollup-plugin-string';
 
 export default [
   {
@@ -14,6 +15,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -30,6 +32,7 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]
@@ -46,6 +49,92 @@ export default [
       }
     },
     plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
+  },
+  {
+    input: 'ts/cron-settings.ts',
+    output: {
+      file: 's/lit/cron-settings.js',
+      format: 'iife',
+      name: 'cronSettings',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
+  },
+  {
+    input: 'ts/tv-overview.ts',
+    output: {
+      file: 's/lit/tv-overview.js',
+      format: 'iife',
+      name: 'liveOverview',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
+  },
+  {
+    input: 'ts/site-footer.ts',
+    output: {
+      file: 's/lit/site-footer.js',
+      format: 'iife',
+      name: 'siteFooter',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
+  },
+  {
+    input: 'ts/admin-site-lists.ts',
+    output: {
+      file: 's/lit/admin-site-lists.js',
+      format: 'iife',
+      name: 'adminSiteLists',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
+      resolve(),
+      typescript()
+    ]
+  },
+  {
+    input: 'ts/media-manager.ts',
+    output: {
+      file: 's/lit/media-manager.js',
+      format: 'iife',
+      name: 'mediaManager',
+      globals: {
+        lit: 'lit',
+        'lit/decorators.js': 'decorators_js'
+      }
+    },
+    plugins: [
+      string({ include: '**/*.css' }),
       resolve(),
       typescript()
     ]

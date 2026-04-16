@@ -27,6 +27,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -34,9 +35,9 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // TestRemoveDate tests the removeDate helper function.
@@ -311,6 +312,7 @@ type dummyHardwareManager struct {
 	controllerMAC     string
 	cameraMAC         string
 	latestRequest     request
+	hwErr             error
 }
 
 func withHardwareFault() func(*dummyHardwareManager) {
@@ -322,6 +324,12 @@ func withHardwareFault() func(*dummyHardwareManager) {
 func withLowVoltage() func(*dummyHardwareManager) {
 	return func(h *dummyHardwareManager) {
 		h.volts = 24.0
+	}
+}
+
+func withHardwareError(err error) func(*dummyHardwareManager) {
+	return func(h *dummyHardwareManager) {
+		h.hwErr = err
 	}
 }
 
@@ -440,13 +448,12 @@ func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
 }
 func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
 	if h.checkMAC && mac == 0 {
-		log("camera is not set in configuration")
-		publish(invalidConfigurationEvent{"camera mac is empty"})
+		publish(invalidConfigurationEvent{errors.New("camera mac is empty")})
 		return
 	}
 	up, err := h.isUp(ctx, model.MacDecode(mac))
 	if err != nil {
-		publish(invalidConfigurationEvent{fmt.Sprintf("could not get device: %v", err)})
+		publish(invalidConfigurationEvent{fmt.Errorf("could not get device: %w", err)})
 		return
 	}
 
@@ -455,6 +462,12 @@ func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event
 	} else if status == false {
 		publish(event)
 	}
+}
+func (h *dummyHardwareManager) error(ctx *broadcastContext) (error, error) {
+	if h.volts > h.alarmVolts {
+		return None, nil
+	}
+	return h.hwErr, nil
 }
 
 // mockNotifier to implement Notifier interface.
@@ -492,7 +505,8 @@ func (m *mockNotifier) checkNotifications(want map[int64]map[notify.Kind][]strin
 				)
 			}
 			for i, msg := range msgs {
-				if !strings.Contains(msg, m.sent[skey][kind][i]) {
+				// Check that the actual message contains the expected message.
+				if !strings.Contains(m.sent[skey][kind][i], msg) {
 					return fmt.Errorf("expected message %s for site %d and kind %s, got %s", msg, skey, kind, m.sent[skey][kind][i])
 				}
 			}
@@ -510,7 +524,7 @@ func standardMockBroadcastContext(t *testing.T, hardwareHealthy bool) *broadcast
 	return &broadcastContext{
 		store:     &dummyStore{},
 		svc:       &dummyService{},
-		camera:    &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
+		hardware:  &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
 		notifier:  newMockNotifier(),
 		logOutput: t.Log,
 	}

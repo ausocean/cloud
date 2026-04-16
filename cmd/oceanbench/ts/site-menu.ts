@@ -5,6 +5,7 @@ export const SandboxSkey: Number = 3;
 
 @customElement('site-menu')
 class SiteMenu extends LitElement {
+    private _clickListener?: (e: MouseEvent) => void;
 
     @property({ type: String, attribute: 'selected-data' })
     selectedData;
@@ -26,6 +27,9 @@ class SiteMenu extends LitElement {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            width: 424px;
+            max-width: 100%;
+            box-sizing: border-box;
         }
     `;
 
@@ -39,10 +43,10 @@ class SiteMenu extends LitElement {
         return html`
             <select id="select" @change=${this.handleSiteChange}>
                 <option id="loading">
-                  ${this.selectedData
-                    ?this.selectedData.split(":")[1]
-                    :"Select Site"
-                  }
+                  ${this.selectedData && this.selectedData.includes(":")
+                ? this.selectedData.split(":")[1]
+                : "Loading Sites..."
+            }
                 </option>
                 <optgroup style="display: none" id="read" label="Read"></optgroup>
                 <optgroup style="display: none" id="write" label="Write"></optgroup>
@@ -52,7 +56,37 @@ class SiteMenu extends LitElement {
     }
 
     firstUpdated() {
-        this.loadSites()
+        // Handle init logic for tab site selection
+        const urlParams = new URLSearchParams(window.location.search);
+        let siteParams = urlParams.get('site');
+
+        if (siteParams) {
+            sessionStorage.setItem('site', siteParams);
+        } else {
+            let sessionSite = sessionStorage.getItem('site');
+            if (sessionSite) {
+                // Apply the session site by redirecting to include the parameter
+                let currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('site', sessionSite);
+                window.location.replace(currentUrl.toString());
+                return;
+            }
+        }
+
+        // If no URL or session site is present, set session to the backend fallback.
+        if (!sessionStorage.getItem('site') && this.selectedData) {
+            let s = this.selectedData.split(":");
+            if (s.length > 0 && containsInt(s[0])) {
+                sessionStorage.setItem('site', s[0]);
+            }
+        }
+
+        const activeSessionSite = sessionStorage.getItem('site');
+        if (activeSessionSite) {
+            this.selectedData = activeSessionSite;
+        }
+
+        this.loadSites();
     }
 
     async loadSites() {
@@ -62,13 +96,22 @@ class SiteMenu extends LitElement {
         optGroups.push(this.renderRoot.querySelector("#admin")! as HTMLOptGroupElement)
         var loading = this.renderRoot.querySelector("#loading")! as HTMLOptionElement
 
-        // Make a request to /api/get/sites/user
         let r = new XMLHttpRequest();
         r.onreadystatechange = () => {
             if (r.readyState == XMLHttpRequest.DONE) {
-                let sites = JSON.parse(r.response)
-                this.dispatchEvent(new CustomEvent('sites-loaded', {bubbles: true, composed: true, detail: {'len': sites.length}}))
-                var opts:HTMLOptionElement[][] = [[],[],[]]
+                if (r.status !== 200) {
+                    console.error("Failed to load sites: ", r.status, r.responseText);
+                    return;
+                }
+                let sites;
+                try {
+                    sites = JSON.parse(r.response);
+                } catch (e) {
+                    console.error("Failed to parse sites JSON: ", e);
+                    return;
+                }
+                this.dispatchEvent(new CustomEvent('sites-loaded', { bubbles: true, composed: true, detail: { 'len': sites.length } }))
+                var opts: HTMLOptionElement[][] = [[], [], []]
                 for (let site of sites) {
                     var opt = document.createElement("option");
                     opt.value = site.Skey
@@ -78,7 +121,7 @@ class SiteMenu extends LitElement {
                         opt.label += " (Public)"
                         opt.getAttribute("perm") == "0" ? opt.setAttribute("perm", "1") : null;
                     }
-                    switch (opt.getAttribute("perm")){
+                    switch (opt.getAttribute("perm")) {
                         case "1":
                             opts[0].push(opt);
                             break;
@@ -90,6 +133,7 @@ class SiteMenu extends LitElement {
                             break;
                     }
                 }
+                let anySelected = false;
                 for (let i = 0; i < 3; i++) {
                     if (opts[i].length <= 0) {
                         continue;
@@ -97,16 +141,35 @@ class SiteMenu extends LitElement {
                     opts[i].sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()))
                     optGroups[i].style.display = 'block'
                     opts[i].forEach(option => {
-                        this.checkSelected(option, optGroups[i], this.selectedData)
+                        if (this.checkSelected(option, optGroups[i], this.selectedData)) {
+                            anySelected = true;
+                        }
                         optGroups[i].appendChild(option);
                     });
                 }
+                
+                // If a site key is present in the session or URL but the loaded profile does not have access
+                // to it (or it does not exist), no options will be selected dynamically. We prepend a placeholder
+                // "Unknown Site" option so the dropdown accurately reflects the current unknown state
+                // without the browser implicitly selecting the first item in the list incorrectly.
+                if (!anySelected && this.selectedData) {
+                    let s = this.selectedData.split(":");
+                    if (s.length > 0 && containsInt(s[0])) {
+                        let unknownOpt = document.createElement("option");
+                        unknownOpt.value = s[0];
+                        unknownOpt.innerText = "Unknown Site (" + s[0] + ")";
+                        unknownOpt.selected = true;
+                        let select = this.renderRoot.querySelector("select");
+                        if (select) select.insertBefore(unknownOpt, select.firstChild);
+                    }
+                }
+
                 if (this.selectedData != '') {
                     loading.remove()
                 }
             }
         }
-        r.open("GET", "/api/get/sites/user")
+        r.open("GET", "/api/v1/sites/user")
         r.send();
     }
 
@@ -120,26 +183,21 @@ class SiteMenu extends LitElement {
             return;
         }
         if (this.customHandling) {
-            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey+":"+selectedName} }));
-            this.selectedData = selectedKey+":"+selectedName;
+            this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: this.selectedData, newSite: selectedKey + ":" + selectedName } }));
+            this.selectedData = selectedKey + ":" + selectedName;
         } else {
-            let r = new XMLHttpRequest();
-            r.onreadystatechange = () => {
-                if (r.readyState == XMLHttpRequest.DONE) {
-                    console.log("response from set site request: ", r.responseText);
-                    if (Number(selectedKey) == SandboxSkey) {
-                        window.location.assign("/admin/sandbox")
-                        return
-                    }
-                    window.location.reload();
-                }
+            sessionStorage.setItem('site', selectedKey);
+            let targetUrl = new URL(window.location.href);
+            if (Number(selectedKey) == SandboxSkey) {
+                window.location.assign("/admin/sandbox");
+                return;
             }
-            r.open("GET", "/api/set/site/" + selectedKey + ":" + selectedName, true);
-            r.send();
+            targetUrl.searchParams.set("site", selectedKey);
+            window.location.assign(targetUrl.toString());
         }
 
         if (selectedOpt.slot != this.selectedPerm) {
-            this.selectedPerm = selectedOpt.hasAttribute("perm")?selectedOpt.getAttribute("perm")!:"0";
+            this.selectedPerm = selectedOpt.hasAttribute("perm") ? selectedOpt.getAttribute("perm")! : "0";
             console.log(this.selectedPerm)
             this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } }));
         }
@@ -147,78 +205,30 @@ class SiteMenu extends LitElement {
 
     // checkSelected compares the option's key to the profile's selected site key.
     // If it's a match the option is selected.
-    checkSelected(option: HTMLOptionElement, optGroup: HTMLOptGroupElement, data: string) {
+    checkSelected(option: HTMLOptionElement, optGroup: HTMLOptGroupElement, data: string): boolean {
         let key = Number(option.value);
         let s = data.split(":");
         option.selected = Number(s[0]) == key;
         if (option.selected) {
-            this.selectedPerm = option.hasAttribute("perm")?option.getAttribute("perm")!:"0";
+            this.selectedPerm = option.hasAttribute("perm") ? option.getAttribute("perm")! : "0";
             console.log(this.selectedPerm)
             this.dispatchEvent(new CustomEvent('permission-change', { bubbles: true, composed: true, detail: { selectedPerm: this.selectedPerm } })); //TODO: only trigger if changed.
-            option.innerText = s[1];
+            if (s.length > 1) {
+                option.innerText = s[1];
+            } else {
+                option.innerText = option.label;
+            }
+            return true;
         }
+        return false;
     }
 
     connectedCallback() {
         super.connectedCallback();
-
-        // Add event listener for tab change.
-        document.addEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.addEventListener("focus", this.checkSiteChange.bind(this));
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-
-        // Remove tab event listener when the element is disconnected from the DOM.
-        document.removeEventListener("visibilitychange", this.checkSiteChange.bind(this));
-        window.removeEventListener("focus", this.checkSiteChange.bind(this));
-    }
-
-    // Check if the user's selected site is different compared to the menu.
-    // This can happen if the site is changed in another tab.
-    checkSiteChange() {
-        // Check if the tab is visible.
-        if (!document.hidden) {
-            console.log("Checking if the site has changed...");
-            let r = new XMLHttpRequest();
-            r.onreadystatechange = () => {
-                if (r.readyState == XMLHttpRequest.DONE) {
-                    if (r.status == 200) {
-                        // Compare the newly fetched selected site key with the menu's selected site key.
-                        const currentData = r.responseText;
-                        let s1 = currentData.split(":");
-                        let s2 = this.selectedData.split(":");
-                        // If there's not a match, and no custom handling, ask the user if they want to reload.
-                        // If the user clicks 'OK' in the confirmation dialog, reload the page.
-                        if (Number(s1[0]) != Number(s2[0])) {
-                            let prevSite = this.selectedData;
-                            this.selectedData = currentData;
-                            if (window.confirm("The selected site has changed from "+s2[1]+" to "+s1[1]+". Do you want to load the new site page? Unsaved changes may be lost.")) {
-                                if (this.customHandling) {
-                                    this.dispatchEvent(new CustomEvent('site-change', { bubbles: true, detail: { previousSite: prevSite, newSite: this.selectedData } }));
-                                } else {
-                                    window.location.reload();
-                                }
-                            } else {
-                                let r = new XMLHttpRequest();
-                                r.onreadystatechange = () => {
-                                    if (r.readyState == XMLHttpRequest.DONE) {
-                                        console.log("response from set site request: ", r.responseText);
-                                    }
-                                }
-                                r.open("GET", "/api/set/site/" + prevSite, true);
-                                r.send();
-                            }
-                        }
-                    } else {
-                        console.log("bad response from 'get profile data' request: ", r.responseText, r.readyState, r.status);
-                    }
-                }
-            };
-            r.open("GET", "/api/get/profile/data", true);
-            r.send();
-        }
     }
 }
 

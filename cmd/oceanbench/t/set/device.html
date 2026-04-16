@@ -4,6 +4,7 @@
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link href="/s/main.css" rel="stylesheet" type="text/css" />
     <style rel="stylesheet" type="text/css">
       .advanced {
@@ -20,41 +21,49 @@
     <title>Devices</title>
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
+    <script type="text/javascript" src="/s/device.js"></script>
     <script type="text/javascript">
       var advancedOpts;
       var adv = false;
 
       var varTypes = { {{range $.VarTypes}}
-        {{.Basename}}:"{{.Value}}",{{end}}
+        {{.Name}}:"{{.Type}}",{{end}}
       };
       var varEnums = {};
-      function deleteVar(ma, name) {
-        window.location = '/set/devices/edit/var?ma=' + ma + '&vn=' + name + '&vd=true';
+
+      function deleteVar(event) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        updateVars(event, true)
       }
 
-      function checkVar() {
-        let vn = document.getElementById('vn');
-        if (vn.value == '') {
-          setValue('_newvar');
-          return false;
+      function checkVar(event, form) {
+        event.preventDefault()
+        event.stopPropagation()
+        let varForm = event.target;
+        const vn = varForm.querySelector('input[name="vn"]');
+        const vv = varForm.querySelector('input[name="vv"]');
+
+        if (!vn.value) {
+          let msg = varForm.querySelector('.msg')
+          msg.classList.remove("hidden")
+          msg.innerText = "Variable name must not be empty"
+          return
         }
-        return true;
-      }
+
+        submitVar(event, document.getElementById("vv"));
+      };
 
       function setValue(id) {
         if (id == "") {
           return;
         }
         let form = document.getElementById(id);
-        let span2 = form.firstElementChild.nextElementSibling;
-        let vn = span2.firstChild;
-        let span3 = span2.nextElementSibling;
-        let vv = span3.firstChild;
-        let msg = form.querySelector('.msg')
-
-        while (span3.firstChild) {
-          span3.removeChild(span3.firstChild);
-        }
+        let vn = form.querySelector("input[name='vn']");
+        let vv = form.querySelector("input[name='vv']");
+        let msg = form.querySelector('.msg');
+        let btnDiv = form.querySelector(".btn-container")
 
         let k = vn.value;
         let v = varTypes[k];
@@ -78,14 +87,18 @@
 
         let enums = varEnums[k];
         if (enums == null) {
-          span3.appendChild(vv);
           vv.removeAttribute('hidden');
           vv.removeAttribute('disabled');
+          btnDiv.innerHTML = ""
+          btnDiv.setAttribute('hidden', 'true')
           return;
         }
 
         vv.setAttribute('hidden', 'true');
         vv.setAttribute('disabled', 'true');
+
+        btnDiv.removeAttribute('hidden')
+        btnDiv.innerHTML = ""
 
         let type = 'radio';
         if (varTypes[k].substring(0,6) == 'enums:') {
@@ -93,21 +106,27 @@
         }
         let values = vv.value.split(',');
         for (let i = 0; i < enums.length; i++) {
+          let label = document.createElement("label");
           let input = document.createElement('input');
           input.type = type;
           input.name = 'vv';
           input.value = enums[i];
-          input.setAttribute('onchange', "document.getElementById('"+id+"').submit();")
+          input.setAttribute('onchange', "submitVar(event, this);")
+          input.id = `vv_${enums[i]}`
+          label.htmlFor = input.id
           if (values.includes(input.value)) {
             input.checked = true;
           }
-          span3.appendChild(input);
-          let text = document.createTextNode(enums[i] + ' ');
-          span3.appendChild(text);
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(enums[i] + ' '));
+          btnDiv.appendChild(label);
         }
+
       }
 
-      function init() {
+      async function init() {
+        await loadVars();
+
         for (let k in varTypes) {
           let v = varTypes[k];
           if (v == "bool") {
@@ -118,9 +137,9 @@
             varEnums[k] = v.substring(6).split(',');
           }
         }
-        let elems = document.querySelectorAll('input[name=vn]');
+        let elems = document.querySelectorAll('.var-form');
         for (let elem of elems){
-          setValue(elem.value);
+          setValue(elem.id);
         }
 
         // Read the cookie for the advanced settings.
@@ -140,17 +159,20 @@
         }
       }
 
-      function submitVar(vv) {
+      function submitVar(event, vv) {
         if (vv.validity.valid) {
-          vv.form.submit()
+          event.preventDefault()
+          event.stopPropagation()
+
+          updateVars(event)
         }
       }
 
       function validateVar(vv) {
         if (vv.validity.valid) {
-          vv.form.querySelector('.msg').className = 'td msg hidden'
+          vv.form.querySelector('.msg').className = 'msg hidden'
         } else {
-          vv.form.querySelector('.msg').className = 'td msg'
+          vv.form.querySelector('.msg').className = 'msg'
         }
       }
 
@@ -183,7 +205,7 @@
     <div id="data">
       <datalist id="list_vars">
         {{range $.VarTypes}}
-        <option>{{ .Basename }}</option>
+        <option>{{ .Name }}</option>
         {{end}}
       </datalist>
     </div>
@@ -192,7 +214,7 @@
       <nav-menu id="nav-menu" slot="nav-menu">
         {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
-          <a {{if .URL}}href="{{.URL}}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
+          <a {{if .URL}}href="{{.URL}}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
         </li>
         {{- end}}
       </nav-menu>
@@ -203,13 +225,72 @@
       </site-menu>
     </header-group>
     <section id="main" class="main">
+      <div popover id="calibration-popover">
+        <div class="bg-white rounded w-50 mx-auto p-5 mt-5">
+          <div class="d-flex justify-content-between align-items-center">
+            <h2>Calibrate</h2>
+            <button class="btn btn-close" popovertarget="calibration-popover" popovertargetaction="hide"></button>
+          </div>
+          <hr />
+          <form class="d-flex flex-column gap-2" method="post" action="/set/devices/edit/calibrate">
+            <input name="ma" hidden value="{{.Device.MAC}}" />
+            <div class="row d-flex gx-1 text-center">
+              <div class="col-3 text-end pt-2"></div>
+              <div class="col-1">Battery</div>
+              <div class="col-1">Network</div>
+              <div class="col-1">Power 1</div>
+              <div class="col-1">Power 2</div>
+              <div class="col-1">Power 3</div>
+            </div>
+            <div class="row d-flex gx-1 align-items-center">
+              <label class="col-3 text-end pt-2">Measured Voltage:</label>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vb" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vnw" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp1" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp2" />
+              </div>
+              <div class="col-1">
+                <input class="form-control voltage" type="input" name="vp3" />
+              </div>
+              <label for="lock-voltages" style="cursor: pointer" class="col-1 ps-4">
+                <input class="d-none" type="checkbox" id="lock-voltages" checked />
+                <span id="lock-icon" class="bi bi-unlock-fill"></span>
+              </label>
+            </div>
+            <div class="row d-flex gx-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Alarm Voltage:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="va" value="24.5" />
+              </div>
+            </div>
+            <div class="row d-flex gx-1">
+              <label class="col-sm-2 col-md-3 col-1 text-end pt-2">Alarm Recovery Voltage:</label>
+              <div class="col-sm-10 col-md-6 col-12">
+                <input class="form-control" type="input" name="vr" value="25" />
+              </div>
+            </div>
+            <div class="row d-flex gx-1 align-items-center">
+              <div class="col-3 text-end pt-2"></div>
+              <input type="submit" class="btn btn-primary w-50" value="Calibrate Now" />
+            </div>
+          </form>
+          <small>NOTE: Sensors will only be calibrated whilst reading non-zero values</small>
+        </div>
+      </div>
       {{if .Msg}}
       <div class="red">{{.Msg}}</div>
       <br />
       {{end}}
       <h1 class="container-md">Devices</h1>
       <div class="border rounded p-4 container-md bg-white">
-        <form action="/set/devices/" enctype="multipart/form-data" method="post">
+        <form action="/set/devices/" enctype="multipart/form-data" method="get">
           <fieldset class="row d-flex gx-1 align-items-center">
             <label class="col-sm-2 col-md-3 col-1 text-end pt-1">Select Device:</label>
             <div class="col-sm-10 col-md-6 col-12">
@@ -376,45 +457,13 @@
         </div>
         {{end}} {{if .Device }}
         <div class="advanced flex-column">
-          <h2>Variables</h2>
-          <hr />
-          <table class="table mx-auto" style="max-width: 500px">
-            <thead>
-              <th></th>
-              <th class="text-center">Name</th>
-              <th class="text-center">Value</th>
-            </thead>
-            <tbody>
-              {{range .Vars}}
-              <tr>
-                <form class="row gx-1 d-flex align-items-center" id="{{ .Basename }}" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" novalidate>
-                  <td class="d-flex justify-content-end h-75"><img src="/s/delete.png" onclick="deleteVar('{{$.Device.MAC}}','{{ .Basename }}');" /></td>
-                  <td><input class="form-control form-control-sm w-100" type="text" name="vn" value="{{ .Basename }}" readonly /></td>
-                  <td>
-                    <input class="form-control form-control-sm w-100" type="text" name="vv" value="{{ .Value }}" onchange="submitVar(this)" oninput="validateVar(this)" />
-                    {{if .IsLink }}
-                    <a href="{{ .Value }}" target="_blank"><img src="/s/link.png" /></a>
-                    {{end}}
-                  </td>
-                  <span class="td msg hidden"></span>
-                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
-                </form>
-              </tr>
-              {{end}}
-              <tr>
-                <form class="row gx-1 d-flex align-items-center" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="post" onsubmit="return checkVar();" novalidate>
-                  <td class="d-flex justify-content-end h-75"><input type="image" src="/s/add.png" /></td>
-                  <td><input type="text" class="form-control form-control-sm w-100" name="vn" id="vn" list="list_vars" onchange="setValue('_newvar');" /></td>
-                  <td><input type="text" class="form-control form-control-sm w-100" name="vv" oninput="validateVar(this)" /></td>
-                  <td class="td msg hidden"></td>
-                  <input type="hidden" name="ma" value="{{$.Device.MAC}}" />
-                </form>
-              </tr>
-            </tbody>
-          </table>
+          <div id="var-element"></div>
         </div>
         <div class="advanced flex-column">
-          <h2 class="pt-5">Sensors</h2>
+          <div class="d-flex gap-2 align-items-center">
+            <h2>Sensors</h2>
+            <button class="btn btn-sm btn-outline-primary" popovertarget="calibration-popover">Calibrate</button>
+          </div>
           <hr />
           <table class="table" id="sensors">
             <thead>
@@ -560,5 +609,40 @@
       </div>
     </section>
     {{.Footer}}
+    <script type="text/javascript">
+      document.addEventListener("DOMContentLoaded", function () {
+        const lockCheckbox = document.getElementById("lock-voltages");
+        const lockIcon = document.getElementById("lock-icon");
+
+        // Update the lock icon based on the checkbox.
+        function updateLockIcon() {
+          if (lockCheckbox.checked) {
+            lockIcon.classList.remove("bi-unlock-fill");
+            lockIcon.classList.add("bi-lock-fill");
+            lockIcon.setAttribute("title", "Voltages Locked");
+          } else {
+            lockIcon.classList.remove("bi-lock-fill");
+            lockIcon.classList.add("bi-unlock-fill");
+            lockIcon.setAttribute("title", "Voltages Unlocked");
+          }
+        }
+
+        // Initial icon setup.
+        updateLockIcon();
+
+        // Listen for changes on the checkbox.
+        lockCheckbox.addEventListener("change", updateLockIcon);
+
+        // Listen for changes in the voltage input.
+        voltages = document.getElementsByClassName("voltage");
+        voltages[0].addEventListener("keyup", () => {
+          if (document.getElementById("lock-voltages").checked) {
+            for (var i = 1; i < voltages.length; i++) {
+              voltages[i].value = voltages[0].value;
+            }
+          }
+        });
+      });
+    </script>
   </body>
 </html>

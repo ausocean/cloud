@@ -38,10 +38,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 type Action int
@@ -88,9 +87,10 @@ const (
 
 // BroadcastConfig holds configuration data for a YouTube broadcast.
 type BroadcastConfig struct {
+	UUID                     string        // The immutable unique key of the broadcast.
 	SKey                     int64         // The key of the site this broadcast belongs to.
-	Name                     string        // The name of the broadcat.
-	ID                       string        // Broadcast identification.
+	Name                     string        // The name of the broadcast.
+	BID                      string        // Broadcast identification.
 	SID                      string        // Stream ID for any currently associated stream.
 	CID                      string        // ID of associated chat.
 	StreamName               string        // The name of the stream we'll bind to the broadcast.
@@ -135,6 +135,7 @@ type BroadcastConfig struct {
 	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
 	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string        // The capture source to register the stream to.
+	NotifySuppressRules      string        // Suppression rules for notifications.
 }
 
 func (b *BroadcastConfig) PrettyHardwareStateData() string {
@@ -169,9 +170,44 @@ func (c *BroadcastConfig) parseStartEnd() error {
 	return nil
 }
 
+type oceanTVService struct {
+	eventHooks []eventHook
+	stateHooks []stateHook
+}
+
+type oceanTVOption func(*oceanTVService) error
+
+type eventHook func(event, *Cfg)
+type stateHook func(state, *Cfg)
+
+func withEventHooks(hooks ...eventHook) oceanTVOption {
+	return func(s *oceanTVService) error {
+		s.eventHooks = hooks
+		return nil
+	}
+}
+
+func withStateHooks(hooks ...stateHook) oceanTVOption {
+	return func(s *oceanTVService) error {
+		s.stateHooks = hooks
+		return nil
+	}
+}
+
+func newOceanTVService(opts ...oceanTVOption) (*oceanTVService, error) {
+	otv := &oceanTVService{}
+	for i, opt := range opts {
+		err := opt(otv)
+		if err != nil {
+			return nil, fmt.Errorf("could not apply option (%d) to oceanTV service: %w", i, err)
+		}
+	}
+	return otv, nil
+}
+
 // checkBroadcastsHandler checks the broadcasts for a single site.
 // It is designed to be invoked via OceanCron rpc requests, not cron.yaml.
-func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
 	ctx := r.Context()
@@ -196,7 +232,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("checking broadcasts for site %d", skey)
-	err = checkBroadcastsForSites(ctx, []model.Site{*site})
+	err = checkBroadcastsForSites(ctx, []model.Site{*site}, s.eventHooks, s.stateHooks)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %v", skey, err))
 		return
@@ -205,7 +241,7 @@ func checkBroadcastsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
+func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks []eventHook, stateHooks []stateHook) error {
 	var cfgVars []model.Variable
 	for _, s := range sites {
 		vars, err := model.GetVariablesBySite(ctx, store, s.Skey, broadcastScope)
@@ -232,9 +268,9 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site) error {
 	}
 
 	for i := range cfgs {
-		err := performChecks(ctx, &cfgs[i], store)
+		err := performChecks(ctx, &cfgs[i], store, eventHooks, stateHooks)
 		if err != nil {
-			return fmt.Errorf("could not perform checks for broadcast: %s, ID: %s: %w", cfgs[i].Name, cfgs[i].ID, err)
+			return fmt.Errorf("could not perform checks for broadcast: %s, BID: %s: %w", cfgs[i].Name, cfgs[i].BID, err)
 		}
 	}
 	return nil
@@ -249,13 +285,34 @@ func performChecksInternalThroughStateMachine(
 	cfg *BroadcastConfig,
 	timeNow func() time.Time,
 	store datastore.Store,
+	eventHooks []eventHook,
+	stateHooks []stateHook,
 ) error {
 	// We'll use this context to determine if anything happens after the handler
 	// has returned (we might need to store states for next time).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sys, err := newBroadcastSystem(ctx, store, cfg, log.Println)
+	// Construct the event handlers from the hooks.
+	// We have to do this because event handlers are not on a per config basic like
+	// the hooks are, so we use a closure to capture the config.
+	var eventHandlers []handler
+	for _, hook := range eventHooks {
+		eventHandlers = append(eventHandlers, func(e event) error {
+			hook(e, cfg)
+			return nil
+		})
+	}
+
+	// Similarly, we construct the state handlers from the hooks.
+	var stateHandlers []func(state)
+	for _, hook := range stateHooks {
+		stateHandlers = append(stateHandlers, func(s state) {
+			hook(s, cfg)
+		})
+	}
+
+	sys, err := newBroadcastSystem(ctx, store, cfg, log.Println, withEventHandlers(eventHandlers...), withStateHandlers(stateHandlers...))
 	if err != nil {
 		return fmt.Errorf("could not create broadcast system: %w", err)
 	}
@@ -271,12 +328,14 @@ func performChecksInternalThroughStateMachine(
 // performChecks wraps performChecksInternal and provides implementations of the
 // broadcast operations. These broadcast implementations are built around the
 // broadcast package, which employs the YouTube Live API.
-func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store) error {
+func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, eventHooks []eventHook, stateHooks []stateHook) error {
 	return performChecksInternalThroughStateMachine(
 		ctx,
 		cfg,
 		func() time.Time { return time.Now() },
 		store,
+		eventHooks,
+		stateHooks,
 	)
 }
 
@@ -316,9 +375,19 @@ func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...int
 	return nil
 }
 
+// errNoShutdownActions represents no shutdown actions being registered for the broadcast.
 var errNoShutdownActions = errors.New("no shutdown actions provided")
 
+// warnSkipShutdown is a pseudo-error which represents that shutdown was skipped.
+var warnSkipShutdown = errors.New("shutdown set to skip")
+
+// SkipAction is the placeholder used to represent that the action step should be skipped.
+const SkipAction = "skip"
+
 func extShutdown(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+	if cfg.ShutdownActions == SkipAction {
+		return warnSkipShutdown
+	}
 	if cfg.ShutdownActions == "" {
 		return errNoShutdownActions
 	}
@@ -341,24 +410,6 @@ func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...inte
 	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
-}
-
-// saveBroadcast saves a broadcast configuration to the datastore with the
-// variable name as the broadcast name and if the broadcast uses vidforward
-// we update the vidforward configuration with a control request.
-func saveBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, log func(string, ...interface{})) error {
-	d, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
-	}
-
-	log("saving, cfg: %s", provideConfig(cfg))
-	err = model.PutVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.Name, string(d))
-	if err != nil {
-		return fmt.Errorf("could not put broadcast data in store: %w", err)
 	}
 
 	return nil
@@ -387,54 +438,6 @@ retry:
 			goto retry
 		}
 		return fmt.Errorf("could not do http request: %w, resp: %v", err, resp)
-	}
-
-	return nil
-}
-
-// stopBroadcast performs all necessary operations to stop a broadcast.
-// We first check if the status of the broadcast is complete (it shouldn't be
-// in healthy operation) and if it is not, change to complete.
-// Then we change the broadcast configuration Active field to false, save this
-// and stop all external streaming hardware.
-func stopBroadcast(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, svc BroadcastService, log func(string, ...interface{})) error {
-	log("stopping")
-
-	status, err := svc.BroadcastStatus(ctx, cfg.ID)
-	if err != nil {
-		return fmt.Errorf("could not get broadcast status: %w", err)
-	}
-
-	if status != broadcast.StatusComplete && status != "" {
-		err := svc.CompleteBroadcast(ctx, cfg.ID)
-		if err != nil {
-			return fmt.Errorf("could not complete broadcast: %w", err)
-		}
-
-		if cfg.RegisterOpenFish {
-			// Register stream with openfish so we can annotate the video.
-			cs, err := strconv.Atoi(cfg.OpenFishCaptureSource)
-			if err != nil {
-				return fmt.Errorf("bad capturesource ID: %w", err)
-			}
-			err = ofsvc.RegisterStream(cfg.SID, cs, cfg.Start, cfg.End)
-			if err != nil {
-				return fmt.Errorf("register stream with openfish error: %w", err)
-			}
-		}
-	}
-
-	cfg.Active = false
-	err = saveBroadcast(ctx, cfg, store, log)
-	if err != nil {
-		return fmt.Errorf("save broadcast error: %w", err)
-	}
-
-	// Change privacy to post live privacy.
-	// This will also set the privacy of the video after the broadcast has ended.
-	err = svc.SetBroadcastPrivacy(ctx, cfg.ID, cfg.PostLivePrivacy)
-	if err != nil {
-		return fmt.Errorf("could not update broadcast privacy: %w", err)
 	}
 
 	return nil

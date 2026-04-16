@@ -40,9 +40,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 const (
@@ -76,6 +76,7 @@ type monitorDevice struct {
 	MaxCount              int // Max number of scalars that could be sent.
 	Throughput            int // Percentage of successful scalars.
 	Sensors               []sensorData
+	HasT1                 bool
 }
 
 // monitorData holds the relevant information for the monitor page
@@ -84,6 +85,8 @@ type monitorData struct {
 	Devices   []monitorDevice
 	WritePerm bool
 	Timezone  float64
+	SiteLat   float64
+	SiteLon   float64
 	commonData
 }
 
@@ -104,7 +107,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	skey, _ := profileData(profile)
+	skey, _ := requestSiteData(r, profile)
 
 	// Check if user has write permissions to link to devices page.
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
@@ -121,6 +124,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ch := make(chan monitorDevice, len(devices))
+	errCh := make(chan string, 5)
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
@@ -128,26 +132,37 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Timezone = site.Timezone
+	data.SiteLat = site.Latitude
+	data.SiteLon = site.Longitude
 
 	monitorDevices := make([]monitorDevice, len(devices))
 	var wg sync.WaitGroup
 	for _, device := range devices {
 		wg.Add(1)
-		go monitorLoadRoutine(device, site.Timezone, &wg, ch, data, skey, ctx, w, r)
+		go monitorLoadRoutine(device, site.Timezone, &wg, ch, errCh, data, skey, ctx, w, r)
 	}
 	wg.Wait()
 	close(ch)
+	close(errCh)
 	i := 0
 	for device := range ch {
 		monitorDevices[i] = device
 		i++
 	}
-	log.Println(len(monitorDevices))
+	var errMsg string
+	for err := range errCh {
+		log.Println("got error from channel:", err)
+		if errMsg == "" {
+			errMsg = err
+			continue
+		}
+		errMsg += ", " + err
+	}
 	slices.SortFunc(monitorDevices, func(a, b monitorDevice) int {
 		return int(b.LastReportedTimestamp - a.LastReportedTimestamp)
 	})
 	data.Devices = monitorDevices
-	writeTemplate(w, r, "monitor.html", &data, "")
+	writeTemplate(w, r, "monitor.html", &data, errMsg)
 }
 
 // scalarCount returns the number of scalars received for the first pin of a device
@@ -217,6 +232,7 @@ func monitorLoadRoutine(
 	tz float64,
 	wg *sync.WaitGroup,
 	ch chan monitorDevice,
+	errCh chan string,
 	data monitorData,
 	skey int64,
 	ctx context.Context,
@@ -286,8 +302,8 @@ func monitorLoadRoutine(
 		}
 		value, err := sensor.Transform(scalar.Value)
 		if err != nil {
-			reportMonitorError(w, r, &data, "could not transform scalar for sensor %d.%s: %v", sensor.Mac, sensor.Pin, err)
-			return
+			errCh <- fmt.Sprintf("could not transform scalar for sensor %s.%s: %v", model.MacDecode(sensor.Mac), sensor.Name, err)
+			continue
 		}
 
 		sensorData := sensorData{
@@ -299,6 +315,10 @@ func monitorLoadRoutine(
 		}
 		md.Sensors = append(md.Sensors, sensorData)
 	}
+	if strings.Contains(dev.Inputs, "T1") {
+		md.HasT1 = true
+	}
+
 	ch <- md
 	wg.Done()
 }

@@ -139,7 +139,7 @@ func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus) error {
 		Status: string(status),
 	}
 
-	log.Printf("broadcast: %s, ID: %s, attempting to update vidforward configuration, data: %+v", cfg.Name, cfg.ID, data)
+	log.Printf("broadcast: %s, BID: %s, attempting to update vidforward configuration, data: %+v", cfg.Name, cfg.BID, data)
 
 	// We're allowing some tolerance to failed requests here because it may be that we've
 	// caught vidforward during a service restart.

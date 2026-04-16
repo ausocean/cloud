@@ -41,17 +41,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/ausocean/utils/totp"
 )
 
 // Project constants.
 const (
 	projectID = "oceancenter"
-	version   = "v0.2.3"
+	version   = "v0.3.0"
 )
 
 // Site/device defaults.
@@ -59,7 +59,7 @@ const (
 	sandboxSite   = 3
 	sandboxName   = "Sandbox"
 	sandboxOrg    = "AusOcean"
-	sandboxOwner  = "breeze@ausocean.org"
+	sandboxOwner  = "davidsutton@ausocean.org"
 	sandboxOps    = "ops@ausocean.org"
 	sandboxTz     = 9.5
 	sandboxPeriod = 1 * time.Hour
@@ -146,17 +146,10 @@ func (svc *service) setup(ctx context.Context) {
 	}
 
 	var err error
-	if svc.standalone {
-		log.Printf("Running in standalone mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "file", "vidgrind", svc.storePath)
-	} else {
-		log.Printf("Running in App Engine mode")
-		svc.settingsStore, err = datastore.NewStore(ctx, "cloud", "netreceiver", "")
-	}
+	svc.settingsStore, _, err = model.SetupDatastore(svc.standalone, svc.storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
-	model.RegisterEntities()
 
 	// Get or create sandbox site and its admin user if it doesn't exist.
 	site, err := model.GetSite(ctx, svc.settingsStore, sandboxSite)
@@ -369,7 +362,7 @@ func writeDeviceConfig(w http.ResponseWriter, dev *model.Device) {
 // prefixed er:.
 // NB: This is to make parsing easier for dumb clients, such as shell scripts.
 func writeError(w http.ResponseWriter, status int, msg string) {
-	log.Printf(msg)
+	log.Printf("%s", msg)
 	http.Error(w, "er:"+msg, status)
 }
 

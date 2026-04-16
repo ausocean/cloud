@@ -2,21 +2,25 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
 )
 
 // broadcastSystem represents a video broadcasting control system.
 type broadcastSystem struct {
-	ctx *broadcastContext
-	sm  *broadcastStateMachine
-	hsm *hardwareStateMachine
-	log func(string, ...interface{})
+	ctx          *broadcastContext
+	sm           *broadcastStateMachine
+	hsm          *hardwareStateMachine
+	log          func(string, ...interface{})
+	stateHandler func(state)
 }
 
 type broadcastSystemOption func(*broadcastSystem) error
@@ -44,16 +48,17 @@ func withForwardingService(fs ForwardingService) broadcastSystemOption {
 
 func withHardwareManager(hm hardwareManager) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
-		bs.ctx.camera = hm
+		bs.ctx.hardware = hm
 		return nil
 	}
 }
 
 func withEventBus(bus eventBus) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
+		for _, h := range bs.ctx.bus.(*basicEventBus).handlers {
+			bus.subscribe(h)
+		}
 		bs.ctx.bus = bus
-		bus.subscribe(bs.sm.handleEvent)
-		bus.subscribe(bs.hsm.handleEvent)
 		return nil
 	}
 }
@@ -61,6 +66,33 @@ func withEventBus(bus eventBus) broadcastSystemOption {
 func withNotifier(n notify.Notifier) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.notifier = n
+		return nil
+	}
+}
+
+// withEventHandlers allows you to provide a set of handlers that will be called
+// when an event is published to the event bus.
+// This is useful if you wish to notify external systems of events e.g.
+// add a webhook to notify a remote system of an event.
+func withEventHandlers(h ...handler) broadcastSystemOption {
+	return func(bs *broadcastSystem) error {
+		for _, h_ := range h {
+			bs.ctx.bus.subscribe(h_)
+		}
+		return nil
+	}
+}
+
+// withStateHandler allows you to provide a set of handlers that will be called once
+// a state has been transitioned into. The new state is provided as an argument
+// to the handler.
+// This is useful if you wish to notify external systems of state changes e.g.
+// add a webhook to notify a remote system of a state change.
+func withStateHandlers(h ...func(state)) broadcastSystemOption {
+	return func(bs *broadcastSystem) error {
+		for _, h_ := range h {
+			bs.sm.registerStateHandler(h_)
+		}
 		return nil
 	}
 }
@@ -94,9 +126,10 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 	// to the config and then load them next time we perform checks.
 	storeEventsAfterCtx := func(event event) {
 		log("storing event after cancel: %s", event.String())
+		eventData := marshalEvent(event)
 		try(
 			man.Save(nil, func(_cfg *BroadcastConfig) {
-				_cfg.Events = append(_cfg.Events, event.String())
+				_cfg.Events = append(_cfg.Events, string(eventData))
 			}),
 			"could not update config with callback",
 			log,
@@ -107,6 +140,53 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 
 	// This context will be used by the state machines for access to our bits and bobs.
 	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, logOutput, nil}
+
+	// Subscribe event handler that notifies on events that implement errorEvent.
+	// Suppress if they satisfy the notification suppression rules.
+	bus.subscribe(func(event event) error {
+		if _, ok := event.(errorEvent); !ok {
+			return nil
+		}
+
+		errEvent := event.(errorEvent)
+
+		// Unmarshal the notification suppression rules from the broadcast configuration.
+		// It is of format:
+		// {
+		//  "SuppressKinds": ["broadcast-kind1" , "broadcast-kind2"],
+		// 	"SuppressContaining": ["shutdown failed", "failed to start"]
+		// }
+		suppressionRules := &struct {
+			SuppressKinds      []string
+			SuppressContaining []string
+		}{}
+
+		// Completely empty string indicates no suppression rules.
+		if cfg.NotifySuppressRules != "" {
+			err := json.Unmarshal([]byte(cfg.NotifySuppressRules), suppressionRules)
+			if err != nil {
+				broadcastContext.logAndNotify(errEvent.Kind(), "could not unmarshal notification suppression rules: %v", err)
+				return nil
+			}
+		}
+
+		for _, kind := range suppressionRules.SuppressKinds {
+			if notify.Kind(kind) == errEvent.Kind() {
+				broadcastContext.log("error event: %s", errEvent.Error())
+				return nil
+			}
+		}
+
+		for _, cont := range suppressionRules.SuppressContaining {
+			if strings.Contains(errEvent.Error(), cont) {
+				broadcastContext.log("error event: %s", errEvent.Error())
+				return nil
+			}
+		}
+
+		broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
+		return nil
+	})
 
 	// The broadcast state machine will be responsible for higher level broadcast control.
 	sm, err := getBroadcastStateMachine(broadcastContext)
@@ -120,7 +200,7 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 	hsm := newHardwareStateMachine(broadcastContext)
 	bus.subscribe(hsm.handleEvent)
 
-	sys := &broadcastSystem{broadcastContext, sm, hsm, log}
+	sys := &broadcastSystem{broadcastContext, sm, hsm, log, nil}
 
 	// Apply any options to the system.
 	for _, opt := range options {
@@ -138,9 +218,9 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 // cancellation the last time we ticked, and then publish a time event
 // to advanced the state machines again.
 func (bs *broadcastSystem) tick() error {
-	// Don't do anything if not enabled.
+	// If not enabled make sure we're in the idle state and have no broadcasts still in progress.
 	if !bs.ctx.cfg.Enabled {
-		// Also make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
+		// Make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
 		try(
 			bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 				_cfg.AttemptingToStart = false
@@ -150,14 +230,32 @@ func (bs *broadcastSystem) tick() error {
 			"could not update config with callback",
 			log.Printf,
 		)
-		bs.log("not enabled, not doing anything")
+
+		// If there's a broadcast ID, set to complete if live and then clear it.
+		if bs.ctx.cfg.BID != "" {
+			status, err := bs.ctx.svc.BroadcastStatus(context.Background(), bs.ctx.cfg.BID)
+			if err != nil {
+				bs.log("could not get broadcast status: %v", err)
+			} else {
+				if status == broadcast.StatusLive {
+					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
+					if err != nil {
+						bs.ctx.logAndNotify(broadcastService, "could not complete broadcast, please check this manually: %v", err)
+					}
+				}
+			}
+			try(bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.BID = "" }), "could not clear broadcast ID", bs.log)
+		}
+
+		bs.log("broadcast not enabled, not doing anything")
+
 		return nil
 	}
 
-	for _, event := range bs.ctx.cfg.Events {
-		e := stringToEvent(event)
-		bs.log("publishing stored event: %s", e.String())
-		bs.ctx.bus.publish(e)
+	for _, eventData := range bs.ctx.cfg.Events {
+		event := unmarshalEvent([]byte(eventData))
+		bs.log("publishing stored event: %s", event.String())
+		bs.ctx.bus.publish(event)
 	}
 
 	// Remove stored events we just published from the config.

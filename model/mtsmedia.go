@@ -38,7 +38,7 @@ import (
 	"github.com/Comcast/gots/v2/packet"
 	"github.com/ausocean/av/container/mts"
 	"github.com/ausocean/av/container/mts/pes"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 const (
@@ -362,9 +362,18 @@ func GetMtsMedia(ctx context.Context, store datastore.Store, mid int64, gh []str
 // GetMtsMediaKeys retrieves MtsMedia keys for a given Media ID,
 // optionally filtered by timestamp(s) and geohash(es).
 func GetMtsMediaKeys(ctx context.Context, store datastore.Store, mid int64, gh []string, ts []int64) ([]*datastore.Key, error) {
+	return GetMtsMediaKeysLimit(ctx, store, mid, gh, ts, 0)
+}
+
+// GetMtsMediaKeysLimit retrieves MtsMedia keys for a given Media ID
+// with an optional cap on the number of returned keys (if limit > 0).
+func GetMtsMediaKeysLimit(ctx context.Context, store datastore.Store, mid int64, gh []string, ts []int64, limit int) ([]*datastore.Key, error) {
 	q, err := newMtsMediaQuery(store, mid, gh, ts, true)
 	if err != nil {
 		return nil, err
+	}
+	if limit > 0 {
+		q.Limit(limit)
 	}
 	return store.GetAll(ctx, q, nil)
 }
@@ -544,9 +553,11 @@ func FromMID(mid int64) (string, string) {
 	return MacDecode(mid >> 4), getMtsPin(byte(mid & 0x0f))
 }
 
-// putMtsPin encodes a pin string, such as "V0" or "S3", into a nibble.
-// Bits 0-1 represent the pin number and bits 2-3 represents the pin
-// type.
+// putMtsPin encodes a pin string, such as "V0" or "S3", into a 4-bit nibble.
+// Bits 0-1 hold the pin number (0-3). Bits 2-3 hold the pin type (V=0, S=1, T=2, B=3).
+// Shifting the 2-bit type left by 2 bits gives base values of 0x00, 0x04, 0x08, and 0x0C.
+// Example: "S3" combines type 'S' (binary 0100 / 0x04) with number 3 (binary 0011)
+// to produce binary 0111 (0x07).
 func putMtsPin(pin string) byte {
 	var b byte
 	switch pin[0] {

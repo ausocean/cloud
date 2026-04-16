@@ -41,9 +41,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
 )
 
 // struct role maps NetReceiver and Ocean Bench permissions.
@@ -121,7 +121,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	// Require POST method, except for admin landing pages.
 	if r.Method != "POST" {
 		switch r.URL.Path {
-		case "/admin/site", "/admin/broadcast", "/admin/utils":
+		case "/admin/site", "/admin/broadcast", "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
 			// Okay.
 		default:
 			http.Redirect(w, r, "/", http.StatusMethodNotAllowed)
@@ -130,7 +130,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The following tasks all require admin privilege.
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	if !isAdmin(ctx, skey, p.Email) {
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -155,6 +155,22 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/admin/broadcast":
 		broadcastHandler(w, r)
+		return
+
+	case "/admin/missioncontrol":
+		if !isSuperAdmin(p.Email) {
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
+		}
+		missionControlHandler(w, r, p)
+		return
+
+	case "/admin/mediamanager":
+		if !isSuperAdmin(p.Email) {
+			http.Redirect(w, r, "/", http.StatusUnauthorized)
+			return
+		}
+		mediaManagerHandler(w, r, p)
 		return
 
 	case "/admin/utils":
@@ -238,10 +254,60 @@ func parseLocation(s string) (location, error) {
 }
 
 // updateSite updates an existing site.
-// Parameter names conform to standard NetReceiver JSON values described at
-// https://netreceiver.appspot.com/help/json
+// Parameter names conform to the following:
+// Attribute Description
+// sk: site key
+// sn: site name
+// oe: owner email
+// op: owner phone
+// cc: country code
+// tz: timezone offset from UTC
+// ue: user email
+// ur: user role (read, write or admin)
+// np: notify period
+// mp: monitor period (seconds between monitor/actuation cycles)
+// di: device ID
+// dk: device key
+// ma: MAC address
+// ip: input pin(s), comma separated (e.g., "A0,D1,X2")
+// op: output pin(s), comma separated (e.g., "D2")
+// wi: WiFi network info, comma separated (e.g., "ssid,key")
+// tg: device tag (typically a Git tag)
+// si: sensor ID
+// sp: sensor (input) pin
+// sq: sensor quantity
+// sx: sensor transformation (xform) function
+// sa: sensor arguments
+// su: sensor units
+// sf: sensor formatting function
+// ai: actuator ID
+// ap: actuator (output) pin or active period
+// av: actuator variable
+// ti: trigger ID
+// tp: trigger precondition (comma separated variable names)
+// ts: trigger subject (sensor ID)
+// to: trigger operation
+// tc: trigger comparate or trigger count
+// ta: trigger action
+// tv: trigger variable
+// td: trigger data
+// ci: cron ID
+// ct: cron time
+// ca: cron action
+// cv: cron variable
+// cd: cron data
+// ce: cron enabled
+// ei: endpoint ID
+// es: endpoint sensor ID
+// ea: endpoint address (IPv4 or IPv6 address)
+// ep: endpoint port
+// ex: endpoint protocol (udp or rtp)
+// et: endpoint timeout in seconds
+// ee: endpoint enabled
+// vn: version
+// er: error (results in a client-side netsender.ServerError)
 func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	name := r.FormValue("sn")
 	if name == "" {
 		return errors.New("empty site name")
@@ -295,7 +361,7 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // deleteSite deletes the current site and all associated users.
 func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 	ctx := r.Context()
 
 	err := model.DeleteSite(ctx, settingsStore, skey)
@@ -322,7 +388,7 @@ func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // updateUser creates or updates a site user.
 func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	email := r.FormValue("email")
 	perm, err := strconv.ParseInt(r.FormValue("perm"), 10, 64)
@@ -340,7 +406,7 @@ func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // deleteUser deletes a site user.
 func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	email := r.FormValue("email")
 	err := model.DeleteUser(r.Context(), settingsStore, skey, email)
@@ -353,7 +419,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 
 // writeAdmin writes the admin page.
 func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err error) {
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	data := adminData{
 		commonData: commonData{
@@ -402,7 +468,7 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 // utilsHandler handles admin utils requests.
 func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 	ctx := r.Context()
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	var msg string
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
@@ -451,7 +517,7 @@ func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 // utilsTaskHandler handles an admin utils task
 func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, data *utilsData) error {
 	ctx := r.Context()
-	skey, _ := profileData(p)
+	skey, _ := requestSiteData(r, p)
 
 	task := r.FormValue("task")
 

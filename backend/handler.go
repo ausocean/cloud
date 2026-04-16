@@ -56,6 +56,9 @@ type Handler interface {
 
 	// Save saves the passed Session to the session store.
 	SaveSession(Session) error
+
+	// Cookie returns the value of the cookie with the given name.
+	Cookie(string) string
 }
 
 // FiberHandler is a fiber based implementation of the Handler interface.
@@ -106,6 +109,12 @@ func (h *FiberHandler) SaveSession(session Session) error {
 	h.Ctx.Cookie(fs.cookie)
 
 	return nil
+}
+
+// Cookie implements the SessionStore interface for the FiberSessionStore type, by
+// returning the value of the cookie with the given name.
+func (h *FiberHandler) Cookie(key string) string {
+	return h.Ctx.Cookies(key)
 }
 
 // NetHandler is a net/http based implementation of the Handler interface.
@@ -160,4 +169,14 @@ func (h *NetHandler) SaveSession(session Session) error {
 	}
 
 	return h.store.Save(h.r, h.w, gs.session)
+}
+
+// Cookie implements the SessionStore interface for the NetHandler type, by
+// returning the value of the cookie with the given name.
+func (h *NetHandler) Cookie(id string) string {
+	ck, err := h.r.Cookie(id)
+	if err != nil {
+		return ""
+	}
+	return ck.Value
 }

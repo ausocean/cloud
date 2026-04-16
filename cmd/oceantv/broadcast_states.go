@@ -14,13 +14,13 @@ import (
 )
 
 type broadcastContext struct {
-	cfg    *BroadcastConfig
-	man    BroadcastManager
-	store  Store
-	svc    BroadcastService
-	fwd    ForwardingService
-	bus    eventBus
-	camera hardwareManager
+	cfg      *BroadcastConfig
+	man      BroadcastManager
+	store    Store
+	svc      BroadcastService
+	fwd      ForwardingService
+	bus      eventBus
+	hardware hardwareManager
 
 	// When nil, defaults to log.Println. Useful to plug in test implementation.
 	logOutput func(v ...any)
@@ -38,12 +38,13 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 }
 
 const (
-	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown.
+	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown or un-categorized.
 	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
 	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
 	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
 	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
 	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
+	broadcastService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
 )
 
 var errNoGlobalNotifier = errors.New("global notifier is nil")
@@ -117,6 +118,7 @@ func (s *stateWithTimeoutFields) timedOut(t time.Time) bool {
 }
 
 func (s *stateWithTimeoutFields) reset(d time.Duration) {
+	s.LastEntered = time.Now()
 	s.Timeout = d
 }
 
@@ -150,349 +152,6 @@ func (s *liveStateFields) lastStatusCheck() time.Time     { return s.LastStatusC
 func (s *liveStateFields) lastChatMsg() time.Time         { return s.LastChatMsg }
 func (s *liveStateFields) setLastStatusCheck(t time.Time) { s.LastStatusCheck = t }
 func (s *liveStateFields) setLastChatMsg(t time.Time)     { s.LastChatMsg = t }
-
-type vidforwardPermanentStarting struct {
-	stateFields
-	stateWithTimeoutFields
-}
-
-func newVidforwardPermanentStarting(ctx *broadcastContext) *vidforwardPermanentStarting {
-	return &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
-}
-
-func (s *vidforwardPermanentStarting) enter() {
-	s.LastEntered = time.Now()
-
-	// Use a copy of the config so that we can adjust the end date to +1 year
-	// without affecting the original config.
-	cfg := *s.cfg
-	cfg.End = cfg.End.AddDate(1, 0, 0)
-
-	if !try(s.man.SetupSecondary(context.Background(), s.cfg, s.store), "could not setup secondary broadcast", s.log) {
-		s.bus.publish(startFailedEvent{})
-		return
-	}
-
-	// We pass this to createAndStart so that it's run after broadcast creation, therefore
-	// vidforward gets up to date RTMP endpoint information.
-	onBroadcastCreation := func() error {
-		err := s.fwd.Stream(&cfg)
-		if err != nil {
-			return fmt.Errorf("could not set vidforward mode to stream: %w", err)
-		}
-		return nil
-	}
-
-	createBroadcastAndRequestHardware(
-		s.broadcastContext,
-		&cfg,
-		onBroadcastCreation,
-	)
-}
-
-type vidforwardPermanentLive struct {
-	stateFields
-	liveStateFields
-}
-
-func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
-
-type vidforwardPermanentTransitionLiveToSlate struct {
-	stateFields
-	stateWithTimeoutFields
-	stateWithHealthFields
-	HardwareStopped bool
-}
-
-func newVidforwardPermanentTransitionLiveToSlate(ctx *broadcastContext) *vidforwardPermanentTransitionLiveToSlate {
-	return &vidforwardPermanentTransitionLiveToSlate{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
-}
-
-func (s *vidforwardPermanentTransitionLiveToSlate) enter() {
-	s.LastEntered = time.Now()
-
-	s.bus.publish(hardwareStopRequestEvent{})
-	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
-}
-func (s *vidforwardPermanentTransitionLiveToSlate) isHardwareStopped() bool {
-	return s.cfg.HardwareState == hardwareStateToString(&hardwareOff{})
-}
-
-type vidforwardPermanentTransitionSlateToLive struct {
-	stateFields
-	HardwareStarted bool
-	stateWithTimeoutFields
-	stateWithHealthFields
-}
-
-func newVidforwardPermanentTransitionSlateToLive(ctx *broadcastContext) *vidforwardPermanentTransitionSlateToLive {
-	return &vidforwardPermanentTransitionSlateToLive{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
-}
-func (s *vidforwardPermanentTransitionSlateToLive) enter() {
-	s.LastEntered = time.Now()
-	s.bus.publish(hardwareStartRequestEvent{})
-	try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
-}
-func (s *vidforwardPermanentTransitionSlateToLive) isHardwareStarted() bool {
-	return s.cfg.HardwareState == hardwareStateToString(&hardwareOn{})
-}
-
-type vidforwardPermanentLiveUnhealthy struct {
-	stateFields
-	*broadcastContext `json: "-"`
-	LastResetAttempt  time.Time
-	Attempts          int
-	liveStateFields
-}
-
-func newVidforwardPermanentLiveUnhealthy(ctx *broadcastContext) *vidforwardPermanentLiveUnhealthy {
-	return &vidforwardPermanentLiveUnhealthy{broadcastContext: ctx}
-}
-func (s *vidforwardPermanentLiveUnhealthy) fix() {
-	const resetInterval = 5 * time.Minute
-	if time.Since(s.LastResetAttempt) <= resetInterval {
-		return
-	}
-
-	s.Attempts++
-
-	var (
-		e   event
-		msg string
-	)
-
-	const maxAttempts = 3
-	if s.Attempts > maxAttempts {
-		msg = "failed to fix permanent broadcast, transitioning to slate (attempts: %d, max attempts: %d)"
-		e = fixFailureEvent{}
-	} else {
-		msg = "attempting to fix permanent broadcast by hardware restart and forward stream re-request (attempts: %d, max attempts: %d)"
-		try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
-		e = hardwareResetRequestEvent{}
-	}
-
-	s.logAndNotify(broadcastGeneric, msg, s.Attempts, maxAttempts)
-	s.bus.publish(e)
-	s.LastResetAttempt = time.Now()
-}
-
-type vidforwardPermanentFailure struct {
-	stateFields
-	*broadcastContext `json: "-"`
-}
-
-func newVidforwardPermanentFailure(ctx *broadcastContext) *vidforwardPermanentFailure {
-	return &vidforwardPermanentFailure{stateFields{}, ctx}
-}
-func (s *vidforwardPermanentFailure) enter() { s.requestSlate() }
-func (s *vidforwardPermanentFailure) fix()   { s.requestSlate() }
-func (s *vidforwardPermanentFailure) requestSlate() {
-	s.bus.publish(hardwareStopRequestEvent{})
-	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
-}
-
-type vidforwardPermanentSlate struct{ stateFields }
-
-func newVidforwardPermanentSlate() *vidforwardPermanentSlate { return &vidforwardPermanentSlate{} }
-
-type vidforwardPermanentVoltageRecoverySlate struct {
-	stateFields
-	stateWithTimeoutFields
-}
-
-func newVidforwardPermanentVoltageRecoverySlate(ctx *broadcastContext) *vidforwardPermanentVoltageRecoverySlate {
-	return &vidforwardPermanentVoltageRecoverySlate{
-		stateWithTimeoutFields: newStateWithTimeoutFieldsWithTimeout(
-			ctx,
-			time.Duration(sanatisedVoltageRecoveryTimeout(ctx))*time.Hour,
-		),
-	}
-}
-func (s *vidforwardPermanentVoltageRecoverySlate) enter() {
-	s.LastEntered = time.Now()
-	s.requestSlate()
-}
-func (s *vidforwardPermanentVoltageRecoverySlate) fix() { s.requestSlate() }
-func (s *vidforwardPermanentVoltageRecoverySlate) requestSlate() {
-	try(s.fwd.Slate(s.cfg, WithType(LowVoltage)), "could not set vidforward mode to low voltage slate", s.log)
-}
-
-type vidforwardPermanentSlateUnhealthy struct {
-	stateFields
-	*broadcastContext `json: "-"`
-	LastResetAttempt  time.Time
-}
-
-func newVidforwardPermanentSlateUnhealthy(ctx *broadcastContext) *vidforwardPermanentSlateUnhealthy {
-	return &vidforwardPermanentSlateUnhealthy{stateFields{}, ctx, time.Now()}
-}
-func (s *vidforwardPermanentSlateUnhealthy) fix() {
-	const resetInterval = 5 * time.Minute
-	if time.Since(s.LastResetAttempt) > resetInterval {
-		s.logAndNotify(broadcastForwarder, "slate is unhealthy, requesting vidforward reconfiguration")
-		try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
-		s.LastResetAttempt = time.Now()
-	}
-}
-
-type vidforwardPermanentIdle struct {
-	stateFields
-	*broadcastContext `json: "-"`
-}
-
-func newVidforwardPermanentIdle(ctx *broadcastContext) *vidforwardPermanentIdle {
-	return &vidforwardPermanentIdle{stateFields{}, ctx}
-}
-func (s *vidforwardPermanentIdle) enter() {
-	s.bus.publish(hardwareStopRequestEvent{})
-}
-
-type vidforwardSecondaryLive struct {
-	stateFields
-	*broadcastContext `json: "-"`
-	liveStateFields
-}
-
-func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive {
-	return &vidforwardSecondaryLive{broadcastContext: ctx}
-}
-func (s *vidforwardSecondaryLive) exit() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast exiting secondary live", s.log)
-}
-
-type vidforwardSecondaryLiveUnhealthy struct {
-	stateFields
-	liveStateFields
-}
-
-func newVidforwardSecondaryLiveUnhealthy() *vidforwardSecondaryLiveUnhealthy {
-	return &vidforwardSecondaryLiveUnhealthy{}
-}
-
-type vidforwardSecondaryStarting struct {
-	stateFields
-	stateWithTimeoutFields
-}
-
-func newVidforwardSecondaryStarting(ctx *broadcastContext) *vidforwardSecondaryStarting {
-	return &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
-}
-
-func (s *vidforwardSecondaryStarting) enter() {
-	s.LastEntered = time.Now()
-	// We pass this to createBroadcastAndRequestHardware so that it's run after
-	// broadcast creation, therefore vidforward gets up to date RTMP endpoint
-	// information.
-	onBroadcastCreation := func() error {
-		err := s.fwd.Stream(s.cfg)
-		if err != nil {
-			return fmt.Errorf("could not set vidforward mode to stream: %w", err)
-		}
-		return nil
-	}
-	createBroadcastAndRequestHardware(
-		s.broadcastContext,
-		s.cfg,
-		onBroadcastCreation,
-	)
-}
-
-type vidforwardSecondaryIdle struct {
-	stateFields
-	*broadcastContext `json: "-"`
-}
-
-func newVidforwardSecondaryIdle(ctx *broadcastContext) *vidforwardSecondaryIdle {
-	return &vidforwardSecondaryIdle{broadcastContext: ctx}
-}
-func (s *vidforwardSecondaryIdle) enter() {
-	s.bus.publish(hardwareStopRequestEvent{})
-}
-
-type directLive struct {
-	*broadcastContext `json: "-"`
-	stateFields
-	liveStateFields
-}
-
-func newDirectLive(ctx *broadcastContext) *directLive {
-	return &directLive{broadcastContext: ctx}
-}
-
-type directLiveUnhealthy struct {
-	*broadcastContext `json: "-"`
-	LastResetAttempt  time.Time
-	Attempts          int
-	stateFields
-	liveStateFields
-}
-
-func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
-	return &directLiveUnhealthy{broadcastContext: ctx}
-}
-func (s *directLiveUnhealthy) fix() {
-	const resetInterval = 5 * time.Minute
-	if time.Since(s.LastResetAttempt) <= resetInterval {
-		return
-	}
-
-	s.Attempts++
-
-	var (
-		e   event
-		msg string
-	)
-
-	const maxAttempts = 3
-	if s.Attempts > maxAttempts {
-		msg = "failed to fix broadcast, requesting broadcast finish (attempts: %d, max attempts: %d)"
-		e = finishEvent{}
-	} else {
-		msg = "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)"
-		e = hardwareResetRequestEvent{}
-	}
-
-	s.logAndNotify(broadcastHardware, msg, s.Attempts, maxAttempts)
-	s.bus.publish(e)
-	s.LastResetAttempt = time.Now()
-}
-
-type directStarting struct {
-	stateFields
-	stateWithTimeoutFields
-}
-
-func newDirectStarting(ctx *broadcastContext) *directStarting {
-	return &directStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
-}
-func (s *directStarting) enter() {
-	s.LastEntered = time.Now()
-	createBroadcastAndRequestHardware(s.broadcastContext, s.cfg, nil)
-}
-
-type directIdle struct {
-	stateFields
-	*broadcastContext `json: "-"`
-}
-
-func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{broadcastContext: ctx} }
-func (s *directIdle) enter() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct idle entry", s.log)
-	s.bus.publish(hardwareStopRequestEvent{})
-}
-
-type directFailure struct {
-	stateFields
-	*broadcastContext `json: "-"`
-}
-
-func newDirectFailure(ctx *broadcastContext) *directFailure {
-	return &directFailure{broadcastContext: ctx}
-}
-func (s *directFailure) enter() {
-	try(s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc), "could not stop broadcast on direct failure entry", s.log)
-	s.bus.publish(hardwareStopRequestEvent{})
-}
 
 func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
 	switch state.(type) {
@@ -722,9 +381,9 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 	case !vid && !slate && !unhealthy && starting && !isSecondary && !inFailure:
 		newState = newDirectStarting(ctx)
 	case !vid && !slate && !unhealthy && !starting && !isSecondary && inFailure:
-		newState = newDirectFailure(ctx)
+		newState = newDirectFailure(ctx, nil)
 	default:
-		panic(fmt.Sprintf("unknown state for broadcast, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", vid, active, slate, unhealthy, starting, isSecondary, transitioning))
+		panic(fmt.Sprintf("unknown state for broadcast %v, vid: %v, active: %v, slate: %v, unhealthy: %v, starting: %v, secondary: %v, transitioning: %v", ctx.cfg.Name, vid, active, slate, unhealthy, starting, isSecondary, transitioning))
 	}
 
 	err := json.Unmarshal(ctx.cfg.StateData, &newState)
@@ -786,17 +445,16 @@ func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirs
 		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
-			if disableOnFirstFail || _cfg.StartFailures >= maxStartFailures {
+			if disableOnFirstFail || _cfg.StartFailures > maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
-				e = criticalFailureEvent{}
-				ctx.logAndNotify(broadcastGeneric, "broadcast start failure limit reached after %d attempts, entering broadcast failure state, error: %v)", _cfg.StartFailures, err)
+				e = criticalFailureEvent{fmt.Errorf("exceeded broadcast start failure limit: %w", err)}
 				_cfg.StartFailures = 0
 				return
 			}
 
 			// Less critical start failure event; this will give us another chance to broadcast
 			// if disableOnFirstFail is false.
-			e = startFailedEvent{}
+			e = startFailedEvent{fmt.Errorf("failed to start broadcast: %w", err)}
 		}),
 			"could not update config after failed start",
 			ctx.log,

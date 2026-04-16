@@ -7,7 +7,7 @@ AUTHORS
   Trek Hopton <trek@ausocean.org>
 
 LICENSE
-  Copyright (C) 2020 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2020-2025 the Australian Ocean Lab (AusOcean)
 
   This file is part of VidGrind. VidGrind is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -20,8 +20,7 @@ LICENSE
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
-  along with NetReceiver in gpl.txt.  If not, see
+  You should have received a copy of the GNU General Public License in gpl.txt.  If not, see
   <http://www.gnu.org/licenses/>.
 */
 
@@ -82,8 +81,7 @@ function prevPage() {
 
 function showLogs() {
   // Show page numbers and result numbers.
-  document.querySelector("#page-num").innerHTML =
-    `Page ${n + 1} of ${page.length} pages`;
+  document.querySelector("#page-num").innerHTML = `Page ${n + 1} of ${page.length} pages`;
   document.querySelector("#result-num").innerHTML = logs.length;
 
   // Show table.

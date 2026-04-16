@@ -39,7 +39,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "vidforwardSecondaryLive with time after End",
 			initialState:   newVidforwardSecondaryLive(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -50,7 +50,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLive with time after End",
 			initialState:   newDirectLive(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -83,7 +83,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLiveUnhealthy with time after End",
 			initialState:   newDirectLiveUnhealthy(bCtx),
 			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now,
@@ -394,7 +394,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "vidforwardSecondaryLive before start",
 			initialState:   newVidforwardSecondaryLive(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -405,7 +405,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLive before start",
 			initialState:   newDirectLive(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -438,7 +438,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directLiveUnhealthy before start",
 			initialState:   newDirectLiveUnhealthy(bCtx),
 			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &BroadcastConfig{
 				Start: now.Add(10 * time.Minute),
@@ -525,7 +525,7 @@ func TestHandleTimeEvent(t *testing.T) {
 			desc:           "directStarting timed out",
 			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			event:          timeEvent{now.Add(11 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
+			expectedEvents: []event{timeEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg:            &BroadcastConfig{},
 		},
@@ -609,7 +609,9 @@ func TestHandleStartFailedEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -681,7 +683,9 @@ func TestHandleBadHealthEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -798,7 +802,9 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 
 	tests := []struct {
 		desc          string
@@ -913,7 +919,9 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 func TestHandleFinishEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1012,7 +1020,9 @@ func TestHandleFinishEvent(t *testing.T) {
 func TestHandleStartEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1117,7 +1127,9 @@ func TestHandleStartEvent(t *testing.T) {
 func TestHandleStartedEvent(t *testing.T) {
 	bCtx := standardMockBroadcastContext(t, false)
 
-	now := time.Now()
+	now := fixedBroadcastTestTime(t)
+	monkey.Patch(time.Now, func() time.Time { return now })
+	defer monkey.Unpatch(time.Now)
 	tests := []struct {
 		desc          string
 		initialState  state
@@ -1264,7 +1276,7 @@ func TestBroadcastStart(t *testing.T) {
 			)
 
 			bCtx.man = newDummyManager(t, tt.cfg)
-			bCtx.camera = tt.hardwareMan
+			bCtx.hardware = tt.hardwareMan
 			bCtx.fwd = newDummyForwardingService()
 			bCtx.cfg = tt.cfg
 			bCtx.bus = bus
@@ -1293,10 +1305,10 @@ func TestBroadcastStart(t *testing.T) {
 			}
 
 			// Check that the hardware manager start was called/not called as expected.
-			startCalled := bCtx.camera.(*dummyHardwareManager).startCalled
+			startCalled := bCtx.hardware.(*dummyHardwareManager).startCalled
 			if tt.expectHardwareStartCall != startCalled {
 				t.Errorf("hardware manager start was/was not called as expected, expected: %v, got: %v",
-					tt.expectHardwareStartCall, bCtx.camera.(*dummyHardwareManager).startCalled)
+					tt.expectHardwareStartCall, bCtx.hardware.(*dummyHardwareManager).startCalled)
 			}
 
 			// Check that the broadcast manager start was called/not called as expected.
@@ -1370,22 +1382,23 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				c.CameraMac = 0
 			},
 			initialState: &directIdle{},
-			finalState:   &directIdle{},
+			finalState:   &directFailure{},
 			expectedEvents: []event{
 				timeEvent{},
 				startEvent{},
 				hardwareStartRequestEvent{},
 				invalidConfigurationEvent{},
+				finishedEvent{},
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs: []string{
-				"(hardware sm) camera is not set in configuration",
-				"got invalid configuration event, disabling broadcast: camera mac is empty",
+				"(invalidConfigurationEvent) camera mac is empty",
 			},
 			expectedNotify: map[int64]map[notify.Kind][]string{
 				testSiteKey: {
 					broadcastConfiguration: []string{
-						"(name: , id: ) got invalid configuration event, disabling broadcast: camera mac is empty",
+						"error event: (invalidConfigurationEvent) camera mac is empty",
+						"entering direct broadcast failure state due to: (invalidConfigurationEvent) camera mac is empty",
 					},
 				},
 			},
@@ -1419,19 +1432,18 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			logRecorder := newLogRecorder(t)
 
 			ctx, _ := context.WithCancel(context.Background())
-			const hardwareHealthy = true
+
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialState, cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newBroadcastSystem(
 				ctx,
@@ -1454,7 +1466,12 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			const maxTicks = 10
 			for tick := 0; true; tick++ {
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current state: %s, wanted state: %s",
+						maxTicks,
+						stateToString(sys.sm.currentState),
+						stateToString(tt.finalState),
+					)
 					return
 				}
 				err = sys.tick()
@@ -1611,7 +1628,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 						hardwareStartRequestEvent{},
 						lowVoltageEvent{},
 					}, timeEvents(241)...), // Time events to account for charging time.
-				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}}...,
+				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1630,7 +1647,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				c.ControllerMAC = 1
 			},
 			initialBroadcastState: &directIdle{},
-			finalBroadcastState:   &directIdle{},
+			finalBroadcastState:   &directFailure{},
 			finalHardwareState:    &hardwareFailure{},
 			hardwareMan:           newDummyHardwareManager(withHardwareFault()),
 			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
@@ -1641,8 +1658,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				startEvent{},
 				hardwareStartRequestEvent{},
 				controllerFailureEvent{},
-				criticalFailureEvent{},
-				hardwareStopRequestEvent{},
+				finishedEvent{},
 				hardwareStopRequestEvent{},
 			},
 			expectedLogs:   []string{},
@@ -1760,6 +1776,60 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
 		},
+
+		{
+			desc: "direct broadcast; start with low voltage alarm error, then enter recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareRecoveringVoltage{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			expectedEvents: []event{timeEvent{}, startEvent{}, hardwareStartRequestEvent{}, lowVoltageEvent{}},
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
+
+		{
+			desc: "direct broadcast; low voltage alarm error, successful voltage recovery",
+			cfg: func(c *BroadcastConfig) {
+				c.Enabled = true
+				c.SKey = testSiteKey
+				c.Start = time.Now().Add(-1 * time.Hour)
+				c.End = time.Now().Add(1 * time.Hour)
+				c.HardwareState = "hardwareOff"
+				c.ControllerMAC = 1
+			},
+			initialBroadcastState: &directIdle{},
+			finalBroadcastState:   &directStarting{},
+			finalHardwareState:    &hardwareStarting{},
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+				return newDummyManager(t, c)
+			},
+			requiredTicks: 60,
+			expectedEvents: append(
+				append(
+					[]event{
+						timeEvent{},
+						startEvent{},
+						hardwareStartRequestEvent{},
+						lowVoltageEvent{},
+					}, timeEvents(49)...),
+				[]event{voltageRecoveredEvent{}}...,
+			),
+			expectedLogs:   []string{},
+			expectedNotify: map[int64]map[notify.Kind][]string{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1768,17 +1838,17 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 
 			ctx, _ := context.WithCancel(context.Background())
 
+			// Use a monkey patch to replace time.Now() with a stable test time.
+			// This will be updated before each tick to simulate time passing.
+			testTime := fixedBroadcastTestTime(t)
+			monkey.Patch(time.Now, func() time.Time { return testTime })
+			defer monkey.Unpatch(time.Now)
+
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
 			cfg := prepopulatedConfig()
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialBroadcastState, cfg)
-
-			// Use a monkey patch to replace time.Now() with our own time.
-			// This will be updated before each tick to simulate time passing.
-			testTime := time.Now()
-			monkey.Patch(time.Now, func() time.Time { return testTime })
-			defer monkey.Unpatch(time.Now)
 
 			sys, err := newBroadcastSystem(
 				ctx,
@@ -1807,7 +1877,14 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				}
 
 				if tick > maxTicks {
-					t.Errorf("failed to reach expected state after %d ticks", maxTicks)
+					t.Errorf(
+						"failed to reach expected state after %d ticks, current broadcast state: %s, wanted broadcast state: %s, current hardware state: %s, wanted hardware state: %s",
+						maxTicks,
+						stateToString(sys.sm.currentState),
+						stateToString(tt.finalBroadcastState),
+						stateToString(sys.hsm.currentState),
+						stateToString(tt.finalHardwareState),
+					)
 					return
 				}
 

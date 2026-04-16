@@ -27,7 +27,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 const typeBinary = "Binary"

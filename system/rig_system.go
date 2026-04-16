@@ -29,8 +29,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/system/camera"
 )
 
 // RigSystem represents a controller device which has associated
@@ -117,8 +118,8 @@ func WithRigSystemDefaults() func(any) error {
 		sys.Variables = append(sys.Variables,
 			model.NewAlarmNetworkVar(10),
 			model.NewAlarmPeriodVar(5*time.Second),
-			model.NewAlarmRecoveryVoltageVar(840),
-			model.NewAlarmVoltageVar(825),
+			model.NewAlarmRecoveryVoltageVar(905),
+			model.NewAlarmVoltageVar(890),
 			model.NewAutoRestartVar(10*time.Minute),
 			model.NewPower1Var(false),
 			model.NewPower2Var(false),
@@ -133,6 +134,7 @@ func WithRigSystemDefaults() func(any) error {
 			model.AirTemperatureSensor(),
 			model.HumiditySensor(),
 			model.WaterTemperatureSensor(),
+			model.LightSensor(),
 			model.ESP32BatterySensor(defaultVoltageScaleFactor),
 			model.ESP32Power1Sensor(defaultVoltageScaleFactor),
 			model.ESP32Power2Sensor(defaultVoltageScaleFactor),
@@ -240,6 +242,111 @@ func PutRigSystem(ctx context.Context, store datastore.Store, system *RigSystem)
 		err = model.PutDevice(ctx, store, p)
 		if err != nil {
 			return fmt.Errorf("unable to put peripheral with name: %s, err: %w", p.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// CameraSystem contains a camera device and the associated variables.
+type CameraSystem struct {
+	Cam  *model.Device
+	Vars []*model.Variable
+}
+
+// SetWifi sets the wifi field of the camera.
+func (sys *CameraSystem) SetWifi(ssid, pass string) {
+	sys.Cam.Wifi = ssid + "," + pass
+}
+
+// SetLocation sets the location fields of the camera.
+func (sys *CameraSystem) SetLocation(lat, long float64) {
+	sys.Cam.Latitude = lat
+	sys.Cam.Longitude = long
+}
+
+// AddVariables adds the associated variables to the system.
+func (sys *CameraSystem) AddVariables(variables ...*model.Variable) {
+	sys.Vars = variables
+}
+
+// WithCameraDefaults applies all of the current defaults to the system.
+func WithCameraDefaults() Option {
+	return func(v any) error {
+		sys, ok := v.(*CameraSystem)
+		if !ok {
+			return fmt.Errorf("%v is not a CameraSystem", reflect.TypeOf(v).String())
+		}
+		sys.AddVariables(
+			model.NewAutoWhiteBalanceVar(camera.DefaultAutoWhiteBalance),
+			model.NewBitrateVar(camera.DefaultBitrate),
+			model.NewContrastVar(camera.DefaultContrast),
+			model.NewFrameRateVar(camera.DefaultFrameRate),
+			model.NewHDRVar(camera.DefaultHDR),
+			model.NewHeightVar(camera.DefaultHeight),
+			model.NewInputVar(camera.DefaultInput),
+			model.NewOutputVar(camera.DefaultOutput),
+			model.NewRotationVar(camera.DefaultRotation),
+			model.NewSaturationVar(camera.DefaultSaturation),
+			model.NewSharpnessVar(camera.DefaultSharpness),
+			model.NewWidthVar(camera.DefaultWidth),
+			model.NewLoggingVar(camera.DefaultLogging),
+			model.NewModeVar(camera.DefaultMode),
+			model.NewRTMPURLVar(""),
+		)
+
+		return nil
+	}
+}
+
+// NewCamera returns a new camera with the given name and mac address, with the given options applied.
+func NewCamera(skey, dkey int64, name string, mac string, opts ...Option) (*CameraSystem, error) {
+	MAC := model.MacEncode(mac)
+	if MAC == 0 {
+		return nil, model.ErrInvalidMACAddress
+	}
+
+	sys := &CameraSystem{
+		Cam: &model.Device{
+			Skey:          skey,
+			Dkey:          dkey,
+			Name:          name,
+			Mac:           MAC,
+			Type:          model.DevTypeCamera,
+			Inputs:        "V0,T0",
+			MonitorPeriod: 60,
+			ActPeriod:     60,
+		},
+	}
+
+	for i, opt := range opts {
+		err := opt(sys)
+		if err != nil {
+			return nil, fmt.Errorf("unable to apply option (%d): %w", i, err)
+		}
+	}
+
+	for _, variable := range sys.Vars {
+		variable.Skey = skey
+		variable.Scope = strings.ReplaceAll(sys.Cam.MAC(), ":", "")
+	}
+
+	return sys, nil
+}
+
+// PutCameraSystem puts a CameraSystem and all of its components into the datastore.
+func PutCameraSystem(ctx context.Context, store datastore.Store, system *CameraSystem) error {
+	// Put the Camera.
+	err := model.PutDevice(ctx, store, system.Cam)
+	if err != nil {
+		return fmt.Errorf("unable to put system camera: %w", err)
+	}
+
+	// Put all variables.
+	for _, v := range system.Vars {
+		err = model.PutVariable(ctx, store, v.Skey, system.Cam.Hex()+"."+v.Name, v.Value)
+		if err != nil {
+			return fmt.Errorf("unable to put variable with name: %s, err: %w", v.Name, err)
 		}
 	}
 

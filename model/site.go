@@ -30,7 +30,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ausocean/openfish/datastore"
+	"github.com/ausocean/cloud/datastore"
 )
 
 // typeSite is the name of the datastore site type.
