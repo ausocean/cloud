@@ -1,5 +1,6 @@
 .git/
 .github/
+
 # datablue
 cmd/datablue/.git
 cmd/datablue/.gitignore
@@ -57,3 +58,5 @@ cmd/oceancast/*
 cmd/roadmap/*
 
 docs/*
+
+datastore/store/*
