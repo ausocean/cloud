@@ -35,9 +35,8 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
-	"github.com/ausocean/openfish/cmd/openfish/api"
-	"github.com/ausocean/openfish/datastore"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
@@ -85,6 +84,28 @@ func registerAPIRoutes(app *fiber.App) {
 	v1.Get("/timeline", timelineHandler)
 }
 
+// Failure represents a generic JSON error response.
+type Failure struct {
+	Message string `json:"message"`
+}
+
+// ErrorHandler creates a HTTP response with the given status code or 500 by default.
+// The response body is JSON: {"message": "<error message here>"}
+func ErrorHandler(ctx *fiber.Ctx, err error) error {
+	// Status code defaults to 500.
+	code := fiber.StatusInternalServerError
+
+	// Retrieve the custom status code if it's a *fiber.Error.
+	var e *fiber.Error
+	if errors.As(err, &e) {
+		code = e.Code
+	}
+
+	// Send JSON response.
+	ctx.Status(code).JSON(Failure{Message: err.Error()})
+	return nil
+}
+
 func main() {
 	defaultPort := 8080
 	v := os.Getenv("PORT")
@@ -104,7 +125,10 @@ func main() {
 	}
 
 	// Create app.
-	app := fiber.New(fiber.Config{ErrorHandler: api.ErrorHandler, ReadBufferSize: 8192})
+	app := fiber.New(fiber.Config{
+		ReadBufferSize: 8192,
+		ErrorHandler:   ErrorHandler,
+	})
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: svc.frontendURL,
@@ -149,7 +173,7 @@ func (svc *service) setup() {
 // Spreadsheet details
 const (
 	spreadsheetID = "1nWk8oX4qBApaPcvBmz4VeTieU2Q2cK_qD71nW8LHAsc" // Replace with your actual spreadsheet ID
-	readRange     = "Sheet1!A2:M"                                  // Adjust based on your sheet layout
+	readRange     = "Sheet1!A2:N"                                  // Adjust based on your sheet layout
 )
 
 func loadCredentials(ctx context.Context, envVar string, scope string) (*google.Credentials, error) {
@@ -198,7 +222,7 @@ func ReadSpreadsheet(ctx context.Context, credentials *google.Credentials, sprea
 
 // Convert spreadsheet data into structured JSON
 func parseRoadmapData(data [][]interface{}) []map[string]string {
-	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Start", "End", "Milestone Type", "Dependencies", "Actual Start", "Actual End"}
+	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Archive", "Start", "End", "Milestone Type", "Dependencies", "Actual Start", "Actual End"}
 	var tasks []map[string]string
 
 	for _, row := range data {
@@ -298,7 +322,7 @@ func updateHandler(c *fiber.Ctx) error {
 		formattedStart := formatDateToSheet(task.Start)
 		formattedEnd := formatDateToSheet(task.End)
 
-		updateRange := fmt.Sprintf("Sheet1!H%d:I%d", rowIndex, rowIndex)
+		updateRange := fmt.Sprintf("Sheet1!I%d:J%d", rowIndex, rowIndex)
 		values := [][]interface{}{{formattedStart, formattedEnd}}
 
 		updates = append(updates, &sheets.ValueRange{
