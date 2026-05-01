@@ -92,17 +92,12 @@ type Profile struct {
 //	https://developers.google.com/people/v1/how-tos/authorizing
 type UserAuth struct {
 	sync.Mutex
-	ProjectID string // GAE project ID.
-	ClientID  string // Oauth2 client ID.
-	SessionID string // Default OAuth2 session ID.
-	// MaxAge is the session cookie lifetime in seconds. It behaves as a
-	// sliding window: the cookie is rewritten with this MaxAge on login and
-	// on every subsequent authenticated request (see GetProfile), so an
-	// active user stays logged in indefinitely while idle users are logged
-	// out after MaxAge seconds. If 0, oauthMaxAge is used.
-	MaxAge   int
-	cfg      *oauth2.Config        // OAuth2 configuration.
-	NetStore *sessions.CookieStore // Session state (only used for net/http implementations)
+	ProjectID string                // GAE project ID.
+	ClientID  string                // Oauth2 client ID.
+	SessionID string                // Default OAuth2 session ID.
+	MaxAge    int                   // OAuth2 max age in seconds.
+	cfg       *oauth2.Config        // OAuth2 configuration.
+	NetStore  *sessions.CookieStore // Session state (only used for net/http implementations)
 }
 
 var (
@@ -168,11 +163,6 @@ func (ua *UserAuth) Init(h backend.Handler) {
 	_, isNetHandler := h.(*backend.NetHandler)
 	if isNetHandler {
 		ua.NetStore = sessions.NewCookieStore([]byte(secrets["sessionKey"]))
-		// Override gorilla's silent 30-day default so freshly loaded sessions
-		// inherit our configured MaxAge rather than gorilla's. Without this,
-		// SaveSession would rewrite the cookie with a 30-day MaxAge on every
-		// request regardless of ua.MaxAge.
-		ua.NetStore.MaxAge(ua.MaxAge)
 	}
 
 	return
@@ -488,16 +478,6 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 	// Using Oauth2 Tokens.
 	if *tok != (oauth2.Token{}) {
 		if tok.Valid() {
-			// Token is still valid so no other session state needs updating,
-			// but we still slide the cookie forward by ua.MaxAge so an active
-			// user (whose token rarely expires) doesn't get logged out exactly
-			// MaxAge seconds after their initial login.
-			if err := sess.SetMaxAge(ua.MaxAge); err != nil {
-				return nil, fmt.Errorf("unable to set session MaxAge: %w", err)
-			}
-			if err := h.SaveSession(sess); err != nil {
-				return nil, fmt.Errorf("session save error: %w", err)
-			}
 			return profile, nil
 		}
 
@@ -541,14 +521,6 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		return nil, fmt.Errorf("unable to set profile key: %w", err)
 	}
 
-	// Re-apply MaxAge so the cookie slides forward on each authenticated
-	// request. Required because backend session loaders reset MaxAge on
-	// load (gorilla copies the store default; fiber starts at zero).
-	err = sess.SetMaxAge(ua.MaxAge)
-	if err != nil {
-		return nil, fmt.Errorf("unable to set session MaxAge: %w", err)
-	}
-
 	err = h.SaveSession(sess)
 	if err != nil {
 		return nil, fmt.Errorf("session save error: %w", err)
@@ -586,11 +558,6 @@ func (ua *UserAuth) PutData(h backend.Handler, data string) error {
 	err = sess.Set(profileKey, profile)
 	if err != nil {
 		return fmt.Errorf("unable to set profile key: %w", err)
-	}
-	// Re-apply MaxAge so this save doesn't shorten the session.
-	err = sess.SetMaxAge(ua.MaxAge)
-	if err != nil {
-		return fmt.Errorf("unable to set session MaxAge: %w", err)
 	}
 	return h.SaveSession(sess)
 }
