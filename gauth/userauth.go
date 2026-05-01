@@ -488,6 +488,16 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 	// Using Oauth2 Tokens.
 	if *tok != (oauth2.Token{}) {
 		if tok.Valid() {
+			// Token is still valid so no other session state needs updating,
+			// but we still slide the cookie forward by ua.MaxAge so an active
+			// user (whose token rarely expires) doesn't get logged out exactly
+			// MaxAge seconds after their initial login.
+			if err := sess.SetMaxAge(ua.MaxAge); err != nil {
+				return nil, fmt.Errorf("unable to set session MaxAge: %w", err)
+			}
+			if err := h.SaveSession(sess); err != nil {
+				return nil, fmt.Errorf("session save error: %w", err)
+			}
 			return profile, nil
 		}
 
