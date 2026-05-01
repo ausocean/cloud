@@ -514,6 +514,7 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to set token session key: %w", err)
 		}
+		return profile, nil
 	}
 
 	err = sess.Set(profileKey, profile)
