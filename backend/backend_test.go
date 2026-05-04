@@ -156,3 +156,115 @@ func (svc *testService) get(h Handler) error {
 
 	return nil
 }
+
+func TestFiberSession(t* testing.T) {
+	const (
+		sessionID = "service_auth"
+		sessionMaxAge = 24*60*60
+		cookieURL = "/cookie"
+	)
+
+	t.Run("Test Server Set Max Age", func(t* testing.T) {
+		sess, err := NewFiberSession(sessionID, "")
+		assert.NoError(t, err)
+
+		// Set the max age.
+		err = sess.SetMaxAge(sessionMaxAge)
+		assert.NoError(t, err)
+
+		// Check the max age was set (on the server copy).
+		assert.Equal(t, sess.cookie.MaxAge, sessionMaxAge)
+	})
+
+	t.Run("Test Server Send Max Age", func(t* testing.T){
+
+		handler := func(c* fiber.Ctx)error{
+			sess, err := NewFiberSession(sessionID, "")
+			assert.NoError(t, err)
+
+			// Set the max age.
+			err = sess.SetMaxAge(sessionMaxAge)
+			assert.NoError(t, err)
+
+			c.Cookie(sess.cookie)
+			return nil
+		}
+
+		app := fiber.New()
+		app.Get(cookieURL, handler)
+
+		req, err := http.NewRequest(http.MethodGet, cookieURL, nil)
+		assert.NoError(t, err)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+
+		// Ensure that a cookie has been added with the correct max age.
+		assert.Len(t, resp.Cookies(), 1)
+		for _, ck := range resp.Cookies() {
+			assert.Equal(t, ck.MaxAge, sessionMaxAge)
+		}
+	})
+
+}
+
+
+func TestGorillaSession(t* testing.T) {
+	const (
+		sessionID = "service_auth"
+		sessionMaxAge = 24*60*60
+		cookieURL = "/cookie"
+		testSecretKey = "1234-4321"
+	)
+
+	cookieStore := sessions.NewCookieStore([]byte(testSecretKey))
+
+	t.Run("Test Server Set Max Age", func(t* testing.T) {
+		req, err := http.NewRequest(http.MethodGet, cookieURL, nil)
+		assert.NoError(t, err)
+		session, err := cookieStore.Get(req, sessionID)
+		assert.NoError(t, err)
+
+		sess := NewGorillaSession(session)
+		assert.NoError(t, err)
+
+		// Set the max age.
+		err = sess.SetMaxAge(sessionMaxAge)
+		assert.NoError(t, err)
+
+		// Check the max age was set (on the server copy).
+		assert.Equal(t, sess.session.Options.MaxAge, sessionMaxAge)
+	})
+
+	t.Run("Test Server Send Max Age", func(t* testing.T){
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r* http.Request) {
+			req, err := http.NewRequest(http.MethodGet, cookieURL, nil)
+			assert.NoError(t, err)
+			session, err := cookieStore.Get(req, sessionID)
+			assert.NoError(t, err)
+
+			sess := NewGorillaSession(session)
+			assert.NoError(t, err)
+
+			// Set the max age.
+			err = sess.SetMaxAge(sessionMaxAge)
+			assert.NoError(t, err)
+
+			err = sess.session.Save(r, w)
+			assert.NoError(t, err)
+		})
+
+		ts := httptest.NewServer(handler)
+		defer ts.Close()
+
+		resp, err := http.Get(ts.URL)
+		assert.NoError(t, err)
+
+		// Ensure that a cookie has been added with the correct max age.
+		assert.Len(t, resp.Cookies(), 1)
+		for _, ck := range resp.Cookies() {
+			assert.Equal(t, ck.MaxAge, sessionMaxAge)
+		}
+	})
+
+}
