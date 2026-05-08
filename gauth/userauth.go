@@ -475,31 +475,8 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 	}
 	ctx := h.Context()
 
-	// Using Oauth2 Tokens.
-	if *tok != (oauth2.Token{}) {
-		if tok.Valid() {
-			return profile, nil
-		}
-
-		// Issue a new client request to refresh the OAuth token.
-		src := ua.cfg.TokenSource(ctx, tok)
-		newTok, err := src.Token()
-		if err != nil {
-			return nil, fmt.Errorf("could not get refreshed token: %w", err)
-		}
-		clt := ua.cfg.Client(ctx, newTok)
-		data := profile.Data // Save optional data.
-		profile, err = fetchProfile(clt)
-		if err != nil {
-			return nil, fmt.Errorf("fetch profile error: %w", err)
-		}
-
-		profile.Data = data // Restore optional data.
-		err = sess.Set(oauthTokenSessionKey, newTok)
-		if err != nil {
-			return nil, fmt.Errorf("unable to set token session key: %w", err)
-		}
-	} else {
+	// One-tap users authenticate with an idToken rather than an OAuth2 token.
+	if idTok.IDToken != "" {
 		validator, err := idtoken.NewValidator(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get new validator: %w", err)
@@ -514,6 +491,30 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to set token session key: %w", err)
 		}
+		return profile, nil
+	}
+
+	if tok.Valid() {
+		return profile, nil
+	}
+
+	// Issue a new client request to refresh the OAuth token.
+	src := ua.cfg.TokenSource(ctx, tok)
+	newTok, err := src.Token()
+	if err != nil {
+		return nil, fmt.Errorf("could not get refreshed token: %w", err)
+	}
+	clt := ua.cfg.Client(ctx, newTok)
+	data := profile.Data // Save optional data.
+	profile, err = fetchProfile(clt)
+	if err != nil {
+		return nil, fmt.Errorf("fetch profile error: %w", err)
+	}
+
+	profile.Data = data // Restore optional data.
+	err = sess.Set(oauthTokenSessionKey, newTok)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set token session key: %w", err)
 	}
 
 	err = sess.Set(profileKey, profile)
