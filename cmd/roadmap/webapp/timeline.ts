@@ -242,19 +242,57 @@ const sketch = (p: p5) => {
     // ---------------- TIMELINE HEADER ----------------
     p.strokeWeight(1);
     p.stroke(180);
-    p.line(startX + offsetX, timelineTop, p.width - startX + offsetX, timelineTop);
+    p.line(0, timelineTop, p.width, timelineTop);
 
     // Date rendering setup
     let interval = 1 * 24 * 60 * 60 * 1000; // 1 day in milliseconds
     p.textSize(12);
     p.textAlign(p.CENTER);
     p.fill(50);
-    let lastRenderedDayX = -Infinity; // Track last rendered day position
     let minNumberSpacing = 15; // Minimum spacing to avoid overlap
-    let lastMonthX = dateToX(new Date(timelineStart).toISOString().split("T")[0], p);
-    let lastMonth: number | null = null;
     let isGrey = false; // Toggle for alternating colors
-    for (let t = timelineStart; t <= timelineEnd; t += interval) {
+
+    // ---------------- VIEWPORT BOUNDS ----------------
+    // Inverse of dateToX: only iterate over days that are visible on screen,
+    // which decouples the timeline axis rendering from the data range.
+    const totalRange = timelineEnd - timelineStart;
+    const xToMillisUnclamped = (x: number) => timelineStart + ((x - startX - offsetX) / ((p.width - startX) * zoomLevel)) * totalRange;
+    const vpStartMillis = xToMillisUnclamped(0);
+    const vpEndMillis = xToMillisUnclamped(p.width);
+
+    // ---------------- DAY-NUMBER STRIDE ----------------
+    // Anchor which days get labelled to the date itself (not loop order) so
+    // labels don't shimmer between e.g. {2,5,8,...} and {3,6,9,...} as the
+    // user pans. Pick a "nice" stride based on pixels-per-day at the current
+    // zoom that still respects minNumberSpacing.
+    const pixelsPerDay = ((p.width - startX) * zoomLevel * interval) / totalRange;
+    const minStride = Math.max(1, Math.ceil(minNumberSpacing / pixelsPerDay));
+    const niceStrides = [1, 2, 3, 5, 7, 14, 30];
+    const dayStride = niceStrides.find((s) => s >= minStride) ?? Math.ceil(minStride / 30) * 30;
+
+    // Snap loop start to start-of-day so day numbers/lines are pixel-stable.
+    const loopStartDate = new Date(vpStartMillis);
+    loopStartDate.setHours(0, 0, 0, 0);
+    const dayLoopStart = loopStartDate.getTime();
+
+    // First visible month's start (used for label/divider positioning of the
+    // partially-visible left-edge month).
+    const firstMonthStartDate = new Date(loopStartDate);
+    firstMonthStartDate.setDate(1);
+    const firstMonthStartX = dateToX(firstMonthStartDate.toISOString().split("T")[0], p);
+    const firstMonthYear = firstMonthStartDate.toLocaleString("default", { month: "long", year: "numeric" });
+
+    // Pre-draw the first visible month's label, since the loop starts inside
+    // that month and won't see a month transition for it.
+    p.fill(0);
+    p.strokeWeight(0);
+    p.textSize(14);
+    p.text(firstMonthYear, firstMonthStartX + 15, monthTextSize + 2);
+
+    let lastMonthX = firstMonthStartX;
+    let lastMonth: number = firstMonthStartDate.getMonth();
+
+    for (let t = dayLoopStart; t <= vpEndMillis; t += interval) {
       let date = new Date(t);
       let x = dateToX(date.toISOString().split("T")[0], p);
       let month: number = date.getMonth();
@@ -268,13 +306,12 @@ const sketch = (p: p5) => {
         p.strokeWeight(0);
         p.textSize(14);
         p.text(monthYear, x + 15, monthTextSize + 2);
-        if (lastMonth !== null) {
-          // Skip first iteration
-          p.stroke(150);
-          p.strokeWeight(1);
-          p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
-          isGrey = !isGrey; // Toggle color for next month
-        }
+
+        // Draw divider at the previous month's start.
+        p.stroke(150);
+        p.strokeWeight(1);
+        p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
+        isGrey = !isGrey; // Toggle color for next month
 
         // Track new month's start position
         lastMonthX = x;
@@ -282,13 +319,14 @@ const sketch = (p: p5) => {
       }
 
       // ---------------- DAY NUMBER ----------------
-      if (x - lastRenderedDayX >= minNumberSpacing) {
-        // Ensure minimum spacing
+      // Label only days that fall on the date-anchored stride, so the shown
+      // day numbers are stable as the user pans.
+      const dayIndex = Math.floor(t / interval);
+      if (dayIndex % dayStride === 0) {
         p.fill(0);
         p.strokeWeight(0);
         p.textSize(dayNumberSize);
         p.text(day, x, monthTextSize + dayNumberSize + milestoneSpaceHeight + 8);
-        lastRenderedDayX = x; // Update last rendered position
       }
 
       // ---------------- WEEKEND SHADING ----------------
@@ -308,11 +346,9 @@ const sketch = (p: p5) => {
     }
 
     // ---------------- FINAL MONTH LINE ----------------
-    if (lastMonth !== null) {
-      p.stroke(150);
-      p.strokeWeight(1);
-      p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
-    }
+    p.stroke(150);
+    p.strokeWeight(1);
+    p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
 
     // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
     visibleTasks.forEach((task, index) => {
@@ -491,6 +527,36 @@ const sketch = (p: p5) => {
   p.mouseReleased = () => {
     isDragging = false;
     accumulatedDeltaMillis = 0;
+
+    // If the user just dragged a task (possibly past the previous data
+    // range), recompute timelineStart/End and re-derive zoomLevel/offsetX so
+    // the visible pixel positions stay identical. This keeps "Fit all" and
+    // the other zoom presets honest about the new data range without
+    // visually disturbing the user's current view.
+    if (selectedTask && tasks.length > 0) {
+      const W = p.width - startX;
+      const oldRange = timelineEnd - timelineStart;
+
+      // Date currently at x=0; we'll pin it there after re-parameterizing.
+      const oldLeftMillis = timelineStart + ((0 - startX - offsetX) / (W * zoomLevel)) * oldRange;
+
+      const newStart = Math.min(...tasks.map((t) => new Date(t.start).getTime()));
+      const newEnd = Math.max(...tasks.map((t) => new Date(t.end).getTime()));
+      const newRange = newEnd - newStart;
+
+      if (oldRange > 0 && newRange > 0) {
+        timelineStart = newStart;
+        timelineEnd = newEnd;
+        // dateToX is affine in date; matching at one point + scaling the
+        // slope by newRange/oldRange ensures it matches everywhere.
+        zoomLevel = (zoomLevel * newRange) / oldRange;
+        offsetX = -startX - ((oldLeftMillis - timelineStart) / newRange) * W * zoomLevel;
+
+        const slider = document.getElementById("zoom-slider") as HTMLInputElement | null;
+        if (slider) slider.value = String(zoomLevel);
+        redraw = true;
+      }
+    }
   };
 
   let draggingEdge: "start" | "end" | "middle" | null = null;
@@ -568,11 +634,9 @@ function xToDate(x: number, p: p5): string {
   // Adjust X position for offset & zoom
   let adjustedX = (x - startX - offsetX) / zoomLevel;
 
-  // Ensure proper mapping of X position to time range
+  // Map X position to a date. Intentionally not clamped to the data range so
+  // tasks can be dragged past the first/last task into open future or past.
   let dateMillis = timelineStart + (adjustedX / (p.width - startX)) * timeRange;
-
-  // Prevent invalid dates due to out-of-bounds values
-  dateMillis = Math.max(timelineStart, Math.min(dateMillis, timelineEnd));
 
   return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
 }
