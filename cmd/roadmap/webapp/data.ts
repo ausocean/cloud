@@ -1,0 +1,96 @@
+/// <reference types="vite/client" />
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+export async function fetchTasks(): Promise<any[]> {
+  console.log("🔄 Fetching Gantt data from API...");
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/timeline`);
+  console.log("API Response Received:", response);
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+
+  const rawData = await response.json();
+  console.log("📄 Raw API Data:", rawData);
+
+  const tasks = rawData
+    .filter((row: any) => row.Status !== "Discontinued")
+    .map((row: any) => {
+      let startDate = parseDate(row.Start || "");
+      let endDate = parseDate(row.End || "");
+      let categoryEmoji = getCategoryEmoji(row.Category || "Other");
+
+      // Validate start and end dates.
+      if (!startDate || isNaN(new Date(startDate).getTime())) {
+        console.warn(`⚠️ Invalid start date for task "${row.Title}":`, startDate);
+        startDate = new Date().toISOString().split("T")[0]; // Default to today.
+      }
+
+      if (!endDate || isNaN(new Date(endDate).getTime())) {
+        console.warn(`⚠️ Invalid end date for task "${row.Title}":`, endDate);
+        endDate = new Date(new Date(startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Default to 7 days later
+      }
+
+      return {
+        id: row.ID,
+        category: row.Category,
+        name: `${categoryEmoji} ${row.Title}`, // Prepend emoji to task name.
+        description: row.Description || "",
+        start: startDate,
+        end: endDate,
+        priority: row.Priority || "P5",
+        owner: row.Owner || "Other",
+        milestone: row["Milestone Type"] === "Start Date" ? startDate : row["Milestone Type"] === "End Date" ? endDate : null,
+        dependencies: row.Dependencies ? row.Dependencies.split(",").map((dep: string) => dep.trim()) : [],
+      };
+    });
+
+  console.log("🛠️ Processed Tasks:", tasks);
+  return tasks;
+}
+
+export async function submitTasks(tasks: any[]): Promise<void> {
+  console.log("📤 Sending update request...", tasks);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tasks }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update tasks: ${errorText}`);
+  }
+
+  console.log("Changes submitted successfully!");
+}
+
+// parseDate converts a "dd/mm/yyyy" date string to "yyyy-mm-dd" (ISO).
+function parseDate(dateString: string): string {
+  const parts = dateString.split("/");
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+  }
+  console.warn(`⚠️ Unexpected date format: "${dateString}"`);
+  return "";
+}
+
+function getCategoryEmoji(category: string): string {
+  const categoryMap: Record<string, string> = {
+    Rig: "🛰️",
+    "AusOceanTV Platform": "📺",
+    Hydrophone: "🎤",
+    Camera: "📷",
+    Broadcast: "🎥",
+    CloudBlue: "☁️",
+    Speaker: "🔊",
+    OpenFish: "🐟",
+    "Jetty Rig": "🏗️",
+    Other: "⚙️",
+  };
+
+  return categoryMap[category] || "⚙️"; // Default to "Other" emoji if no match
+}
