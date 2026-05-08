@@ -40,6 +40,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
+	"github.com/joho/godotenv"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
@@ -107,6 +108,14 @@ func ErrorHandler(ctx *fiber.Ctx, err error) error {
 }
 
 func main() {
+	// Load environment variables from a .env file if present (local
+	// development only). godotenv does not override variables that are
+	// already set, so production environments (e.g. App Engine, where
+	// variables are populated from app.yaml) are unaffected.
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Printf("could not load .env: %v", err)
+	}
+
 	defaultPort := 8080
 	v := os.Getenv("PORT")
 	if v != "" {

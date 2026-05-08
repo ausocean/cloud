@@ -1,7 +1,11 @@
 # General ignores
 .DS_Store
+# Local environment files (never commit secrets/local overrides).
 .env
-.env.*
+.env.local
+.env.*.local
+# Allow committed example/mode-specific env files (e.g. .env.example,
+# .env.development, .env.production, .env.staging).
 .vscode/
 .idea/
 *.log
