@@ -1,6 +1,7 @@
 import p5 from "p5";
 
 import { fetchTasks, submitTasks } from "./data";
+import { getOwnerColor, getPriorityColor } from "./config";
 
 let tasks: any[] = [];
 let visibleTasks: any[] = [];
@@ -363,7 +364,7 @@ const sketch = (p: p5) => {
     // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
     visibleTasks.forEach((task, index) => {
       let yPos = index * yBoxSpacing + timelineTop + 5;
-      let backgroundColor = ownerColors[task.owner] || ownerColors["Other"];
+      let backgroundColor = getOwnerColor(task.owner);
 
       // Draw background color for each row.
       p.fill(backgroundColor);
@@ -728,38 +729,6 @@ function drawTooltip(p: p5, task: any, x: number, y: number) {
   p.textSize(12);
   p.text(description, x + padding, y + padding + 20);
   p.text(`Category: ${category}`, x + padding, y + padding + 38); // ✅ Category line
-}
-
-const ownerColors: Record<string, string> = {
-  "David Sutton": "rgba(255, 220, 220, 0.3)", // Light Red
-  "Saxon Nelson-Milton": "rgba(220, 255, 220, 0.3)", // Light Green
-  "Breeze del West": "rgba(220, 220, 255, 0.3)", // Light Blue
-  "Trek Hopton": "rgba(255, 255, 220, 0.3)", // Light Yellow
-  "Scott Barnard": "rgba(255, 220, 255, 0.3)", // Light Pink
-  "Intern-Software": "rgba(255, 220, 190, 0.3)",
-  "Intern-Elec": "rgba(190, 220, 190, 0.3)",
-  "Intern-Mech": "rgba(255, 190, 255, 0.3)",
-  Other: "rgba(240, 240, 240, 0.3)", // Default Gray
-};
-
-// Color mapping for priority
-function getPriorityColor(priority: string): string {
-  switch (priority) {
-    case "P0":
-      return "#f87171"; // Lighter Red
-    case "P1":
-      return "#fb923c"; // Lighter Orange
-    case "P2":
-      return "#facc15"; // Lighter Yellow
-    case "P3":
-      return "#4ade80"; // Lighter Green
-    case "P4":
-      return "#93c5fd"; // Lighter Blue
-    case "P5":
-      return "#bfdbfe"; // Very Light Blue
-    default:
-      return "#f3f4f6"; // Lighter Gray
-  }
 }
 
 document.getElementById("submit-changes")!.addEventListener("click", async () => {

@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { config, getCategoryEmoji } from "./config";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export async function fetchTasks(): Promise<any[]> {
@@ -15,12 +17,15 @@ export async function fetchTasks(): Promise<any[]> {
   const rawData = await response.json();
   console.log("📄 Raw API Data:", rawData);
 
+  const filteredOut = new Set(config.tasks.filterOutStatuses);
+  const defaults = config.tasks.defaults;
+
   const tasks = rawData
-    .filter((row: any) => row.Status !== "Discontinued")
+    .filter((row: any) => !filteredOut.has(row.Status))
     .map((row: any) => {
       let startDate = parseDate(row.Start || "");
       let endDate = parseDate(row.End || "");
-      let categoryEmoji = getCategoryEmoji(row.Category || "Other");
+      let categoryEmoji = getCategoryEmoji(row.Category || defaults.category);
 
       // Validate start and end dates.
       if (!startDate || isNaN(new Date(startDate).getTime())) {
@@ -40,8 +45,8 @@ export async function fetchTasks(): Promise<any[]> {
         description: row.Description || "",
         start: startDate,
         end: endDate,
-        priority: row.Priority || "P5",
-        owner: row.Owner || "Other",
+        priority: row.Priority || defaults.priority,
+        owner: row.Owner || defaults.owner,
         milestone: row["Milestone Type"] === "Start Date" ? startDate : row["Milestone Type"] === "End Date" ? endDate : null,
         dependencies: row.Dependencies ? row.Dependencies.split(",").map((dep: string) => dep.trim()) : [],
       };
@@ -76,21 +81,4 @@ function parseDate(dateString: string): string {
   }
   console.warn(`⚠️ Unexpected date format: "${dateString}"`);
   return "";
-}
-
-function getCategoryEmoji(category: string): string {
-  const categoryMap: Record<string, string> = {
-    Rig: "🛰️",
-    "AusOceanTV Platform": "📺",
-    Hydrophone: "🎤",
-    Camera: "📷",
-    Broadcast: "🎥",
-    CloudBlue: "☁️",
-    Speaker: "🔊",
-    OpenFish: "🐟",
-    "Jetty Rig": "🏗️",
-    Other: "⚙️",
-  };
-
-  return categoryMap[category] || "⚙️"; // Default to "Other" emoji if no match
 }

@@ -5,14 +5,37 @@ the AusOcean Roadmap web application.
 
 ```
 cmd/roadmap/
-├── main.go, auth.go        # Go backend (Fiber)
+├── main.go, auth.go        # Go backend (Fiber); OAuth / GCP IDs live here
+├── config.go               # Loads roadmap.config.json (sheet + timeline UX)
+├── roadmap.config.json     # User roadmap: sheet link + colours/emojis (see below)
 ├── .env.example            # Template for local backend env vars
 ├── .env                    # Your local backend env vars (gitignored)
 └── webapp/
+    ├── config.ts           # Loads roadmap.config.json into the frontend
     ├── .env.development    # Vite env vars used by `npm run dev`
     ├── .env.production     # Vite env vars used by `npm run build`
     └── ...                 # Frontend source
 ```
+
+## Timeline configuration (`roadmap.config.json`)
+
+[`roadmap.config.json`](roadmap.config.json) is what each **user** of the app
+customises: how their Google Sheet connects to the timeline and how tasks look
+(categories, owners, priorities).
+
+The Go backend embeds this file at compile time (`//go:embed`) and the Vite
+frontend imports the same JSON for colours and emojis. After editing it,
+rebuild the frontend (`npm run build` in `webapp/`) and rebuild the Go binary
+so both copies stay in sync.
+
+| Section | Purpose |
+| --- | --- |
+| `spreadsheet` | Sheet ID, tab name, first data row, ID column, start/end-date columns for writes, and ordered column `headers` (must match your sheet). |
+| `tasks.filterOutStatuses` | Status values hidden from the timeline (e.g. `Discontinued`). |
+| `tasks.defaults` | Fallback `category` / `owner` / `priority` when a row omits them. |
+| `categoryEmojis` + `defaultCategoryEmoji` | Emoji prepended to task titles by category. |
+| `ownerColors` + `defaultOwnerColor` | Row background tint per owner. |
+| `priorityColors` + `defaultPriorityColor` | Bar colour by priority (`P0`–`P5`, etc.). |
 
 ## Environment Configuration
 

@@ -14,6 +14,9 @@ export default defineConfig({
   server: {
     fs: {
       strict: true,
+      // Allow reading roadmap.config.json (and any future shared assets)
+      // from the parent cmd/roadmap/ directory.
+      allow: ["..", "."],
     },
     proxy: {
       "/api": {

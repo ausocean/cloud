@@ -46,7 +46,9 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// Project constants.
+// Google Cloud / OAuth identifiers for this deployment (operator-owned).
+// Per-user roadmap settings such as which spreadsheet to read live in
+// roadmap.config.json instead.
 const (
 	projectID     = "ausocean-roadmap"
 	oauthClientID = "1034725146926-srirvgd3j0gd20n45luju68q2vaago7c.apps.googleusercontent.com"
@@ -116,6 +118,9 @@ func main() {
 		log.Printf("could not load .env: %v", err)
 	}
 
+	// Load embedded user roadmap config (spreadsheet + columns).
+	loadConfig()
+
 	defaultPort := 8080
 	v := os.Getenv("PORT")
 	if v != "" {
@@ -179,12 +184,6 @@ func (svc *service) setup() {
 	svc.auth.Init(backend.NewFiberHandler(nil))
 }
 
-// Spreadsheet details
-const (
-	spreadsheetID = "1nWk8oX4qBApaPcvBmz4VeTieU2Q2cK_qD71nW8LHAsc" // Replace with your actual spreadsheet ID
-	readRange     = "Sheet1!A2:M"                                  // Adjust based on your sheet layout
-)
-
 func loadCredentials(ctx context.Context, envVar string, scope string) (*google.Credentials, error) {
 	keyPath := os.Getenv(envVar)
 	if keyPath == "" {
@@ -229,11 +228,11 @@ func ReadSpreadsheet(ctx context.Context, credentials *google.Credentials, sprea
 	return resp.Values, nil
 }
 
-// Convert spreadsheet data into structured JSON.
-// NOTE: The order of headers must match the column order in the
-// spreadsheet (Sheet1, columns A through M).
+// parseRoadmapData turns the raw spreadsheet rows into a list of header→value
+// maps, using the header order from roadmap.config.json (user sheet layout).
+// Column order in the sheet must match that header list.
 func parseRoadmapData(data [][]interface{}) []map[string]string {
-	headers := []string{"ID", "Category", "Title", "Description", "Issues", "Priority", "Owner", "Status", "Archive", "Start", "End", "Milestone Type", "Dependencies"}
+	headers := cfg.Spreadsheet.Headers
 	var tasks []map[string]string
 
 	for _, row := range data {
@@ -269,7 +268,7 @@ func timelineHandler(c *fiber.Ctx) error {
 	}
 
 	// Fetch data from Google Sheets
-	data, err := ReadSpreadsheet(ctx, credentials, spreadsheetID, readRange)
+	data, err := ReadSpreadsheet(ctx, credentials, cfg.Spreadsheet.ID, cfg.ReadRange())
 	if err != nil {
 		log.Printf("Error fetching data: %v", err)
 		return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Failed to fetch data: %v", err))
@@ -333,8 +332,8 @@ func updateHandler(c *fiber.Ctx) error {
 		formattedStart := formatDateToSheet(task.Start)
 		formattedEnd := formatDateToSheet(task.End)
 
-		// Columns J and K are "Initial start date" and "Initial end date".
-		updateRange := fmt.Sprintf("Sheet1!J%d:K%d", rowIndex, rowIndex)
+		// Configurable start- and end-date columns (see roadmap.config.json).
+		updateRange := cfg.UpdateRange(rowIndex)
 		values := [][]interface{}{{formattedStart, formattedEnd}}
 
 		updates = append(updates, &sheets.ValueRange{
@@ -362,9 +361,7 @@ func formatDateToSheet(date string) string {
 }
 
 func getTaskRowMap(srv *sheets.Service) (map[string]int, error) {
-	rangeToRead := "Sheet1!A2:A" // Read Task ID column
-
-	resp, err := srv.Spreadsheets.Values.Get(spreadsheetID, rangeToRead).Do()
+	resp, err := srv.Spreadsheets.Values.Get(cfg.Spreadsheet.ID, cfg.IDRange()).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch task list: %v", err)
 	}
@@ -373,7 +370,7 @@ func getTaskRowMap(srv *sheets.Service) (map[string]int, error) {
 	for i, row := range resp.Values {
 		if len(row) > 0 {
 			taskID := fmt.Sprintf("%v", row[0])
-			rowMap[taskID] = i + 2 // +2 because A2 is the first data row
+			rowMap[taskID] = i + cfg.Spreadsheet.FirstDataRow
 		}
 	}
 
@@ -390,7 +387,7 @@ func batchUpdateGoogleSheet(srv *sheets.Service, updates []*sheets.ValueRange) e
 		Data:             updates,
 	}
 
-	_, err := srv.Spreadsheets.Values.BatchUpdate(spreadsheetID, batchUpdateRequest).Do()
+	_, err := srv.Spreadsheets.Values.BatchUpdate(cfg.Spreadsheet.ID, batchUpdateRequest).Do()
 	if err != nil {
 		return fmt.Errorf("failed to batch update: %v", err)
 	}
