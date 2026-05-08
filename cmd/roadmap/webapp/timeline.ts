@@ -365,6 +365,7 @@ const sketch = (p: p5) => {
     milestoneLevels = [];
 
     p.strokeWeight(2);
+    p.textSize(14);
     visibleTasks.forEach((task) => {
       if (task.milestone) {
         let x = dateToX(task.milestone, p);
@@ -420,6 +421,7 @@ const sketch = (p: p5) => {
     });
 
     // ---------------- TASK BOXES ----------------
+    p.textSize(14);
     visibleTasks.forEach((task, i) => {
       let xStart = dateToX(task.start, p);
       let xEnd = dateToX(task.end, p);
@@ -439,7 +441,6 @@ const sketch = (p: p5) => {
       p.fill(0);
       p.strokeWeight(0);
       p.textAlign(p.LEFT, p.CENTER);
-      p.textSize(14);
       p.text(task.name, xStart + 5, y + barHeight / 2);
     });
 
