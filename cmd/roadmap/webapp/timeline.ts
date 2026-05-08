@@ -614,8 +614,8 @@ async function fetchGanttData() {
     tasks = rawData
       .filter((row: any) => row.Status !== "Discontinued")
       .map((row: any) => {
-        let startDate = parseDate(row.ActualStart || row.Start || "");
-        let endDate = parseDate(row.ActualEnd || row.End || "");
+        let startDate = parseDate(row.Start || "");
+        let endDate = parseDate(row.End || "");
         let categoryEmoji = getCategoryEmoji(row.Category || "Other");
 
         // Validate start and end dates.

@@ -3,14 +3,15 @@ export interface RoadmapTask {
   Category: string;
   Title: string;
   Description: string;
+  Issues?: string;
   Priority: string;
   Owner: string;
   Status: string;
-  Start?: string; // Optional
-  End?: string; // Optional
-  ActualStart?: string; // Optional
-  ActualEnd?: string; // Optional
-  Dependants?: string;
+  Archive?: string;
+  Start?: string;
+  End?: string;
+  "Milestone Type"?: string;
+  Dependencies?: string;
 }
 
 export interface GanttTask {

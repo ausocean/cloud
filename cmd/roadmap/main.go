@@ -182,7 +182,7 @@ func (svc *service) setup() {
 // Spreadsheet details
 const (
 	spreadsheetID = "1nWk8oX4qBApaPcvBmz4VeTieU2Q2cK_qD71nW8LHAsc" // Replace with your actual spreadsheet ID
-	readRange     = "Sheet1!A2:N"                                  // Adjust based on your sheet layout
+	readRange     = "Sheet1!A2:M"                                  // Adjust based on your sheet layout
 )
 
 func loadCredentials(ctx context.Context, envVar string, scope string) (*google.Credentials, error) {
@@ -229,9 +229,11 @@ func ReadSpreadsheet(ctx context.Context, credentials *google.Credentials, sprea
 	return resp.Values, nil
 }
 
-// Convert spreadsheet data into structured JSON
+// Convert spreadsheet data into structured JSON.
+// NOTE: The order of headers must match the column order in the
+// spreadsheet (Sheet1, columns A through M).
 func parseRoadmapData(data [][]interface{}) []map[string]string {
-	headers := []string{"ID", "Category", "Title", "Description", "Priority", "Owner", "Status", "Archive", "Start", "End", "Milestone Type", "Dependencies", "Actual Start", "Actual End"}
+	headers := []string{"ID", "Category", "Title", "Description", "Issues", "Priority", "Owner", "Status", "Archive", "Start", "End", "Milestone Type", "Dependencies"}
 	var tasks []map[string]string
 
 	for _, row := range data {
@@ -331,7 +333,8 @@ func updateHandler(c *fiber.Ctx) error {
 		formattedStart := formatDateToSheet(task.Start)
 		formattedEnd := formatDateToSheet(task.End)
 
-		updateRange := fmt.Sprintf("Sheet1!I%d:J%d", rowIndex, rowIndex)
+		// Columns J and K are "Initial start date" and "Initial end date".
+		updateRange := fmt.Sprintf("Sheet1!J%d:K%d", rowIndex, rowIndex)
 		values := [][]interface{}{{formattedStart, formattedEnd}}
 
 		updates = append(updates, &sheets.ValueRange{
