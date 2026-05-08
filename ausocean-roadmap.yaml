@@ -1,4 +1,4 @@
-runtime: go121
+runtime: go126
 
 env_variables:
   OAUTH2_CALLBACK: https://roadmap.ausocean.org/api/v1/auth/oauth2callback
@@ -6,7 +6,7 @@ env_variables:
   AUSOCEAN_ROADMAP_SECRETS: gs://ausocean/AusOceanRoadmap-secrets.txt
   FRONTEND_URL: https://roadmap.ausocean.org
 
-main: ./cmd/roadmap
+main: cmd/roadmap
 
 handlers:
   - url: /api/.*

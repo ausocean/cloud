@@ -55,7 +55,16 @@ cmd/vidforward/#*
 cmd/decode/*
 cmd/cloudblue/*
 cmd/oceancast/*
-cmd/roadmap/*
+# roadmap
+cmd/roadmap/.git
+cmd/roadmap/.gitignore
+cmd/roadmap/.env
+cmd/roadmap/.env.example
+cmd/roadmap/roadmap
+cmd/roadmap/*~
+cmd/roadmap/#*
+cmd/roadmap/webapp/node_modules/
+cmd/roadmap/webapp/.vite/
 
 docs/*
 
