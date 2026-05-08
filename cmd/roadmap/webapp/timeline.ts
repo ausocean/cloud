@@ -503,6 +503,11 @@ const sketch = (p: p5) => {
     isDragging = true;
     dragStartX = p.mouseX;
 
+    // Latch whether this drag started in the timeline header so that panning
+    // keeps tracking even if the cursor strays off the (thin) header strip
+    // mid-drag.
+    isPanningHeader = p.mouseY >= 0 && p.mouseY <= dateAreaHeight && p.mouseX >= 0 && p.mouseX <= p.width;
+
     selectedTask = null;
     draggingEdge = null;
 
@@ -527,6 +532,7 @@ const sketch = (p: p5) => {
 
   p.mouseReleased = () => {
     isDragging = false;
+    isPanningHeader = false;
     accumulatedDeltaMillis = 0;
 
     // If the user just dragged a task (possibly past the previous data
@@ -564,19 +570,14 @@ const sketch = (p: p5) => {
   let selectedTask: any = null;
   let dateAreaHeight = 50; // Adjust as needed
   let accumulatedDeltaMillis = 0;
+  let isPanningHeader = false;
 
   p.mouseDragged = () => {
-    let canvasWidth = p.width;
-    let canvasHeight = p.height;
-
-    let withinCanvas = p.mouseX >= 0 && p.mouseX <= canvasWidth && p.mouseY >= 0 && p.mouseY <= canvasHeight;
-    let withinDateArea = p.mouseY <= dateAreaHeight;
-
-    if (isDragging && withinCanvas && withinDateArea) {
-      // Calculate the movement since the last frame
+    // Once a header pan has started, keep tracking horizontal movement until
+    // mouseup, regardless of where the cursor wanders. The header strip is
+    // narrow and easy to drift off vertically.
+    if (isDragging && isPanningHeader) {
       let movement = p.mouseX - p.pmouseX;
-
-      // Update offsetX by adding the movement
       offsetX += movement;
     }
 
