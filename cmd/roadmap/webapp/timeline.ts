@@ -63,8 +63,68 @@ const sketch = (p: p5) => {
     zoomSlider.value = zoomLevel.toFixed(2);
     zoomSlider.addEventListener("input", () => {
       zoomLevel = parseFloat(zoomSlider.value);
+      redraw = true;
       p.redraw();
     });
+
+    // Preset zoom buttons.
+    const applyPreset = (preset: "fit" | "next-3m" | "next-6m" | "center-3m" | "center-6m" | "center-12m") => {
+      const visibleWidth = p.width - startX;
+      const monthMillis = 30 * 24 * 60 * 60 * 1000;
+      const totalRange = timelineEnd - timelineStart;
+      const nowMillis = new Date().getTime();
+      const nowProgress = (nowMillis - timelineStart) / totalRange;
+      // Padding behind the "Now" line for forward-looking presets so it
+      // doesn't sit right on the left edge.
+      const nowLeftPadding = 80;
+
+      let newZoom: number;
+      let desiredNowX: number | null = null;
+
+      switch (preset) {
+        case "fit":
+          newZoom = 1;
+          offsetX = 0;
+          break;
+        case "next-3m":
+          newZoom = totalRange / (3 * monthMillis);
+          desiredNowX = startX + nowLeftPadding;
+          break;
+        case "next-6m":
+          newZoom = totalRange / (6 * monthMillis);
+          desiredNowX = startX + nowLeftPadding;
+          break;
+        case "center-3m":
+          newZoom = totalRange / (6 * monthMillis);
+          desiredNowX = startX + visibleWidth / 2;
+          break;
+        case "center-6m":
+          newZoom = totalRange / (12 * monthMillis);
+          desiredNowX = startX + visibleWidth / 2;
+          break;
+        case "center-12m":
+          newZoom = totalRange / (24 * monthMillis);
+          desiredNowX = startX + visibleWidth / 2;
+          break;
+      }
+
+      zoomLevel = newZoom;
+      if (desiredNowX !== null) {
+        offsetX = desiredNowX - startX - nowProgress * visibleWidth * newZoom;
+      }
+
+      // Reflect new zoom in the slider (will clamp to slider bounds visually).
+      zoomSlider.value = String(newZoom);
+      redraw = true;
+      p.redraw();
+    };
+
+    document.getElementById("zoom-fit-all")?.addEventListener("click", () => applyPreset("fit"));
+    document.getElementById("zoom-next-3m")?.addEventListener("click", () => applyPreset("next-3m"));
+    document.getElementById("zoom-next-6m")?.addEventListener("click", () => applyPreset("next-6m"));
+    document.getElementById("zoom-3m-3m")?.addEventListener("click", () => applyPreset("center-3m"));
+    document.getElementById("zoom-6m-6m")?.addEventListener("click", () => applyPreset("center-6m"));
+    document.getElementById("zoom-1y-1y")?.addEventListener("click", () => applyPreset("center-12m"));
 
     p.textFont("Arial");
 
