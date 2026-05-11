@@ -13,13 +13,3 @@ export interface RoadmapTask {
   "Milestone Type"?: string;
   Dependencies?: string;
 }
-
-export interface GanttTask {
-  id: string;
-  name: string;
-  start: string;
-  end: string;
-  progress: number;
-  dependencies: string;
-  priority: string;
-}
