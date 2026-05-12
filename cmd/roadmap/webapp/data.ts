@@ -7,8 +7,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 export async function fetchTasks(): Promise<any[]> {
   console.log("🔄 Fetching Gantt data from API...");
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/timeline`);
+  const response = await fetch(`${API_BASE_URL}/api/v1/timeline`, {
+    credentials: "include",
+  });
   console.log("API Response Received:", response);
+
+  if (response.status === 401 || response.status === 403) {
+    window.location.href = "/";
+    return [];
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP error! Status: ${response.status}`);
@@ -62,8 +69,14 @@ export async function submitTasks(tasks: any[]): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ tasks }),
   });
+
+  if (response.status === 401 || response.status === 403) {
+    window.location.href = "/";
+    return;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

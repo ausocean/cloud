@@ -82,9 +82,9 @@ func registerAPIRoutes(app *fiber.App) {
 		Get("oauth2callback", svc.callbackHandler).
 		Get("profile", svc.profileHandler)
 
-	v1.Post("/update", updateHandler)
+	v1.Post("/update", svc.authMiddleware, updateHandler)
 
-	v1.Get("/timeline", timelineHandler)
+	v1.Get("/timeline", svc.authMiddleware, timelineHandler)
 }
 
 // Failure represents a generic JSON error response.
@@ -145,9 +145,10 @@ func main() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: svc.frontendURL,
-		AllowMethods: "GET,POST,OPTIONS",
-		AllowHeaders: "Content-Type, Authorization",
+		AllowOrigins:     svc.frontendURL,
+		AllowMethods:     "GET,POST,OPTIONS",
+		AllowHeaders:     "Content-Type, Authorization",
+		AllowCredentials: true,
 	}))
 
 	ctx := context.Background()
@@ -250,10 +251,6 @@ func parseRoadmapData(data [][]interface{}) []map[string]string {
 
 // API handler for serving roadmap data
 func timelineHandler(c *fiber.Ctx) error {
-	c.Set("Access-Control-Allow-Origin", "*")
-	c.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-	c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
 	if c.Method() == fiber.MethodOptions {
 		return c.SendStatus(fiber.StatusOK)
 	}
@@ -286,10 +283,6 @@ type TaskUpdate struct {
 }
 
 func updateHandler(c *fiber.Ctx) error {
-	c.Set("Access-Control-Allow-Origin", "*")
-	c.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-	c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
 	if c.Method() == fiber.MethodOptions {
 		return c.SendStatus(fiber.StatusOK)
 	}

@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -41,7 +42,15 @@ import (
 func (svc *service) loginHandler(c *fiber.Ctx) error {
 	p, _ := svc.auth.GetProfile(backend.NewFiberHandler(c))
 	if p != nil {
-		return c.Redirect(c.FormValue("redirect", svc.frontendURL+"/roadmap.html"), fiber.StatusFound)
+		if strings.HasSuffix(p.Email, "@ausocean.org") {
+			return c.Redirect(c.FormValue("redirect", svc.frontendURL+"/roadmap.html"), fiber.StatusFound)
+		}
+		// They are logged in but with a non-ausocean account. Invalidate their session.
+		h := backend.NewFiberHandler(c)
+		if sess, err := h.LoadSession(svc.auth.SessionID); err == nil {
+			sess.Invalidate()
+			h.SaveSession(sess)
+		}
 	}
 	return svc.auth.LoginHandler(backend.NewFiberHandler(c))
 }
@@ -106,3 +115,17 @@ func withStatus(status int) loggingErrorOption {
 }
 
 type loggingErrorOption func(c *fiber.Ctx, m map[string]string) error
+
+// authMiddleware ensures the user is logged in with an @ausocean.org account.
+func (svc *service) authMiddleware(c *fiber.Ctx) error {
+	p, err := svc.auth.GetProfile(backend.NewFiberHandler(c))
+	if err != nil || p == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(Failure{Message: "Unauthorized"})
+	}
+
+	if !strings.HasSuffix(p.Email, "@ausocean.org") {
+		return c.Status(fiber.StatusForbidden).JSON(Failure{Message: "Forbidden: must be an @ausocean.org account"})
+	}
+
+	return c.Next()
+}
