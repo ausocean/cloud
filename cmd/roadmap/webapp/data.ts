@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
 
-import { config, getCategoryEmoji } from "./config";
+import { config } from "./config";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const IDEA_STATUS = "idea";
+const HALTED_STATUS = "progress made, halted";
 
 export async function fetchTasks(): Promise<any[]> {
   console.log("🔄 Fetching Gantt data from API...");
@@ -32,28 +33,28 @@ export async function fetchTasks(): Promise<any[]> {
     .filter((row: any) => !filteredOut.has(normalizeStatus(row.Status || "")))
     .map((row: any) => {
       const status = row.Status || "";
-      const isIdea = normalizeStatus(status) === IDEA_STATUS;
+      const isOffTimeline = [IDEA_STATUS, HALTED_STATUS].includes(normalizeStatus(status));
       const title = row.Title || "";
+      const category = row.Category || defaults.category;
       let startDate = parseDate(row.Start || "");
       let endDate = parseDate(row.End || "");
-      let categoryEmoji = getCategoryEmoji(row.Category || defaults.category);
 
       // Validate start and end dates.
-      if (!isIdea && (!startDate || isNaN(new Date(startDate).getTime()))) {
+      if (!isOffTimeline && (!startDate || isNaN(new Date(startDate).getTime()))) {
         console.warn(`⚠️ Invalid start date for task "${row.Title}":`, startDate);
         startDate = new Date().toISOString().split("T")[0]; // Default to today.
       }
 
-      if (!isIdea && (!endDate || isNaN(new Date(endDate).getTime()))) {
+      if (!isOffTimeline && (!endDate || isNaN(new Date(endDate).getTime()))) {
         console.warn(`⚠️ Invalid end date for task "${row.Title}":`, endDate);
         endDate = new Date(new Date(startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Default to 7 days later
       }
 
       return {
         id: row.ID,
-        category: row.Category,
+        category,
         title,
-        name: `${categoryEmoji} ${title}`, // Prepend emoji to task name.
+        name: `${category} | ${title}`,
         description: row.Description || "",
         status,
         start: startDate,

@@ -6,6 +6,7 @@ import { getOwnerColor, getPriorityColor } from "./config";
 let tasks: any[] = [];
 let timelineTasks: any[] = [];
 let ideaTasks: any[] = [];
+let haltedTasks: any[] = [];
 let visibleTasks: any[] = [];
 
 let timelineStart: number;
@@ -22,13 +23,28 @@ let zoomLevel = 2.5; // Default zoom level
 let timelineTop = 0; // Updated in draw
 let toolTipTask: any = null;
 let ideasSidebarCollapsed = false;
+let ideaSectionCollapsed = false;
+let haltedSectionCollapsed = false;
 
 const IDEA_STATUS = "idea";
-const ideasSidebarExpandedWidth = 300;
-const ideasSidebarCollapsedWidth = 36;
-const ideasSidebarPadding = 12;
-const ideaCardHeight = 74;
-const ideaCardGap = 8;
+const HALTED_STATUS = "progress made, halted";
+const sidebarExpandedWidth = 380;
+const sidebarCollapsedWidth = 36;
+const sidebarPadding = 12;
+const sidebarSectionHeaderHeight = 38;
+const sidebarCardHeight = 74;
+const sidebarCardGap = 8;
+
+type SidebarSectionKey = "ideas" | "halted";
+type SidebarHit =
+  | {
+      kind: "section";
+      section: SidebarSectionKey;
+    }
+  | {
+      kind: "card";
+      task: any;
+    };
 
 // p5.js sketch
 const sketch = (p: p5) => {
@@ -46,8 +62,9 @@ const sketch = (p: p5) => {
     // Check the 'hide past tasks' checkbox
     const hidePastTasks = document.getElementById("hide-past-tasks") as HTMLInputElement;
     function updateVisibleTasks() {
-      timelineTasks = tasks.filter((task) => !isIdeaTask(task));
+      timelineTasks = tasks.filter((task) => !isSidebarTask(task));
       ideaTasks = tasks.filter(isIdeaTask);
+      haltedTasks = tasks.filter(isHaltedTask);
 
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       if (hidePastTasks.checked) {
@@ -61,8 +78,8 @@ const sketch = (p: p5) => {
     }
     updateVisibleTasks();
 
-    // Initialise timeline range from scheduled tasks only. Ideas may not have
-    // dates yet, and should not stretch the axis or get submitted by accident.
+    // Initialise timeline range from scheduled tasks only. Sidebar tasks may
+    // not have dates yet, and should not stretch the axis or get submitted by accident.
     setTimelineRange(timelineTasks);
 
     hidePastTasks.addEventListener("change", () => {
@@ -72,7 +89,7 @@ const sketch = (p: p5) => {
     const container = document.getElementById("canvas-container") as HTMLDivElement | null;
     if (!container) throw new Error("canvas container not found");
     const canvasWidth = container.clientWidth;
-    const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300, ideaTasks.length * (ideaCardHeight + ideaCardGap) + 120); // Padding added at the bottom for aesthetics
+    const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300, (ideaTasks.length + haltedTasks.length) * (sidebarCardHeight + sidebarCardGap) + 180); // Padding added at the bottom for aesthetics
     const canvas = p.createCanvas(canvasWidth, canvasHeight);
     canvas.parent("canvas-container");
 
@@ -211,7 +228,10 @@ const sketch = (p: p5) => {
     let withinCanvas = p.mouseX >= 0 && p.mouseX <= p.width && p.mouseY >= 0 && p.mouseY <= p.height;
     let withinTimeline = p.mouseX >= 0 && p.mouseX <= timelineRight;
     let withinDateArea = p.mouseY <= dateAreaHeight;
+    const sidebarHit = getSidebarHit(p.mouseX, p.mouseY, p);
     if (isWithinIdeaSidebarToggle(p.mouseX, p.mouseY, p)) {
+      document.body.style.cursor = "pointer";
+    } else if (sidebarHit) {
       document.body.style.cursor = "pointer";
     } else if (withinCanvas && withinTimeline && withinDateArea) {
       if (isDragging) {
@@ -253,6 +273,11 @@ const sketch = (p: p5) => {
         showToolTip = true;
       }
     });
+    if (sidebarHit?.kind === "card") {
+      toolTipTask = sidebarHit.task;
+      redraw = true;
+      showToolTip = true;
+    }
     // If the tool tip task is set (from the previous draw) but we no longer need to show it, draw once again with no tooltip.
     if (!showToolTip && toolTipTask !== null) {
       redraw = true;
@@ -516,14 +541,10 @@ const sketch = (p: p5) => {
       }
     });
 
-    // ---------------- TASK TOOL TIP ----------------
-    visibleTasks.forEach((task, i) => {
-      if (showToolTip && toolTipTask === task) {
-        drawTooltip(p, task, p.mouseX, p.mouseY);
-      }
-    });
-
-    drawIdeasSidebar(p);
+    drawStatusSidebar(p);
+    if (showToolTip && toolTipTask) {
+      drawTooltip(p, toolTipTask, p.mouseX, p.mouseY);
+    }
 
     redraw = false;
   };
@@ -532,6 +553,18 @@ const sketch = (p: p5) => {
   p.mousePressed = () => {
     if (isWithinIdeaSidebarToggle(p.mouseX, p.mouseY, p)) {
       ideasSidebarCollapsed = !ideasSidebarCollapsed;
+      redraw = true;
+      p.redraw();
+      return;
+    }
+
+    const sidebarHit = getSidebarHit(p.mouseX, p.mouseY, p);
+    if (sidebarHit?.kind === "section") {
+      if (sidebarHit.section === "ideas") {
+        ideaSectionCollapsed = !ideaSectionCollapsed;
+      } else {
+        haltedSectionCollapsed = !haltedSectionCollapsed;
+      }
       redraw = true;
       p.redraw();
       return;
@@ -668,6 +701,18 @@ function isIdeaTask(task: any): boolean {
   );
 }
 
+function isHaltedTask(task: any): boolean {
+  return (
+    String(task.status || "")
+      .trim()
+      .toLowerCase() === HALTED_STATUS
+  );
+}
+
+function isSidebarTask(task: any): boolean {
+  return isIdeaTask(task) || isHaltedTask(task);
+}
+
 function getDateBounds(items: any[]): { start: number; end: number } | null {
   const starts = items.map((task) => new Date(task.start).getTime()).filter((value) => !isNaN(value));
   const ends = items.map((task) => new Date(task.end).getTime()).filter((value) => !isNaN(value));
@@ -699,7 +744,7 @@ function setTimelineRange(items: any[]) {
 }
 
 function getIdeasSidebarWidth(p: p5): number {
-  return ideasSidebarCollapsed ? ideasSidebarCollapsedWidth : Math.min(ideasSidebarExpandedWidth, Math.max(220, p.width * 0.28));
+  return ideasSidebarCollapsed ? sidebarCollapsedWidth : Math.min(sidebarExpandedWidth, Math.max(300, p.width * 0.34));
 }
 
 function getTimelineRight(p: p5): number {
@@ -720,6 +765,74 @@ function isWithinIdeaSidebarToggle(x: number, y: number, p: p5): boolean {
   const toggleY = 10;
   const toggleSize = 24;
   return x >= toggleX && x <= toggleX + toggleSize && y >= toggleY && y <= toggleY + toggleSize;
+}
+
+function getSidebarHit(x: number, y: number, p: p5): SidebarHit | null {
+  if (ideasSidebarCollapsed || !isWithinIdeasSidebar(x, y, p)) {
+    return null;
+  }
+
+  const sidebarX = getTimelineRight(p);
+  const sidebarWidth = getIdeasSidebarWidth(p);
+  const contentX = sidebarX + sidebarPadding;
+  const contentWidth = sidebarWidth - sidebarPadding * 2;
+
+  let sectionY = 64;
+  const ideaHit = getSidebarSectionHit(x, y, {
+    key: "ideas",
+    tasks: ideaTasks,
+    collapsed: ideaSectionCollapsed,
+    x: contentX,
+    y: sectionY,
+    width: contentWidth,
+  });
+  if (ideaHit.hit) return ideaHit.hit;
+
+  sectionY = ideaHit.nextY + 8;
+  return getSidebarSectionHit(x, y, {
+    key: "halted",
+    tasks: haltedTasks,
+    collapsed: haltedSectionCollapsed,
+    x: contentX,
+    y: sectionY,
+    width: contentWidth,
+  }).hit;
+}
+
+function getSidebarSectionHit(x: number, y: number, section: { key: SidebarSectionKey; tasks: any[]; collapsed: boolean; x: number; y: number; width: number }): { hit: SidebarHit | null; nextY: number } {
+  if (x >= section.x && x <= section.x + section.width && y >= section.y && y <= section.y + sidebarSectionHeaderHeight) {
+    return {
+      hit: {
+        kind: "section",
+        section: section.key,
+      },
+      nextY: section.y + sidebarSectionHeaderHeight + sidebarCardGap,
+    };
+  }
+
+  let nextY = section.y + sidebarSectionHeaderHeight + sidebarCardGap;
+  if (section.collapsed) {
+    return { hit: null, nextY };
+  }
+
+  if (section.tasks.length === 0) {
+    return { hit: null, nextY: nextY + 28 };
+  }
+
+  for (const task of section.tasks) {
+    if (x >= section.x && x <= section.x + section.width && y >= nextY && y <= nextY + sidebarCardHeight) {
+      return {
+        hit: {
+          kind: "card",
+          task,
+        },
+        nextY: nextY + sidebarCardHeight + sidebarCardGap,
+      };
+    }
+    nextY += sidebarCardHeight + sidebarCardGap;
+  }
+
+  return { hit: null, nextY };
 }
 
 function dateToX(dateStr: string, p: p5): number {
@@ -784,7 +897,7 @@ function drawArrow(p: p5, x1: number, y1: number, x2: number, y2: number) {
   );
 }
 
-function drawIdeasSidebar(p: p5) {
+function drawStatusSidebar(p: p5) {
   const sidebarWidth = getIdeasSidebarWidth(p);
   const sidebarX = p.width - sidebarWidth;
 
@@ -806,51 +919,94 @@ function drawIdeasSidebar(p: p5) {
     p.fill(51, 65, 85);
     p.textSize(13);
     p.textAlign(p.CENTER, p.CENTER);
-    p.text(`Ideas (${ideaTasks.length})`, 0, 0);
+    p.text(`Off timeline (${ideaTasks.length + haltedTasks.length})`, 0, 0);
     p.pop();
     return;
   }
 
-  const contentX = sidebarX + ideasSidebarPadding;
-  const contentWidth = sidebarWidth - ideasSidebarPadding * 2;
+  const contentX = sidebarX + sidebarPadding;
+  const contentWidth = sidebarWidth - sidebarPadding * 2;
 
   p.noStroke();
   p.fill(15, 23, 42);
   p.textSize(16);
   p.textAlign(p.LEFT, p.CENTER);
-  p.text("Ideas", contentX + 34, 22);
+  p.text("Off timeline", contentX + 34, 22);
 
   p.fill(100, 116, 139);
   p.textSize(12);
-  p.text(`${ideaTasks.length} ${ideaTasks.length === 1 ? "task" : "tasks"}`, contentX + 34, 41);
+  p.text(`${ideaTasks.length + haltedTasks.length} ${ideaTasks.length + haltedTasks.length === 1 ? "task" : "tasks"}`, contentX + 34, 41);
 
-  if (ideaTasks.length === 0) {
+  let y = 64;
+  y = drawSidebarSection(p, {
+    key: "ideas",
+    title: "Ideas",
+    tasks: ideaTasks,
+    collapsed: ideaSectionCollapsed,
+    x: contentX,
+    y,
+    width: contentWidth,
+  });
+  drawSidebarSection(p, {
+    key: "halted",
+    title: "Halted tasks",
+    tasks: haltedTasks,
+    collapsed: haltedSectionCollapsed,
+    x: contentX,
+    y: y + 8,
+    width: contentWidth,
+  });
+}
+
+function drawSidebarSection(p: p5, section: { key: SidebarSectionKey; title: string; tasks: any[]; collapsed: boolean; x: number; y: number; width: number }): number {
+  p.noStroke();
+  p.fill(241, 245, 249);
+  p.rect(section.x, section.y, section.width, sidebarSectionHeaderHeight, 6);
+
+  p.fill(51, 65, 85);
+  p.textSize(14);
+  p.textAlign(p.LEFT, p.CENTER);
+  p.text(section.collapsed ? ">" : "v", section.x + 10, section.y + sidebarSectionHeaderHeight / 2);
+
+  p.fill(15, 23, 42);
+  p.text(section.title, section.x + 30, section.y + sidebarSectionHeaderHeight / 2);
+
+  p.fill(100, 116, 139);
+  p.textSize(12);
+  p.textAlign(p.RIGHT, p.CENTER);
+  p.text(String(section.tasks.length), section.x + section.width - 10, section.y + sidebarSectionHeaderHeight / 2);
+
+  let y = section.y + sidebarSectionHeaderHeight + sidebarCardGap;
+  if (section.collapsed) {
+    return y;
+  }
+
+  if (section.tasks.length === 0) {
     p.fill(100, 116, 139);
     p.textSize(13);
     p.textAlign(p.LEFT, p.TOP);
-    p.text("No idea tasks", contentX, 66);
-    return;
+    p.text(`No ${section.title.toLowerCase()}`, section.x + 8, y + 4);
+    return y + 28;
   }
 
-  let y = 64;
-  ideaTasks.forEach((task) => {
-    const cardX = contentX;
+  section.tasks.forEach((task) => {
+    const cardX = section.x;
     const cardY = y;
 
     p.noStroke();
     p.fill(255);
-    p.rect(cardX, cardY, contentWidth, ideaCardHeight, 6);
+    p.rect(cardX, cardY, section.width, sidebarCardHeight, 6);
 
     p.fill(getPriorityColor(task.priority));
-    p.rect(cardX, cardY, 5, ideaCardHeight, 6, 0, 0, 6);
+    p.rect(cardX, cardY, 5, sidebarCardHeight, 6, 0, 0, 6);
 
     p.stroke(226, 232, 240);
     p.strokeWeight(1);
     p.noFill();
-    p.rect(cardX, cardY, contentWidth, ideaCardHeight, 6);
+    p.rect(cardX, cardY, section.width, sidebarCardHeight, 6);
 
     const textX = cardX + 14;
-    const textWidth = contentWidth - 24;
+    const textWidth = section.width - 24;
 
     p.noStroke();
     p.fill(15, 23, 42);
@@ -870,8 +1026,10 @@ function drawIdeasSidebar(p: p5) {
     p.textAlign(p.LEFT, p.CENTER);
     p.text(truncateText(p, task.owner || "Unowned", textWidth - 8), textX + 6, cardY + 59.5);
 
-    y += ideaCardHeight + ideaCardGap;
+    y += sidebarCardHeight + sidebarCardGap;
   });
+
+  return y;
 }
 
 function drawIdeasSidebarToggle(p: p5, sidebarX: number) {
