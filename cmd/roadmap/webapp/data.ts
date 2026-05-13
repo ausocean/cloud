@@ -3,6 +3,7 @@
 import { config, getCategoryEmoji } from "./config";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const IDEA_STATUS = "idea";
 
 export async function fetchTasks(): Promise<any[]> {
   console.log("🔄 Fetching Gantt data from API...");
@@ -24,23 +25,26 @@ export async function fetchTasks(): Promise<any[]> {
   const rawData = await response.json();
   console.log("📄 Raw API Data:", rawData);
 
-  const filteredOut = new Set(config.tasks.filterOutStatuses);
+  const filteredOut = new Set(config.tasks.filterOutStatuses.map(normalizeStatus));
   const defaults = config.tasks.defaults;
 
   const tasks = rawData
-    .filter((row: any) => !filteredOut.has(row.Status))
+    .filter((row: any) => !filteredOut.has(normalizeStatus(row.Status || "")))
     .map((row: any) => {
+      const status = row.Status || "";
+      const isIdea = normalizeStatus(status) === IDEA_STATUS;
+      const title = row.Title || "";
       let startDate = parseDate(row.Start || "");
       let endDate = parseDate(row.End || "");
       let categoryEmoji = getCategoryEmoji(row.Category || defaults.category);
 
       // Validate start and end dates.
-      if (!startDate || isNaN(new Date(startDate).getTime())) {
+      if (!isIdea && (!startDate || isNaN(new Date(startDate).getTime()))) {
         console.warn(`⚠️ Invalid start date for task "${row.Title}":`, startDate);
         startDate = new Date().toISOString().split("T")[0]; // Default to today.
       }
 
-      if (!endDate || isNaN(new Date(endDate).getTime())) {
+      if (!isIdea && (!endDate || isNaN(new Date(endDate).getTime()))) {
         console.warn(`⚠️ Invalid end date for task "${row.Title}":`, endDate);
         endDate = new Date(new Date(startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Default to 7 days later
       }
@@ -48,8 +52,10 @@ export async function fetchTasks(): Promise<any[]> {
       return {
         id: row.ID,
         category: row.Category,
-        name: `${categoryEmoji} ${row.Title}`, // Prepend emoji to task name.
+        title,
+        name: `${categoryEmoji} ${title}`, // Prepend emoji to task name.
         description: row.Description || "",
+        status,
         start: startDate,
         end: endDate,
         priority: row.Priority || defaults.priority,
@@ -88,10 +94,16 @@ export async function submitTasks(tasks: any[]): Promise<void> {
 
 // parseDate converts a "dd/mm/yyyy" date string to "yyyy-mm-dd" (ISO).
 function parseDate(dateString: string): string {
+  if (!dateString.trim()) return "";
+
   const parts = dateString.split("/");
   if (parts.length === 3) {
     return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
   }
   console.warn(`⚠️ Unexpected date format: "${dateString}"`);
   return "";
+}
+
+function normalizeStatus(status: string): string {
+  return status.trim().toLowerCase();
 }
