@@ -154,7 +154,7 @@ func main() {
 	ctx := context.Background()
 	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
 	if err != nil {
-		log.Panicf("unable to get sessionKey secret: %v", err)
+		log.Fatalf("unable to get sessionKey secret: %v", err)
 	}
 
 	svc.setup()
