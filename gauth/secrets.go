@@ -44,7 +44,7 @@ const gsbScheme = "gs://"
 // The keys argument specifies required keys.
 func GetSecrets(ctx context.Context, projectID string, keys []string) (map[string]string, error) {
 	var m map[string]string
-	ev := strings.ToUpper(projectID) + "_SECRETS"
+	ev := strings.ToUpper(strings.ReplaceAll(projectID, "-", "_")) + "_SECRETS"
 	url := os.Getenv(ev)
 	if url == "" {
 		return m, errors.New(ev + " environment variable not defined")

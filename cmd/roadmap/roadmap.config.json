@@ -1,0 +1,66 @@
+{
+  "spreadsheet": {
+    "id": "1nWk8oX4qBApaPcvBmz4VeTieU2Q2cK_qD71nW8LHAsc",
+    "sheetName": "Sheet1",
+    "firstDataRow": 2,
+    "idColumn": "A",
+    "startDateColumn": "J",
+    "endDateColumn": "K",
+    "headers": [
+      "ID",
+      "Category",
+      "Title",
+      "Description",
+      "Issues",
+      "Priority",
+      "Owner",
+      "Status",
+      "Archive",
+      "Start",
+      "End",
+      "Milestone Type",
+      "Dependencies"
+    ]
+  },
+  "tasks": {
+    "filterOutStatuses": ["Discontinued"],
+    "defaults": {
+      "category": "Other",
+      "owner": "Other",
+      "priority": "P5"
+    }
+  },
+  "categoryEmojis": {
+    "Rig": "🛰️",
+    "AusOceanTV Platform": "📺",
+    "Hydrophone": "🎤",
+    "Camera": "📷",
+    "Broadcast": "🎥",
+    "CloudBlue": "☁️",
+    "Speaker": "🔊",
+    "OpenFish": "🐟",
+    "Jetty Rig": "🏗️",
+    "Other": "⚙️"
+  },
+  "defaultCategoryEmoji": "⚙️",
+  "ownerColors": {
+    "David Sutton": "rgba(255, 220, 220, 0.3)",
+    "Saxon Nelson-Milton": "rgba(220, 255, 220, 0.3)",
+    "Breeze del West": "rgba(220, 220, 255, 0.3)",
+    "Trek Hopton": "rgba(255, 255, 220, 0.3)",
+    "Scott Barnard": "rgba(255, 220, 255, 0.3)",
+    "Intern-Software": "rgba(255, 220, 190, 0.3)",
+    "Intern-Elec": "rgba(190, 220, 190, 0.3)",
+    "Intern-Mech": "rgba(255, 190, 255, 0.3)"
+  },
+  "defaultOwnerColor": "rgba(240, 240, 240, 0.3)",
+  "priorityColors": {
+    "P0": "#f87171",
+    "P1": "#fb923c",
+    "P2": "#facc15",
+    "P3": "#4ade80",
+    "P4": "#93c5fd",
+    "P5": "#bfdbfe"
+  },
+  "defaultPriorityColor": "#f3f4f6"
+}
