@@ -27,6 +27,9 @@ let ideasSidebarCollapsed = false;
 let ideaSectionCollapsed = false;
 let haltedSectionCollapsed = false;
 
+let timelineScrollY = 0;
+let sidebarScrollY = 0;
+
 
 const sidebarExpandedWidth = 380;
 const sidebarCollapsedWidth = 36;
@@ -88,8 +91,9 @@ const sketch = (p: p5) => {
 
     const container = document.getElementById("canvas-container") as HTMLDivElement | null;
     if (!container) throw new Error("canvas container not found");
+    container.style.overflow = "hidden"; // Manage scroll internally
     const canvasWidth = container.clientWidth;
-    const canvasHeight = Math.max(p.windowHeight * 0.8, visibleTasks.length * yBoxSpacing + 300, (ideaTasks.length + haltedTasks.length) * (sidebarCardHeight + sidebarCardGap) + 180); // Padding added at the bottom for aesthetics
+    const canvasHeight = container.clientHeight || p.windowHeight * 0.8;
     const canvas = p.createCanvas(canvasWidth, canvasHeight);
     canvas.parent("canvas-container");
 
@@ -244,13 +248,18 @@ const sketch = (p: p5) => {
     // Task hover detection
     let isHovering = false;
     let showToolTip = false;
+    let logicalTimelineY = p.mouseY;
+    if (withinTimeline && p.mouseY > timelineTop) {
+      logicalTimelineY += timelineScrollY;
+    }
+
     visibleTasks.forEach((task, i) => {
       let xStart = dateToX(task.start, p);
       let xEnd = dateToX(task.end, p);
       let y = i * yBoxSpacing + timelineTop;
 
       let edgePadding = 5; // Hover detection range
-      let withinYBounds = withinTimeline && p.mouseY >= y && p.mouseY <= y + barHeight;
+      let withinYBounds = withinTimeline && logicalTimelineY >= y && logicalTimelineY <= y + barHeight;
       if (withinYBounds) {
         if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding) {
           document.body.style.cursor = "ew-resize"; // Left edge
@@ -266,7 +275,7 @@ const sketch = (p: p5) => {
       }
 
       // Detect mouse hover for tool tip
-      isHovering = withinTimeline && p.mouseX >= xStart && p.mouseX <= xEnd && p.mouseY >= y && p.mouseY <= y + barHeight;
+      isHovering = withinTimeline && p.mouseX >= xStart && p.mouseX <= xEnd && logicalTimelineY >= y && logicalTimelineY <= y + barHeight;
       if (isHovering) {
         toolTipTask = task;
         redraw = true;
@@ -409,8 +418,17 @@ const sketch = (p: p5) => {
     p.line(lastMonthX, monthTextSize + 10, lastMonthX, p.height - 10);
 
     // ---------------- BACKGROUND COLOUR FOR OWNER ----------------
+    p.push();
+    p.drawingContext.save();
+    p.drawingContext.beginPath();
+    p.drawingContext.rect(0, timelineTop, timelineRight, p.height - timelineTop);
+    p.drawingContext.clip();
+    p.translate(0, -timelineScrollY);
+
     visibleTasks.forEach((task, index) => {
       let yPos = index * yBoxSpacing + timelineTop + 5;
+      if (yPos < timelineScrollY - 100 || yPos > timelineScrollY + p.height + 100) return;
+
       let backgroundColor = getOwnerColor(task.owner);
 
       // Draw background color for each row.
@@ -418,6 +436,9 @@ const sketch = (p: p5) => {
       p.noStroke();
       p.rect(0, yPos - 5, timelineRight, yBoxSpacing);
     });
+
+    p.drawingContext.restore();
+    p.pop();
 
     // ---------------- VERTICAL MILESTONE LINES AND TITLES ----------------
     milestoneLevels = [];
@@ -463,9 +484,18 @@ const sketch = (p: p5) => {
       }
     });
 
+    p.push();
+    p.drawingContext.save();
+    p.drawingContext.beginPath();
+    p.drawingContext.rect(0, timelineTop, timelineRight, p.height - timelineTop);
+    p.drawingContext.clip();
+    p.translate(0, -timelineScrollY);
+
     visibleTasks.forEach((task, i) => {
-      let xStart = dateToX(task.start, p);
       let y = i * yBoxSpacing + timelineTop;
+      if (y < timelineScrollY - 200 || y > timelineScrollY + p.height + 200) return;
+
+      let xStart = dateToX(task.start, p);
       // ---------------- DRAW DEPENDENCY ARROWS ----------------
       task.dependencies.forEach((depID) => {
         let dependencyTask = visibleTasks.find((t) => t.id === depID);
@@ -481,9 +511,11 @@ const sketch = (p: p5) => {
     // ---------------- TASK BOXES ----------------
     p.textSize(14);
     visibleTasks.forEach((task, i) => {
+      let y = i * yBoxSpacing + timelineTop;
+      if (y < timelineScrollY - 100 || y > timelineScrollY + p.height + 100) return;
+
       let xStart = dateToX(task.start, p);
       let xEnd = dateToX(task.end, p);
-      let y = i * yBoxSpacing + timelineTop;
 
       p.fill(getPriorityColor(task.priority));
       p.rect(xStart, y, xEnd - xStart, barHeight, 5);
@@ -502,6 +534,9 @@ const sketch = (p: p5) => {
       p.text(task.name, xStart + 5, y + barHeight / 2);
     });
 
+    p.drawingContext.restore();
+    p.pop();
+
     // ---------------- NOW LINE ----------------
     let nowTime = new Date();
     nowX = dateToX(nowTime.toISOString().split("T")[0], p);
@@ -515,18 +550,24 @@ const sketch = (p: p5) => {
     let boxWidth = p.textWidth("Now") + 10;
     let boxHeight = 18;
     p.fill(255);
-    p.rect(nowX - boxWidth / 2, timelineTop - dayNumberSize - boxHeight - headerPadding, boxWidth, boxHeight, 3); // Rounded corners
+    let nowBoxY = timelineTop - dayNumberSize - boxHeight - headerPadding;
+    p.rect(nowX - boxWidth / 2, nowBoxY, boxWidth, boxHeight, 3); // Rounded corners
     p.fill(255, 0, 0);
     p.noStroke();
     p.textSize(14);
-    p.textAlign(p.CENTER);
-    p.text("Now", nowX, timelineTop - boxHeight - headerPadding - 2);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text("Now", nowX, nowBoxY + boxHeight / 2);
 
     // ---------------- LABEL FOR OWNER ----------------
     let currentOwner = "";
     visibleTasks.forEach((task, index) => {
       // Only draw Owner name when it changes (first occurrence).
       let yPos = index * yBoxSpacing + timelineTop + 5;
+      if (yPos < timelineScrollY - 100 || yPos > timelineScrollY + p.height + 100) {
+        if (task.owner !== currentOwner) currentOwner = task.owner;
+        return;
+      }
+
       if (task.owner !== currentOwner) {
         currentOwner = task.owner;
         let firstName = currentOwner.split(" ")[0];
@@ -540,7 +581,7 @@ const sketch = (p: p5) => {
         p.noStroke();
         p.fill(50); // Darker text color.
         p.textSize(14);
-        p.textAlign(p.LEFT);
+        p.textAlign(p.LEFT, p.CENTER);
         p.text(firstName, 5, yPos + barHeight / 2); // Left-aligned.
       }
     });
@@ -591,19 +632,22 @@ const sketch = (p: p5) => {
     selectedTask = null;
     draggingEdge = null;
 
+    let logicalTimelineY = p.mouseY;
+    if (p.mouseY > timelineTop) logicalTimelineY += timelineScrollY;
+
     visibleTasks.forEach((task) => {
       let xStart = dateToX(task.start, p);
       let xEnd = dateToX(task.end, p);
       let y = visibleTasks.indexOf(task) * yBoxSpacing + timelineTop;
       let edgePadding = 5;
 
-      if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+      if (p.mouseX >= xStart - edgePadding && p.mouseX <= xStart + edgePadding && logicalTimelineY >= y && logicalTimelineY <= y + barHeight) {
         draggingEdge = "start";
         selectedTask = task;
-      } else if (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+      } else if (p.mouseX >= xEnd - edgePadding && p.mouseX <= xEnd + edgePadding && logicalTimelineY >= y && logicalTimelineY <= y + barHeight) {
         draggingEdge = "end";
         selectedTask = task;
-      } else if (p.mouseX > xStart + edgePadding && p.mouseX < xEnd - edgePadding && p.mouseY >= y && p.mouseY <= y + barHeight) {
+      } else if (p.mouseX > xStart + edgePadding && p.mouseX < xEnd - edgePadding && logicalTimelineY >= y && logicalTimelineY <= y + barHeight) {
         draggingEdge = "middle";
         selectedTask = task;
       }
@@ -693,6 +737,24 @@ const sketch = (p: p5) => {
       }
     }
   };
+
+  p.mouseWheel = (event: any) => {
+    let delta = event.deltaY || event.deltaX || 0;
+    if (Math.abs(delta) < 1) return true;
+
+    if (isWithinIdeasSidebar(p.mouseX, p.mouseY, p)) {
+      let sidebarHeight = 64 + (ideaSectionCollapsed ? 0 : ideaTasks.length * (sidebarCardHeight + sidebarCardGap)) + 38 + (haltedSectionCollapsed ? 0 : haltedTasks.length * (sidebarCardHeight + sidebarCardGap)) + 150;
+      let maxScroll = Math.max(0, sidebarHeight - p.height);
+      sidebarScrollY = p.constrain(sidebarScrollY + delta, 0, maxScroll);
+    } else {
+      let timelineHeight = visibleTasks.length * yBoxSpacing + timelineTop + 150;
+      let maxScroll = Math.max(0, timelineHeight - p.height + timelineTop);
+      timelineScrollY = p.constrain(timelineScrollY + delta, 0, maxScroll);
+    }
+    redraw = true;
+    p.redraw();
+    return false; // prevent default scrolling
+  };
 };
 
 new p5(sketch);
@@ -749,8 +811,13 @@ function getSidebarHit(x: number, y: number, p: p5): SidebarHit | null {
   const contentX = sidebarX + sidebarPadding;
   const contentWidth = sidebarWidth - sidebarPadding * 2;
 
+  let logicalY = y;
+  if (y > 64) {
+    logicalY += sidebarScrollY;
+  }
+
   let sectionY = 64;
-  const ideaHit = getSidebarSectionHit(x, y, {
+  const ideaHit = getSidebarSectionHit(x, logicalY, {
     key: "ideas",
     tasks: ideaTasks,
     collapsed: ideaSectionCollapsed,
@@ -877,6 +944,14 @@ function drawStatusSidebar(p: p5) {
   p.text(`${ideaTasks.length + haltedTasks.length} ${ideaTasks.length + haltedTasks.length === 1 ? "task" : "tasks"}`, contentX + 34, 41);
 
   let y = 64;
+
+  p.push();
+  p.drawingContext.save();
+  p.drawingContext.beginPath();
+  p.drawingContext.rect(sidebarX, 64, sidebarWidth, p.height - 64);
+  p.drawingContext.clip();
+  p.translate(0, -sidebarScrollY);
+
   y = drawSidebarSection(p, {
     key: "ideas",
     title: "Ideas",
@@ -895,6 +970,9 @@ function drawStatusSidebar(p: p5) {
     y: y + 8,
     width: contentWidth,
   });
+
+  p.drawingContext.restore();
+  p.pop();
 }
 
 function drawSidebarSection(p: p5, section: { key: SidebarSectionKey; title: string; tasks: any[]; collapsed: boolean; x: number; y: number; width: number }): number {
@@ -931,6 +1009,12 @@ function drawSidebarSection(p: p5, section: { key: SidebarSectionKey; title: str
   section.tasks.forEach((task) => {
     const cardX = section.x;
     const cardY = y;
+
+    // Viewport Culling logic
+    if (cardY < sidebarScrollY - sidebarCardHeight || cardY > sidebarScrollY + p.height) {
+      y += sidebarCardHeight + sidebarCardGap;
+      return;
+    }
 
     p.noStroke();
     p.fill(255);
