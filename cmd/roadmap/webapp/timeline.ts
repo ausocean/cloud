@@ -1121,9 +1121,34 @@ function drawTooltip(p: p5, task: any, x: number, y: number) {
 }
 
 document.getElementById("submit-changes")!.addEventListener("click", async () => {
+  const btn = document.getElementById("submit-changes") as HTMLButtonElement;
+  const feedback = document.getElementById("submit-feedback") as HTMLSpanElement;
+  const originalText = btn.innerText;
+
   try {
+    btn.disabled = true;
+    btn.innerText = "Submitting...";
+
     await submitTasks(timelineTasks);
+
+    feedback.textContent = "✅ Changes submitted successfully!";
+    feedback.className = "text-sm font-medium text-green-600 opacity-100 transition-opacity duration-300";
+
+    setTimeout(() => {
+      feedback.classList.remove("opacity-100");
+      feedback.classList.add("opacity-0");
+    }, 3000);
   } catch (error) {
     console.error("❌ Error submitting changes:", error);
+    feedback.textContent = "❌ Error submitting changes.";
+    feedback.className = "text-sm font-medium text-red-600 opacity-100 transition-opacity duration-300";
+
+    setTimeout(() => {
+      feedback.classList.remove("opacity-100");
+      feedback.classList.add("opacity-0");
+    }, 5000);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
   }
 });
