@@ -30,7 +30,6 @@ let haltedSectionCollapsed = false;
 let timelineScrollY = 0;
 let sidebarScrollY = 0;
 
-
 const sidebarExpandedWidth = 380;
 const sidebarCollapsedWidth = 36;
 const sidebarPadding = 12;
@@ -41,13 +40,13 @@ const sidebarCardGap = 8;
 type SidebarSectionKey = "ideas" | "halted";
 type SidebarHit =
   | {
-    kind: "section";
-    section: SidebarSectionKey;
-  }
+      kind: "section";
+      section: SidebarSectionKey;
+    }
   | {
-    kind: "card";
-    task: any;
-  };
+      kind: "card";
+      task: any;
+    };
 
 // p5.js sketch
 const sketch = (p: p5) => {
@@ -759,8 +758,6 @@ const sketch = (p: p5) => {
 
 new p5(sketch);
 
-
-
 function setTimelineRange(items: any[]) {
   const bounds = getDateBounds(items);
   if (bounds) {
@@ -900,8 +897,6 @@ function xToDate(x: number, p: p5): string {
 
   return new Date(dateMillis).toISOString().split("T")[0]; // Format as YYYY-MM-DD
 }
-
-
 
 function drawStatusSidebar(p: p5) {
   const sidebarWidth = getIdeasSidebarWidth(p);
@@ -1076,8 +1071,6 @@ function drawIdeasSidebarToggle(p: p5, sidebarX: number) {
   p.text(ideasSidebarCollapsed ? "<" : ">", toggleX + toggleSize / 2, toggleY + toggleSize / 2 - 1);
 }
 
-
-
 function drawTooltip(p: p5, task: any, x: number, y: number) {
   const padding = 8;
   const title = task.name || "(No Title)";
@@ -1121,9 +1114,34 @@ function drawTooltip(p: p5, task: any, x: number, y: number) {
 }
 
 document.getElementById("submit-changes")!.addEventListener("click", async () => {
+  const btn = document.getElementById("submit-changes") as HTMLButtonElement;
+  const feedback = document.getElementById("submit-feedback") as HTMLSpanElement;
+  const originalText = btn.innerText;
+
   try {
+    btn.disabled = true;
+    btn.innerText = "Submitting...";
+
     await submitTasks(timelineTasks);
+
+    feedback.textContent = "✅ Changes submitted successfully!";
+    feedback.className = "text-sm font-medium text-green-600 opacity-100 transition-opacity duration-300";
+
+    setTimeout(() => {
+      feedback.classList.remove("opacity-100");
+      feedback.classList.add("opacity-0");
+    }, 3000);
   } catch (error) {
     console.error("❌ Error submitting changes:", error);
+    feedback.textContent = "❌ Error submitting changes.";
+    feedback.className = "text-sm font-medium text-red-600 opacity-100 transition-opacity duration-300";
+
+    setTimeout(() => {
+      feedback.classList.remove("opacity-100");
+      feedback.classList.add("opacity-0");
+    }, 5000);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
   }
 });

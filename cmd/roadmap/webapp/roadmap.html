@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="/timeline.ts"></script>
   </head>
+
   <body class="flex h-screen flex-col bg-gray-100 p-4">
     <!-- Top bar with title and logout button -->
     <div class="mb-4 flex items-center justify-between">
@@ -44,8 +45,9 @@
     </div>
 
     <!-- Submit button at the bottom -->
-    <div class="mt-2 flex justify-center">
-      <button id="submit-changes" class="rounded bg-blue-500 px-4 py-2 text-white">Submit Changes</button>
+    <div class="mt-4 flex items-center justify-center gap-4 pb-4">
+      <button id="submit-changes" class="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white shadow-md transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-75">Submit Changes</button>
+      <span id="submit-feedback" class="text-sm font-medium opacity-0 transition-opacity duration-300"></span>
     </div>
   </body>
 </html>
