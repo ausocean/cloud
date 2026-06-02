@@ -68,7 +68,6 @@ const (
 	broadcastSave
 	broadcastToken
 	broadcastDelete
-	broadcastSelect
 	broadcastResetState
 
 	// Vidforward control API request actions.
@@ -324,16 +323,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to load existing broadcast settings for newly selected broadcast.
-	var loaded bool
 	action := stringToAction(req.Action, req)
-	if action == broadcastSelect {
-		loaded, err = loadExistingSettings(r, &req)
-		if err != nil {
-			reportError(w, r, req, "could not load existing settings for broadcast: %v", err)
-			return
-		}
-	}
 
 	// Get all Cameras and Controllers that could be used by the broadcast.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, sKey)
@@ -348,12 +338,6 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		} else if dev.Type == model.DevTypeController {
 			req.Controllers = append(req.Controllers, dev)
 		}
-	}
-
-	// If we just loaded existing broadcast settings by selecting a broadcast, write the response.
-	if loaded {
-		writeTemplate(w, r, "broadcast.html", &req, "")
-		return
 	}
 
 	// Populate sensor list that contains sensors that will display values in
@@ -489,7 +473,6 @@ func stringToAction(s string, req broadcastRequest) Action {
 			"broadcast-save":          broadcastSave,
 			"broadcast-token":         broadcastToken,
 			"broadcast-delete":        broadcastDelete,
-			"broadcast-select":        broadcastSelect,
 			"broadcast-reset-state":   broadcastResetState,
 			"vidforward-create":       vidforwardCreate,
 			"vidforward-play":         vidforwardPlay,
@@ -592,27 +575,6 @@ func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore
 
 	req.CurrentBroadcast = BroadcastConfig{}
 	return nil
-}
-
-func loadExistingSettings(r *http.Request, req *broadcastRequest) (bool, error) {
-	// First check if a broadcast has been selected.
-	selected := r.FormValue("broadcast-select")
-	// If the selected value is nil, this means that we have selected the new
-	// broadcast option. This should return a blank request.
-	if selected == "" {
-		req.CurrentBroadcast = BroadcastConfig{}
-		return true, nil
-	}
-	log.Printf("existing broadcast selected: %s", selected)
-	// Check that the broadcast name selected on the UI matches one of the
-	// broadcast configs that we have loaded, and set current broadcast as that.
-	cfg, err := broadcastFromVars(req.BroadcastVars, selected)
-	if err != nil {
-		return false, fmt.Errorf("could not get broadcast from vars: %w", err)
-	}
-	req.CurrentBroadcast = *cfg
-
-	return true, nil
 }
 
 // getExistingAccount will return the current associated account of the broadcast with the current config
