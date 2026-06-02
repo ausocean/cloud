@@ -167,7 +167,10 @@ async function handleBroadcastSelect(uuid) {
 
   const ytContainer = document.getElementById("youtube-preview-container");
   const ytFrame = document.getElementById("youtube-preview-frame");
-  if (ytContainer) ytContainer.classList.add("d-none");
+  if (ytContainer) {
+    ytContainer.classList.add("d-none");
+    ytContainer.classList.remove("d-flex");
+  }
   if (ytFrame) ytFrame.src = "";
 
   if (!uuid) {
@@ -242,12 +245,12 @@ function populateForm(data) {
   // Selects
   const camSelect = document.getElementById("camera-select");
   if (camSelect && data.CameraMac !== undefined && data.CameraMac !== null && data.CameraMac !== 0) {
-    camSelect.value = "" + data.CameraMac;
+    camSelect.value = formatMac(data.CameraMac);
   }
 
   const controllerSelect = document.getElementById("controller-select");
   if (controllerSelect && data.ControllerMAC !== undefined && data.ControllerMAC !== null && data.ControllerMAC !== 0) {
-    controllerSelect.value = "" + data.ControllerMAC;
+    controllerSelect.value = formatMac(data.ControllerMAC);
   }
 
   // Hidden/Readonly
@@ -261,7 +264,18 @@ function populateForm(data) {
   const hStateEl = document.getElementById("hardware-state");
   if (hStateEl) hStateEl.value = data.HardwareState || '';
   const hdEl = document.getElementById("hardware-state-data");
-  if (hdEl) hdEl.value = data.HardwareStateData ? JSON.stringify(data.HardwareStateData) : '';
+  if (hdEl) {
+    if (data.HardwareStateData) {
+      try {
+        const decoded = atob(data.HardwareStateData);
+        hdEl.value = decoded;
+      } catch (e) {
+        hdEl.value = data.HardwareStateData;
+      }
+    } else {
+      hdEl.value = '';
+    }
+  }
 
   // Synchronize time inputs
   if (data.StartTimestamp) {
@@ -300,6 +314,7 @@ function populateForm(data) {
     if (c && frame) {
       frame.src = `https://www.youtube.com/embed/${data.BID}`;
       c.classList.remove("d-none");
+      c.classList.add("d-flex");
     }
   }
 }
@@ -309,7 +324,11 @@ function populateForm(data) {
 async function fetchBroadcast(uuid) {
   if (!uuid) return null;
   try {
-    const res = await fetch(`/api/v1/broadcasts/${uuid}`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const site = urlParams.get('site');
+    const url = site ? `/api/v1/broadcasts/${uuid}?site=${site}` : `/api/v1/broadcasts/${uuid}`;
+    
+    const res = await fetch(url);
     if (!res.ok) {
       console.error(`Failed to fetch broadcast config: ${res.statusText}`);
       return null;
@@ -319,4 +338,15 @@ async function fetchBroadcast(uuid) {
     console.error(`Error fetching broadcast config:`, err);
     return null;
   }
+}
+
+function formatMac(macInt) {
+  if (!macInt) return "";
+  let hex = macInt.toString(16).toUpperCase();
+  hex = hex.padStart(12, '0');
+  let result = [];
+  for (let i = 0; i < 12; i += 2) {
+    result.push(hex.substring(i, i + 2));
+  }
+  return result.join(':');
 }

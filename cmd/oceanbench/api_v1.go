@@ -440,9 +440,16 @@ func getV1BroadcastHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "uuid parameter is required"})
 	}
 
-	skey, _ := profileData(p)
+	var skey int64
+	if siteStr := c.Query("site"); siteStr != "" {
+		skey, _ = strconv.ParseInt(siteStr, 10, 64)
+	}
 	if skey == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "could not resolve site: no site selected in profile"})
+		skey, _ = profileData(p)
+	}
+
+	if skey == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "could not resolve site: no site selected in profile or query"})
 	}
 
 	vars, err := model.GetVariablesBySite(c.Context(), settingsStore, skey, broadcastScope)
