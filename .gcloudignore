@@ -1,5 +1,6 @@
 .git/
 .github/
+.env
 
 # datablue
 cmd/datablue/.git
@@ -11,6 +12,7 @@ cmd/datablue/#*
 cmd/datablue/store/*
 # oceanbench
 cmd/oceanbench/.git
+cmd/oceanbench/.env
 cmd/oceanbench/.gitignore
 cmd/oceanbench/.circleci
 cmd/oceanbench/oceanbench

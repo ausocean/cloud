@@ -8,6 +8,16 @@ Ocean Bench is AusOcean's cloud service for analyzing and managing ocean data, a
 
 Instructions for building Ocean Bench can be found under cmd/oceanbench.
 
+### Environment Configuration
+
+OceanBench supports a `.env` file in the working directory (e.g. `cmd/oceanbench/.env`) for local development. Copy the example file to get started:
+
+```bash
+cp cmd/oceanbench/.env.example cmd/oceanbench/.env
+```
+
+This sets variables like `OAUTH2_CALLBACK` so you don't need to export them in your shell. The `.env` file is gitignored and will not be committed.
+
 To deploy OceanBench:
 
 ```bash

@@ -72,6 +72,7 @@ import (
 	"github.com/ausocean/utils/sliceutils"
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -102,16 +103,16 @@ type page struct {
 
 // commonData defines the commonly used template data.
 type commonData struct {
-	Standalone bool
-	Debug      bool
-	Version    string
-	Msg        string
-	Pages      []page
-	PageData   interface{}
-	Profile    *gauth.Profile
-	SuperAdmin bool
-	LoginURL   string
-	LogoutURL  string
+	Standalone     bool
+	Debug          bool
+	Version        string
+	Msg            string
+	Pages          []page
+	PageData       interface{}
+	Profile        *gauth.Profile
+	SuperAdmin     bool
+	LoginURL       string
+	LogoutURL      string
 	Users          []model.User
 	Footer         template.HTML
 	CurrentSiteKey int64
@@ -163,6 +164,10 @@ var templateFuncs = template.FuncMap{
 }
 
 func main() {
+	// Load environment variables from .env file if present.
+	// This is a no-op if the file doesn't exist.
+	_ = godotenv.Load()
+
 	defaultPort := 8080
 	v := os.Getenv("PORT")
 	if v != "" {
