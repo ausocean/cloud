@@ -51,6 +51,41 @@ var errNoGlobalNotifier = errors.New("global notifier is nil")
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
 	ctx.log(msg, args...)
+
+	formattedMsg := fmt.Sprintf(msg, args...)
+
+	// Unmarshal the notification suppression rules from the broadcast configuration.
+	// It is of format (case-insensitive for both kinds and containing strings):
+	// {
+	//  "SuppressKinds": ["broadcast-network" , "broadcast-hardware"],
+	// 	"SuppressContaining": ["shutdown failed", "failed to start"]
+	// }
+	suppressionRules := &struct {
+		SuppressKinds      []string
+		SuppressContaining []string
+	}{}
+
+	if ctx.cfg.NotifySuppressRules != "" {
+		err := json.Unmarshal([]byte(ctx.cfg.NotifySuppressRules), suppressionRules)
+		if err != nil {
+			ctx.log("could not unmarshal notification suppression rules: %v", err)
+		} else {
+			for _, k := range suppressionRules.SuppressKinds {
+				if strings.EqualFold(k, string(kind)) {
+					ctx.log("suppressing notification of kind %s: %s", kind, formattedMsg)
+					return
+				}
+			}
+
+			for _, cont := range suppressionRules.SuppressContaining {
+				if strings.Contains(strings.ToLower(formattedMsg), strings.ToLower(cont)) {
+					ctx.log("suppressing notification containing %q: %s", cont, formattedMsg)
+					return
+				}
+			}
+		}
+	}
+
 	// If context has nil notifier, use global notifier
 	if ctx.notifier == nil {
 		ctx.log("broadcast context notifier is nil, setting to global notifier")
