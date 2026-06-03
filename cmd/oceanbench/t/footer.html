@@ -1,14 +1,2 @@
-<!-- This a template fragment, not a complete HTML template. -->
-<footer>
-  <p>
-    &copy;2019-2026 Australian Ocean Laboratory Limited (AusOcean) (
-    <a rel="license" href="https://www.ausocean.org/license">License</a>
-    )
-  </p>
-  <p style="opacity: 0.5; font-size: 0.8em; margin-top: 5px;">
-    {{.Version}}{{if .CommitHash}} ({{.CommitHash}}){{end}}
-  </p>
-  {{if .SuperAdmin}}
-  <a href="/admin/tv-overview">TV Overview</a>
-  {{end}}
-</footer>
+<script type="module" src="/s/lit/site-footer.js"></script>
+<site-footer version="{{.Version}}" commit="{{.CommitHash}}" {{if .SuperAdmin}}superadmin{{end}}></site-footer>
