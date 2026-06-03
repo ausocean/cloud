@@ -155,3 +155,201 @@ function toggleAdvanced(checked) {
 
   document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
 }
+
+// handleBroadcastSelect triggers fetching and form population
+async function handleBroadcastSelect(uuid) {
+  // HTML <option> elements in the select dropdown have values prefixed with "Broadcast." 
+  // (e.g., "Broadcast.1234-5678"). We strip this before making the API request 
+  // to ensure we're querying against just the raw UUID.
+  if (uuid && uuid.startsWith("Broadcast.")) {
+    uuid = uuid.substring("Broadcast.".length);
+  }
+
+  const loadingOverlay = document.getElementById("loading-overlay");
+  if (loadingOverlay) loadingOverlay.classList.remove("d-none");
+
+  const ytContainer = document.getElementById("youtube-preview-container");
+  const ytFrame = document.getElementById("youtube-preview-frame");
+  if (ytContainer) {
+    ytContainer.classList.add("d-none");
+    ytContainer.classList.remove("d-flex");
+  }
+  if (ytFrame) ytFrame.src = "";
+
+  if (!uuid) {
+    if (loadingOverlay) loadingOverlay.classList.add("d-none");
+    document.querySelector('form').reset();
+    return;
+  }
+
+  const data = await fetchBroadcast(uuid);
+
+  if (data) {
+    populateForm(data);
+  } else {
+    alert("Failed to load broadcast data.");
+  }
+
+  if (loadingOverlay) loadingOverlay.classList.add("d-none");
+}
+
+function populateForm(data) {
+  // Simple inputs
+  const mapping = {
+    'broadcast-name': data.Name,
+    'broadcast-uuid': data.UUID,
+    'account': data.Account,
+    'description': data.Description,
+    'stream-name': data.StreamName,
+    'rtmp-key-var': data.RTMPVar,
+    'rtmp-key': data.RTMPKey,
+    'vidforward-host': data.VidforwardHost,
+    'battery-voltage-pin': data.BatteryVoltagePin,
+    'required-streaming-voltage': data.RequiredStreamingVoltage,
+    'voltage-recovery-timeout': data.VoltageRecoveryTimeout,
+    'openfish-capturesource': data.OpenFishCaptureSource,
+    'notify-suppress-rules': data.NotifySuppressRules,
+    'on-actions': data.OnActions,
+    'shutdown-actions': data.ShutdownActions,
+    'off-actions': data.OffActions,
+    'start-timestamp': data.StartTimestamp,
+    'end-timestamp': data.EndTimestamp,
+  };
+
+  for (const [name, val] of Object.entries(mapping)) {
+    const el = document.querySelector(`input[name="${name}"], textarea[name="${name}"]`);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  }
+
+  // Checkboxes
+  const checks = {
+    'enabled': data.Enabled,
+    'in-failure': data.InFailure,
+    'use-vidforward': data.UsingVidforward,
+    'check-health': data.CheckingHealth,
+    'register-openfish': data.RegisterOpenFish
+  };
+
+  for (const [name, val] of Object.entries(checks)) {
+    const el = document.querySelector(`input[name="${name}"][type="checkbox"]`);
+    if (el) el.checked = !!val;
+  }
+
+  // Radio buttons
+  if (data.LivePrivacy) {
+    const el = document.querySelector(`input[name="live-privacy"][value="${data.LivePrivacy}"]`);
+    if (el) el.checked = true;
+  }
+  if (data.PostLivePrivacy) {
+    const el = document.querySelector(`input[name="post-live-privacy"][value="${data.PostLivePrivacy}"]`);
+    if (el) el.checked = true;
+  }
+
+  // Selects
+  const camSelect = document.getElementById("camera-select");
+  if (camSelect && data.CameraMac !== undefined && data.CameraMac !== null && data.CameraMac !== 0) {
+    camSelect.value = formatMac(data.CameraMac);
+  }
+
+  const controllerSelect = document.getElementById("controller-select");
+  if (controllerSelect && data.ControllerMAC !== undefined && data.ControllerMAC !== null && data.ControllerMAC !== 0) {
+    controllerSelect.value = formatMac(data.ControllerMAC);
+  }
+
+  // Hidden/Readonly
+  const bEl = document.querySelector(`input[name="broadcast-id"]`);
+  if (bEl) bEl.value = data.BID || '';
+  const aEl = document.querySelector(`input[name="active"]`);
+  if (aEl) aEl.value = data.Active || false;
+
+  const stateEl = document.getElementById("broadcast-state");
+  if (stateEl) stateEl.value = data.BroadcastState || '';
+  const hStateEl = document.getElementById("hardware-state");
+  if (hStateEl) hStateEl.value = data.HardwareState || '';
+  const hdEl = document.getElementById("hardware-state-data");
+  if (hdEl) {
+    if (data.HardwareStateData) {
+      try {
+        const decoded = atob(data.HardwareStateData);
+        hdEl.value = decoded;
+      } catch (e) {
+        hdEl.value = data.HardwareStateData;
+      }
+    } else {
+      hdEl.value = '';
+    }
+  }
+
+  // Synchronize time inputs
+  if (data.StartTimestamp) {
+    if (typeof syncDateTime === 'function') syncDateTime("start-time", "start-timestamp", "time-zone", false);
+  }
+  if (data.EndTimestamp) {
+    if (typeof syncDateTime === 'function') syncDateTime("end-time", "end-timestamp", "time-zone", false);
+  }
+
+  // Check sensor config dynamically
+  if (data.SensorList && Array.isArray(data.SensorList)) {
+    // Uncheck all first
+    document.querySelectorAll(`input[type="checkbox"].advanced`).forEach(el => {
+      data.SensorList.forEach(sensor => {
+        if (el.id === sensor.Name) el.checked = false;
+      });
+    });
+    // Check included
+    data.SensorList.forEach(sensor => {
+      if (sensor.SendMsg) {
+        const el = document.getElementById(sensor.Name);
+        if (el) el.checked = true;
+      }
+    });
+  }
+
+  const reportSens = document.getElementById("report-sensor");
+  if (reportSens) {
+    reportSens.checked = !!data.SendMsg;
+  }
+
+  // Youtube Preview
+  if (data.BID) {
+    const c = document.getElementById("youtube-preview-container");
+    const frame = document.getElementById("youtube-preview-frame");
+    if (c && frame) {
+      frame.src = `https://www.youtube.com/embed/${data.BID}`;
+      c.classList.remove("d-none");
+      c.classList.add("d-flex");
+    }
+  }
+}
+
+// fetchBroadcast fetches the broadcast configuration asynchronously via the API.
+// This is exposed to allow custom functionality or components to fetch things like the NotifySuppressRules.
+async function fetchBroadcast(uuid) {
+  if (!uuid) return null;
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const site = urlParams.get('site');
+    const url = site ? `/api/v1/broadcasts/${uuid}?site=${site}` : `/api/v1/broadcasts/${uuid}`;
+    
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`Failed to fetch broadcast config: ${res.statusText}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`Error fetching broadcast config:`, err);
+    return null;
+  }
+}
+
+function formatMac(macInt) {
+  if (!macInt) return "";
+  let hex = macInt.toString(16).toUpperCase();
+  hex = hex.padStart(12, '0');
+  let result = [];
+  for (let i = 0; i < 12; i += 2) {
+    result.push(hex.substring(i, i + 2));
+  }
+  return result.join(':');
+}
