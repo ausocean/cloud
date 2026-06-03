@@ -55,45 +55,51 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 }
 
 func (sm *broadcastStateMachine) handleEvent(event event) error {
-	switch event.(type) {
-	case timeEvent:
-		sm.handleTimeEvent(event.(timeEvent))
-	case finishEvent:
-		sm.handleFinishEvent(event.(finishEvent))
-	case startEvent:
-		sm.handleStartEvent(event.(startEvent))
-	case hardwareStartedEvent:
-		sm.handleHardwareStartedEvent(event.(hardwareStartedEvent))
-	case hardwareStoppedEvent:
-		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
-	case startedEvent:
-		sm.handleStartedEvent(event.(startedEvent))
-	case startFailedEvent:
-		sm.handleStartFailedEvent(event.(startFailedEvent))
-	case criticalFailureEvent:
-		sm.handleCriticalFailureEvent(event.(criticalFailureEvent))
-	case hardwareStartFailedEvent:
-		sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
-	case badHealthEvent:
-		sm.handleBadHealthEvent(event.(badHealthEvent))
-	case goodHealthEvent:
-		sm.handleGoodHealthEvent(event.(goodHealthEvent))
-	case fixFailureEvent:
-		sm.handleFixFailureEvent(event.(fixFailureEvent))
-	case controllerFailureEvent:
-		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
-	case invalidConfigurationEvent:
-		sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
-	case healthCheckDueEvent:
-		sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
-	case statusCheckDueEvent:
-		sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
-	case chatMessageDueEvent:
-		sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
-	case lowVoltageEvent:
-		sm.handleLowVoltageEvent(event.(lowVoltageEvent))
-	case voltageRecoveredEvent:
-		sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
+	switch state := sm.currentState.(type) {
+	case stateWithBroadcastEventHandler:
+		state.handleEvent(sm, event)
+	default:
+		// We default for states that are not yet converted to state based event handling.
+		switch event.(type) {
+		case timeEvent:
+			sm.handleTimeEvent(event.(timeEvent))
+		case finishEvent:
+			sm.handleFinishEvent(event.(finishEvent))
+		case startEvent:
+			sm.handleStartEvent(event.(startEvent))
+		case hardwareStartedEvent:
+			sm.handleHardwareStartedEvent(event.(hardwareStartedEvent))
+		case hardwareStoppedEvent:
+			sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
+		case startedEvent:
+			sm.handleStartedEvent(event.(startedEvent))
+		case startFailedEvent:
+			sm.handleStartFailedEvent(event.(startFailedEvent))
+		case criticalFailureEvent:
+			sm.handleCriticalFailureEvent(event.(criticalFailureEvent))
+		case hardwareStartFailedEvent:
+			sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
+		case badHealthEvent:
+			sm.handleBadHealthEvent(event.(badHealthEvent))
+		case goodHealthEvent:
+			sm.handleGoodHealthEvent(event.(goodHealthEvent))
+		case fixFailureEvent:
+			sm.handleFixFailureEvent(event.(fixFailureEvent))
+		case controllerFailureEvent:
+			sm.handleControllerFailureEvent(event.(controllerFailureEvent))
+		case invalidConfigurationEvent:
+			sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
+		case healthCheckDueEvent:
+			sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
+		case statusCheckDueEvent:
+			sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
+		case chatMessageDueEvent:
+			sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
+		case lowVoltageEvent:
+			sm.handleLowVoltageEvent(event.(lowVoltageEvent))
+		case voltageRecoveredEvent:
+			sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
+		}
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.

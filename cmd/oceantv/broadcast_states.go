@@ -75,6 +75,10 @@ type stateFields struct{}
 func (s *stateFields) enter() {}
 func (s *stateFields) exit()  {}
 
+type stateWithBroadcastEventHandler interface {
+	handleEvent(sm *broadcastStateMachine, event event)
+}
+
 type fixableState interface {
 	state
 	fix()
