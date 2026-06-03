@@ -1,0 +1,71 @@
+@startuml
+title "Direct Broadcast State Machine"
+
+' increase spacing '
+skinparam nodesep 50
+skinparam ranksep 50
+
+' ====== STATES ====== '
+state Idle {
+    Idle : **Time** [startIsDue] / publish **Start**
+}
+
+state Starting {
+    Starting: **Time** [timedOut]
+    Starting: \t[disableOnFirstFail ||Failures > maxStartFailures] \n\t\t/ publish **Critical Failure**
+    Starting: \t[else] \n\t\t/ publish **Start Failed**
+    Starting: **Hardware Started** / Start broadcast
+    Starting: **Low Voltage** / Start backup timeout
+    Starting: **Voltage Recoverd** / Reset starting timeout
+    Starting: **Hardware Start Failed**
+    Starting: \t[disableOnFirstFail ||Failures > maxStartFailures] \n\t\t/ publish **Critical Failure**
+}
+
+state Live {
+    Live: **Time**
+    Live: \t[finishIsDue] / publish **Finish**
+    Live: \t[cfg.CheckingHealth &&\n\t now - lastHealthCheck > healthInterval]
+    Live: \t\t/ publish **Health Check Due**
+    Live: \t[now - lastStatusCheck > statusInterval]
+    Live: \t\t/ publish **Status Check Due**
+    Live: \t[now - lastChatMsg > chatInterval]
+    Live: \t\t/ publish **Chat Message Due**
+}
+
+state "Live Unhealthy" as Unhealthy {
+    Unhealthy: **Time**
+    Unhealthy: \t[finishIsDue] / publish **Finish**
+    Unhealthy: \t[cfg.CheckingHealth &&\n\t now - lastHealthCheck > healthInterval]
+    Unhealthy: \t\t/ publish **Health Check Due**
+    Unhealthy: \t[now - lastStatusCheck > statusInterval]
+    Unhealthy: \t\t/ publish **Status Check Due**
+    Unhealthy: \t[now - lastChatMsg > chatInterval]
+    Unhealthy: \t\t/ publish **Chat Message Due**
+    Unhealthy: \t/ fix
+}
+state Failure
+
+
+' ====== TRANSITIONS ====== '
+[*] -down-> Idle
+
+' Main Path '
+Idle -> Starting : Start
+Starting -> Live : Started
+Live -> Idle : Finish
+Live -> Unhealthy : Bad Health
+Unhealthy -> Live : Good Health
+
+' Returns to Idle '
+Starting --> Idle : Start Failed
+Unhealthy --> Idle : Finish
+
+' Failure Modes '
+Starting --down-> Failure : Invalid Configuration\n Critical Failure\nController Failure
+Live --down-> Failure : Invalid Configuration
+Unhealthy -down-> Failure : Invalid Configuration\n Fix Failure
+
+Failure -down-> [*]
+
+
+@enduml
