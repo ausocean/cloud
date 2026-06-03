@@ -361,7 +361,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		}
 		sm.tryToFixCurrentState()
 
-	case *vidforwardSecondaryIdle, *vidforwardPermanentIdle, *vidforwardPermanentSlate, *directIdle:
+	case *vidforwardSecondaryIdle, *vidforwardPermanentIdle, *vidforwardPermanentSlate:
 		if sm.startIsDue(event) {
 			sm.ctx.bus.publish(startEvent{})
 			return
@@ -499,8 +499,6 @@ func (sm *broadcastStateMachine) handleStartEvent(event startEvent) error {
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
 	case *vidforwardSecondaryIdle:
 		sm.transition(newVidforwardSecondaryStarting(sm.ctx))
-	case *directIdle:
-		sm.transition(newDirectStarting(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
