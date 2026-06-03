@@ -61,6 +61,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	rtdebug "runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -106,6 +107,7 @@ type commonData struct {
 	Standalone     bool
 	Debug          bool
 	Version        string
+	CommitHash     string
 	Msg            string
 	Pages          []page
 	PageData       interface{}
@@ -149,7 +151,22 @@ var (
 var (
 	cronScheduler proxyScheduler
 	cronSecret    []byte
+	commitHash    string
 )
+
+func init() {
+	if info, ok := rtdebug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				commitHash = setting.Value
+				if len(commitHash) > 7 {
+					commitHash = commitHash[:7]
+				}
+				break
+			}
+		}
+	}
+}
 
 // templateFuncs defines custom template functions.
 var templateFuncs = template.FuncMap{
@@ -588,6 +605,10 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	p = v.FieldByName("Version")
 	if p.IsValid() {
 		p.SetString(version)
+	}
+	p = v.FieldByName("CommitHash")
+	if p.IsValid() {
+		p.SetString(commitHash)
 	}
 	p = v.FieldByName("Msg")
 	if p.IsValid() {

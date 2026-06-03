@@ -5,6 +5,9 @@
     <a rel="license" href="https://www.ausocean.org/license">License</a>
     )
   </p>
+  <p style="opacity: 0.5; font-size: 0.8em; margin-top: 5px;">
+    {{.Version}}{{if .CommitHash}} ({{.CommitHash}}){{end}}
+  </p>
   {{if .SuperAdmin}}
   <a href="/admin/tv-overview">TV Overview</a>
   {{end}}
