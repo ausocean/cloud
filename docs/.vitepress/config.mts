@@ -102,7 +102,16 @@ export default withMermaid({
                 text: "Media ID (MID)",
                 link: "data-models/media-id",
               },
-            ]
+            ],
+          },
+          {
+            text: "OceanTV",
+            items: [
+              {
+                text: "Direct Broadcasting",
+                link: "oceantv/direct-broadcasting",
+              },
+            ],
           },
         ],
       },
