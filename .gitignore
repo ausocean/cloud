@@ -26,6 +26,7 @@ ehthumbs.db # Windows specific
 /out/
 /target/
 /tmp/
+/datastore/store/
 
 # Dependency directories
 node_modules/

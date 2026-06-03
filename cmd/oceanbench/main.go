@@ -164,6 +164,9 @@ func init() {
 			}
 		}
 	}
+	if commitHash == "" {
+		commitHash = os.Getenv("COMMIT_HASH")
+	}
 }
 
 // templateFuncs defines custom template functions.

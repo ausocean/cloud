@@ -111,16 +111,21 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# Always use a temporary YAML file to safely inject dynamic env variables.
+TEMP="$(dirname "$YAML")/temp_$(basename "$YAML")"
+cp "$YAML" "$TEMP"
+YAML="$TEMP"
+
+# Inject COMMIT_HASH into env_variables
+COMMIT_HASH=$(git rev-parse --short HEAD)
+sed -i "/^env_variables:/a \ \ COMMIT_HASH: '$COMMIT_HASH'" "$YAML"
+
 if $DEVELOPMENT; then
     PROMOTE="--no-promote"
     DEPLOYMENT_VERSION="dev"
 
-    TEMP="$(dirname "$YAML")/temp_$(basename "$YAML")"
-    cp $YAML $TEMP
-    YAML=$TEMP
-
-    sed -i "/^  OAUTH2_CALLBACK/d" $YAML
-    sed -i "s/# OAUTH2_CALLBACK/\OAUTH2_CALLBACK/g; s/# DEVELOPMENT/\DEVELOPMENT/g" $YAML
+    sed -i "/^  OAUTH2_CALLBACK/d" "$YAML"
+    sed -i "s/# OAUTH2_CALLBACK/\OAUTH2_CALLBACK/g; s/# DEVELOPMENT/\DEVELOPMENT/g" "$YAML"
 else
     # Get the version from main.go in the local directory.
     # Traverse up the directory tree until main.go is found.
@@ -159,6 +164,5 @@ echo "Deploying to version: $DEPLOYMENT_VERSION"
 # Deploy using app.yaml file in cloud/ directory.
 gcloud "app" "deploy" "--project=$1" "--version=$DEPLOYMENT_VERSION" "$PROMOTE" "--no-cache" "$YAML"
 
-if $DEVELOPMENT; then
-  rm $YAML
-fi
+# Always clean up the temporary YAML file
+rm "$YAML"
