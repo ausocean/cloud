@@ -105,12 +105,15 @@ function macToID(mac) {
 }
 
 function handleSiteChange(event) {
+  let siteKey = event.detail["newSite"].split(":")[0];
+
   // Make a request to change site.
   let xhr = new XMLHttpRequest();
   xhr.open("GET", "/api/set/site/" + event.detail["newSite"]);
   xhr.onreadystatechange = () => {
     if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-      location.assign("/admin/broadcast"); // This will empty the form.
+      sessionStorage.setItem("site", siteKey);
+      location.assign("/admin/broadcast?site=" + siteKey); // This will empty the form.
     }
   };
   xhr.send();
