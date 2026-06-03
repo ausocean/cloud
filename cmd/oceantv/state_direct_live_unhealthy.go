@@ -39,6 +39,27 @@ type directLiveUnhealthy struct {
 func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
 	return &directLiveUnhealthy{broadcastContext: ctx}
 }
+
+func (s *directLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case timeEvent:
+		if sm.finishIsDue(e) {
+			sm.ctx.bus.publish(finishEvent{})
+			return
+		}
+		sm.publishHealthStatusOrChatEvents(e)
+		sm.tryToFixCurrentState()
+	case finishEvent:
+		sm.transition(newDirectIdle(sm.ctx))
+	case invalidConfigurationEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	case goodHealthEvent:
+		sm.transition(newDirectLive(sm.ctx))
+	case fixFailureEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	}
+}
+
 func (s *directLiveUnhealthy) fix() {
 	const directLiveFixTimeout = 8 * time.Minute
 	if time.Since(s.LastResetAttempt) <= directLiveFixTimeout {

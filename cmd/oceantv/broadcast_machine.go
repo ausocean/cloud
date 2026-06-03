@@ -212,8 +212,7 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 
 	case
-		*directStarting,
-		*directLiveUnhealthy:
+		*directStarting:
 
 		sm.transition(newDirectFailure(sm.ctx, event))
 
@@ -284,7 +283,7 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 		sm.transition(newVidforwardSecondaryLiveUnhealthy())
 	case *vidforwardPermanentFailure:
 		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
+	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy:
 		// Do nothing.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -301,8 +300,6 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 		sm.transition(newVidforwardPermanentSlate())
 	case *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectLive(sm.ctx))
 	case *vidforwardPermanentTransitionLiveToSlate:
 		if sm.currentState.(*vidforwardPermanentTransitionLiveToSlate).isHardwareStopped() {
 			sm.transition(newVidforwardPermanentSlate())
@@ -343,7 +340,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 			return
 		}
 		sm.publishHealthStatusOrChatEvents(event)
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
+	case *vidforwardPermanentLiveUnhealthy, *vidforwardSecondaryLiveUnhealthy:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
@@ -408,8 +405,6 @@ func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) er
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentLiveUnhealthy:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
 	}
@@ -479,8 +474,6 @@ func (sm *broadcastStateMachine) handleFinishEvent(event finishEvent) error {
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case *vidforwardSecondaryLive, *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectIdle(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
