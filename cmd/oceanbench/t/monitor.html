@@ -11,6 +11,7 @@
     <script type="text/javascript" src="/s/main.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -166,6 +167,6 @@
         {{ end }}
       </div>
     </section>
-    {{ .Footer }}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>

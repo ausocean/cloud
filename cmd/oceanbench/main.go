@@ -50,7 +50,6 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -61,6 +60,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	rtdebug "runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -106,6 +106,7 @@ type commonData struct {
 	Standalone     bool
 	Debug          bool
 	Version        string
+	CommitHash     string
 	Msg            string
 	Pages          []page
 	PageData       interface{}
@@ -114,7 +115,6 @@ type commonData struct {
 	LoginURL       string
 	LogoutURL      string
 	Users          []model.User
-	Footer         template.HTML
 	CurrentSiteKey int64
 }
 
@@ -149,7 +149,22 @@ var (
 var (
 	cronScheduler proxyScheduler
 	cronSecret    []byte
+	commitHash    string
 )
+
+func init() {
+	if info, ok := rtdebug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				commitHash = setting.Value
+				if len(commitHash) > 7 {
+					commitHash = commitHash[:7]
+				}
+				break
+			}
+		}
+	}
+}
 
 // templateFuncs defines custom template functions.
 var templateFuncs = template.FuncMap{
@@ -589,6 +604,10 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	if p.IsValid() {
 		p.SetString(version)
 	}
+	p = v.FieldByName("CommitHash")
+	if p.IsValid() {
+		p.SetString(commitHash)
+	}
 	p = v.FieldByName("Msg")
 	if p.IsValid() {
 		p.SetString(msg)
@@ -619,22 +638,16 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
 	}
 
-	const footer = "footer.html"
-	var b bytes.Buffer
-	err := templates.ExecuteTemplate(&b, footer, data)
-	if err != nil {
-		log.Fatalf("ExecuteTemplate failed on %s: %v", footer, err)
-	}
-	p = v.FieldByName("Footer")
-	p.Set(reflect.ValueOf(template.HTML(b.String())))
-
 	if strings.HasPrefix(name, "set/") {
-		err = setTemplates.ExecuteTemplate(w, name[4:], data)
+		err := setTemplates.ExecuteTemplate(w, name[4:], data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
 	} else {
-		err = templates.ExecuteTemplate(w, name, data)
-	}
-	if err != nil {
-		log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		err := templates.ExecuteTemplate(w, name, data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
 	}
 }
 

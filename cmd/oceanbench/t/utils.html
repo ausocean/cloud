@@ -15,6 +15,7 @@
         encElem.value = encodeMAC(macElem.value).toString();
       }
     </script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body onload="history.pushState({}, '', '/admin/utils')">
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -108,6 +109,6 @@
         {{ end }}
       </div>
     </section>
-    {{ .Footer }}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>
