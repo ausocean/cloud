@@ -213,7 +213,6 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 
 	case
 		*directStarting,
-		*directLive,
 		*directLiveUnhealthy:
 
 		sm.transition(newDirectFailure(sm.ctx, event))
@@ -283,8 +282,6 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 		sm.transition(newVidforwardPermanentSlateUnhealthy(sm.ctx))
 	case *vidforwardSecondaryLive:
 		sm.transition(newVidforwardSecondaryLiveUnhealthy())
-	case *directLive:
-		sm.transition(newDirectLiveUnhealthy(sm.ctx))
 	case *vidforwardPermanentFailure:
 		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
 	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
@@ -340,7 +337,7 @@ func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFa
 func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	sm.log("handling time event: %v", event.Time)
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLive, *vidforwardSecondaryLive, *directLive:
+	case *vidforwardPermanentLive, *vidforwardSecondaryLive:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
@@ -482,7 +479,7 @@ func (sm *broadcastStateMachine) handleFinishEvent(event finishEvent) error {
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case *vidforwardSecondaryLive, *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case *directLive, *directLiveUnhealthy:
+	case *directLiveUnhealthy:
 		sm.transition(newDirectIdle(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
