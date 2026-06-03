@@ -1,9 +1,10 @@
 // ts/site-footer.ts
 import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { TailwindElement } from "./shared/tailwind.element";
 
 @customElement("site-footer")
-export class SiteFooter extends LitElement {
+export class SiteFooter extends TailwindElement() {
   @property({ type: Number }) startYear = 2019;
   @property({ type: String }) orgName = "Australian Ocean Laboratory Limited (AusOcean)";
   @property({ type: String }) licenseHref = "https://www.ausocean.org/license";

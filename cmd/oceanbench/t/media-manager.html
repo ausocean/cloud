@@ -31,7 +31,7 @@
         <h1 class="container-md">Media Manager</h1>
         <media-manager></media-manager>
     </section>
-    <site-footer></site-footer>
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
 </body>
 
 </html>

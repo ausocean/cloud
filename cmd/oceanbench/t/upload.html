@@ -110,6 +110,7 @@
         }
       }
     </script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body onload="init();">
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -158,6 +159,6 @@
         <p class="fineprint">*If unsure, ask an AusOcean crew member to provide you one.</p>
       </div>
     </section>
-    {{ .Footer }}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>

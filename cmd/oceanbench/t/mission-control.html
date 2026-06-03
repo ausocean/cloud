@@ -30,6 +30,6 @@
       <h1 class="container-md">Mission Control</h1>
       <admin-site-lists></admin-site-lists>
     </section>
-    <site-footer></site-footer>
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>

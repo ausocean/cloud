@@ -50,7 +50,6 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -116,7 +115,6 @@ type commonData struct {
 	LoginURL       string
 	LogoutURL      string
 	Users          []model.User
-	Footer         template.HTML
 	CurrentSiteKey int64
 }
 
@@ -640,22 +638,16 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
 	}
 
-	const footer = "footer.html"
-	var b bytes.Buffer
-	err := templates.ExecuteTemplate(&b, footer, data)
-	if err != nil {
-		log.Fatalf("ExecuteTemplate failed on %s: %v", footer, err)
-	}
-	p = v.FieldByName("Footer")
-	p.Set(reflect.ValueOf(template.HTML(b.String())))
-
 	if strings.HasPrefix(name, "set/") {
-		err = setTemplates.ExecuteTemplate(w, name[4:], data)
+		err := setTemplates.ExecuteTemplate(w, name[4:], data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
 	} else {
-		err = templates.ExecuteTemplate(w, name, data)
-	}
-	if err != nil {
-		log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		err := templates.ExecuteTemplate(w, name, data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
 	}
 }
 

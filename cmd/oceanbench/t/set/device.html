@@ -200,6 +200,7 @@
         document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/set/devices";
       }
     </script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body onload="init();">
     <div id="data">
@@ -608,7 +609,7 @@
         </div>
       </div>
     </section>
-    {{.Footer}}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
     <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function () {
         const lockCheckbox = document.getElementById("lock-voltages");

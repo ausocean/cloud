@@ -14,6 +14,7 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript" src="/s/broadcast.js"></script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
@@ -313,6 +314,6 @@
     <div id="sensor-list" style="display: none" data-sensor-list="{{json .CurrentBroadcast.SensorList}}"></div>
     <div id="send-msg" style="display: none" data-send-msg="{{.CurrentBroadcast.SendMsg}}"></div>
 
-    {{.Footer}}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>

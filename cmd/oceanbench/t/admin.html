@@ -31,6 +31,7 @@
         return copyFormValues("delete_user", "users", { email: "input" });
       }
     </script>
+      <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body onload="init()">
     <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
@@ -171,6 +172,6 @@
       </div>
       <!--rounded box -->
     </section>
-    {{ .Footer }}
+    <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
   </body>
 </html>
