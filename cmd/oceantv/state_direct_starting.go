@@ -23,7 +23,10 @@ LICENSE
 
 package main
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type directStarting struct {
 	stateFields
@@ -33,7 +36,41 @@ type directStarting struct {
 func newDirectStarting(ctx *broadcastContext) *directStarting {
 	return &directStarting{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
+
 func (s *directStarting) enter() {
 	s.LastEntered = time.Now()
 	createBroadcastAndRequestHardware(s.broadcastContext, s.cfg, nil)
+}
+
+func (s *directStarting) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case timeEvent:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(e.Time) {
+			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("direct starting timed out"))
+		}
+	case hardwareStartedEvent:
+		startBroadcast(sm.ctx, sm.ctx.cfg)
+	case startedEvent:
+		sm.transition(&directLive{})
+	case lowVoltageEvent:
+		// If we're in the starting state we need to reset the timeout to allow for
+		// hardware voltage recovery (remembering that this is not our primary timeout
+		// mechanism, which is handled by the hardware SM but a rather a contingency that
+		// we shouldn't hit with normal behaviour).
+		const broadcastVoltageRecoveryOffset = 10 * time.Minute
+		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
+	case voltageRecoveredEvent:
+		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
+	case invalidConfigurationEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	case startFailedEvent:
+		sm.transition(newDirectIdle(sm.ctx))
+	case criticalFailureEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	case hardwareStartFailedEvent:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e)
+	case controllerFailureEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	}
 }

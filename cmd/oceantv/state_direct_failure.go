@@ -59,6 +59,10 @@ func (s *directFailure) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
 }
 
+func (s *directFailure) handleEvent(sm *broadcastStateMachine, event event) {
+	// Do nothing.
+}
+
 func (s *directFailure) MarshalJSON() ([]byte, error) {
 	if s.err != nil {
 		return json.Marshal(struct{ Err string }{Err: s.err.Error()})

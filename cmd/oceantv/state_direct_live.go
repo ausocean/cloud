@@ -32,3 +32,20 @@ type directLive struct {
 func newDirectLive(ctx *broadcastContext) *directLive {
 	return &directLive{broadcastContext: ctx}
 }
+
+func (s *directLive) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case invalidConfigurationEvent:
+		sm.transition(newDirectFailure(sm.ctx, e))
+	case badHealthEvent:
+		sm.transition(newDirectLiveUnhealthy(sm.ctx))
+	case timeEvent:
+		if sm.finishIsDue(e) {
+			sm.ctx.bus.publish(finishEvent{})
+			return
+		}
+		sm.publishHealthStatusOrChatEvents(e)
+	case finishEvent:
+		sm.transition(newDirectIdle(sm.ctx))
+	}
+}

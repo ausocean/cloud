@@ -55,45 +55,51 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 }
 
 func (sm *broadcastStateMachine) handleEvent(event event) error {
-	switch event.(type) {
-	case timeEvent:
-		sm.handleTimeEvent(event.(timeEvent))
-	case finishEvent:
-		sm.handleFinishEvent(event.(finishEvent))
-	case startEvent:
-		sm.handleStartEvent(event.(startEvent))
-	case hardwareStartedEvent:
-		sm.handleHardwareStartedEvent(event.(hardwareStartedEvent))
-	case hardwareStoppedEvent:
-		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
-	case startedEvent:
-		sm.handleStartedEvent(event.(startedEvent))
-	case startFailedEvent:
-		sm.handleStartFailedEvent(event.(startFailedEvent))
-	case criticalFailureEvent:
-		sm.handleCriticalFailureEvent(event.(criticalFailureEvent))
-	case hardwareStartFailedEvent:
-		sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
-	case badHealthEvent:
-		sm.handleBadHealthEvent(event.(badHealthEvent))
-	case goodHealthEvent:
-		sm.handleGoodHealthEvent(event.(goodHealthEvent))
-	case fixFailureEvent:
-		sm.handleFixFailureEvent(event.(fixFailureEvent))
-	case controllerFailureEvent:
-		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
-	case invalidConfigurationEvent:
-		sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
-	case healthCheckDueEvent:
-		sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
-	case statusCheckDueEvent:
-		sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
-	case chatMessageDueEvent:
-		sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
-	case lowVoltageEvent:
-		sm.handleLowVoltageEvent(event.(lowVoltageEvent))
-	case voltageRecoveredEvent:
-		sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
+	switch state := sm.currentState.(type) {
+	case stateWithBroadcastEventHandler:
+		state.handleEvent(sm, event)
+	default:
+		// We default for states that are not yet converted to state based event handling.
+		switch event.(type) {
+		case timeEvent:
+			sm.handleTimeEvent(event.(timeEvent))
+		case finishEvent:
+			sm.handleFinishEvent(event.(finishEvent))
+		case startEvent:
+			sm.handleStartEvent(event.(startEvent))
+		case hardwareStartedEvent:
+			sm.handleHardwareStartedEvent(event.(hardwareStartedEvent))
+		case hardwareStoppedEvent:
+			sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
+		case startedEvent:
+			sm.handleStartedEvent(event.(startedEvent))
+		case startFailedEvent:
+			sm.handleStartFailedEvent(event.(startFailedEvent))
+		case criticalFailureEvent:
+			sm.handleCriticalFailureEvent(event.(criticalFailureEvent))
+		case hardwareStartFailedEvent:
+			sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
+		case badHealthEvent:
+			sm.handleBadHealthEvent(event.(badHealthEvent))
+		case goodHealthEvent:
+			sm.handleGoodHealthEvent(event.(goodHealthEvent))
+		case fixFailureEvent:
+			sm.handleFixFailureEvent(event.(fixFailureEvent))
+		case controllerFailureEvent:
+			sm.handleControllerFailureEvent(event.(controllerFailureEvent))
+		case invalidConfigurationEvent:
+			sm.handleInvalidConfigurationEvent(event.(invalidConfigurationEvent))
+		case healthCheckDueEvent:
+			sm.handleHealthCheckDueEvent(event.(healthCheckDueEvent))
+		case statusCheckDueEvent:
+			sm.handleStatusCheckDueEvent(event.(statusCheckDueEvent))
+		case chatMessageDueEvent:
+			sm.handleChatMessageDueEvent(event.(chatMessageDueEvent))
+		case lowVoltageEvent:
+			sm.handleLowVoltageEvent(event.(lowVoltageEvent))
+		case voltageRecoveredEvent:
+			sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
+		}
 	}
 
 	// After handling of the event, we may have some changes in substates of the current state.
@@ -104,7 +110,7 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) error {
 	sm.log("handling low voltage event")
 	switch sm.currentState.(type) {
-	case *directStarting, *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
 		// If we're in the starting state we need to reset the timeout to allow for
 		// hardware voltage recovery (remembering that this is not our primary timeout
 		// mechanism, which is handled by the hardware SM but a rather a contingency that
@@ -122,7 +128,7 @@ func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) er
 func (sm *broadcastStateMachine) handleVoltageRecoveredEvent(event voltageRecoveredEvent) error {
 	sm.log("handling voltage recovered event")
 	switch sm.currentState.(type) {
-	case *directStarting, *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
 		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
 	case *vidforwardPermanentVoltageRecoverySlate:
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
@@ -205,13 +211,6 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 
-	case
-		*directStarting,
-		*directLive,
-		*directLiveUnhealthy:
-
-		sm.transition(newDirectFailure(sm.ctx, event))
-
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -224,8 +223,6 @@ func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) 
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case *vidforwardSecondaryStarting:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case *directStarting:
-		sm.transition(newDirectIdle(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -243,8 +240,6 @@ func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailur
 		// as a result of a hardware failure, for which the primary broadcast
 		// will subsequently be in a failure state.
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case *directStarting:
-		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -254,7 +249,7 @@ func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailur
 func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareStartFailedEvent) error {
 	sm.log("handling hardware start failed event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting, *directStarting:
+	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(event)
 	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
 		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
@@ -277,11 +272,9 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 		sm.transition(newVidforwardPermanentSlateUnhealthy(sm.ctx))
 	case *vidforwardSecondaryLive:
 		sm.transition(newVidforwardSecondaryLiveUnhealthy())
-	case *directLive:
-		sm.transition(newDirectLiveUnhealthy(sm.ctx))
 	case *vidforwardPermanentFailure:
 		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
+	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy:
 		// Do nothing.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -298,8 +291,6 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 		sm.transition(newVidforwardPermanentSlate())
 	case *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectLive(sm.ctx))
 	case *vidforwardPermanentTransitionLiveToSlate:
 		if sm.currentState.(*vidforwardPermanentTransitionLiveToSlate).isHardwareStopped() {
 			sm.transition(newVidforwardPermanentSlate())
@@ -317,8 +308,6 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFailureEvent) error {
 	sm.log("handling controller failure event")
 	switch sm.currentState.(type) {
-	case *directStarting:
-		sm.transition(newDirectFailure(sm.ctx, event))
 	case *vidforwardPermanentStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
@@ -334,13 +323,13 @@ func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFa
 func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	sm.log("handling time event: %v", event.Time)
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLive, *vidforwardSecondaryLive, *directLive:
+	case *vidforwardPermanentLive, *vidforwardSecondaryLive:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
 		}
 		sm.publishHealthStatusOrChatEvents(event)
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardSecondaryLiveUnhealthy, *directLiveUnhealthy:
+	case *vidforwardPermanentLiveUnhealthy, *vidforwardSecondaryLiveUnhealthy:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
@@ -355,7 +344,7 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		}
 		sm.tryToFixCurrentState()
 
-	case *vidforwardSecondaryIdle, *vidforwardPermanentIdle, *vidforwardPermanentSlate, *directIdle:
+	case *vidforwardSecondaryIdle, *vidforwardPermanentIdle, *vidforwardPermanentSlate:
 		if sm.startIsDue(event) {
 			sm.ctx.bus.publish(startEvent{})
 			return
@@ -371,11 +360,6 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		sm.publishHealthEvent(event)
 	case *vidforwardSecondaryStarting:
 		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), event)
-	case *directStarting:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(event.Time) {
-			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("direct starting timed out"))
-		}
 	case *vidforwardPermanentStarting:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
@@ -405,8 +389,6 @@ func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) er
 	switch sm.currentState.(type) {
 	case *vidforwardPermanentLiveUnhealthy:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case *directLiveUnhealthy:
-		sm.transition(newDirectFailure(sm.ctx, event))
 	default:
 		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
 	}
@@ -476,8 +458,6 @@ func (sm *broadcastStateMachine) handleFinishEvent(event finishEvent) error {
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case *vidforwardSecondaryLive, *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case *directLive, *directLiveUnhealthy:
-		sm.transition(newDirectIdle(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -493,8 +473,6 @@ func (sm *broadcastStateMachine) handleStartEvent(event startEvent) error {
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
 	case *vidforwardSecondaryIdle:
 		sm.transition(newVidforwardSecondaryStarting(sm.ctx))
-	case *directIdle:
-		sm.transition(newDirectStarting(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -504,7 +482,7 @@ func (sm *broadcastStateMachine) handleStartEvent(event startEvent) error {
 func (sm *broadcastStateMachine) handleHardwareStartedEvent(event hardwareStartedEvent) error {
 	sm.log("handling hardware started event")
 	switch sm.currentState.(type) {
-	case *directStarting, *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
 		startBroadcast(sm.ctx, sm.ctx.cfg)
 	default: // Do nothing.
 	}
@@ -526,8 +504,6 @@ func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 		sm.transition(newVidforwardPermanentLive())
 	case *vidforwardSecondaryStarting:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
-	case *directStarting:
-		sm.transition(&directLive{})
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
