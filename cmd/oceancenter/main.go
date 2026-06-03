@@ -36,6 +36,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	rtdebug "runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -93,6 +94,24 @@ type service struct {
 
 // app is an instance of our service.
 var app *service = &service{}
+var commitHash string
+
+func init() {
+	if info, ok := rtdebug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				commitHash = setting.Value
+				if len(commitHash) > 7 {
+					commitHash = commitHash[:7]
+				}
+				break
+			}
+		}
+	}
+	if commitHash == "" {
+		commitHash = os.Getenv("COMMIT_HASH")
+	}
+}
 
 func main() {
 	defaultPort := 8084
@@ -132,7 +151,11 @@ func main() {
 // test that the service is running. Devices do not use this endpoint.
 func (svc *service) indexHandler(w http.ResponseWriter, r *http.Request) {
 	svc.logRequest(r)
-	w.Write([]byte(projectID + " " + version))
+	if commitHash != "" {
+		w.Write([]byte(projectID + " " + version + " (" + commitHash + ")"))
+	} else {
+		w.Write([]byte(projectID + " " + version))
+	}
 }
 
 // setup executes per-instance one-time warmup and is used to

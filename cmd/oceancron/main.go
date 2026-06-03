@@ -28,6 +28,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	rtdebug "runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -55,7 +56,25 @@ var (
 	cronSecret    []byte
 	notifier      notify.Notifier
 	storePath     string
+	commitHash    string
 )
+
+func init() {
+	if info, ok := rtdebug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				commitHash = setting.Value
+				if len(commitHash) > 7 {
+					commitHash = commitHash[:7]
+				}
+				break
+			}
+		}
+	}
+	if commitHash == "" {
+		commitHash = os.Getenv("COMMIT_HASH")
+	}
+}
 
 func main() {
 	defaultPort := 8081
@@ -97,7 +116,11 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 // test that the service is running. Devices do not use this endpoint.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
-	w.Write([]byte(projectID + " " + version))
+	if commitHash != "" {
+		w.Write([]byte(projectID + " " + version + " (" + commitHash + ")"))
+	} else {
+		w.Write([]byte(projectID + " " + version))
+	}
 }
 
 // setup executes per-instance one-time warmup and is used to
