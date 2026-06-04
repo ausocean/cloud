@@ -226,7 +226,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 // setup executes per-instance one-time initialization. Any errors are
 // considered fatal.
-func setup(ctx context.Context) {
+func setup(ctx Ctx) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
@@ -326,7 +326,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cfg BroadcastConfig
+	var cfg Cfg
 	err = json.Unmarshal(data, &cfg)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -338,7 +338,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the broadcast manager to save the broadcast.
-	// We can provide a nil BroadcastService given that Save
+	// We can provide a nil Svc given that Save
 	// won't need this.
 	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, func(_cfg *Cfg) {
 		// Update only the fields that can be updated via the UI.

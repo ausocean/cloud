@@ -32,7 +32,6 @@ LICENSE
 package broadcast
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"time"
@@ -43,7 +42,7 @@ import (
 
 // GetService is a stub version of GetService in youtube.go. This logs the passed
 // scope and returns an empty youtube Service.
-func GetService(ctx context.Context, w http.ResponseWriter, r *http.Request, scope string) (*youtube.Service, error) {
+func GetService(ctx Ctx, w http.ResponseWriter, r *http.Request, scope string) (*youtube.Service, error) {
 	log.Printf("getting youtube service with, scope: %s", scope)
 	return &youtube.Service{}, nil
 }

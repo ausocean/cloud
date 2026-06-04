@@ -29,7 +29,7 @@ func TestGetHardwareStateStorage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stateStr := hardwareStateToString(tt.initialState)
-			gotState := getHardwareState(&broadcastContext{cfg: &BroadcastConfig{HardwareState: stateStr}, logOutput: t.Log, notifier: newMockNotifier()})
+			gotState := getHardwareState(&broadcastContext{cfg: &Cfg{HardwareState: stateStr}, logOutput: t.Log, notifier: newMockNotifier()})
 			if reflect.TypeOf(gotState) != reflect.TypeOf(tt.initialState) {
 				t.Errorf("expected state %v, got %v", tt.initialState, gotState)
 			}
@@ -74,7 +74,7 @@ func TestHandleHardwareStoppedEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.fwd = newDummyForwardingService()
-			bCtx.cfg = &BroadcastConfig{}
+			bCtx.cfg = &Cfg{}
 			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
@@ -125,7 +125,7 @@ func TestHandleHardwareStopFailedEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.fwd = newDummyForwardingService()
-			bCtx.cfg = &BroadcastConfig{}
+			bCtx.cfg = &Cfg{}
 			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
@@ -178,7 +178,7 @@ func TestHandleHardwareStartFailedEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.fwd = newDummyForwardingService()
-			bCtx.cfg = &BroadcastConfig{}
+			bCtx.cfg = &Cfg{}
 			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
@@ -231,7 +231,7 @@ func TestHandleHardwareStartedEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.fwd = newDummyForwardingService()
-			bCtx.cfg = &BroadcastConfig{}
+			bCtx.cfg = &Cfg{}
 			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
@@ -292,7 +292,7 @@ func TestHandleHardwareResetRequestEvent(t *testing.T) {
 			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.fwd = newDummyForwardingService()
-			bCtx.cfg = &BroadcastConfig{}
+			bCtx.cfg = &Cfg{}
 			bCtx.man = newDummyManager(t, bCtx.cfg)
 			bCtx.bus = bus
 
@@ -327,7 +327,7 @@ func (hs *hardwareSystem) tick() error {
 	}
 
 	// Remove stored events we just published from the config.
-	err := hs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Events = nil })
+	err := hs.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Events = nil })
 	if err != nil {
 		return fmt.Errorf("could not clear config events: %w", err)
 	}
@@ -345,7 +345,7 @@ func (h hardwareSystem) withBroadcastManager(bm BroadcastManager) hardwareSystem
 	}
 }
 
-func (h hardwareSystem) withBroadcastService(bs BroadcastService) hardwareSystemOption {
+func (h hardwareSystem) withBroadcastService(bs Svc) hardwareSystemOption {
 	return func(b *hardwareSystem) error {
 		b.ctx.svc = bs
 		return nil
@@ -381,7 +381,7 @@ func (h hardwareSystem) withNotifier(n notify.Notifier) hardwareSystemOption {
 	}
 }
 
-func newHardwareOnlySystem(ctx context.Context, store Store, cfg *BroadcastConfig, logOutput func(v ...any), options ...hardwareSystemOption) (*hardwareSystem, error) {
+func newHardwareOnlySystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any), options ...hardwareSystemOption) (*hardwareSystem, error) {
 	if ctx.Done() == nil {
 		return nil, errors.New("context must be cancellable")
 	}
@@ -402,7 +402,7 @@ func newHardwareOnlySystem(ctx context.Context, store Store, cfg *BroadcastConfi
 	storeEventsAfterCtx := func(event event) {
 		log("storing event after cancel: %s", event.String())
 		try(
-			man.Save(nil, func(_cfg *BroadcastConfig) {
+			man.Save(nil, func(_cfg *Cfg) {
 				_cfg.Events = append(_cfg.Events, event.String())
 			}),
 			"could not update config with callback",
@@ -448,11 +448,11 @@ func TestHardwareStopAndRestart(t *testing.T) {
 
 	tests := []struct {
 		desc               string
-		cfg                func(*BroadcastConfig)
+		cfg                func(*Cfg)
 		finalHardwareState state
 		initialEvent       event
 		hardwareMan        hardwareManager
-		newBroadcastMan    func(*testing.T, *BroadcastConfig) BroadcastManager
+		newBroadcastMan    func(*testing.T, *Cfg) BroadcastManager
 
 		// Leave unset to use default max ticks.
 		// Some tests may require more ticks to reach the final state.
@@ -464,7 +464,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 	}{
 		{
 			desc: "normal hardware stop, without shutdown actions",
-			cfg: func(c *BroadcastConfig) {
+			cfg: func(c *Cfg) {
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
@@ -476,7 +476,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOff{},
 			initialEvent:       hardwareStopRequestEvent{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event{hardwareStopRequestEvent{},
@@ -490,7 +490,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 		},
 		{
 			desc: "normal hardware stop, with shutdown actions",
-			cfg: func(c *BroadcastConfig) {
+			cfg: func(c *Cfg) {
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
@@ -503,7 +503,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOff{},
 			initialEvent:       hardwareStopRequestEvent{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event{hardwareStopRequestEvent{}, timeEvent{}, timeEvent{}, hardwareShutdownEvent{}, timeEvent{}, hardwareStoppedEvent{}},
@@ -512,7 +512,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 		},
 		{
 			desc: "hardware restart, without shutdown actions",
-			cfg: func(c *BroadcastConfig) {
+			cfg: func(c *Cfg) {
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
@@ -524,7 +524,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOn{},
 			initialEvent:       hardwareResetRequestEvent{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event{
@@ -542,7 +542,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 		},
 		{
 			desc: "hardware restart, with shutdown actions",
-			cfg: func(c *BroadcastConfig) {
+			cfg: func(c *Cfg) {
 				c.Enabled = true
 				c.SKey = testSiteKey
 				c.Start = time.Now().Add(-1 * time.Hour)
@@ -555,7 +555,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOn{},
 			initialEvent:       hardwareResetRequestEvent{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *BroadcastConfig) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event{
@@ -588,7 +588,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
-			cfg := &BroadcastConfig{}
+			cfg := &Cfg{}
 			tt.cfg(cfg)
 
 			sys, err := newHardwareOnlySystem(

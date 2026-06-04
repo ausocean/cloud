@@ -106,7 +106,7 @@ func newDummyManager(t *testing.T, cfg *Cfg, options ...dummyManagerOption) *dum
 func (d *dummyManager) CreateBroadcast(
 	cfg *Cfg,
 	store Store,
-	svc BroadcastService,
+	svc Svc,
 ) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
 		return ErrRequestLimitExceeded
@@ -141,7 +141,7 @@ func (d *dummyManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) er
 	d.stopped = true
 	return nil
 }
-func (d *dummyManager) Save(ctx Ctx, update func(*BroadcastConfig)) error {
+func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	d.saved = true
 	if update != nil {
 		update(d.cfg)
@@ -228,7 +228,7 @@ func (d *dummyStore) Create(ctx Ctx, key *Key, src Ety) error               { re
 func (d *dummyStore) Update(ctx Ctx, key *Key, fn func(Ety), dst Ety) error { return nil }
 func (d *dummyStore) Delete(ctx Ctx, key *Key) error                        { return nil }
 
-// dummyService is a dummy implementation of the BroadcastService interface.
+// dummyService is a dummy implementation of the Svc interface.
 // It does nothing and is used to test the broadcast functions.
 type dummyService struct {
 	status string

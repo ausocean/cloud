@@ -16,14 +16,14 @@ func TestBroadcastCanBeReused(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		svc           BroadcastService
-		cfg           *BroadcastConfig
+		svc           Svc
+		cfg           *Cfg
 		expectedReuse bool
 	}{
 		{
 			name: "empty status",
 			svc:  newDummyService(WithStart(time.Now())), // DummyService always returns an empty status.
-			cfg: &BroadcastConfig{
+			cfg: &Cfg{
 				BID: "1",
 				SID: "2",
 			},
@@ -32,7 +32,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		{
 			name: "good status",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
-			cfg: &BroadcastConfig{
+			cfg: &Cfg{
 				BID: "1",
 				SID: "2",
 			},
@@ -41,7 +41,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		{
 			name: "empty ID, good status",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
-			cfg: &BroadcastConfig{
+			cfg: &Cfg{
 				BID: "",
 				SID: "2",
 			},
@@ -50,7 +50,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		{
 			name: "good status, old broadcast",
 			svc:  newDummyService(WithStart(time.Now().Add(-24*time.Hour)), WithStatus("upcoming")),
-			cfg: &BroadcastConfig{
+			cfg: &Cfg{
 				BID: "1",
 				SID: "2",
 			},
@@ -59,7 +59,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		{
 			name: "good status, today's broadcast",
 			svc:  newDummyService(WithStart(time.Now()), WithStatus("upcoming")),
-			cfg: &BroadcastConfig{
+			cfg: &Cfg{
 				BID: "1",
 				SID: "2",
 			},
@@ -88,7 +88,7 @@ func TestCreateBroadcast(t *testing.T) {
 
 	tests := []struct {
 		desc           string
-		cfg            func(*BroadcastConfig)
+		cfg            func(*Cfg)
 		initialState   state
 		finalState     state
 		expectedEvents []event
@@ -97,7 +97,7 @@ func TestCreateBroadcast(t *testing.T) {
 	}{
 		{
 			desc: "create broadcast",
-			cfg: func(c *BroadcastConfig) {
+			cfg: func(c *Cfg) {
 				c.CameraMac = 2
 				c.Enabled = true
 				c.SKey = testSiteKey
@@ -122,7 +122,7 @@ func TestCreateBroadcast(t *testing.T) {
 
 			// Apply broadcast config modifications
 			// and update the broadcast state based on the initial state.
-			cfg := &BroadcastConfig{}
+			cfg := &Cfg{}
 			tt.cfg(cfg)
 			updateBroadcastBasedOnState(tt.initialState, cfg)
 

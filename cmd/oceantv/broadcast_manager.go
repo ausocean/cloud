@@ -43,18 +43,18 @@ import (
 
 // BroadcastManager is an interface for managing broadcasts.
 type BroadcastManager interface {
-	CreateBroadcast(cfg *Cfg, store Store, svc BroadcastService) error
+	CreateBroadcast(cfg *Cfg, store Store, svc  Svc) error
 
-	StartBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, extStart func() error,
+	StartBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc, extStart func() error,
 		onSuccess func(),
 		onFailure func(error))
-	StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error
-	Save(ctx Ctx, update func(*BroadcastConfig)) error
+	StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) error
+	Save(ctx Ctx, update func(*Cfg)) error
 
 	// HandleStatus checks the status of a broadcast and would perform any
 	// necessary actions based on this status. For example, if the broadcast
 	// status is complete or revoked, it might stop the broadcast.
-	HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, noBroadcastCallBack BroadcastCallback) error
+	HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, noBroadcastCallBack BroadcastCallback) error
 
 	// HandleChatMessage prepares and sends chat messages to the broadcast
 	// service's chat session. This might contain information such as
@@ -72,7 +72,7 @@ type BroadcastManager interface {
 // OceanBroadcastManager is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcastManager struct {
-	svc   BroadcastService
+	svc   Svc
 	log   func(string, ...interface{})
 	cfg   *Cfg
 	store Store
@@ -80,14 +80,14 @@ type OceanBroadcastManager struct {
 
 // newOceanBroadcastManager creates a new OceanBroadcastManager.
 // svc may be nil, but any methods that require it will panic.
-func newOceanBroadcastManager(svc BroadcastService, cfg *Cfg, store Store, log func(string, ...interface{})) *OceanBroadcastManager {
+func newOceanBroadcastManager(svc Svc, cfg *Cfg, store Store, log func(string, ...interface{})) *OceanBroadcastManager {
 	return &OceanBroadcastManager{svc: svc, cfg: cfg, store: store, log: log}
 }
 
 func (m *OceanBroadcastManager) CreateBroadcast(
 	cfg *Cfg,
 	store Store,
-	svc BroadcastService,
+	svc Svc,
 ) error {
 	// Only create a new broadcast if a valid one doesn't already exist.
 	if m.broadcastCanBeReused(cfg, svc) {
@@ -159,7 +159,7 @@ func (m *OceanBroadcastManager) StartBroadcast(
 	ctx Ctx,
 	cfg *Cfg,
 	store Store,
-	svc BroadcastService,
+	svc Svc,
 	extStart func() error,
 	onSuccess func(),
 	onFailure func(error),
@@ -192,7 +192,7 @@ func (m *OceanBroadcastManager) StartBroadcast(
 
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
-func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService) error {
+func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) error {
 	m.log("stopping broadcast")
 
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
@@ -233,7 +233,7 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	_update := func(_cfg *BroadcastConfig) { *_cfg = *m.cfg }
+	_update := func(_cfg *Cfg) { *_cfg = *m.cfg }
 	if update != nil {
 		_update = func(_cfg *Cfg) {
 			update(_cfg)
@@ -284,7 +284,7 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
-func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc BroadcastService, noBroadcastCallBack BroadcastCallback) error {
+func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, noBroadcastCallBack BroadcastCallback) error {
 	m.log("handling status check")
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
@@ -422,7 +422,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	// Check if secondary broadcast already exists.
 	secondaryName := cfg.Name + secondaryBroadcastPostfix
 
-	populateFields := func(_cfg *BroadcastConfig) {
+	populateFields := func(_cfg *Cfg) {
 		// The secondary broadcast will for the most part copy the long term broadcast
 		// configuration, except for a few of the fields.
 		_cfg.Name = secondaryName
@@ -467,7 +467,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 // opsHealthNotifyFunc returns a closure of notifier.Send given to the
 // broadcast.BroadcastStream function for notifications.
-func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string) error {
+func opsHealthNotifyFunc(ctx Ctx, cfg *Cfg) func(string) error {
 	return func(msg string) error {
 		return notifier.Send(ctx, cfg.SKey, broadcastGeneric, msg)
 	}
@@ -475,7 +475,7 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *BroadcastConfig) func(string)
 
 // broadcastCanBeReused checks if a broadcast can be reused based on how old it
 // is, if it has been revoked or completed, and if its IDs have been set.
-func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *BroadcastConfig, svc BroadcastService) bool {
+func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *Cfg, svc Svc) bool {
 	// Check if the broadcast was created today. Don't reuse an old broadcast.
 	startTime, err := svc.BroadcastScheduledStartTime(context.Background(), cfg.BID)
 	if err != nil {

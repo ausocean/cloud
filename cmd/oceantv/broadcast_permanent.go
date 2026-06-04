@@ -38,12 +38,12 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
-type SlateOption func(*BroadcastConfig) error
+type SlateOption func(*Cfg) error
 
 type ForwardingService interface {
-	Stream(cfg *BroadcastConfig) error
-	Slate(cfg *BroadcastConfig, opts ...SlateOption) error
-	UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error
+	Stream(cfg *Cfg) error
+	Slate(cfg *Cfg, opts ...SlateOption) error
+	UploadSlate(cfg *Cfg, name string, file io.Reader) error
 }
 
 type vidforwardStatus string
@@ -61,7 +61,7 @@ func NewVidforwardService(log func(string, ...interface{})) *VidforwardService {
 	return &VidforwardService{log}
 }
 
-func (v *VidforwardService) Stream(cfg *BroadcastConfig) error {
+func (v *VidforwardService) Stream(cfg *Cfg) error {
 	return vidforwardRequest(cfg, vidforwardStatusPlay, v.log)
 }
 
@@ -76,16 +76,16 @@ const (
 // the type of slate to display.
 // This is currently just a stub.
 func WithType(slate SlateType) SlateOption {
-	return func(cfg *BroadcastConfig) error {
+	return func(cfg *Cfg) error {
 		return nil
 	}
 }
 
-func (v *VidforwardService) Slate(cfg *BroadcastConfig, opts ...SlateOption) error {
+func (v *VidforwardService) Slate(cfg *Cfg, opts ...SlateOption) error {
 	return vidforwardRequest(cfg, vidforwardStatusSlate, v.log)
 }
 
-func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error {
+func (v *VidforwardService) UploadSlate(cfg *Cfg, name string, file io.Reader) error {
 	body := &bytes.Buffer{}
 
 	// Not closing this just yet, see close below.
@@ -124,7 +124,7 @@ func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file 
 	return nil
 }
 
-func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus, log func(string, ...interface{})) error {
+func vidforwardRequest(cfg *Cfg, status vidforwardStatus, log func(string, ...interface{})) error {
 	primary, secondary := cfg, cfg
 	var err error
 
