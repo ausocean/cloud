@@ -30,7 +30,7 @@ func withBroadcastManager(bm BroadcastManager) broadcastSystemOption {
 	}
 }
 
-func withBroadcastService(bs BroadcastService) broadcastSystemOption {
+func withBroadcastService(bs Svc) broadcastSystemOption {
 	return func(b *broadcastSystem) error {
 		b.ctx.svc = bs
 		return nil
@@ -98,7 +98,7 @@ func withStateHandlers(h ...func(state)) broadcastSystemOption {
 // newBroadcastSystem creates a new broadcast system.
 // Default implementations for the various components are used, but can be overridden
 // by passing options to this function.
-func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, logOutput func(v ...any), options ...broadcastSystemOption) (*broadcastSystem, error) {
+func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any), options ...broadcastSystemOption) (*broadcastSystem, error) {
 	if ctx.Done() == nil {
 		return nil, errors.New("context must be cancellable")
 	}
@@ -126,7 +126,7 @@ func newBroadcastSystem(ctx context.Context, store Store, cfg *BroadcastConfig, 
 		log("storing event after cancel: %s", event.String())
 		eventData := marshalEvent(event)
 		try(
-			man.Save(nil, func(_cfg *BroadcastConfig) {
+			man.Save(nil, func(_cfg *Cfg) {
 				_cfg.Events = append(_cfg.Events, string(eventData))
 			}),
 			"could not update config with callback",
@@ -185,7 +185,7 @@ func (bs *broadcastSystem) tick() error {
 	if !bs.ctx.cfg.Enabled {
 		// Make sure it's in the idle state when not enabled, so we're not starting, transitioning or active.
 		try(
-			bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
+			bs.ctx.man.Save(nil, func(_cfg *Cfg) {
 				_cfg.AttemptingToStart = false
 				_cfg.Transitioning = false
 				_cfg.Active = false
@@ -207,7 +207,7 @@ func (bs *broadcastSystem) tick() error {
 					}
 				}
 			}
-			try(bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.BID = "" }), "could not clear broadcast ID", bs.log)
+			try(bs.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.BID = "" }), "could not clear broadcast ID", bs.log)
 		}
 
 		bs.log("broadcast not enabled, not doing anything")
@@ -222,7 +222,7 @@ func (bs *broadcastSystem) tick() error {
 	}
 
 	// Remove stored events we just published from the config.
-	err := bs.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Events = nil })
+	err := bs.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Events = nil })
 	if err != nil {
 		return fmt.Errorf("could not clear config events: %w", err)
 	}

@@ -14,10 +14,10 @@ import (
 )
 
 type broadcastContext struct {
-	cfg      *BroadcastConfig
+	cfg      *Cfg
 	man      BroadcastManager
 	store    Store
-	svc      BroadcastService
+	svc      Svc
 	fwd      ForwardingService
 	bus      eventBus
 	hardware hardwareManager
@@ -192,7 +192,7 @@ func (s *liveStateFields) lastChatMsg() time.Time         { return s.LastChatMsg
 func (s *liveStateFields) setLastStatusCheck(t time.Time) { s.LastStatusCheck = t }
 func (s *liveStateFields) setLastChatMsg(t time.Time)     { s.LastChatMsg = t }
 
-func updateBroadcastBasedOnState(state state, cfg *BroadcastConfig) {
+func updateBroadcastBasedOnState(state state, cfg *Cfg) {
 	switch state.(type) {
 	case *vidforwardPermanentLive:
 		cfg.Active = true
@@ -433,7 +433,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 	return newState
 }
 
-func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConfig, onCreation func() error) {
+func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *Cfg, onCreation func() error) {
 	err := ctx.man.CreateBroadcast(
 		cfg,
 		ctx.store,
@@ -457,10 +457,10 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *BroadcastConf
 	ctx.bus.publish(hardwareStartRequestEvent{})
 }
 
-func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
+func startBroadcast(ctx *broadcastContext, cfg *Cfg) {
 	onSuccess := func() {
 		ctx.bus.publish(startedEvent{})
-		err := ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.StartFailures = 0; *cfg = *_cfg })
+		err := ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.StartFailures = 0; *cfg = *_cfg })
 		if err != nil {
 			ctx.log("could not update config after successful start: %v", err)
 		}
@@ -477,11 +477,11 @@ func startBroadcast(ctx *broadcastContext, cfg *BroadcastConfig) {
 	)
 }
 
-func onFailureClosure(ctx *broadcastContext, cfg *BroadcastConfig, disableOnFirstFail bool) func(err error) {
+func onFailureClosure(ctx *broadcastContext, cfg *Cfg, disableOnFirstFail bool) func(err error) {
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
 		var e event
-		try(ctx.man.Save(nil, func(_cfg *BroadcastConfig) {
+		try(ctx.man.Save(nil, func(_cfg *Cfg) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures > maxStartFailures {

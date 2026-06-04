@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"context"
-
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/notify"
 )
@@ -429,7 +427,7 @@ type eventBus interface {
 // basicEventBus is a simple event bus that stores events when the context is
 // cancelled.
 type basicEventBus struct {
-	ctx        context.Context
+	ctx        Ctx
 	handlers   []handler
 	storeEvent func(event event)
 	log        func(string, ...interface{})
@@ -439,7 +437,7 @@ type basicEventBus struct {
 // The context must be cancellable.
 // The storeEventAfterCancel function is called on publish when the context
 // is cancelled.
-func newBasicEventBus(ctx context.Context, storeEventAfterCancel func(event event), log func(string, ...interface{})) *basicEventBus {
+func newBasicEventBus(ctx Ctx, storeEventAfterCancel func(event event), log func(string, ...interface{})) *basicEventBus {
 	return &basicEventBus{storeEvent: storeEventAfterCancel, ctx: ctx, log: log}
 }
 

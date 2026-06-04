@@ -241,7 +241,7 @@ func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.R
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks []eventHook, stateHooks []stateHook) error {
+func checkBroadcastsForSites(ctx Ctx, sites []model.Site, eventHooks []eventHook, stateHooks []stateHook) error {
 	var cfgVars []model.Variable
 	for _, s := range sites {
 		vars, err := model.GetVariablesBySite(ctx, store, s.Skey, broadcastScope)
@@ -259,7 +259,7 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks
 	}
 
 	// Unmarshal all the configs.
-	cfgs := make([]BroadcastConfig, len(cfgVars))
+	cfgs := make([]Cfg, len(cfgVars))
 	for i, v := range cfgVars {
 		err := json.Unmarshal([]byte(v.Value), &cfgs[i])
 		if err != nil {
@@ -281,10 +281,10 @@ func checkBroadcastsForSites(ctx context.Context, sites []model.Site, eventHooks
 // be used "internally", and parameterises several interfaces through which we can
 // inject test implementations.
 func performChecksInternalThroughStateMachine(
-	ctx context.Context,
-	cfg *BroadcastConfig,
+	ctx Ctx,
+	cfg *Cfg,
 	timeNow func() time.Time,
-	store datastore.Store,
+	store Store,
 	eventHooks []eventHook,
 	stateHooks []stateHook,
 ) error {
@@ -328,7 +328,7 @@ func performChecksInternalThroughStateMachine(
 // performChecks wraps performChecksInternal and provides implementations of the
 // broadcast operations. These broadcast implementations are built around the
 // broadcast package, which employs the YouTube Live API.
-func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.Store, eventHooks []eventHook, stateHooks []stateHook) error {
+func performChecks(ctx Ctx, cfg *Cfg, store Store, eventHooks []eventHook, stateHooks []stateHook) error {
 	return performChecksInternalThroughStateMachine(
 		ctx,
 		cfg,
@@ -339,7 +339,7 @@ func performChecks(ctx context.Context, cfg *BroadcastConfig, store datastore.St
 	)
 }
 
-type BroadcastCallback func(context.Context, *BroadcastConfig, datastore.Store, BroadcastService) error
+type BroadcastCallback func(Ctx, *Cfg, Store, Svc) error
 
 type ErrInvalidEndTime struct {
 	start, end time.Time
@@ -361,7 +361,7 @@ func saveLinkFunc() func(string, string) error {
 // external streaming hardware startup. In addition, the RTMP key is obtained
 // from the broadcast's associated stream object and used to set the devices
 // RTMPKey variable.
-func extStart(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+func extStart(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 	if cfg.OnActions == "" {
 		return nil
 	}
@@ -384,7 +384,7 @@ var warnSkipShutdown = errors.New("shutdown set to skip")
 // SkipAction is the placeholder used to represent that the action step should be skipped.
 const SkipAction = "skip"
 
-func extShutdown(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+func extShutdown(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 	if cfg.ShutdownActions == SkipAction {
 		return warnSkipShutdown
 	}
@@ -402,7 +402,7 @@ func extShutdown(ctx context.Context, cfg *BroadcastConfig, log func(string, ...
 
 // extStop uses the OffActions in the provided broadcast config to perform
 // external streaming hardware shutdown.
-func extStop(ctx context.Context, cfg *BroadcastConfig, log func(string, ...interface{})) error {
+func extStop(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 	if cfg.OffActions == "" {
 		return nil
 	}

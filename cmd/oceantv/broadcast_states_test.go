@@ -21,12 +21,12 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 	tests := []struct {
 		name        string
 		state       state
-		expectedCfg BroadcastConfig
+		expectedCfg Cfg
 	}{
 		{
 			name:  "vidforwardPermanentLive",
 			state: &vidforwardPermanentLive{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -39,7 +39,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardPermanentLiveUnhealthy",
 			state: &vidforwardPermanentLiveUnhealthy{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -52,7 +52,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardPermanentSlate",
 			state: &vidforwardPermanentSlate{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             true,
 				UsingVidforward:   true,
@@ -65,7 +65,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardPermanentSlateUnhealthy",
 			state: &vidforwardPermanentSlateUnhealthy{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             true,
 				UsingVidforward:   true,
@@ -78,7 +78,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardPermanentIdle",
 			state: &vidforwardPermanentIdle{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -91,7 +91,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardPermanentStarting",
 			state: &vidforwardPermanentStarting{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -104,7 +104,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardSecondaryLive",
 			state: &vidforwardSecondaryLive{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -117,7 +117,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardSecondaryLiveUnhealthy",
 			state: &vidforwardSecondaryLiveUnhealthy{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -130,7 +130,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardSecondaryIdle",
 			state: &vidforwardSecondaryIdle{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -143,7 +143,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "vidforwardSecondaryStarting",
 			state: &vidforwardSecondaryStarting{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   true,
@@ -156,7 +156,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "directLive",
 			state: &directLive{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   false,
@@ -169,7 +169,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "directLiveUnhealthy",
 			state: &directLiveUnhealthy{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            true,
 				Slate:             false,
 				UsingVidforward:   false,
@@ -182,7 +182,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "directIdle",
 			state: &directIdle{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   false,
@@ -195,7 +195,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 		{
 			name:  "directStarting",
 			state: &directStarting{},
-			expectedCfg: BroadcastConfig{
+			expectedCfg: Cfg{
 				Active:            false,
 				Slate:             false,
 				UsingVidforward:   false,
@@ -209,7 +209,7 @@ func TestUpdateBroadcastBasedOnState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &BroadcastConfig{}
+			cfg := &Cfg{}
 			updateBroadcastBasedOnState(tt.state, cfg)
 			if !reflect.DeepEqual(*cfg, tt.expectedCfg) {
 				t.Errorf("for state %v, expected cfg %v, got %v", tt.name, tt.expectedCfg, *cfg)
@@ -222,97 +222,97 @@ func TestBroadcastCfgToState(t *testing.T) {
 	ctx := minimalMockBroadcastContext(t)
 	tests := []struct {
 		name string
-		cfg  BroadcastConfig
+		cfg  Cfg
 		want state
 	}{
 		{
 			name: "Vidforward Permanent Live",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentLive(),
 		},
 		{
 			name: "Vidforward Permanent Transition Live To Slate",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: true},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: true},
 			want: newVidforwardPermanentTransitionLiveToSlate(ctx),
 		},
 		{
 			name: "Vidforward Permanent Live Unhealthy",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentLiveUnhealthy(ctx),
 		},
 		{
 			name: "Vidforward Permanent Failure",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
 			want: newVidforwardPermanentFailure(ctx),
 		},
 		{
 			name: "Vidforward Permanent Slate",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentSlate(),
 		},
 		{
 			name: "Vidforward Permanent Transition Slate To Live",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: true},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: false, AttemptingToStart: false, Transitioning: true},
 			want: newVidforwardPermanentTransitionSlateToLive(ctx),
 		},
 		{
 			name: "Vidforward Permanent Slate Unhealthy",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: true, Slate: true, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentSlateUnhealthy(ctx),
 		},
 		{
 			name: "Vidforward Permanent Idle",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardPermanentIdle(ctx),
 		},
 		{
 			name: "Vidforward Permanent Starting",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
 			want: newVidforwardPermanentStarting(ctx),
 		},
 		{
 			name: "Vidforward Secondary Live",
-			cfg:  BroadcastConfig{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryLive(ctx),
 		},
 		{
 			name: "Vidforward Secondary Live Unhealthy",
-			cfg:  BroadcastConfig{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryLiveUnhealthy(),
 		},
 		{
 			name: "Vidforward Secondary Idle",
-			cfg:  BroadcastConfig{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryIdle(ctx),
 		},
 		{
 			name: "Vidforward Secondary Starting",
-			cfg:  BroadcastConfig{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
 			want: newVidforwardSecondaryStarting(ctx),
 		},
 		{
 			name: "Direct Live",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newDirectLive(ctx),
 		},
 		{
 			name: "Direct Live Unhealthy",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
 			want: newDirectLiveUnhealthy(ctx),
 		},
 		{
 			name: "Direct Idle",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: false, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newDirectIdle(ctx),
 		},
 		{
 			name: "Direct Starting",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
+			cfg:  Cfg{Name: "", UsingVidforward: false, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
 			want: newDirectStarting(ctx),
 		},
 		{
 			name: "Direct Failure",
-			cfg:  BroadcastConfig{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
+			cfg:  Cfg{Name: "", UsingVidforward: false, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false, InFailure: true},
 			want: newDirectFailure(ctx, nil),
 		},
 	}
@@ -465,7 +465,7 @@ func TestStateMarshalUnmarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			var cfg BroadcastConfig
+			var cfg Cfg
 			updateBroadcastBasedOnState(tt.s, &cfg)
 			state := broadcastCfgToState(&broadcastContext{cfg: &cfg, logOutput: t.Log, notifier: newMockNotifier()})
 			if !tt.equal(tt.s, state) {
@@ -498,7 +498,7 @@ func TestRateLimited(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			limiter := newMockLimiter(tt.limited)
-			cfg := &BroadcastConfig{}
+			cfg := &Cfg{}
 			bus := newMockEventBus(t.Logf)
 			ctx := broadcastContext{
 				cfg, newDummyManager(t, cfg, withRateLimiter(limiter)),

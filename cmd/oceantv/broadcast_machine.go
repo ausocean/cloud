@@ -44,7 +44,7 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 	ctx.cfg.Start = ctx.cfg.Start.In(time.UTC)
 	ctx.cfg.End = ctx.cfg.End.In(time.UTC)
 
-	err = ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Start = ctx.cfg.Start; _cfg.End = ctx.cfg.End })
+	err = ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Start = ctx.cfg.Start; _cfg.End = ctx.cfg.End })
 	if err != nil {
 		return nil, fmt.Errorf("could not update config start and end times in transaction: %w", err)
 	}
@@ -104,7 +104,7 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
-	return sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
+	return sm.ctx.man.Save(nil, func(_cfg *Cfg) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
 }
 
 func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) error {
@@ -189,7 +189,7 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		// TODO: rather than disabling transition to a failure state.
 		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
 		try(
-			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
@@ -204,7 +204,7 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 		// TODO: rather than disabling transition to a failure state.
 		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
 		try(
-			sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { _cfg.Enabled = false }),
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
@@ -512,7 +512,7 @@ func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 
 func (sm *broadcastStateMachine) transition(newState state) {
 	if !try(
-		sm.ctx.man.Save(nil, func(_cfg *BroadcastConfig) { updateBroadcastBasedOnState(newState, _cfg) }),
+		sm.ctx.man.Save(nil, func(_cfg *Cfg) { updateBroadcastBasedOnState(newState, _cfg) }),
 		"could not update config for transition",
 		sm.logAndNotifySoftware,
 	) {

@@ -42,11 +42,11 @@ import (
 
 // logForBroadcast logs a message with the broadcast name and ID.
 // This is useful to keep track of logs for different broadcasts.
-func logForBroadcast(cfg *BroadcastConfig, output func(v ...any), msg string, args ...interface{}) {
+func logForBroadcast(cfg *Cfg, output func(v ...any), msg string, args ...interface{}) {
 	output(fmtForBroadcastLog(cfg, msg, args...))
 }
 
-func fmtForBroadcastLog(cfg *BroadcastConfig, msg string, args ...interface{}) string {
+func fmtForBroadcastLog(cfg *Cfg, msg string, args ...interface{}) string {
 	idArgs := []interface{}{cfg.Name, cfg.BroadcastState, cfg.HardwareState, cfg.BID}
 	idArgs = append(idArgs, args...)
 	return fmt.Sprintf("(name: %s, broadcast state: %s, hardware state: %s, id: %s) "+msg, idArgs...)
@@ -72,7 +72,7 @@ func removeDate(s string) string {
 // acts is of form: <device.varname>=<value>,<device.varname>=<value>. For example,
 // if we need to turn on a camera and set its mode to normal:
 // ESP.CamPower=true,Camera.mode=Normal.
-func setActionVars(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error {
+func setActionVars(ctx Ctx, sKey int64, acts string, store Store, log func(string, ...interface{})) error {
 	vars := strings.Split(acts, ",")
 	if len(vars) == 0 {
 		return errors.New("no var actions to perform")
@@ -93,7 +93,7 @@ func setActionVars(ctx context.Context, sKey int64, acts string, store datastore
 }
 
 // setVar sets cloud variables. These variable are only set if they already exist.
-func setVar(ctx context.Context, store datastore.Store, name, value string, sKey int64, log func(string, ...interface{})) error {
+func setVar(ctx Ctx, store Store, name, value string, sKey int64, log func(string, ...interface{})) error {
 	log("checking %s variable exists", name)
 	_, err := model.GetVariable(ctx, store, sKey, name)
 	if err != nil {
@@ -110,7 +110,7 @@ func setVar(ctx context.Context, store datastore.Store, name, value string, sKey
 
 // broadcastByName gets the broadcast configuration with the provided name from
 // the datastore. An error is returned if there's no match or for other issues.
-func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
+func broadcastByName(sKey int64, name string) (*Cfg, error) {
 	// Load config information for any prior broadcasts that have been saved.
 	vars, err := model.GetVariablesBySite(context.Background(), store, sKey, broadcastScope)
 	if err != nil {
@@ -124,7 +124,7 @@ func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
 }
 
 // TODO: document this.
-func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, broadcast string, update func(cfg *BroadcastConfig)) error {
+func updateConfigWithTransaction(ctx Ctx, store Store, skey int64, broadcast string, update func(cfg *Cfg)) error {
 	name := broadcastScope + "." + broadcast
 	sep := strings.Index(name, ".")
 	if sep >= 0 {
@@ -134,14 +134,14 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
 
 	var callBackErr error
-	updateConfig := func(ety datastore.Entity) {
+	updateConfig := func(ety Ety) {
 		v, ok := ety.(*model.Variable)
 		if !ok {
 			callBackErr = errors.New("could not cast entity to type Variable")
 			return
 		}
 
-		var cfg BroadcastConfig
+		var cfg Cfg
 		err := json.Unmarshal([]byte(v.Value), &cfg)
 		if err != nil {
 			callBackErr = fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
@@ -169,14 +169,14 @@ func updateConfigWithTransaction(ctx context.Context, store Store, skey int64, b
 
 		// Since the entity doesn't already exist, we need to change the updateConfig function to update
 		// a blank config.
-		updateConfig = func(ety datastore.Entity) {
+		updateConfig = func(ety Ety) {
 			v, ok := ety.(*model.Variable)
 			if !ok {
 				callBackErr = errors.New("could not cast entity to type Variable")
 				return
 			}
 
-			cfg := &BroadcastConfig{}
+			cfg := &Cfg{}
 			update(cfg)
 
 			v.Skey = skey
@@ -222,10 +222,10 @@ func (e ErrBroadcastNotFound) Is(target error) bool {
 // broadcastFromVars searches a slice of broadcast variables for a broadcast
 // config with the provided name and returns if found, otherwise an error is
 // returned.
-func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConfig, error) {
+func broadcastFromVars(broadcasts []model.Variable, name string) (*Cfg, error) {
 	for _, v := range broadcasts {
 		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcastScope+".") {
-			var cfg BroadcastConfig
+			var cfg Cfg
 			err := json.Unmarshal([]byte(v.Value), &cfg)
 			if err != nil {
 				return nil, fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
@@ -238,14 +238,14 @@ func broadcastFromVars(broadcasts []model.Variable, name string) (*BroadcastConf
 
 var logConfigs = false
 
-func provideConfig(cfg *BroadcastConfig) string {
+func provideConfig(cfg *Cfg) string {
 	if logConfigs {
 		return fmt.Sprintf("%v", trimDescriptionFromConfig(cfg))
 	}
 	return fmt.Sprintf("(config logging disabled) Events: %v, HardwareState: %v", cfg.Events, cfg.HardwareState)
 }
 
-func trimDescriptionFromConfig(cfg *BroadcastConfig) string {
+func trimDescriptionFromConfig(cfg *Cfg) string {
 	trimmedConfig := *cfg
 	cfg.Description = trimDescriptionChars(trimmedConfig.Description)
 	trimmedData, err := json.Marshal(trimmedConfig)
