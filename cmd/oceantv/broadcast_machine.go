@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -65,42 +64,6 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
 	return sm.ctx.man.Save(nil, func(_cfg *Cfg) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
-}
-
-func (sm *broadcastStateMachine) handleStatusCheckDueEvent(event statusCheckDueEvent) {
-	err := sm.ctx.man.HandleStatus(
-		context.Background(),
-		sm.ctx.cfg,
-		sm.ctx.store,
-		sm.ctx.svc,
-		func(Ctx, *Cfg, Store, Svc) error {
-			sm.ctx.bus.publish(finishEvent{})
-			return nil
-		},
-	)
-	if err != nil {
-		sm.logAndNotifySoftware("could not handle health check: %v", err)
-	}
-}
-
-func (sm *broadcastStateMachine) handleHealthCheckDueEvent(event healthCheckDueEvent) {
-	err := sm.ctx.man.HandleHealth(
-		context.Background(),
-		sm.ctx.cfg,
-		sm.ctx.store,
-		func() { sm.ctx.bus.publish(goodHealthEvent{}) },
-		func(issue string) {
-			sm.ctx.bus.publish(badHealthEvent{})
-			sm.ctx.logAndNotify(broadcastNetwork, "poor stream health, status: %s", issue)
-		},
-	)
-	if err != nil {
-		sm.logAndNotifySoftware("could not handle health check: %v", err)
-	}
-}
-
-func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueEvent) {
-	sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
 }
 
 func (sm *broadcastStateMachine) transitionIfTimedOut(s state, to state, t timeEvent) {
