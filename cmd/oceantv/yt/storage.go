@@ -25,7 +25,7 @@ LICENSE
   in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package broadcast
+package yt
 
 import (
 	"context"

@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/ausocean/av/revid/config"
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/nmea"
@@ -200,7 +200,7 @@ func (m *OceanBroadcastManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, sv
 		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
 
-	if status != broadcast.StatusComplete && status != "" {
+	if status != yt.StatusComplete && status != "" {
 		err := svc.CompleteBroadcast(ctx, cfg.BID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
@@ -288,7 +288,7 @@ func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc
 	m.log("handling status check")
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
-		if !errors.Is(err, broadcast.ErrNoBroadcastItems) {
+		if !errors.Is(err, yt.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
 		}
 
@@ -299,7 +299,7 @@ func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc
 		}
 	}
 
-	if status != broadcast.StatusComplete && status != broadcast.StatusRevoked {
+	if status != yt.StatusComplete && status != yt.StatusRevoked {
 		return nil
 	}
 
@@ -495,5 +495,5 @@ func (m *OceanBroadcastManager) broadcastCanBeReused(cfg *Cfg, svc Svc) bool {
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return cfg.BID != "" && cfg.SID != "" && status != "" && status != broadcast.StatusRevoked && status != broadcast.StatusComplete
+	return cfg.BID != "" && cfg.SID != "" && status != "" && status != yt.StatusRevoked && status != yt.StatusComplete
 }

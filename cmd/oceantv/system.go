@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
 )
@@ -200,7 +200,7 @@ func (bs *broadcastSystem) tick() error {
 			if err != nil {
 				bs.log("could not get broadcast status: %v", err)
 			} else {
-				if status == broadcast.StatusLive {
+				if status == yt.StatusLive {
 					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
 						bs.ctx.logAndNotify(broadcastService, "could not complete broadcast, please check this manually: %v", err)
