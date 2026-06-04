@@ -111,7 +111,43 @@ func (s *stateFields) enter() {}
 func (s *stateFields) exit()  {}
 
 type stateWithBroadcastEventHandler interface {
+	handleGlobalEvents(sm *broadcastStateMachine, event event)
 	handleEvent(sm *broadcastStateMachine, event event)
+}
+
+func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, event event) {
+	switch event.(type) {
+	case statusCheckDueEvent:
+		err := sm.ctx.man.HandleStatus(
+			context.Background(),
+			sm.ctx.cfg,
+			sm.ctx.store,
+			sm.ctx.svc,
+			func(Ctx, *Cfg, Store, Svc) error {
+				sm.ctx.bus.publish(finishEvent{})
+				return nil
+			},
+		)
+		if err != nil {
+			sm.logAndNotifySoftware("could not handle health check: %v", err)
+		}
+	case healthCheckDueEvent:
+		err := sm.ctx.man.HandleHealth(
+			context.Background(),
+			sm.ctx.cfg,
+			sm.ctx.store,
+			func() { sm.ctx.bus.publish(goodHealthEvent{}) },
+			func(issue string) {
+				sm.ctx.bus.publish(badHealthEvent{})
+				sm.ctx.logAndNotify(broadcastNetwork, "poor stream health, status: %s", issue)
+			},
+		)
+		if err != nil {
+			sm.logAndNotifySoftware("could not handle health check: %v", err)
+		}
+	case chatMessageDueEvent:
+		sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
+	}
 }
 
 type fixableState interface {
