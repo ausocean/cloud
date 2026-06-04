@@ -25,6 +25,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -66,4 +67,45 @@ func (s *vidforwardPermanentStarting) enter() {
 		&cfg,
 		onBroadcastCreation,
 	)
+}
+
+func (s *vidforwardPermanentStarting) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case lowVoltageEvent:
+		// If we're in the starting state we need to reset the timeout to allow for
+		// hardware voltage recovery (remembering that this is not our primary timeout
+		// mechanism, which is handled by the hardware SM but a rather a contingency that
+		// we shouldn't hit with normal behaviour).
+		const broadcastVoltageRecoveryOffset = 10 * time.Minute
+		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
+	case voltageRecoveredEvent:
+		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case startFailedEvent:
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case criticalFailureEvent:
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case hardwareStartFailedEvent:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e)
+	case controllerFailureEvent:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(e)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case timeEvent:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(e.Time) {
+			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("permanent starting timed out"))
+		}
+	case hardwareStartedEvent:
+		startBroadcast(sm.ctx, sm.ctx.cfg)
+	case startedEvent:
+		sm.transition(newVidforwardPermanentLive())
+	}
 }

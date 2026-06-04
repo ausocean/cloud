@@ -42,7 +42,21 @@ func (s *vidforwardPermanentVoltageRecoverySlate) enter() {
 	s.LastEntered = time.Now()
 	s.requestSlate()
 }
+
+func (s *vidforwardPermanentVoltageRecoverySlate) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case voltageRecoveredEvent:
+		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
+	case timeEvent:
+		withTimeout := sm.currentState.(stateWithTimeout)
+		if withTimeout.timedOut(e.Time) {
+			sm.transition(newVidforwardPermanentFailure(sm.ctx))
+		}
+	}
+}
+
 func (s *vidforwardPermanentVoltageRecoverySlate) fix() { s.requestSlate() }
+
 func (s *vidforwardPermanentVoltageRecoverySlate) requestSlate() {
 	try(s.fwd.Slate(s.cfg, WithType(LowVoltage)), "could not set vidforward mode to low voltage slate", s.log)
 }

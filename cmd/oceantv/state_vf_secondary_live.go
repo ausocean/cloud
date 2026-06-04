@@ -34,6 +34,7 @@ type vidforwardSecondaryLive struct {
 func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive {
 	return &vidforwardSecondaryLive{broadcastContext: ctx}
 }
+
 func (s *vidforwardSecondaryLive) exit() {
 	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
 	if err != nil {
@@ -41,4 +42,28 @@ func (s *vidforwardSecondaryLive) exit() {
 		return
 	}
 	s.bus.publish(finishedEvent{})
+}
+
+func (s *vidforwardSecondaryLive) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+	case badHealthEvent:
+		sm.transition(newVidforwardSecondaryLiveUnhealthy())
+	case timeEvent:
+		if sm.finishIsDue(e) {
+			sm.ctx.bus.publish(finishEvent{})
+			return
+		}
+		sm.publishHealthStatusOrChatEvents(e)
+	case finishEvent:
+		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+	}
 }

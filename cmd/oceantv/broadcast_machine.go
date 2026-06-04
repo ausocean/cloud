@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -110,15 +109,13 @@ func (sm *broadcastStateMachine) handleEvent(event event) error {
 func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) error {
 	sm.log("handling low voltage event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardSecondaryStarting:
 		// If we're in the starting state we need to reset the timeout to allow for
 		// hardware voltage recovery (remembering that this is not our primary timeout
 		// mechanism, which is handled by the hardware SM but a rather a contingency that
 		// we shouldn't hit with normal behaviour).
 		const broadcastVoltageRecoveryOffset = 10 * time.Minute
 		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
-	case *vidforwardPermanentTransitionSlateToLive:
-		sm.transition(newVidforwardPermanentVoltageRecoverySlate(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -128,7 +125,7 @@ func (sm *broadcastStateMachine) handleLowVoltageEvent(event lowVoltageEvent) er
 func (sm *broadcastStateMachine) handleVoltageRecoveredEvent(event voltageRecoveredEvent) error {
 	sm.log("handling voltage recovered event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardSecondaryStarting:
 		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
 	case *vidforwardPermanentVoltageRecoverySlate:
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
@@ -177,26 +174,6 @@ func (sm *broadcastStateMachine) handleChatMessageDueEvent(event chatMessageDueE
 func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidConfigurationEvent) {
 	switch sm.currentState.(type) {
 	case
-		*vidforwardPermanentStarting,
-		*vidforwardPermanentLive,
-		*vidforwardPermanentLiveUnhealthy,
-		*vidforwardPermanentSlate,
-		*vidforwardPermanentSlateUnhealthy,
-		*vidforwardPermanentTransitionLiveToSlate,
-		*vidforwardPermanentTransitionSlateToLive,
-		*vidforwardPermanentFailure:
-
-		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", event.Error())
-		try(
-			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
-			"could not disable broadcast after invalid configuration",
-			sm.logAndNotifySoftware,
-		)
-
-		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-
-	case
 		*vidforwardSecondaryStarting,
 		*vidforwardSecondaryLive,
 		*vidforwardSecondaryLiveUnhealthy:
@@ -219,8 +196,6 @@ func (sm *broadcastStateMachine) handleInvalidConfigurationEvent(event invalidCo
 func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) error {
 	sm.log("handling start failed event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting:
-		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case *vidforwardSecondaryStarting:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	default:
@@ -232,8 +207,6 @@ func (sm *broadcastStateMachine) handleStartFailedEvent(event startFailedEvent) 
 func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailureEvent) error {
 	sm.log("handling critical failure event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting:
-		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case *vidforwardSecondaryStarting:
 		// There might need to be a secondary failure state, but we're not sure
 		// yet. For now, we'll just transition to idle. Most failures will occur
@@ -249,14 +222,8 @@ func (sm *broadcastStateMachine) handleCriticalFailureEvent(event criticalFailur
 func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareStartFailedEvent) error {
 	sm.log("handling hardware start failed event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardSecondaryStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(event)
-	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
-		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
-		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case *vidforwardPermanentTransitionSlateToLive:
-		sm.logAndNotify(broadcastHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
-		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
 	}
@@ -266,15 +233,9 @@ func (sm *broadcastStateMachine) handleHardwareStartFailedEvent(event hardwareSt
 func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) error {
 	sm.log("handling bad health event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLive:
-		sm.transition(newVidforwardPermanentLiveUnhealthy(sm.ctx))
-	case *vidforwardPermanentSlate:
-		sm.transition(newVidforwardPermanentSlateUnhealthy(sm.ctx))
 	case *vidforwardSecondaryLive:
 		sm.transition(newVidforwardSecondaryLiveUnhealthy())
-	case *vidforwardPermanentFailure:
-		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardPermanentSlateUnhealthy, *vidforwardSecondaryLiveUnhealthy:
+	case *vidforwardSecondaryLiveUnhealthy:
 		// Do nothing.
 	default:
 		sm.unexpectedEvent(event, sm.currentState)
@@ -285,20 +246,8 @@ func (sm *broadcastStateMachine) handleBadHealthEvent(event badHealthEvent) erro
 func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) error {
 	sm.log("handling good health event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLiveUnhealthy:
-		sm.transition(newVidforwardPermanentLive())
-	case *vidforwardPermanentSlateUnhealthy:
-		sm.transition(newVidforwardPermanentSlate())
 	case *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
-	case *vidforwardPermanentTransitionLiveToSlate:
-		if sm.currentState.(*vidforwardPermanentTransitionLiveToSlate).isHardwareStopped() {
-			sm.transition(newVidforwardPermanentSlate())
-		}
-	case *vidforwardPermanentTransitionSlateToLive:
-		if sm.currentState.(*vidforwardPermanentTransitionSlateToLive).isHardwareStarted() {
-			sm.transition(newVidforwardPermanentLive())
-		}
 	default:
 		// Do nothing.
 	}
@@ -308,9 +257,6 @@ func (sm *broadcastStateMachine) handleGoodHealthEvent(event goodHealthEvent) er
 func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFailureEvent) error {
 	sm.log("handling controller failure event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
-		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case *vidforwardSecondaryStarting:
 		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(event)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
@@ -323,13 +269,13 @@ func (sm *broadcastStateMachine) handleControllerFailureEvent(event controllerFa
 func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 	sm.log("handling time event: %v", event.Time)
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLive, *vidforwardSecondaryLive:
+	case *vidforwardSecondaryLive:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
 		}
 		sm.publishHealthStatusOrChatEvents(event)
-	case *vidforwardPermanentLiveUnhealthy, *vidforwardSecondaryLiveUnhealthy:
+	case *vidforwardSecondaryLiveUnhealthy:
 		if sm.finishIsDue(event) {
 			sm.ctx.bus.publish(finishEvent{})
 			return
@@ -337,41 +283,15 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 		sm.publishHealthStatusOrChatEvents(event)
 		sm.tryToFixCurrentState()
 
-	case *vidforwardPermanentSlateUnhealthy:
-		if sm.startIsDue(event) {
-			sm.ctx.bus.publish(startEvent{})
-			return
-		}
-		sm.tryToFixCurrentState()
-
-	case *vidforwardSecondaryIdle, *vidforwardPermanentIdle, *vidforwardPermanentSlate:
+	case *vidforwardSecondaryIdle:
 		if sm.startIsDue(event) {
 			sm.ctx.bus.publish(startEvent{})
 			return
 		} else {
 			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), event.Time.Format("15:04"))
 		}
-	case *vidforwardPermanentTransitionLiveToSlate:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(event.Time) {
-			sm.logAndNotify(broadcastForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
-			sm.transition(newVidforwardPermanentLive())
-		}
-		sm.publishHealthEvent(event)
 	case *vidforwardSecondaryStarting:
 		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), event)
-	case *vidforwardPermanentStarting:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(event.Time) {
-			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("permanent starting timed out"))
-		}
-	case *vidforwardPermanentTransitionSlateToLive:
-		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(event.Time) {
-			sm.ctx.logAndNotify(broadcastGeneric, "transition from slate to live timed out, transitioning to failure slate state")
-			sm.transition(newVidforwardPermanentFailure(sm.ctx))
-		}
-		sm.publishHealthStatusOrChatEvents(event)
 	case *vidforwardPermanentVoltageRecoverySlate:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(event.Time) {
@@ -387,8 +307,6 @@ func (sm *broadcastStateMachine) handleTimeEvent(event timeEvent) {
 func (sm *broadcastStateMachine) handleFixFailureEvent(event fixFailureEvent) error {
 	sm.log("handling fix failure event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLiveUnhealthy:
-		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	default:
 		sm.log("unhandled event %s in current state %s", event.String(), stateToString(sm.currentState))
 	}
@@ -454,8 +372,6 @@ func (sm *broadcastStateMachine) publishHealthEvent(event timeEvent) {
 func (sm *broadcastStateMachine) handleFinishEvent(event finishEvent) error {
 	sm.log("handling finish event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentLive, *vidforwardPermanentLiveUnhealthy:
-		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case *vidforwardSecondaryLive, *vidforwardSecondaryLiveUnhealthy:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	default:
@@ -467,10 +383,6 @@ func (sm *broadcastStateMachine) handleFinishEvent(event finishEvent) error {
 func (sm *broadcastStateMachine) handleStartEvent(event startEvent) error {
 	sm.log("handling start event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentIdle:
-		sm.transition(newVidforwardPermanentStarting(sm.ctx))
-	case *vidforwardPermanentSlate:
-		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
 	case *vidforwardSecondaryIdle:
 		sm.transition(newVidforwardSecondaryStarting(sm.ctx))
 	default:
@@ -482,7 +394,7 @@ func (sm *broadcastStateMachine) handleStartEvent(event startEvent) error {
 func (sm *broadcastStateMachine) handleHardwareStartedEvent(event hardwareStartedEvent) error {
 	sm.log("handling hardware started event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting, *vidforwardSecondaryStarting:
+	case *vidforwardSecondaryStarting:
 		startBroadcast(sm.ctx, sm.ctx.cfg)
 	default: // Do nothing.
 	}
@@ -500,8 +412,6 @@ func (sm *broadcastStateMachine) handleHardwareStoppedEvent(event hardwareStoppe
 func (sm *broadcastStateMachine) handleStartedEvent(event startedEvent) error {
 	sm.log("handling started event")
 	switch sm.currentState.(type) {
-	case *vidforwardPermanentStarting:
-		sm.transition(newVidforwardPermanentLive())
 	case *vidforwardSecondaryStarting:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
 	default:

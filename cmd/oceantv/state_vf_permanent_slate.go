@@ -26,3 +26,28 @@ package main
 type vidforwardPermanentSlate struct{ stateFields }
 
 func newVidforwardPermanentSlate() *vidforwardPermanentSlate { return &vidforwardPermanentSlate{} }
+
+func (s *vidforwardPermanentSlate) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case badHealthEvent:
+		sm.transition(newVidforwardPermanentSlateUnhealthy(sm.ctx))
+	case timeEvent:
+		if sm.startIsDue(e) {
+			sm.ctx.bus.publish(startEvent{})
+			return
+		} else {
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+		}
+	case startEvent:
+		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
+	}
+}

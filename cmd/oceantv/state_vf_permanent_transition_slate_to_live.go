@@ -35,11 +35,42 @@ type vidforwardPermanentTransitionSlateToLive struct {
 func newVidforwardPermanentTransitionSlateToLive(ctx *broadcastContext) *vidforwardPermanentTransitionSlateToLive {
 	return &vidforwardPermanentTransitionSlateToLive{stateWithTimeoutFields: newStateWithTimeoutFields(ctx)}
 }
+
 func (s *vidforwardPermanentTransitionSlateToLive) enter() {
 	s.LastEntered = time.Now()
 	s.bus.publish(hardwareStartRequestEvent{})
 	try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
 }
+
+func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case lowVoltageEvent:
+		sm.transition(newVidforwardPermanentVoltageRecoverySlate(sm.ctx))
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case hardwareStartFailedEvent:
+		sm.logAndNotify(broadcastHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case goodHealthEvent:
+		if s.isHardwareStarted() {
+			sm.transition(newVidforwardPermanentLive())
+		}
+	case timeEvent:
+		if s.timedOut(e.Time) {
+			sm.ctx.logAndNotify(broadcastGeneric, "transition from slate to live timed out, transitioning to failure slate state")
+			sm.transition(newVidforwardPermanentFailure(sm.ctx))
+		}
+		sm.publishHealthStatusOrChatEvents(e)
+	}
+}
+
 func (s *vidforwardPermanentTransitionSlateToLive) isHardwareStarted() bool {
 	return s.cfg.HardwareState == hardwareStateToString(&hardwareOn{})
 }
