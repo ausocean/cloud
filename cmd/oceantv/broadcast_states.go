@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -34,7 +35,7 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 	if ctx.logOutput == nil {
 		ctx.logOutput = log.Println
 	}
-	logForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
+	broadcast.LogForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
 }
 
 const (
@@ -94,7 +95,7 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 		}
 		ctx.notifier = notifier
 	}
-	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, fmtForBroadcastLog(ctx.cfg, msg, args...))
+	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
 		ctx.log("could not send health notification: %v", err)
 	}

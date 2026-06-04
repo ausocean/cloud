@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"bou.ke/monkey"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -1450,7 +1451,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				newDummyStore(),
 				cfg,
 				logRecorder.log,
-				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(newDummyManager(t, cfg)),
 				withBroadcastService(newDummyService()),
 				withForwardingService(newDummyForwardingService()),
@@ -1855,7 +1856,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				newDummyStore(),
 				cfg,
 				logRecorder.log,
-				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(tt.newBroadcastMan(t, cfg)),
 				withBroadcastService(newDummyService()),
 				withForwardingService(newDummyForwardingService()),

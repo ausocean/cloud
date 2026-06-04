@@ -37,6 +37,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -334,7 +335,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(&cfg, log.Println, msg, args...)
+		broadcast.LogForBroadcast(&cfg, log.Println, msg, args...)
 	}
 
 	// Use the broadcast manager to save the broadcast.

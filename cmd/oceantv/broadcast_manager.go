@@ -33,7 +33,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/av/revid/config"
+	rv_config "github.com/ausocean/av/revid/config"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -243,7 +244,7 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 
 	// Reference by UUID if we have one.
 	if uuid.Validate(m.cfg.UUID) == nil {
-		return updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.UUID, _update)
+		return broadcast.UpdateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.UUID, _update)
 	}
 
 	// If we don't have a UUID, we will follow the following steps:
@@ -258,17 +259,17 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 		origUpdate(_cfg)
 	}
 
-	err := updateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
+	err := broadcast.UpdateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %w", err)
 	}
-	oldName := broadcastScope + "." + m.cfg.Name
+	oldName := broadcast.Scope + "." + m.cfg.Name
 	v, err := model.GetVariable(ctx, m.store, m.cfg.SKey, oldName)
 	if err != nil {
 		return fmt.Errorf("unable to get variable for updated config: %w", err)
 	}
 
-	newName := broadcastScope + "." + m.cfg.UUID
+	newName := broadcast.Scope + "." + m.cfg.UUID
 	err = model.PutVariable(ctx, m.store, m.cfg.SKey, newName, v.Value)
 	if err != nil {
 		return fmt.Errorf("unable to put config indexed with UUID: %w", err)
@@ -411,11 +412,11 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 	// Set the HTTPAddress variable to send to the vidforward service.
 	// Set the Outputs variable to HTTP so that we're using MPEG-TS over HTTP.
 	mac := fmt.Sprintf("%012x", cfg.CameraMac)
-	err := setVar(ctx, store, mac+"."+config.KeyHTTPAddress, cfg.VidforwardHost, cfg.SKey, m.log)
+	err := setVar(ctx, store, mac+"."+rv_config.KeyHTTPAddress, cfg.VidforwardHost, cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the HTTPAddress variable for the camera: %w", err)
 	}
-	err = setVar(ctx, store, mac+"."+config.KeyOutputs, "HTTP", cfg.SKey, m.log)
+	err = setVar(ctx, store, mac+"."+rv_config.KeyOutputs, "HTTP", cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the camera output to http: %w", err)
 	}

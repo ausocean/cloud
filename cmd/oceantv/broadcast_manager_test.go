@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bou.ke/monkey"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -144,7 +145,7 @@ func TestCreateBroadcast(t *testing.T) {
 				store,
 				cfg,
 				logRecorder.log,
-				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(bm),
 				withBroadcastService(svc),
 				withForwardingService(newDummyForwardingService()),

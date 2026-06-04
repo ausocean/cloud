@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bou.ke/monkey"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/notify"
 	"github.com/stretchr/testify/assert"
 )
@@ -390,7 +391,7 @@ func newHardwareOnlySystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...a
 	// classic func(string, ...interface{}) signature.
 	// This can be used by a lot of the components here.
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(cfg, logOutput, msg, args...)
+		broadcast.LogForBroadcast(cfg, logOutput, msg, args...)
 	}
 
 	var man BroadcastManager
@@ -596,7 +597,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 				newDummyStore(),
 				cfg,
 				logRecorder.log,
-				hardwareSys.withEventBus(newMockEventBus(func(msg string, args ...interface{}) { logForBroadcast(cfg, logRecorder.log, msg, args...) })),
+				hardwareSys.withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				hardwareSys.withBroadcastManager(tt.newBroadcastMan(t, cfg)),
 				hardwareSys.withHardwareManager(tt.hardwareMan),
 				hardwareSys.withNotifier(newMockNotifier()),
