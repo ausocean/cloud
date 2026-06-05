@@ -63,5 +63,16 @@ func (s *vidforwardPermanentSlateUnhealthy) handleEvent(sm *broadcastStateMachin
 			return
 		}
 		sm.tryToFixCurrentState()
+	case
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }

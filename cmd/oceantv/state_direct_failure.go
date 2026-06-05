@@ -60,7 +60,21 @@ func (s *directFailure) enter() {
 }
 
 func (s *directFailure) handleEvent(sm *broadcastStateMachine, event event) {
-	// Do nothing.
+	switch event.(type) {
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		invalidConfigurationEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
+	}
 }
 
 func (s *directFailure) MarshalJSON() ([]byte, error) {

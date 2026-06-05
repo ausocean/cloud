@@ -47,5 +47,17 @@ func (s *vidforwardPermanentIdle) handleEvent(sm *broadcastStateMachine, event e
 		}
 	case startEvent:
 		sm.transition(newVidforwardPermanentStarting(sm.ctx))
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		invalidConfigurationEvent,
+		lowVoltageEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }

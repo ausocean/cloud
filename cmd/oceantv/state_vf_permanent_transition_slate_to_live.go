@@ -68,6 +68,16 @@ func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStat
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 		sm.publishHealthStatusOrChatEvents(e)
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
 

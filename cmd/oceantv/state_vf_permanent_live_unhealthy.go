@@ -92,5 +92,13 @@ func (s *vidforwardPermanentLiveUnhealthy) handleEvent(sm *broadcastStateMachine
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case finishEvent:
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
+	case
+		criticalFailureEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }

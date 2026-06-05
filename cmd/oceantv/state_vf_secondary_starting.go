@@ -95,5 +95,11 @@ func (s *vidforwardSecondaryStarting) handleEvent(sm *broadcastStateMachine, eve
 		startBroadcast(sm.ctx, sm.ctx.cfg)
 	case startedEvent:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
+	case
+		badHealthEvent,
+		finishEvent,
+		fixFailureEvent,
+		startEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }

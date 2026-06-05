@@ -23,7 +23,9 @@ LICENSE
 
 package main
 
-import "context"
+import (
+	"context"
+)
 
 type directIdle struct {
 	stateFields
@@ -53,5 +55,17 @@ func (s *directIdle) handleEvent(sm *broadcastStateMachine, event event) {
 		}
 	case startEvent:
 		sm.transition(newDirectStarting(sm.ctx))
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		invalidConfigurationEvent,
+		lowVoltageEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
