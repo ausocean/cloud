@@ -34,7 +34,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -264,8 +264,8 @@ func (d *dummyService) CreateBroadcast(
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
 	opts ...BroadcastOption,
-) (ServerResponse, broadcast.IDs, string, error) {
-	return nil, broadcast.IDs{}, "", nil
+) (ServerResponse, yt.IDs, string, error) {
+	return nil, yt.IDs{}, "", nil
 }
 
 func (d *dummyService) StartBroadcast(

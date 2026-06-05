@@ -32,7 +32,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/utils"
 	"google.golang.org/api/youtube/v3"
 )
@@ -195,7 +195,7 @@ func UploadVideo(ctx context.Context, media io.Reader, account string, opts ...V
 
 	// Force using the default account (AusOcean's account).
 	tokenURI := utils.TokenURIFromAccount(account)
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
+	svc, err := yt.GetService(ctx, youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get YouTube service: %w", err)
 	}
@@ -220,7 +220,7 @@ func UploadVideo(ctx context.Context, media io.Reader, account string, opts ...V
 // is passed, the AusOcean channel will be used.
 func CheckUploadStatus(ctx context.Context, videoID string, account string) (string, error) {
 	tokenURI := utils.TokenURIFromAccount(account)
-	svc, err := broadcast.GetService(ctx, youtube.YoutubeScope, tokenURI)
+	svc, err := yt.GetService(ctx, youtube.YoutubeScope, tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("failed to get YouTube service: %w", err)
 	}

@@ -40,7 +40,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -352,7 +352,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
-		err = broadcast.AuthChannel(ctx, w, r, youtube.YoutubeScope, tokenURI)
+		err = yt.AuthChannel(ctx, w, r, youtube.YoutubeScope, tokenURI)
 		if err != nil {
 			reportError(w, r, req, "could not authenticate channel: %v", err)
 			return
