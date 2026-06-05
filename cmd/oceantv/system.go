@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
@@ -107,7 +108,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	// classic func(string, ...interface{}) signature.
 	// This can be used by a lot of the components here.
 	log := func(msg string, args ...interface{}) {
-		logForBroadcast(cfg, logOutput, msg, args...)
+		broadcast.LogForBroadcast(cfg, logOutput, msg, args...)
 	}
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.

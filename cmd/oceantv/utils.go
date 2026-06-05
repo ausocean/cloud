@@ -32,25 +32,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/ausocean/cloud/datastore"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/model"
 )
-
-// logForBroadcast logs a message with the broadcast name and ID.
-// This is useful to keep track of logs for different broadcasts.
-func logForBroadcast(cfg *Cfg, output func(v ...any), msg string, args ...interface{}) {
-	output(fmtForBroadcastLog(cfg, msg, args...))
-}
-
-func fmtForBroadcastLog(cfg *Cfg, msg string, args ...interface{}) string {
-	idArgs := []interface{}{cfg.Name, cfg.BroadcastState, cfg.HardwareState, cfg.BID}
-	idArgs = append(idArgs, args...)
-	return fmt.Sprintf("(name: %s, broadcast state: %s, hardware state: %s, id: %s) "+msg, idArgs...)
-}
 
 func try(err error, msg string, log func(string, ...interface{})) bool {
 	if err != nil {
@@ -112,7 +98,7 @@ func setVar(ctx Ctx, store Store, name, value string, sKey int64, log func(strin
 // the datastore. An error is returned if there's no match or for other issues.
 func broadcastByName(sKey int64, name string) (*Cfg, error) {
 	// Load config information for any prior broadcasts that have been saved.
-	vars, err := model.GetVariablesBySite(context.Background(), store, sKey, broadcastScope)
+	vars, err := model.GetVariablesBySite(context.Background(), store, sKey, broadcast.Scope)
 	if err != nil {
 		return nil, fmt.Errorf("could not get broadcast variables by site: %w", err)
 	}
@@ -121,91 +107,6 @@ func broadcastByName(sKey int64, name string) (*Cfg, error) {
 		return nil, fmt.Errorf("could not get the broadcast (%s) from the broadcast vars: %w", name, err)
 	}
 	return cfg, nil
-}
-
-// TODO: document this.
-func updateConfigWithTransaction(ctx Ctx, store Store, skey int64, broadcast string, update func(cfg *Cfg)) error {
-	name := broadcastScope + "." + broadcast
-	sep := strings.Index(name, ".")
-	if sep >= 0 {
-		name = strings.ReplaceAll(name[:sep], ":", "") + name[sep:]
-	}
-	const typeVariable = "Variable"
-	key := store.NameKey(typeVariable, strconv.FormatInt(skey, 10)+"."+name)
-
-	var callBackErr error
-	updateConfig := func(ety Ety) {
-		v, ok := ety.(*model.Variable)
-		if !ok {
-			callBackErr = errors.New("could not cast entity to type Variable")
-			return
-		}
-
-		var cfg Cfg
-		err := json.Unmarshal([]byte(v.Value), &cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
-			return
-		}
-
-		update(&cfg)
-
-		d, err := json.Marshal(cfg)
-		if err != nil {
-			callBackErr = fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
-			return
-		}
-
-		v.Value = string(d)
-		v.Updated = time.Now()
-	}
-
-	err := store.Update(ctx, key, updateConfig, &model.Variable{})
-	if errors.Is(err, datastore.ErrNoSuchEntity) {
-		err = store.Create(ctx, key, &model.Variable{})
-		if err != nil {
-			return fmt.Errorf("could not create broadcast variable: %w", err)
-		}
-
-		// Since the entity doesn't already exist, we need to change the updateConfig function to update
-		// a blank config.
-		updateConfig = func(ety Ety) {
-			v, ok := ety.(*model.Variable)
-			if !ok {
-				callBackErr = errors.New("could not cast entity to type Variable")
-				return
-			}
-
-			cfg := &Cfg{}
-			update(cfg)
-
-			v.Skey = skey
-			v.Name = name
-			v.Scope = broadcastScope
-
-			d, err := json.Marshal(cfg)
-			if err != nil {
-				callBackErr = fmt.Errorf("could not marshal JSON for broadcast save: %w", err)
-				return
-			}
-
-			v.Value = string(d)
-			v.Updated = time.Now()
-		}
-
-		err = store.Update(ctx, key, updateConfig, &model.Variable{})
-		if err != nil {
-			return fmt.Errorf("could not update broadcast variable after creation: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("could not update variable: %w", err)
-	}
-
-	if callBackErr != nil {
-		return fmt.Errorf("error from broadcast update callback: %w", callBackErr)
-	}
-
-	return nil
 }
 
 type ErrBroadcastNotFound struct{ name string }
@@ -224,7 +125,7 @@ func (e ErrBroadcastNotFound) Is(target error) bool {
 // returned.
 func broadcastFromVars(broadcasts []model.Variable, name string) (*Cfg, error) {
 	for _, v := range broadcasts {
-		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcastScope+".") {
+		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcast.Scope+".") {
 			var cfg Cfg
 			err := json.Unmarshal([]byte(v.Value), &cfg)
 			if err != nil {
