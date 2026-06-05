@@ -107,5 +107,11 @@ func (s *vidforwardPermanentStarting) handleEvent(sm *broadcastStateMachine, eve
 		startBroadcast(sm.ctx, sm.ctx.cfg)
 	case startedEvent:
 		sm.transition(newVidforwardPermanentLive())
+	case
+		badHealthEvent,
+		finishEvent,
+		fixFailureEvent,
+		startEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
