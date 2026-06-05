@@ -31,6 +31,21 @@ type vidforwardSecondaryIdle struct {
 func newVidforwardSecondaryIdle(ctx *broadcastContext) *vidforwardSecondaryIdle {
 	return &vidforwardSecondaryIdle{broadcastContext: ctx}
 }
+
 func (s *vidforwardSecondaryIdle) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
+}
+
+func (s *vidforwardSecondaryIdle) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case timeEvent:
+		if sm.startIsDue(e) {
+			sm.ctx.bus.publish(startEvent{})
+			return
+		} else {
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+		}
+	case startEvent:
+		sm.transition(newVidforwardSecondaryStarting(sm.ctx))
+	}
 }

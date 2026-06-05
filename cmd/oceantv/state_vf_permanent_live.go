@@ -29,3 +29,30 @@ type vidforwardPermanentLive struct {
 }
 
 func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
+
+func (s *vidforwardPermanentLive) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case hardwareStartFailedEvent:
+		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
+		sm.transition(newVidforwardPermanentFailure(sm.ctx))
+	case badHealthEvent:
+		sm.transition(newVidforwardPermanentLiveUnhealthy(sm.ctx))
+	case timeEvent:
+		if sm.finishIsDue(e) {
+			sm.ctx.bus.publish(finishEvent{})
+			return
+		}
+		sm.publishHealthStatusOrChatEvents(e)
+	case finishEvent:
+		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
+	}
+}

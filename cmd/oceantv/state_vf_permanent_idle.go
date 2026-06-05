@@ -31,6 +31,21 @@ type vidforwardPermanentIdle struct {
 func newVidforwardPermanentIdle(ctx *broadcastContext) *vidforwardPermanentIdle {
 	return &vidforwardPermanentIdle{stateFields{}, ctx}
 }
+
 func (s *vidforwardPermanentIdle) enter() {
 	s.bus.publish(hardwareStopRequestEvent{})
+}
+
+func (s *vidforwardPermanentIdle) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case timeEvent:
+		if sm.startIsDue(e) {
+			sm.ctx.bus.publish(startEvent{})
+			return
+		} else {
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+		}
+	case startEvent:
+		sm.transition(newVidforwardPermanentStarting(sm.ctx))
+	}
 }

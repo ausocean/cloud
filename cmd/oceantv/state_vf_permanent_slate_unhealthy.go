@@ -34,11 +34,34 @@ type vidforwardPermanentSlateUnhealthy struct {
 func newVidforwardPermanentSlateUnhealthy(ctx *broadcastContext) *vidforwardPermanentSlateUnhealthy {
 	return &vidforwardPermanentSlateUnhealthy{stateFields{}, ctx, time.Now()}
 }
+
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
 		s.logAndNotify(broadcastForwarder, "slate is unhealthy, requesting vidforward reconfiguration")
 		try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 		s.LastResetAttempt = time.Now()
+	}
+}
+
+func (s *vidforwardPermanentSlateUnhealthy) handleEvent(sm *broadcastStateMachine, event event) {
+	switch e := event.(type) {
+	case invalidConfigurationEvent:
+		// TODO: rather than disabling transition to a failure state.
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		try(
+			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
+			"could not disable broadcast after invalid configuration",
+			sm.logAndNotifySoftware,
+		)
+		sm.transition(newVidforwardPermanentIdle(sm.ctx))
+	case goodHealthEvent:
+		sm.transition(newVidforwardPermanentSlate())
+	case timeEvent:
+		if sm.startIsDue(e) {
+			sm.ctx.bus.publish(startEvent{})
+			return
+		}
+		sm.tryToFixCurrentState()
 	}
 }
