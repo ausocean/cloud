@@ -113,6 +113,16 @@ export default withMermaid({
               },
             ],
           },
+          {
+            text: "Architecture Decision Records (ADR)",
+            link: "decisions/introduction",
+            items: [
+              {
+                text: "0001 Per-State Event Handling",
+                link: "decisions/0001-per-state-event-handling",
+              },
+            ],
+          },
         ],
       },
     ],
