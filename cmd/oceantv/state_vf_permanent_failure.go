@@ -47,6 +47,18 @@ func (s *vidforwardPermanentFailure) handleEvent(sm *broadcastStateMachine, even
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case badHealthEvent:
 		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
+	case
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		timeEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
 

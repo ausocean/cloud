@@ -65,6 +65,18 @@ func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStat
 			sm.transition(newVidforwardPermanentLive())
 		}
 		sm.publishHealthEvent(e)
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
 

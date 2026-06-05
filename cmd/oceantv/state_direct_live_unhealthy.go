@@ -57,6 +57,15 @@ func (s *directLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event
 		sm.transition(newDirectLive(sm.ctx))
 	case fixFailureEvent:
 		sm.transition(newDirectFailure(sm.ctx, e))
+	case
+		criticalFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
 
