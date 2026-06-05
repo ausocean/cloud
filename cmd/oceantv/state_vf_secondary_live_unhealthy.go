@@ -54,6 +54,16 @@ func (s *vidforwardSecondaryLiveUnhealthy) handleEvent(sm *broadcastStateMachine
 		sm.tryToFixCurrentState()
 	case finishEvent:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
+	case
+		criticalFailureEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 
 }

@@ -52,6 +52,18 @@ func (s *vidforwardPermanentVoltageRecoverySlate) handleEvent(sm *broadcastState
 		if withTimeout.timedOut(e.Time) {
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
+	case
+		badHealthEvent,
+		criticalFailureEvent,
+		finishEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		invalidConfigurationEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
 

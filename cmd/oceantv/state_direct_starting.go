@@ -72,5 +72,11 @@ func (s *directStarting) handleEvent(sm *broadcastStateMachine, event event) {
 		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e)
 	case controllerFailureEvent:
 		sm.transition(newDirectFailure(sm.ctx, e))
+	case
+		badHealthEvent,
+		finishEvent,
+		fixFailureEvent,
+		startEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }

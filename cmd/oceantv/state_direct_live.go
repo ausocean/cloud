@@ -47,5 +47,15 @@ func (s *directLive) handleEvent(sm *broadcastStateMachine, event event) {
 		sm.publishHealthStatusOrChatEvents(e)
 	case finishEvent:
 		sm.transition(newDirectIdle(sm.ctx))
+	case
+		criticalFailureEvent,
+		fixFailureEvent,
+		hardwareStartFailedEvent,
+		lowVoltageEvent,
+		startEvent,
+		startFailedEvent,
+		startedEvent,
+		voltageRecoveredEvent:
+		sm.unexpectedEvent(event, s)
 	}
 }
