@@ -1,11 +1,13 @@
 // see https://tools.ietf.org/html/rfc1808
 
-var URL_REGEX = /^((?:[a-zA-Z0-9+\-.]+:)?)(\/\/[^\/?#]*)?((?:[^\/\?#]*\/)*.*?)??(;.*?)?(\?.*?)?(#.*?)?$/;
+var URL_REGEX =
+  /^((?:[a-zA-Z0-9+\-.]+:)?)(\/\/[^\/?#]*)?((?:[^\/\?#]*\/)*.*?)??(;.*?)?(\?.*?)?(#.*?)?$/;
 var FIRST_SEGMENT_REGEX = /^([^\/?#]*)(.*)$/;
 var SLASH_DOT_REGEX = /(?:\/|^)\.(?=\/)/g;
 var SLASH_DOT_DOT_REGEX = /(?:\/|^)\.\.\/(?!\.\.\/).*?(?=\/)/g;
 
-var URLToolkit = { // jshint ignore:line
+var URLToolkit = {
+  // jshint ignore:line
   // If opts.alwaysNormalize is true then the path will always be normalized even when it starts with / or //
   // E.g
   // With opts.alwaysNormalize = false (default, spec compliant)
@@ -26,14 +28,16 @@ var URLToolkit = { // jshint ignore:line
       }
       var basePartsForNormalise = URLToolkit.parseURL(baseURL);
       if (!basePartsForNormalise) {
-        throw new Error('Error trying to parse base URL.');
+        throw new Error("Error trying to parse base URL.");
       }
-      basePartsForNormalise.path = URLToolkit.normalizePath(basePartsForNormalise.path);
+      basePartsForNormalise.path = URLToolkit.normalizePath(
+        basePartsForNormalise.path,
+      );
       return URLToolkit.buildURLFromParts(basePartsForNormalise);
     }
     var relativeParts = URLToolkit.parseURL(relativeURL);
     if (!relativeParts) {
-      throw new Error('Error trying to parse relative URL.');
+      throw new Error("Error trying to parse relative URL.");
     }
     if (relativeParts.scheme) {
       // 2b) If the embedded URL starts with a scheme name, it is
@@ -46,9 +50,9 @@ var URLToolkit = { // jshint ignore:line
     }
     var baseParts = URLToolkit.parseURL(baseURL);
     if (!baseParts) {
-      throw new Error('Error trying to parse base URL.');
+      throw new Error("Error trying to parse base URL.");
     }
-    if (!baseParts.netLoc && baseParts.path && baseParts.path[0] !== '/') {
+    if (!baseParts.netLoc && baseParts.path && baseParts.path[0] !== "/") {
       // If netLoc missing and path doesn't start with '/', assume everthing before the first '/' is the netLoc
       // This causes 'example.com/a' to be handled as '//example.com/a' instead of '/example.com/a'
       var pathParts = FIRST_SEGMENT_REGEX.exec(baseParts.path);
@@ -56,7 +60,7 @@ var URLToolkit = { // jshint ignore:line
       baseParts.path = pathParts[2];
     }
     if (baseParts.netLoc && !baseParts.path) {
-      baseParts.path = '/';
+      baseParts.path = "/";
     }
     var builtParts = {
       // 2c) Otherwise, the embedded URL inherits the scheme of
@@ -66,7 +70,7 @@ var URLToolkit = { // jshint ignore:line
       path: null,
       params: relativeParts.params,
       query: relativeParts.query,
-      fragment: relativeParts.fragment
+      fragment: relativeParts.fragment,
     };
     if (!relativeParts.netLoc) {
       // 3) If the embedded URL's <net_loc> is non-empty, we skip to
@@ -75,7 +79,7 @@ var URLToolkit = { // jshint ignore:line
       builtParts.netLoc = baseParts.netLoc;
       // 4) If the embedded URL path is preceded by a slash "/", the
       // path is not relative and we skip to Step 7.
-      if (relativeParts.path[0] !== '/') {
+      if (relativeParts.path[0] !== "/") {
         if (!relativeParts.path) {
           // 5) If the embedded URL path is empty (and not preceded by a
           // slash), then the embedded URL inherits the base URL path
@@ -98,13 +102,17 @@ var URLToolkit = { // jshint ignore:line
           // slash is present) is removed and the embedded URL's path is
           // appended in its place.
           var baseURLPath = baseParts.path;
-          var newPath = baseURLPath.substring(0, baseURLPath.lastIndexOf('/') + 1) + relativeParts.path;
+          var newPath =
+            baseURLPath.substring(0, baseURLPath.lastIndexOf("/") + 1) +
+            relativeParts.path;
           builtParts.path = URLToolkit.normalizePath(newPath);
         }
       }
     }
     if (builtParts.path === null) {
-      builtParts.path = opts.alwaysNormalize ? URLToolkit.normalizePath(relativeParts.path) : relativeParts.path;
+      builtParts.path = opts.alwaysNormalize
+        ? URLToolkit.normalizePath(relativeParts.path)
+        : relativeParts.path;
     }
     return URLToolkit.buildURLFromParts(builtParts);
   },
@@ -114,12 +122,12 @@ var URLToolkit = { // jshint ignore:line
       return null;
     }
     return {
-      scheme: parts[1] || '',
-      netLoc: parts[2] || '',
-      path: parts[3] || '',
-      params: parts[4] || '',
-      query: parts[5] || '',
-      fragment: parts[6] || ''
+      scheme: parts[1] || "",
+      netLoc: parts[2] || "",
+      path: parts[3] || "",
+      params: parts[4] || "",
+      query: parts[5] || "",
+      fragment: parts[6] || "",
     };
   },
   normalizePath: function (path) {
@@ -129,7 +137,7 @@ var URLToolkit = { // jshint ignore:line
     // segment, are removed.
     // 6b) If the path ends with "." as a complete path segment,
     // that "." is removed.
-    path = path.split('').reverse().join('').replace(SLASH_DOT_REGEX, '');
+    path = path.split("").reverse().join("").replace(SLASH_DOT_REGEX, "");
     // 6c) All occurrences of "<segment>/../", where <segment> is a
     // complete path segment not equal to "..", are removed.
     // Removal of these path segments is performed iteratively,
@@ -138,12 +146,21 @@ var URLToolkit = { // jshint ignore:line
     // 6d) If the path ends with "<segment>/..", where <segment> is a
     // complete path segment not equal to "..", that
     // "<segment>/.." is removed.
-    while (path.length !== (path = path.replace(SLASH_DOT_DOT_REGEX, '')).length) { } // jshint ignore:line
-    return path.split('').reverse().join('');
+    while (
+      path.length !== (path = path.replace(SLASH_DOT_DOT_REGEX, "")).length
+    ) {} // jshint ignore:line
+    return path.split("").reverse().join("");
   },
   buildURLFromParts: function (parts) {
-    return parts.scheme + parts.netLoc + parts.path + parts.params + parts.query + parts.fragment;
-  }
+    return (
+      parts.scheme +
+      parts.netLoc +
+      parts.path +
+      parts.params +
+      parts.query +
+      parts.fragment
+    );
+  },
 };
 
 export default URLToolkit;

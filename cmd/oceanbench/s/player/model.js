@@ -19,25 +19,26 @@ LICENSE
   If not, see http://www.gnu.org/licenses.
 */
 
-import Events from './events.js';
-import EventHandler from './hlsjs/event-handler.js';
+import Events from "./events.js";
+import EventHandler from "./hlsjs/event-handler.js";
 
 // States are the possible states that the player model can be in.
 const States = {
-  INIT: 'INIT',
-  PLAYBACK: 'PLAYBACK',
-  PAUSED: 'PAUSED',
-  WAIT: 'WAIT'
+  INIT: "INIT",
+  PLAYBACK: "PLAYBACK",
+  PAUSED: "PAUSED",
+  WAIT: "WAIT",
 };
 
 // Model is the player model which hold the player's state. It responds to different events and controls the timing of frames.
 class Model extends EventHandler {
   constructor(controller, viewer, fetcher) {
-    super(controller,
+    super(
+      controller,
       Events.PLAY_PAUSE,
       Events.LOAD,
       Events.READY,
-      Events.HALT
+      Events.HALT,
     );
     this.viewer = viewer;
     this.fetcher = fetcher;

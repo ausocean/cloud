@@ -20,14 +20,14 @@ LICENSE
 */
 
 const events = {
-  PLAY_PAUSE: 'PlayPause',
-  LOAD: 'Load',
-  JUMP_TO: 'JumpTo',
-  PLAY: 'Play',
-  STOP: 'Stop',
-  READY: 'Ready',
-  HALT: 'Halt',
-  FRAME_RATE_CHANGE: 'FrameRateChange'
+  PLAY_PAUSE: "PlayPause",
+  LOAD: "Load",
+  JUMP_TO: "JumpTo",
+  PLAY: "Play",
+  STOP: "Stop",
+  READY: "Ready",
+  HALT: "Halt",
+  FRAME_RATE_CHANGE: "FrameRateChange",
 };
 
-export default events
+export default events;

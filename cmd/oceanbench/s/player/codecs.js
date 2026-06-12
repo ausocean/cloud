@@ -20,8 +20,8 @@ LICENSE
 */
 
 const Codecs = {
-  MJPEG: 'mjpeg',
-  MTS_MJPEG: 'mts_mjpeg'
-}
+  MJPEG: "mjpeg",
+  MTS_MJPEG: "mts_mjpeg",
+};
 
-export default Codecs
+export default Codecs;

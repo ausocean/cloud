@@ -2,17 +2,27 @@ var advancedOpts;
 var adv = false;
 
 let camSelect, controllerSelect;
-let prevCamOn, prevCamShutdown, prevCamOff, prevControllerOn, prevControllerOff, prevURL;
+let prevCamOn,
+  prevCamShutdown,
+  prevCamOff,
+  prevControllerOn,
+  prevControllerOff,
+  prevURL;
 
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("time-zone").value = getTimezone();
   const startTimestamp = document.getElementById("start-timestamp").value;
   const endTimestamp = document.getElementById("end-timestamp").value;
-  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
-  const sendMsg = document.getElementById("send-msg").dataset.sendMsg === "true";
+  const sensorList = JSON.parse(
+    document.getElementById("sensor-list").dataset.sensorList,
+  );
+  const sendMsg =
+    document.getElementById("send-msg").dataset.sendMsg === "true";
 
-  if (startTimestamp) syncDateTime("start-time", "start-timestamp", "time-zone", false);
-  if (endTimestamp) syncDateTime("end-time", "end-timestamp", "time-zone", false);
+  if (startTimestamp)
+    syncDateTime("start-time", "start-timestamp", "time-zone", false);
+  if (endTimestamp)
+    syncDateTime("end-time", "end-timestamp", "time-zone", false);
 
   if (sensorList) {
     sensorList.forEach((sensor) => {
@@ -26,7 +36,9 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("report-sensor").checked = true;
   }
 
-  document.getElementById("header").addEventListener("site-change", handleSiteChange);
+  document
+    .getElementById("header")
+    .addEventListener("site-change", handleSiteChange);
 
   // Read the cookie for the advanced settings.
   let cookies = document.cookie.split(";", 5);
@@ -39,7 +51,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   advancedOpts = document.getElementsByClassName("advanced");
   for (opt of advancedOpts) {
-    adv ? (document.getElementById("adv-options-toggle").checked = true) : (opt.style.display = "none");
+    adv
+      ? (document.getElementById("adv-options-toggle").checked = true)
+      : (opt.style.display = "none");
   }
 
   camSelect = document.getElementById("camera-select");
@@ -76,7 +90,9 @@ function generateActions(e) {
     const controllerBase = macToID(controller);
     onActions.push(`${controllerBase}.Power2=true`);
     offActions.push(`${controllerBase}.Power2=false`);
-    console.log(`Generated controller actions for ${controller} → ${controllerBase}`);
+    console.log(
+      `Generated controller actions for ${controller} → ${controllerBase}`,
+    );
   }
 
   if (camSelected) {
@@ -120,7 +136,9 @@ function handleSiteChange(event) {
 }
 
 function checkAll(form) {
-  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
+  const sensorList = JSON.parse(
+    document.getElementById("sensor-list").dataset.sensorList,
+  );
   sensorList.forEach((sensor) => {
     form.querySelector(`input[id='${sensor.Name}']`).checked = true;
   });
@@ -128,7 +146,9 @@ function checkAll(form) {
 }
 
 function uncheckAll(form) {
-  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
+  const sensorList = JSON.parse(
+    document.getElementById("sensor-list").dataset.sensorList,
+  );
   sensorList.forEach((sensor) => {
     form.querySelector(`input[id='${sensor.Name}']`).checked = false;
   });
@@ -150,16 +170,19 @@ function submitSelect(select) {
 
 function toggleAdvanced(checked) {
   for (opt of advancedOpts) {
-    checked ? opt.style.removeProperty("display") : (opt.style.display = "none");
+    checked
+      ? opt.style.removeProperty("display")
+      : (opt.style.display = "none");
   }
 
-  document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
+  document.cookie =
+    (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
 }
 
 // handleBroadcastSelect triggers fetching and form population
 async function handleBroadcastSelect(uuid) {
-  // HTML <option> elements in the select dropdown have values prefixed with "Broadcast." 
-  // (e.g., "Broadcast.1234-5678"). We strip this before making the API request 
+  // HTML <option> elements in the select dropdown have values prefixed with "Broadcast."
+  // (e.g., "Broadcast.1234-5678"). We strip this before making the API request
   // to ensure we're querying against just the raw UUID.
   if (uuid && uuid.startsWith("Broadcast.")) {
     uuid = uuid.substring("Broadcast.".length);
@@ -178,7 +201,7 @@ async function handleBroadcastSelect(uuid) {
 
   if (!uuid) {
     if (loadingOverlay) loadingOverlay.classList.add("d-none");
-    document.querySelector('form').reset();
+    document.querySelector("form").reset();
     return;
   }
 
@@ -196,38 +219,40 @@ async function handleBroadcastSelect(uuid) {
 function populateForm(data) {
   // Simple inputs
   const mapping = {
-    'broadcast-name': data.Name,
-    'broadcast-uuid': data.UUID,
-    'account': data.Account,
-    'description': data.Description,
-    'stream-name': data.StreamName,
-    'rtmp-key-var': data.RTMPVar,
-    'rtmp-key': data.RTMPKey,
-    'vidforward-host': data.VidforwardHost,
-    'battery-voltage-pin': data.BatteryVoltagePin,
-    'required-streaming-voltage': data.RequiredStreamingVoltage,
-    'voltage-recovery-timeout': data.VoltageRecoveryTimeout,
-    'openfish-capturesource': data.OpenFishCaptureSource,
-    'notify-suppress-rules': data.NotifySuppressRules,
-    'on-actions': data.OnActions,
-    'shutdown-actions': data.ShutdownActions,
-    'off-actions': data.OffActions,
-    'start-timestamp': data.StartTimestamp,
-    'end-timestamp': data.EndTimestamp,
+    "broadcast-name": data.Name,
+    "broadcast-uuid": data.UUID,
+    account: data.Account,
+    description: data.Description,
+    "stream-name": data.StreamName,
+    "rtmp-key-var": data.RTMPVar,
+    "rtmp-key": data.RTMPKey,
+    "vidforward-host": data.VidforwardHost,
+    "battery-voltage-pin": data.BatteryVoltagePin,
+    "required-streaming-voltage": data.RequiredStreamingVoltage,
+    "voltage-recovery-timeout": data.VoltageRecoveryTimeout,
+    "openfish-capturesource": data.OpenFishCaptureSource,
+    "notify-suppress-rules": data.NotifySuppressRules,
+    "on-actions": data.OnActions,
+    "shutdown-actions": data.ShutdownActions,
+    "off-actions": data.OffActions,
+    "start-timestamp": data.StartTimestamp,
+    "end-timestamp": data.EndTimestamp,
   };
 
   for (const [name, val] of Object.entries(mapping)) {
-    const el = document.querySelector(`input[name="${name}"], textarea[name="${name}"]`);
-    if (el) el.value = val !== undefined && val !== null ? val : '';
+    const el = document.querySelector(
+      `input[name="${name}"], textarea[name="${name}"]`,
+    );
+    if (el) el.value = val !== undefined && val !== null ? val : "";
   }
 
   // Checkboxes
   const checks = {
-    'enabled': data.Enabled,
-    'in-failure': data.InFailure,
-    'use-vidforward': data.UsingVidforward,
-    'check-health': data.CheckingHealth,
-    'register-openfish': data.RegisterOpenFish
+    enabled: data.Enabled,
+    "in-failure": data.InFailure,
+    "use-vidforward": data.UsingVidforward,
+    "check-health": data.CheckingHealth,
+    "register-openfish": data.RegisterOpenFish,
   };
 
   for (const [name, val] of Object.entries(checks)) {
@@ -237,35 +262,49 @@ function populateForm(data) {
 
   // Radio buttons
   if (data.LivePrivacy) {
-    const el = document.querySelector(`input[name="live-privacy"][value="${data.LivePrivacy}"]`);
+    const el = document.querySelector(
+      `input[name="live-privacy"][value="${data.LivePrivacy}"]`,
+    );
     if (el) el.checked = true;
   }
   if (data.PostLivePrivacy) {
-    const el = document.querySelector(`input[name="post-live-privacy"][value="${data.PostLivePrivacy}"]`);
+    const el = document.querySelector(
+      `input[name="post-live-privacy"][value="${data.PostLivePrivacy}"]`,
+    );
     if (el) el.checked = true;
   }
 
   // Selects
   const camSelect = document.getElementById("camera-select");
-  if (camSelect && data.CameraMac !== undefined && data.CameraMac !== null && data.CameraMac !== 0) {
+  if (
+    camSelect &&
+    data.CameraMac !== undefined &&
+    data.CameraMac !== null &&
+    data.CameraMac !== 0
+  ) {
     camSelect.value = formatMac(data.CameraMac);
   }
 
   const controllerSelect = document.getElementById("controller-select");
-  if (controllerSelect && data.ControllerMAC !== undefined && data.ControllerMAC !== null && data.ControllerMAC !== 0) {
+  if (
+    controllerSelect &&
+    data.ControllerMAC !== undefined &&
+    data.ControllerMAC !== null &&
+    data.ControllerMAC !== 0
+  ) {
     controllerSelect.value = formatMac(data.ControllerMAC);
   }
 
   // Hidden/Readonly
   const bEl = document.querySelector(`input[name="broadcast-id"]`);
-  if (bEl) bEl.value = data.BID || '';
+  if (bEl) bEl.value = data.BID || "";
   const aEl = document.querySelector(`input[name="active"]`);
   if (aEl) aEl.value = data.Active || false;
 
   const stateEl = document.getElementById("broadcast-state");
-  if (stateEl) stateEl.value = data.BroadcastState || '';
+  if (stateEl) stateEl.value = data.BroadcastState || "";
   const hStateEl = document.getElementById("hardware-state");
-  if (hStateEl) hStateEl.value = data.HardwareState || '';
+  if (hStateEl) hStateEl.value = data.HardwareState || "";
   const hdEl = document.getElementById("hardware-state-data");
   if (hdEl) {
     if (data.HardwareStateData) {
@@ -276,28 +315,32 @@ function populateForm(data) {
         hdEl.value = data.HardwareStateData;
       }
     } else {
-      hdEl.value = '';
+      hdEl.value = "";
     }
   }
 
   // Synchronize time inputs
   if (data.StartTimestamp) {
-    if (typeof syncDateTime === 'function') syncDateTime("start-time", "start-timestamp", "time-zone", false);
+    if (typeof syncDateTime === "function")
+      syncDateTime("start-time", "start-timestamp", "time-zone", false);
   }
   if (data.EndTimestamp) {
-    if (typeof syncDateTime === 'function') syncDateTime("end-time", "end-timestamp", "time-zone", false);
+    if (typeof syncDateTime === "function")
+      syncDateTime("end-time", "end-timestamp", "time-zone", false);
   }
 
   // Check sensor config dynamically
   if (data.SensorList && Array.isArray(data.SensorList)) {
     // Uncheck all first
-    document.querySelectorAll(`input[type="checkbox"].advanced`).forEach(el => {
-      data.SensorList.forEach(sensor => {
-        if (el.id === sensor.Name) el.checked = false;
+    document
+      .querySelectorAll(`input[type="checkbox"].advanced`)
+      .forEach((el) => {
+        data.SensorList.forEach((sensor) => {
+          if (el.id === sensor.Name) el.checked = false;
+        });
       });
-    });
     // Check included
-    data.SensorList.forEach(sensor => {
+    data.SensorList.forEach((sensor) => {
       if (sensor.SendMsg) {
         const el = document.getElementById(sensor.Name);
         if (el) el.checked = true;
@@ -328,9 +371,11 @@ async function fetchBroadcast(uuid) {
   if (!uuid) return null;
   try {
     const urlParams = new URLSearchParams(window.location.search);
-    const site = urlParams.get('site');
-    const url = site ? `/api/v1/broadcasts/${uuid}?site=${site}` : `/api/v1/broadcasts/${uuid}`;
-    
+    const site = urlParams.get("site");
+    const url = site
+      ? `/api/v1/broadcasts/${uuid}?site=${site}`
+      : `/api/v1/broadcasts/${uuid}`;
+
     const res = await fetch(url);
     if (!res.ok) {
       console.error(`Failed to fetch broadcast config: ${res.statusText}`);
@@ -346,10 +391,10 @@ async function fetchBroadcast(uuid) {
 function formatMac(macInt) {
   if (!macInt) return "";
   let hex = macInt.toString(16).toUpperCase();
-  hex = hex.padStart(12, '0');
+  hex = hex.padStart(12, "0");
   let result = [];
   for (let i = 0; i < 12; i += 2) {
     result.push(hex.substring(i, i + 2));
   }
-  return result.join(':');
+  return result.join(":");
 }

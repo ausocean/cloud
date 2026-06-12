@@ -22,14 +22,14 @@ LICENSE
   If not, see [GNU licenses](http://www.gnu.org/licenses).
 */
 
-// pcmToWav takes raw pcm data along with the sample rate, number of channels and bit-depth, 
+// pcmToWav takes raw pcm data along with the sample rate, number of channels and bit-depth,
 // and adds a WAV header to it so that it can be read and played by common players.
 // Input should be a Uint8Array containing 16 bit PCM samples, output will be a Uint8Array representing the bytes of the wav file.
 // WAV spec.: http://soundfile.sapp.org/doc/WaveFormat/
 function pcmToWav(data, rate, channels, bitdepth) {
   if (data == undefined || data.length == 0) {
-    console.error("no PCM data to convert to WAV")
-    return
+    console.error("no PCM data to convert to WAV");
+    return;
   }
   let subChunk2ID = [100, 97, 116, 97]; // "data".
   let subChunk2Size = int32ToBytes(data.length);
@@ -39,15 +39,15 @@ function pcmToWav(data, rate, channels, bitdepth) {
   let audioFmt = int16ToBytes(1); // 1 = PCM.
   let numChannels = int16ToBytes(channels);
   let sampleRate = int32ToBytes(rate);
-  let byteRate = int32ToBytes(rate * channels * bitdepth / 8);
-  let blockAlign = int16ToBytes(channels * bitdepth / 8);
-  let bitsPerSample = int16ToBytes(bitdepth)
+  let byteRate = int32ToBytes((rate * channels * bitdepth) / 8);
+  let blockAlign = int16ToBytes((channels * bitdepth) / 8);
+  let bitsPerSample = int16ToBytes(bitdepth);
 
   let chunkID = [82, 73, 70, 70]; // "RIFF".
   let chunkSize = int32ToBytes(36 + data.length);
   let format = [87, 65, 86, 69]; // "WAVE".
 
-  let result = new Uint8Array((data.length * 2) + 44);
+  let result = new Uint8Array(data.length * 2 + 44);
   let off = 0;
 
   result.set(chunkID, off);
@@ -85,7 +85,7 @@ function pcmToWav(data, rate, channels, bitdepth) {
 // int32ToBytes takes a number assumed to be an int 32 and converts it to an array containing bytes (Little Endian).
 function int32ToBytes(num) {
   let b = new Uint8Array(4);
-  b[0] = (num & 0x000000ff);
+  b[0] = num & 0x000000ff;
   b[1] = (num & 0x0000ff00) >> 8;
   b[2] = (num & 0x00ff0000) >> 16;
   b[3] = (num & 0xff000000) >> 24;
@@ -95,7 +95,7 @@ function int32ToBytes(num) {
 // int16ToBytes takes a number assumed to be an int 16 and converts it to an array containing bytes (Little Endian).
 function int16ToBytes(num) {
   let b = new Uint8Array(2);
-  b[0] = (num & 0x00ff);
+  b[0] = num & 0x00ff;
   b[1] = (num & 0xff00) >> 8;
   return b;
 }

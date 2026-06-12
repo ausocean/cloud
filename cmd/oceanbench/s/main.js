@@ -110,7 +110,9 @@ function updateMID(mac, pin, id) {
 // copyFormValues copies field values from the selected form within srcContainerID to the form dstID.
 function copyFormValues(dstID, srcContainerID, fields) {
   var dst = document.getElementById(dstID);
-  var forms = document.getElementById(srcContainerID).getElementsByTagName("form");
+  var forms = document
+    .getElementById(srcContainerID)
+    .getElementsByTagName("form");
   for (var ii = 0; ii < forms.length; ii++) {
     var src = forms[ii];
     var checkbox = src.elements["select"];
@@ -242,7 +244,8 @@ function syncDateTime(datetimeID, timestampID, timezoneID, pickerUsed) {
     }
 
     // Add the offset (in seconds) to the timestamp.
-    const localTimestamp = parseInt(timestamp) + Math.round(parseFloat(timezone) * 3600);
+    const localTimestamp =
+      parseInt(timestamp) + Math.round(parseFloat(timezone) * 3600);
     // Convert the timestamp to an ISO string
     const datetime = new Date(localTimestamp * 1000).toISOString();
     if (pickerElem.type == "time") {

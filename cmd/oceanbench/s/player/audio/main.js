@@ -25,10 +25,10 @@ LICENSE
 
 // playFile will process and play the chosen target file.
 function playFile() {
-  const input = document.querySelector('#fileinput');
+  const input = document.querySelector("#fileinput");
   if (input.files.length == 0) {
-    console.log("no file chosen")
-    return
+    console.log("no file chosen");
+    return;
   }
   const file = input.files[0];
   const reader = new FileReader();
@@ -37,23 +37,29 @@ function playFile() {
   let chan = document.getElementById("chaninput").value;
   let rate = document.getElementById("rateinput").value;
 
-  extension = file.name.split('.').pop();
+  extension = file.name.split(".").pop();
   extension = extension.toLowerCase();
   switch (extension) {
     case "adpcm":
-      reader.onload = e => { playADPCM(new Uint8Array(e.target.result), rate, chan, bd) };
+      reader.onload = (e) => {
+        playADPCM(new Uint8Array(e.target.result), rate, chan, bd);
+      };
       break;
     case "pcm":
     case "raw":
-      reader.onload = e => { playPCM(new Uint8Array(e.target.result), rate, chan, bd) };
+      reader.onload = (e) => {
+        playPCM(new Uint8Array(e.target.result), rate, chan, bd);
+      };
       break;
     case "wav":
-      reader.onload = e => { playWAV(new Uint8Array(e.target.result)) };
+      reader.onload = (e) => {
+        playWAV(new Uint8Array(e.target.result));
+      };
       break;
     default:
       console.log("error, unsupported format");
   }
-  reader.onerror = error => reject(error);
+  reader.onerror = (error) => reject(error);
   reader.readAsArrayBuffer(file);
 }
 
@@ -72,11 +78,11 @@ function playPCM(b, rate, channels, bitdepth) {
 function playWAV(b) {
   // Play wav data in player.
   const blob = new Blob([b], {
-    type: 'audio/wav'
+    type: "audio/wav",
   });
   const url = URL.createObjectURL(blob);
-  const audio = document.getElementById('audio');
-  const source = document.getElementById('source');
+  const audio = document.getElementById("audio");
+  const source = document.getElementById("source");
   source.src = url;
   audio.load();
   audio.play();
@@ -92,12 +98,15 @@ function load(firstLoad) {
 
 // init is what runs when the body of the document has loaded.
 function init() {
-  document.addEventListener('DOMContentLoaded', function () { load(true) });
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelector('#fileinput').addEventListener('change', playFile);
-    document.querySelector('#loadBtn').addEventListener('click', function () { load(false) });
-  }
-  );
+  document.addEventListener("DOMContentLoaded", function () {
+    load(true);
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelector("#fileinput").addEventListener("change", playFile);
+    document.querySelector("#loadBtn").addEventListener("click", function () {
+      load(false);
+    });
+  });
 }
 
 init();

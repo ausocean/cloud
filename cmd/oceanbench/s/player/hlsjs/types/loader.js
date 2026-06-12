@@ -26,17 +26,17 @@ LICENSE
  * @enum {string}
  */
 export const PlaylistContextType = {
-  MANIFEST: 'manifest',
-  LEVEL: 'level',
-  AUDIO_TRACK: 'audioTrack',
-  SUBTITLE_TRACK: 'subtitleTrack'
-}
+  MANIFEST: "manifest",
+  LEVEL: "level",
+  AUDIO_TRACK: "audioTrack",
+  SUBTITLE_TRACK: "subtitleTrack",
+};
 
 /**
  * @enum {string}
  */
 export const PlaylistLevelType = {
-  MAIN: 'main',
-  AUDIO: 'audio',
-  SUBTITLE: 'subtitle'
-}
+  MAIN: "main",
+  AUDIO: "audio",
+  SUBTITLE: "subtitle",
+};

@@ -14,7 +14,7 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript" src="/s/broadcast.js"></script>
-      <script type="module" src="/s/lit/site-footer.js"></script>
+    <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
     <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
@@ -40,12 +40,11 @@
 
       <h1 class="container-md">Broadcast</h1>
       <div class="border rounded p-4 container-md bg-white position-relative">
-
-          <div id="loading-overlay" class="d-none position-absolute top-0 start-0 w-100 h-100 bg-white d-flex justify-content-center align-items-center" style="z-index: 10; opacity: 0.7;">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
+        <div id="loading-overlay" class="d-none position-absolute top-0 start-0 w-100 h-100 bg-white d-flex justify-content-center align-items-center" style="z-index: 10; opacity: 0.7">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
           </div>
+        </div>
 
         <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
           <div class="d-flex align-items-center gap-1 mb-1">
@@ -82,14 +81,14 @@
             <div class="d-flex align-items-center gap-1 mb-1">
               <div class="w-25"></div>
               <div class="form-check form-switch d-flex align-items-center gap-1 p-0">
-                <input type="checkbox" name="enabled" class="form-check-input m-0" role="switch" value="enabled"  />
+                <input type="checkbox" name="enabled" class="form-check-input m-0" role="switch" value="enabled" />
                 <small>Enabled</small>
               </div>
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <div class="w-25"></div>
               <div class="form-check form-switch d-flex align-items-center gap-1 p-0">
-                <input type="checkbox" name="in-failure" class="form-check-input m-0" role="switch" value="in-failure"  />
+                <input type="checkbox" name="in-failure" class="form-check-input m-0" role="switch" value="in-failure" />
                 <small>Failure Mode</small>
               </div>
             </div>
@@ -105,7 +104,7 @@
               <div class="d-flex align-items-center gap-3 flex-row">
                 {{range .Settings.Privacy}}
                 <div>
-                  <input type="radio" name="live-privacy" value="{{.}}" id="{{.}}-radio"  />
+                  <input type="radio" name="live-privacy" value="{{.}}" id="{{.}}-radio" />
                   <label class="text-capitalize" for="{{.}}-radio">{{.}}</label>
                 </div>
                 {{end}}
@@ -116,7 +115,7 @@
               <div class="d-flex align-items-center gap-3 flex-row">
                 {{range .Settings.Privacy}}
                 <div>
-                  <input type="radio" name="post-live-privacy" value="{{.}}" id="{{.}}-radio"  />
+                  <input type="radio" name="post-live-privacy" value="{{.}}" id="{{.}}-radio" />
                   <label class="text-capitalize" for="{{.}}-radio">{{.}}</label>
                 </div>
                 {{end}}
@@ -246,7 +245,7 @@
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="check-health" class="advanced w-25 text-end">Health Check:</label>
-              <input class="advanced" type="checkbox" name="check-health" value="checking-health"  />
+              <input class="advanced" type="checkbox" name="check-health" value="checking-health" />
             </div>
           </fieldset>
           <h2 class="advanced pt-5">Advanced Settings</h2>
@@ -254,7 +253,7 @@
           <fieldset>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="use-vidforward" class="advanced w-25 text-end">Use Vidforward:</label>
-              <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward"  />
+              <input class="advanced" type="checkbox" name="use-vidforward" value="using-vidforward" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="vidforward-host" class="advanced w-25 text-end">Vidforward Host:</label>
@@ -281,7 +280,7 @@
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="register-openfish" class="advanced w-25 text-end">Register stream with OpenFish:</label>
-              <input class="advanced" type="checkbox" name="register-openfish" value="register-openfish"  />
+              <input class="advanced" type="checkbox" name="register-openfish" value="register-openfish" />
             </div>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label for="openfish-capturesource" class="advanced w-25 text-end">OpenFish Capture Source:</label>

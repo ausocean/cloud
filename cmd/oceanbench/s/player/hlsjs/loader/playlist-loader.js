@@ -21,38 +21,42 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import { PlaylistContextType, PlaylistLevelType } from '../types/loader.js';
-import Event from '../events.js';
-import EventHandler from '../hls-event-handler.js';
-import M3U8Parser from './m3u8-parser.js';
+import { PlaylistContextType, PlaylistLevelType } from "../types/loader.js";
+import Event from "../events.js";
+import EventHandler from "../hls-event-handler.js";
+import M3U8Parser from "./m3u8-parser.js";
 
 const { performance } = window;
 
 class PlaylistLoader extends EventHandler {
   constructor(hls) {
-    super(hls,
+    super(
+      hls,
       Event.MANIFEST_LOADING,
       Event.LEVEL_LOADING,
       Event.AUDIO_TRACK_LOADING,
-      Event.SUBTITLE_TRACK_LOADING);
+      Event.SUBTITLE_TRACK_LOADING,
+    );
     this.hls = hls;
     this.loaders = {};
   }
 
   /**
- * @param {PlaylistContextType} type
- * @returns {boolean}
- */
+   * @param {PlaylistContextType} type
+   * @returns {boolean}
+   */
   static canHaveQualityLevels(type) {
-    return (type !== PlaylistContextType.AUDIO_TRACK &&
-      type !== PlaylistContextType.SUBTITLE_TRACK);
+    return (
+      type !== PlaylistContextType.AUDIO_TRACK &&
+      type !== PlaylistContextType.SUBTITLE_TRACK
+    );
   }
 
   /**
- * Map context.type to LevelType
- * @param {PlaylistLoaderContext} context
- * @returns {LevelType}
- */
+   * Map context.type to LevelType
+   * @param {PlaylistLoaderContext} context
+   * @returns {LevelType}
+   */
   static mapContextToLevelType(context) {
     const { type } = context;
 
@@ -70,7 +74,7 @@ class PlaylistLoader extends EventHandler {
     let url = response.url;
     // responseURL not supported on some browsers (it is used to detect URL redirection)
     // data-uri mode also not supported (but no need to detect redirection)
-    if (url === undefined || url.indexOf('data:') === 0) {
+    if (url === undefined || url.indexOf("data:") === 0) {
       // fallback to initial URL
       url = context.url;
     }
@@ -115,7 +119,7 @@ class PlaylistLoader extends EventHandler {
       type: PlaylistContextType.MANIFEST,
       level: 0,
       id: null,
-      responseType: 'text'
+      responseType: "text",
     });
   }
 
@@ -125,7 +129,7 @@ class PlaylistLoader extends EventHandler {
       type: PlaylistContextType.LEVEL,
       level: data.level,
       id: data.id,
-      responseType: 'text'
+      responseType: "text",
     });
   }
 
@@ -135,7 +139,7 @@ class PlaylistLoader extends EventHandler {
       type: PlaylistContextType.AUDIO_TRACK,
       level: null,
       id: data.id,
-      responseType: 'text'
+      responseType: "text",
     });
   }
 
@@ -145,7 +149,7 @@ class PlaylistLoader extends EventHandler {
       type: PlaylistContextType.SUBTITLE_TRACK,
       level: null,
       id: data.id,
-      responseType: 'text'
+      responseType: "text",
     });
   }
 
@@ -156,7 +160,8 @@ class PlaylistLoader extends EventHandler {
     let loader = this.getInternalLoader(context);
     if (loader) {
       const loaderContext = loader.context;
-      if (loaderContext && loaderContext.url === context.url) { // same URL can't overlap
+      if (loaderContext && loaderContext.url === context.url) {
+        // same URL can't overlap
         return false;
       } else {
         console.warn(`aborting previous loader for type: ${context.type}`);
@@ -200,13 +205,13 @@ class PlaylistLoader extends EventHandler {
       timeout,
       maxRetry,
       retryDelay,
-      maxRetryDelay
+      maxRetryDelay,
     };
 
     const loaderCallbacks = {
       onSuccess: this.loadsuccess.bind(this),
       onError: this.loaderror.bind(this),
-      onTimeout: this.loadtimeout.bind(this)
+      onTimeout: this.loadtimeout.bind(this),
     };
 
     loader.load(context, loaderConfig, loaderCallbacks);
@@ -222,7 +227,7 @@ class PlaylistLoader extends EventHandler {
     }
 
     this.resetInternalLoader(context.type);
-    if (typeof response.data !== 'string') {
+    if (typeof response.data !== "string") {
       throw new Error('expected responseType of "text" for PlaylistLoader');
     }
 
@@ -231,19 +236,26 @@ class PlaylistLoader extends EventHandler {
     stats.tload = performance.now();
 
     // Validate if it is an M3U8 at all
-    if (string.indexOf('#EXTM3U') !== 0) {
+    if (string.indexOf("#EXTM3U") !== 0) {
       console.error("no EXTM3U delimiter");
       return;
     }
 
     // Check if chunk-list or master. handle empty chunk list case (first EXTINF not signaled, but TARGETDURATION present)
-    if (string.indexOf('#EXTINF:') > 0 || string.indexOf('#EXT-X-TARGETDURATION:') > 0) {
-      this._handleTrackOrLevelPlaylist(response, stats, context, networkDetails);
+    if (
+      string.indexOf("#EXTINF:") > 0 ||
+      string.indexOf("#EXT-X-TARGETDURATION:") > 0
+    ) {
+      this._handleTrackOrLevelPlaylist(
+        response,
+        stats,
+        context,
+        networkDetails,
+      );
     } else {
       console.log("handling of master playlists is not implemented");
       // this._handleMasterPlaylist(response, stats, context, networkDetails);
     }
-
   }
 
   loaderror(response, context, networkDetails = null) {
@@ -266,11 +278,17 @@ class PlaylistLoader extends EventHandler {
     const levelId = Number.isFinite(level) ? level : levelUrlId;
 
     const levelType = PlaylistLoader.mapContextToLevelType(context);
-    const levelDetails = M3U8Parser.parseLevelPlaylist(response.data, url, levelId, levelType, levelUrlId);
+    const levelDetails = M3U8Parser.parseLevelPlaylist(
+      response.data,
+      url,
+      levelId,
+      levelType,
+      levelUrlId,
+    );
 
     // set stats on level structure
     // TODO(jstackhouse): why? mixing concerns, is it just treated as value bag?
-    (levelDetails).tload = stats.tload;
+    levelDetails.tload = stats.tload;
 
     // We have done our first request (Manifest-type) and receive
     // not a master playlist but a chunk-list (track/level)
@@ -279,7 +297,7 @@ class PlaylistLoader extends EventHandler {
     if (type === PlaylistContextType.MANIFEST) {
       const singleLevel = {
         url,
-        details: levelDetails
+        details: levelDetails,
       };
 
       hls.trigger(Event.MANIFEST_LOADED, {
@@ -287,7 +305,7 @@ class PlaylistLoader extends EventHandler {
         audioTracks: [],
         url,
         stats,
-        networkDetails
+        networkDetails,
       });
     }
 
@@ -315,7 +333,7 @@ class PlaylistLoader extends EventHandler {
         level: level || 0,
         id: id || 0,
         stats,
-        networkDetails
+        networkDetails,
       });
     } else {
       switch (type) {
@@ -324,7 +342,7 @@ class PlaylistLoader extends EventHandler {
             details: levelDetails,
             id,
             stats,
-            networkDetails
+            networkDetails,
           });
           break;
         case PlaylistContextType.SUBTITLE_TRACK:
@@ -332,7 +350,7 @@ class PlaylistLoader extends EventHandler {
             details: levelDetails,
             id,
             stats,
-            networkDetails
+            networkDetails,
           });
           break;
       }

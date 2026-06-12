@@ -21,14 +21,14 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import URLToolkit from '../url-toolkit/url-toolkit.js';
-import HlsEvents from './events.js';
-import PlaylistLoader from './loader/playlist-loader.js';
-import FragmentLoader from './loader/fragment-loader.js';
-import StreamController from './controller/stream-controller.js';
-import LevelController from './controller/level-controller.js';
-import { hlsDefaultConfig } from './config.js';
-import { Observer } from './observer.js';
+import URLToolkit from "../url-toolkit/url-toolkit.js";
+import HlsEvents from "./events.js";
+import PlaylistLoader from "./loader/playlist-loader.js";
+import FragmentLoader from "./loader/fragment-loader.js";
+import StreamController from "./controller/stream-controller.js";
+import LevelController from "./controller/level-controller.js";
+import { hlsDefaultConfig } from "./config.js";
+import { Observer } from "./observer.js";
 
 class Hls extends Observer {
   constructor() {
@@ -44,9 +44,11 @@ class Hls extends Observer {
   // url is the source URL. Can be relative or absolute.
   loadSource(url) {
     this.levelController.startLoad();
-    url = URLToolkit.buildAbsoluteURL(window.location.href, url, { alwaysNormalize: true });
+    url = URLToolkit.buildAbsoluteURL(window.location.href, url, {
+      alwaysNormalize: true,
+    });
     this.trigger(HlsEvents.MANIFEST_LOADING, { url: url });
   }
 }
 
-export default Hls
+export default Hls;

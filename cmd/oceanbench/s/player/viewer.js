@@ -19,19 +19,19 @@ LICENSE
   If not, see http://www.gnu.org/licenses.
 */
 
-import Events from './events.js';
-import EventHandler from './hlsjs/event-handler.js';
-
+import Events from "./events.js";
+import EventHandler from "./hlsjs/event-handler.js";
 
 class Viewer extends EventHandler {
   constructor(controller, fetcher, display, playPauseBtn, slider) {
-    super(controller,
+    super(
+      controller,
       Events.PLAY,
       Events.JUMP_TO,
       Events.LOAD,
       Events.READY,
       Events.FRAME_RATE_CHANGE,
-      Events.STOP
+      Events.STOP,
     );
     this.updateImage = this.updateImage.bind(this);
     this.fetcher = fetcher;
@@ -51,7 +51,7 @@ class Viewer extends EventHandler {
       this.controller.triggerEvent(Events.HALT);
     } else {
       const blob = new Blob([new Uint8Array(this.frame.data.buffer)], {
-        type: 'video/x-motion-jpeg'
+        type: "video/x-motion-jpeg",
       });
       const url = URL.createObjectURL(blob);
       this.display.src = url;
@@ -60,7 +60,9 @@ class Viewer extends EventHandler {
     }
     this.frame = this.fetcher.read();
     if (!this.frame) {
-      setTimeout(() => { this.buffer() }, this.retryPeriod);
+      setTimeout(() => {
+        this.buffer();
+      }, this.retryPeriod);
     }
   }
 
@@ -93,7 +95,9 @@ class Viewer extends EventHandler {
     if (this.frame) {
       this.controller.triggerEvent(Events.READY);
     } else {
-      setTimeout(() => { this.buffer() }, this.retryPeriod);
+      setTimeout(() => {
+        this.buffer();
+      }, this.retryPeriod);
     }
   }
 
