@@ -100,7 +100,9 @@ export class CronSettings extends LitElement {
         throw await resp.text();
       })
       .then((data) => {
-        this.devMap = new Map(data.map((d: SiteDevice) => [d.Mac.toString(16), d]));
+        this.devMap = new Map(
+          data.map((d: SiteDevice) => [d.Mac.toString(16), d]),
+        );
         this.requestUpdate();
       })
       .catch((err) => {
@@ -122,8 +124,17 @@ export class CronSettings extends LitElement {
           <option ?selected="${this.Action == "email"}">email</option>
         </select>
         ${this.varDropdown()}
-        <input @change="${this.updateValue}" type="text" value="${this.Value}" />
-        <input @change="${this.updateEnabled}" type="checkbox" ?checked=${this.Enabled} style="max-height: 16px;" />
+        <input
+          @change="${this.updateValue}"
+          type="text"
+          value="${this.Value}"
+        />
+        <input
+          @change="${this.updateEnabled}"
+          type="checkbox"
+          ?checked=${this.Enabled}
+          style="max-height: 16px;"
+        />
       </div>
     `;
   }
@@ -199,16 +210,36 @@ export class CronSettings extends LitElement {
           <div>
             <select @change="${this.updateEndpoint}" style="width: 100%">
               <option value="other">other</option>
-              <option value="https://oceantv.appspot.com/checkbroadcasts" ?selected="${this.Variable == prodEndpoint}">Production</option>
-              <option value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts" ?selected="${this.Variable == devEndpoint}">Testing (Dev)</option>
+              <option
+                value="https://oceantv.appspot.com/checkbroadcasts"
+                ?selected="${this.Variable == prodEndpoint}"
+              >
+                Production
+              </option>
+              <option
+                value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts"
+                ?selected="${this.Variable == devEndpoint}"
+              >
+                Testing (Dev)
+              </option>
             </select>
-            <input @change="${this.updateEndpoint}" type="text" id="endpoint-input" value="${this.Variable}" />
+            <input
+              @change="${this.updateEndpoint}"
+              type="text"
+              id="endpoint-input"
+              value="${this.Variable}"
+            />
           </div>
         `;
       case "set":
         if (this.devMap.size == 0 || this.siteVars.length == 0) {
           return html`
-            <input type="text" style="animation: pulse 1s infinite;" readonly value="loading..." />
+            <input
+              type="text"
+              style="animation: pulse 1s infinite;"
+              readonly
+              value="loading..."
+            />
           `;
         }
         console.log("devmap:", this.devMap);
@@ -220,15 +251,18 @@ export class CronSettings extends LitElement {
               let dev = this.devMap.get(parts[0]);
 
               return html`
-                <option value="${v.Name}" ?selected="${this.Variable === v.Name}">${dev?.Name + "." + parts[1]}</option>
+                <option
+                  value="${v.Name}"
+                  ?selected="${this.Variable === v.Name}"
+                >
+                  ${dev?.Name + "." + parts[1]}
+                </option>
               `;
             })}
           </select>
         `;
       default:
-        return html`
-          <input type="text" .value="${this.Variable}" />
-        `;
+        return html` <input type="text" .value="${this.Variable}" /> `;
     }
   }
 
@@ -236,7 +270,9 @@ export class CronSettings extends LitElement {
     const select = e.target as HTMLSelectElement;
     this.Variable = select.value;
     if (this.Variable === "other") {
-      let input = this.shadowRoot?.querySelector("#other-input") as HTMLInputElement;
+      let input = this.shadowRoot?.querySelector(
+        "#other-input",
+      ) as HTMLInputElement;
       if (!input) {
         return;
       }

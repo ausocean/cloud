@@ -1,7 +1,25 @@
 {
-    "printWidth": 2000,
-    "tabWidth": 2,
-    "useTabs": false,
-    "singleQuote": false,
-    "htmlWhitespaceSensitivity": "ignore"
+  "overrides": [
+    {
+      "files": "*.html",
+      "options": {
+        "printWidth": 2000,
+        "tabWidth": 2,
+        "useTabs": false,
+        "singleQuote": false,
+        "htmlWhitespaceSensitivity": "ignore"
+      }
+    },
+    {
+      "files": ["**/*.[js,ts]"],
+      "options": {
+        "printWidth": 2000,
+        "tabWidth": 2,
+        "useTabs": false,
+        "singleQuote": false,
+        "htmlWhitespaceSensitivity": "ignore",
+        "embeddedLanguageFormatting": "auto"
+      }
+    }
+  ]
 }

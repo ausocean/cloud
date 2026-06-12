@@ -22,14 +22,14 @@ LICENSE
 */
 
 // MTSDemuxer demultiplexes an MPEG-TS stream into its individual streams.
-// While it is possible that the MPEG-TS stream may contain many streams, 
-// this demuxer will result in at most one stream of each type ie. video, audio, id3 metadata.  
+// While it is possible that the MPEG-TS stream may contain many streams,
+// this demuxer will result in at most one stream of each type ie. video, audio, id3 metadata.
 class MTSDemuxer {
   constructor() {
     this.init();
   }
 
-  // init initialises MTSDemuxer's state. It can be used to reset an MTSDemuxer instance. 
+  // init initialises MTSDemuxer's state. It can be used to reset an MTSDemuxer instance.
   init() {
     this.pmtParsed = false;
     this._pmtId = -1;
@@ -44,11 +44,11 @@ class MTSDemuxer {
     return {
       type,
       pid: -1,
-      data: [] // This will contain Uint8Arrays representing each PES packet's payload for this track.
+      data: [], // This will contain Uint8Arrays representing each PES packet's payload for this track.
     };
   }
 
-  // _syncOffset scans the first 'maxScanWindow' bytes and returns an offset to the beginning of the first three MTS packets, 
+  // _syncOffset scans the first 'maxScanWindow' bytes and returns an offset to the beginning of the first three MTS packets,
   // or -1 if three are not found.
   // A TS fragment should contain at least 3 TS packets, a PAT, a PMT, and one PID, each starting with 0x47.
   static _syncOffset(data) {
@@ -56,7 +56,11 @@ class MTSDemuxer {
     const scanWindow = Math.min(maxScanWindow, data.length - 3 * 188);
     let i = 0;
     while (i < scanWindow) {
-      if (data[i] === 0x47 && data[i + 188] === 0x47 && data[i + 2 * 188] === 0x47) {
+      if (
+        data[i] === 0x47 &&
+        data[i + 188] === 0x47 &&
+        data[i + 2 * 188] === 0x47
+      ) {
         return i;
       } else {
         i++;
@@ -66,12 +70,18 @@ class MTSDemuxer {
   }
 
   demux(data) {
-    let start, len = data.length, pusi, pid, afc, offset, pes,
+    let start,
+      len = data.length,
+      pusi,
+      pid,
+      afc,
+      offset,
+      pes,
       unknownPIDs = false;
     let pmtParsed = this.pmtParsed,
-      videoTrack = MTSDemuxer.createTrack('video'),
-      audioTrack = MTSDemuxer.createTrack('audio'),
-      id3Track = MTSDemuxer.createTrack('id3'),
+      videoTrack = MTSDemuxer.createTrack("video"),
+      audioTrack = MTSDemuxer.createTrack("audio"),
+      id3Track = MTSDemuxer.createTrack("id3"),
       videoId,
       audioId,
       id3Id,
@@ -85,7 +95,7 @@ class MTSDemuxer {
 
     const syncOffset = MTSDemuxer._syncOffset(data);
     if (syncOffset == -1) {
-      console.warn('no TS fragment found in data');
+      console.warn("no TS fragment found in data");
       return null;
     }
 
@@ -103,7 +113,7 @@ class MTSDemuxer {
         if (afc > 1) {
           offset = start + 5 + data[start + 4];
           // Continue if there is only adaptation field.
-          if (offset === (start + 188)) {
+          if (offset === start + 188) {
             continue;
           }
         } else {
@@ -112,7 +122,11 @@ class MTSDemuxer {
         switch (pid) {
           case videoId:
             if (pusi) {
-              if (videoData && (pes = parsePES(videoData)) && pes.pts !== undefined) {
+              if (
+                videoData &&
+                (pes = parsePES(videoData)) &&
+                pes.pts !== undefined
+              ) {
                 videoTrack.data.push(pes.data);
                 // TODO: here pes contains data, pts, dts and len. Are all these needed?
               }
@@ -125,7 +139,11 @@ class MTSDemuxer {
             break;
           case audioId:
             if (pusi) {
-              if (audioData && (pes = parsePES(audioData)) && pes.pts !== undefined) {
+              if (
+                audioData &&
+                (pes = parsePES(audioData)) &&
+                pes.pts !== undefined
+              ) {
                 audioTrack.data.push(pes.data);
               }
               audioData = { data: [], size: 0 };
@@ -137,7 +155,11 @@ class MTSDemuxer {
             break;
           case id3Id:
             if (pusi) {
-              if (id3Data && (pes = parsePES(id3Data)) && pes.pts !== undefined) {
+              if (
+                id3Data &&
+                (pes = parsePES(id3Data)) &&
+                pes.pts !== undefined
+              ) {
                 id3Track.data.push(pes.data);
               }
               id3Data = { data: [], size: 0 };
@@ -190,7 +212,7 @@ class MTSDemuxer {
             break;
         }
       } else {
-        console.error('TS packet did not start with 0x47');
+        console.error("TS packet did not start with 0x47");
       }
     }
 
@@ -224,21 +246,23 @@ class MTSDemuxer {
 
   _parsePAT(data, offset) {
     // Skip the PSI header and parse the first PMT entry.
-    return (data[offset + 10] & 0x1F) << 8 | data[offset + 11];
+    return ((data[offset + 10] & 0x1f) << 8) | data[offset + 11];
     // console.log('PMT PID:'  + this._pmtId);
   }
 
   _parsePMT(data, offset) {
-    let programInfoLength, pid, result = { audio: -1, video: -1, id3: -1 },
-      sectionLength = (data[offset + 1] & 0x0f) << 8 | data[offset + 2],
+    let programInfoLength,
+      pid,
+      result = { audio: -1, video: -1, id3: -1 },
+      sectionLength = ((data[offset + 1] & 0x0f) << 8) | data[offset + 2],
       tableEnd = offset + 3 + sectionLength - 4;
     // To determine where the table is, we have to figure out how
     // long the program info descriptors are.
-    programInfoLength = (data[offset + 10] & 0x0f) << 8 | data[offset + 11];
+    programInfoLength = ((data[offset + 10] & 0x0f) << 8) | data[offset + 11];
     // Advance the offset to the first entry in the mapping table.
     offset += 12 + programInfoLength;
     while (offset < tableEnd) {
-      pid = (data[offset + 1] & 0x1F) << 8 | data[offset + 2];
+      pid = ((data[offset + 1] & 0x1f) << 8) | data[offset + 2];
       switch (data[offset]) {
         case 0x1c: // MJPEG
         case 0xdb: // SAMPLE-AES AVC.
@@ -269,13 +293,23 @@ class MTSDemuxer {
           break;
       }
       // Move to the next table entry, skip past the elementary stream descriptors, if present.
-      offset += ((data[offset + 3] & 0x0F) << 8 | data[offset + 4]) + 5;
+      offset += (((data[offset + 3] & 0x0f) << 8) | data[offset + 4]) + 5;
     }
     return result;
   }
 
   _parsePES(stream) {
-    let i = 0, frag, pesFlags, pesPrefix, pesLen, pesHdrLen, pesData, pesPts, pesDts, payloadStartOffset, data = stream.data;
+    let i = 0,
+      frag,
+      pesFlags,
+      pesPrefix,
+      pesLen,
+      pesHdrLen,
+      pesData,
+      pesPts,
+      pesDts,
+      payloadStartOffset,
+      data = stream.data;
     // Safety check.
     if (!stream || stream.size === 0) {
       return null;
@@ -303,26 +337,28 @@ class MTSDemuxer {
       }
 
       pesFlags = frag[7];
-      if (pesFlags & 0xC0) {
+      if (pesFlags & 0xc0) {
         // PES header described here : http://dvd.sourceforge.net/dvdinfo/pes-hdr.html
         // As PTS / DTS is 33 bit we cannot use bitwise operator in JS,
         // as Bitwise operators treat their operands as a sequence of 32 bits.
-        pesPts = (frag[9] & 0x0E) * 536870912 +// 1 << 29
-          (frag[10] & 0xFF) * 4194304 +// 1 << 22
-          (frag[11] & 0xFE) * 16384 +// 1 << 14
-          (frag[12] & 0xFF) * 128 +// 1 << 7
-          (frag[13] & 0xFE) / 2;
+        pesPts =
+          (frag[9] & 0x0e) * 536870912 + // 1 << 29
+          (frag[10] & 0xff) * 4194304 + // 1 << 22
+          (frag[11] & 0xfe) * 16384 + // 1 << 14
+          (frag[12] & 0xff) * 128 + // 1 << 7
+          (frag[13] & 0xfe) / 2;
         // Check if greater than 2^32 -1.
         if (pesPts > 4294967295) {
           // Decrement 2^33.
           pesPts -= 8589934592;
         }
         if (pesFlags & 0x40) {
-          pesDts = (frag[14] & 0x0E) * 536870912 +// 1 << 29
-            (frag[15] & 0xFF) * 4194304 +// 1 << 22
-            (frag[16] & 0xFE) * 16384 +// 1 << 14
-            (frag[17] & 0xFF) * 128 +// 1 << 7
-            (frag[18] & 0xFE) / 2;
+          pesDts =
+            (frag[14] & 0x0e) * 536870912 + // 1 << 29
+            (frag[15] & 0xff) * 4194304 + // 1 << 22
+            (frag[16] & 0xfe) * 16384 + // 1 << 14
+            (frag[17] & 0xff) * 128 + // 1 << 7
+            (frag[18] & 0xfe) / 2;
           // Check if greater than 2^32 -1.
           if (pesDts > 4294967295) {
             // Decrement 2^33.
@@ -372,4 +408,4 @@ class MTSDemuxer {
   }
 }
 
-export default MTSDemuxer
+export default MTSDemuxer;

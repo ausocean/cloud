@@ -21,13 +21,13 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import URLToolkit from '../../url-toolkit/url-toolkit.js';
-import LevelKey from './level-key.js';
+import URLToolkit from "../../url-toolkit/url-toolkit.js";
+import LevelKey from "./level-key.js";
 
 export const ElementaryStreamTypes = {
-  AUDIO: 'audio',
-  VIDEO: 'video'
-}
+  AUDIO: "audio",
+  VIDEO: "video",
+};
 
 export default class Fragment {
   constructor() {
@@ -38,7 +38,7 @@ export default class Fragment {
     // Holds the types of data this fragment supports
     this._elementaryStreams = {
       [ElementaryStreamTypes.AUDIO]: false,
-      [ElementaryStreamTypes.VIDEO]: false
+      [ElementaryStreamTypes.VIDEO]: false,
     };
 
     // deltaPTS tracks the change in presentation timestamp between fragments
@@ -83,7 +83,7 @@ export default class Fragment {
 
   // setByteRange converts a EXT-X-BYTERANGE attribute into a two element array
   setByteRange(value, previousFrag) {
-    const params = value.split('@', 2);
+    const params = value.split("@", 2);
     const byteRange = [];
     if (params.length === 1) {
       byteRange[0] = previousFrag ? previousFrag.byteRangeEndOffset : 0;
@@ -96,7 +96,9 @@ export default class Fragment {
 
   get url() {
     if (!this._url && this.relurl) {
-      this._url = URLToolkit.buildAbsoluteURL(this.baseurl, this.relurl, { alwaysNormalize: true });
+      this._url = URLToolkit.buildAbsoluteURL(this.baseurl, this.relurl, {
+        alwaysNormalize: true,
+      });
     }
 
     return this._url;
@@ -132,12 +134,18 @@ export default class Fragment {
 
     if (!this._decryptdata && this.levelkey) {
       let sn = this.sn;
-      if (typeof sn !== 'number') {
+      if (typeof sn !== "number") {
         // We are fetching decryption data for a initialization segment
         // If the segment was encrypted with AES-128
         // It must have an IV defined. We cannot substitute the Segment Number in.
-        if (this.levelkey && this.levelkey.method === 'AES-128' && !this.levelkey.iv) {
-          console.warn(`missing IV for initialization segment with method="${this.levelkey.method}" - compliance issue`);
+        if (
+          this.levelkey &&
+          this.levelkey.method === "AES-128" &&
+          !this.levelkey.iv
+        ) {
+          console.warn(
+            `missing IV for initialization segment with method="${this.levelkey.method}" - compliance issue`,
+          );
         }
 
         /*
@@ -166,11 +174,15 @@ export default class Fragment {
 
     let duration = !Number.isFinite(this.duration) ? 0 : this.duration;
 
-    return this.programDateTime + (duration * 1000);
+    return this.programDateTime + duration * 1000;
   }
 
   get encrypted() {
-    return !!((this.decryptdata && this.decryptdata.uri !== null) && (this.decryptdata.key === null));
+    return !!(
+      this.decryptdata &&
+      this.decryptdata.uri !== null &&
+      this.decryptdata.key === null
+    );
   }
 
   /**
@@ -196,7 +208,7 @@ export default class Fragment {
     let uint8View = new Uint8Array(16);
 
     for (let i = 12; i < 16; i++) {
-      uint8View[i] = (segmentNumber >> 8 * (15 - i)) & 0xff;
+      uint8View[i] = (segmentNumber >> (8 * (15 - i))) & 0xff;
     }
 
     return uint8View;

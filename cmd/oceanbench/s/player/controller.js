@@ -19,11 +19,11 @@ LICENSE
   If not, see http://www.gnu.org/licenses.
 */
 
-import EventEmitter from './eventemitter3/index.js';
-import Events from './events.js';
-import Fetcher from './fetcher.js';
-import Viewer from './viewer.js';
-import Model from './model.js';
+import EventEmitter from "./eventemitter3/index.js";
+import Events from "./events.js";
+import Fetcher from "./fetcher.js";
+import Viewer from "./viewer.js";
+import Model from "./model.js";
 
 class Controller extends EventEmitter {
   constructor(display, playPauseBtn, slider) {
@@ -33,10 +33,10 @@ class Controller extends EventEmitter {
     this.fetcher = new Fetcher(this);
     this.viewer = new Viewer(this, this.fetcher, display, playPauseBtn, slider);
     this.model = new Model(this, this.viewer, this.fetcher);
-    playPauseBtn.addEventListener('click', this.playPausePressed);
+    playPauseBtn.addEventListener("click", this.playPausePressed);
     slider.oninput = () => {
       this.jumpRequested(slider.value);
-    }
+    };
   }
 
   playPausePressed() {
@@ -56,7 +56,9 @@ class Controller extends EventEmitter {
   }
 
   triggerEvent(e, ...data) {
-    setTimeout(() => { this.emit(e, e, ...data) }, 0);
+    setTimeout(() => {
+      this.emit(e, e, ...data);
+    }, 0);
   }
 }
 

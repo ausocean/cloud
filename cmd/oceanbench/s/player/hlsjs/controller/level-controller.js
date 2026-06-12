@@ -1,19 +1,17 @@
 /*
  * Level Controller
-*/
+ */
 
-import Event from '../events.js';
-import EventHandler from '../hls-event-handler.js';
-import { addGroupId, computeReloadInterval } from './level-helper.js';
+import Event from "../events.js";
+import EventHandler from "../hls-event-handler.js";
+import { addGroupId, computeReloadInterval } from "./level-helper.js";
 
 const { performance } = window;
 let chromeOrFirefox;
 
 export default class LevelController extends EventHandler {
   constructor(hls) {
-    super(hls,
-      Event.MANIFEST_LOADED,
-      Event.LEVEL_LOADED);
+    super(hls, Event.MANIFEST_LOADED, Event.LEVEL_LOADED);
 
     this.canload = false;
     this.curLvlIdx = 0;
@@ -43,7 +41,7 @@ export default class LevelController extends EventHandler {
 
     // clean up live level details to force reload them, and reset load errors
     if (levels) {
-      levels.forEach(level => {
+      levels.forEach((level) => {
         level.loadError = 0;
         const levelDetails = level.details;
         if (levelDetails && levelDetails.live) {
@@ -71,7 +69,7 @@ export default class LevelController extends EventHandler {
     let audioCodecFound = false;
 
     // regroup redundant levels together
-    data.levels.forEach(level => {
+    data.levels.forEach((level) => {
       const attributes = level.attrs;
       level.loadError = 0;
       level.fragmentError = false;
@@ -93,10 +91,10 @@ export default class LevelController extends EventHandler {
       if (attributes) {
         if (attributes.AUDIO) {
           audioCodecFound = true;
-          addGroupId(levelFromSet || level, 'audio', attributes.AUDIO);
+          addGroupId(levelFromSet || level, "audio", attributes.AUDIO);
         }
         if (attributes.SUBTITLES) {
-          addGroupId(levelFromSet || level, 'text', attributes.SUBTITLES);
+          addGroupId(levelFromSet || level, "text", attributes.SUBTITLES);
         }
       }
     });
@@ -123,7 +121,7 @@ export default class LevelController extends EventHandler {
         stats: data.stats,
         audio: audioCodecFound,
         video: videoCodecFound,
-        altAudio: audioTracks.some(t => !!t.url)
+        altAudio: audioTracks.some((t) => !!t.url),
       });
     } else {
       this.hls.trigger(Event.ERROR, {
@@ -131,7 +129,7 @@ export default class LevelController extends EventHandler {
         details: ErrorDetails.MANIFEST_INCOMPATIBLE_CODECS_ERROR,
         fatal: true,
         url: this.hls.url,
-        reason: 'no level with compatible codecs found in manifest'
+        reason: "no level with compatible codecs found in manifest",
       });
     }
   }
@@ -175,7 +173,11 @@ export default class LevelController extends EventHandler {
       if (!levelDetails || levelDetails.live) {
         // level not retrieved yet, or live playlist we need to (re)load it
         let urlId = level.urlId;
-        hls.trigger(Event.LEVEL_LOADING, { url: level.url[urlId], level: newLevel, id: urlId });
+        hls.trigger(Event.LEVEL_LOADING, {
+          url: level.url[urlId],
+          level: newLevel,
+          id: urlId,
+        });
       }
     } else {
       // invalid level id given, trigger error
@@ -184,7 +186,7 @@ export default class LevelController extends EventHandler {
         details: ErrorDetails.LEVEL_SWITCH_ERROR,
         level: newLevel,
         fatal: false,
-        reason: 'invalid level idx'
+        reason: "invalid level idx",
       });
     }
   }
@@ -236,7 +238,11 @@ export default class LevelController extends EventHandler {
     const curLevel = this._levels[level];
     // if current playlist is a live playlist, arm a timer to reload it
     if (details.live) {
-      const reloadInterval = computeReloadInterval(curLevel.details, details, data.stats.trequest);
+      const reloadInterval = computeReloadInterval(
+        curLevel.details,
+        details,
+        data.stats.trequest,
+      );
       console.log(`live playlist, reload in ${Math.round(reloadInterval)} ms`);
       this.timer = setTimeout(() => this.loadLevel(), reloadInterval);
     } else {
@@ -248,8 +254,7 @@ export default class LevelController extends EventHandler {
     if (this.curLvlIdx !== null && this.canload) {
       const levelObject = this._levels[this.curLvlIdx];
 
-      if (typeof levelObject === 'object' &&
-        levelObject.url.length > 0) {
+      if (typeof levelObject === "object" && levelObject.url.length > 0) {
         const level = this.curLvlIdx;
         const id = levelObject.urlId;
         const url = levelObject.url[id];

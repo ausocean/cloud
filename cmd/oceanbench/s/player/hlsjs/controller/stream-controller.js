@@ -23,16 +23,14 @@ LICENSE
 
 /*
  * Stream Controller
-*/
+ */
 
-import Event from '../events.js';
-import EventHandler from '../hls-event-handler.js';
+import Event from "../events.js";
+import EventHandler from "../hls-event-handler.js";
 
 class StreamController extends EventHandler {
   constructor(hls) {
-    super(hls,
-      Event.LEVEL_LOADED,
-      Event.FRAG_LOADED);
+    super(hls, Event.LEVEL_LOADED, Event.FRAG_LOADED);
     this.hls = hls;
     this.config = hls.config;
     this.audioCodecSwap = false;
@@ -61,7 +59,9 @@ class StreamController extends EventHandler {
     if (this.currentFragIdx >= fragLen) {
       return;
     }
-    this.hls.trigger(Event.FRAG_LOADING, { frag: this.fragments[this.currentFragIdx++] });
+    this.hls.trigger(Event.FRAG_LOADING, {
+      frag: this.fragments[this.currentFragIdx++],
+    });
   }
 
   onLevelLoaded(data) {
@@ -71,11 +71,16 @@ class StreamController extends EventHandler {
     const duration = newDetails.totalduration;
     let sliding = 0;
 
-    console.log(`level ${newLevelId} loaded [${newDetails.startSN},${newDetails.endSN}],duration:${duration}`);
+    console.log(
+      `level ${newLevelId} loaded [${newDetails.startSN},${newDetails.endSN}],duration:${duration}`,
+    );
 
     // override level info
     this.levelLastLoaded = newLevelId;
-    this.hls.trigger(Event.LEVEL_UPDATED, { details: newDetails, level: newLevelId });
+    this.hls.trigger(Event.LEVEL_UPDATED, {
+      details: newDetails,
+      level: newLevelId,
+    });
 
     if (this.startFragRequested === false) {
       // compute start position if set to -1. use it straight away if value is defined
@@ -84,10 +89,14 @@ class StreamController extends EventHandler {
         let startTimeOffset = newDetails.startTimeOffset;
         if (Number.isFinite(startTimeOffset)) {
           if (startTimeOffset < 0) {
-            console.log(`negative start time offset ${startTimeOffset}, count from end of last fragment`);
+            console.log(
+              `negative start time offset ${startTimeOffset}, count from end of last fragment`,
+            );
             startTimeOffset = sliding + duration + startTimeOffset;
           }
-          console.log(`start time offset found in playlist, adjust startPosition to ${startTimeOffset}`);
+          console.log(
+            `start time offset found in playlist, adjust startPosition to ${startTimeOffset}`,
+          );
           this.startPosition = startTimeOffset;
         } else {
           // if live playlist, set start position to be fragment N-this.config.liveSyncDurationCount (usually 3)
@@ -106,7 +115,6 @@ class StreamController extends EventHandler {
 
   onFragLoaded(data) {
     this._loadFragment();
-
   }
 }
 export default StreamController;
