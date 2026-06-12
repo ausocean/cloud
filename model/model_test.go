@@ -651,6 +651,10 @@ func testVariable(t *testing.T, kind string) {
 		testBroadcastVarByUUID(t, ctx, store, kind)
 	})
 
+	t.Run("getBroadcastKeysBySite", func(t *testing.T) {
+		testBroadcastKeysBySite(t, ctx, store, kind)
+	})
+
 	for i, test := range tests[:2] {
 		err = DeleteVariable(ctx, store, 0, test.name)
 		if err != nil {
@@ -697,6 +701,61 @@ func testBroadcastVarByUUID(t *testing.T, ctx context.Context, store datastore.S
 		t.Errorf("unable to unmarhal broadcastVar value: %v", err)
 	}
 	assert.Equal(t, id, cfg.UUID, "dummy config from store does not match stored object", cfg.UUID, id)
+}
+
+func testBroadcastKeysBySite(t *testing.T, ctx context.Context, store datastore.Store, kind string) {
+	// Remove any existing Broadcast variables from prior test data.
+	err := DeleteVariables(ctx, store, testSiteKey, broadcastScope)
+	if err != nil {
+		t.Errorf("failed to clean up broadcast vars: %v", err)
+	}
+
+	t.Run("no broadcast vars", func(t *testing.T) {
+		keys, err := GetBroadcastKeysBySite(ctx, store, testSiteKey)
+		assert.NoError(t, err)
+		assert.Len(t, keys, 0)
+	})
+
+	type config struct {
+		UUID string
+	}
+
+	id1 := uuid.NameSpaceURL.String()
+	id2 := uuid.NameSpaceDNS.String()
+
+	// Create two broadcast variables.
+	for _, id := range []string{id1, id2} {
+		data, err := json.Marshal(config{UUID: id})
+		if err != nil {
+			t.Errorf("failed to marshal dummy config into JSON: %v", err)
+		}
+		err = PutVariable(ctx, store, testSiteKey, broadcastScope+"."+id, string(data))
+		if err != nil {
+			t.Errorf("failed to put broadcast var: %v", err)
+		}
+	}
+
+	// Create non-broadcast variables that should not be returned.
+	err = PutVariable(ctx, store, testSiteKey, "dev.setting", "value1")
+	if err != nil {
+		t.Errorf("failed to put non-broadcast var: %v", err)
+	}
+	err = PutVariable(ctx, store, testSiteKey, "foo", "value2")
+	if err != nil {
+		t.Errorf("failed to put non-broadcast var: %v", err)
+	}
+
+	t.Run("multiple broadcasts", func(t *testing.T) {
+		keys, err := GetBroadcastKeysBySite(ctx, store, testSiteKey)
+		assert.NoError(t, err)
+		assert.Len(t, keys, 2)
+	})
+
+	t.Run("no broadcasts on requested site", func(t *testing.T) {
+		keys, err := GetBroadcastKeysBySite(ctx, store, testSiteKey2)
+		assert.NoError(t, err)
+		assert.Len(t, keys, 0)
+	})
 }
 
 // TestVidgrindAccess tests access to AusOcean's datastore.
