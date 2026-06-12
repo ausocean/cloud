@@ -9,7 +9,7 @@ let prevCamOn,
   prevControllerOff,
   prevURL;
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("time-zone").value = getTimezone();
   const startTimestamp = document.getElementById("start-timestamp").value;
   const endTimestamp = document.getElementById("end-timestamp").value;
@@ -160,14 +160,6 @@ function buttonClick(button) {
   button.form.submit();
 }
 
-function submitSelect(select) {
-  if (!select) {
-    select = document.getElementById("broadcast-select");
-  }
-  select.form.querySelector("input[name='action']").value = "broadcast-select";
-  select.form.submit();
-}
-
 function toggleAdvanced(checked) {
   for (opt of advancedOpts) {
     checked
@@ -177,6 +169,70 @@ function toggleAdvanced(checked) {
 
   document.cookie =
     (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
+}
+
+// Maps UUIDs to broadcast names to prevent unnecessary requests.
+var nameCache = new Map()
+
+// Caches the given broadcast UUID and name.
+function cacheBroadcastName(uuid, name) {
+  if (uuid && uuid.startsWith("Broadcast.")) {
+    uuid = uuid.substring("Broadcast.".length);
+  }
+  nameCache.set(uuid, name)
+}
+
+async function handleReset(event) {
+  // Prevent form submission.
+  event.preventDefault();
+
+  // Get the current value from the broadcast selector.
+  let selectedID = document.getElementById("broadcast-select").value
+
+  // Update broadcast list.
+  updateBroadcastsList(selectedID)
+
+  // Reload config.
+  handleBroadcastSelect(selectedID);
+}
+
+// Fetches broadcast IDs and names (if not cached) and reconstructs
+// the broadcast select list.
+async function updateBroadcastsList(selectedID) {
+  // Get the broadcast IDs to update the broadcast list.
+  let ids = await fetchBroadcastIDs()
+
+  // Clear existing options from broadcast selector.
+  let selector = document.getElementById("broadcast-select")
+  selector.innerHTML = ""
+
+  // Add default new broadcast option.
+  let opt = new Option("-- New Broadcast --", "")
+  selector.appendChild(opt)
+
+  // Add broadcasts to select input.
+  for (id of ids) {
+    let uuid = id.replace("Broadcast.", "")
+    let name = nameCache.get(uuid)
+
+    // If the name doesn't exist in the cache, we need to request it.
+    // This should only happen if the broadcast is newly created on another device or tab.
+    if (name == undefined) {
+      console.log("fetching broadcast with unseen UUID")
+      let cfg = await fetchBroadcast(uuid);
+      name = cfg.Name;
+    }
+
+    // Create option element.
+    opt = new Option(name, id)
+
+    // Mark as selected if it was already selected.
+    console.log(`selected: ${selectedID}, curr: ${id}`)
+    opt.selected = uuid == selectedID
+
+    // Append it to the select input.
+    selector.appendChild(opt)
+  }
 }
 
 // handleBroadcastSelect triggers fetching and form population
@@ -209,6 +265,8 @@ async function handleBroadcastSelect(uuid) {
 
   if (data) {
     populateForm(data);
+    cacheBroadcastName(uuid, data.Name)
+    updateBroadcastsList(uuid)
   } else {
     alert("Failed to load broadcast data.");
   }
@@ -385,6 +443,23 @@ async function fetchBroadcast(uuid) {
   } catch (err) {
     console.error(`Error fetching broadcast config:`, err);
     return null;
+  }
+}
+
+async function fetchBroadcastIDs() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const site = urlParams.get('site');
+  const url = site ? `/api/v1/broadcasts?site=${site}` : `/api/v1/broadcasts`;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new Error(resp.statusText);
+    }
+    const data = await resp.json();
+    return data.map((v) => { return "Broadcast." + v.split(".")[2] })
+  } catch (err) {
+    console.error(`Error fetching broadcast IDs: ${err}`)
   }
 }
 
