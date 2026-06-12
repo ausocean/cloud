@@ -55,6 +55,7 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/user", getV1UserSitesHandler)
 	v1.Get("/media", getMediaKeysHandler)
 	v1.Delete("/media", deleteV1MediaHandler)
+	v1.Get("/broadcasts/", getV1BroadcastIDHandler)
 	v1.Get("/broadcasts/:uuid", getV1BroadcastHandler)
 }
 
@@ -463,4 +464,26 @@ func getV1BroadcastHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(cfg)
+}
+
+func getV1BroadcastIDHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
+	var skey int64
+	if siteStr := c.Query("site"); siteStr != "" {
+		skey, _ = strconv.ParseInt(siteStr, 10, 64)
+	}
+	if skey == 0 {
+		skey, _ = profileData(p)
+	}
+
+	keys, err := model.GetBroadcastKeysBySite(c.Context(), settingsStore, skey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get broadcast keys: %v", err)})
+	}
+
+	names := []string{}
+	for _, k := range keys {
+		names = append(names, k.Name)
+	}
+	return c.JSON(names)
 }
