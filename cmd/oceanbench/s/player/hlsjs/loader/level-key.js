@@ -21,7 +21,7 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import URLToolkit from '../../url-toolkit/url-toolkit.js';
+import URLToolkit from "../../url-toolkit/url-toolkit.js";
 
 export default class LevelKey {
   constructor(baseURI, relativeURI) {
@@ -39,7 +39,9 @@ export default class LevelKey {
 
   get uri() {
     if (!this._uri && this.reluri) {
-      this._uri = URLToolkit.buildAbsoluteURL(this.baseuri, this.reluri, { alwaysNormalize: true });
+      this._uri = URLToolkit.buildAbsoluteURL(this.baseuri, this.reluri, {
+        alwaysNormalize: true,
+      });
     }
 
     return this._uri;

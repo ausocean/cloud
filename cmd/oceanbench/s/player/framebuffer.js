@@ -19,7 +19,7 @@ LICENSE
   If not, see http://www.gnu.org/licenses.
 */
 
-import MTSDemuxer from './hlsjs/mts-demuxer.js';
+import MTSDemuxer from "./hlsjs/mts-demuxer.js";
 
 // FrameBuffer allows an array of subarrays (MJPEG frames) to be read one at a time.
 class FrameBuffer {
@@ -41,15 +41,21 @@ class FrameBuffer {
     // Don't increment if we're at the very beginning.
     if (!this.started) {
       this.started = true;
-      return { data: this.segments[this.off.segment][this.off.frame], number: this.frameNum };
+      return {
+        data: this.segments[this.off.segment][this.off.frame],
+        number: this.frameNum,
+      };
     }
     if (!this.incrementOff()) {
       return null;
     }
-    return { data: this.segments[this.off.segment][this.off.frame], number: this.frameNum };
+    return {
+      data: this.segments[this.off.segment][this.off.frame],
+      number: this.frameNum,
+    };
   }
 
-  // append takes a blob of MTS data and demuxes it, 
+  // append takes a blob of MTS data and demuxes it,
   // then adds the array of all the demuxed frames to this.segments as one segment.
   append(data) {
     let demuxed = this.demuxer.demux(new Uint8Array(data));
@@ -85,7 +91,7 @@ class FrameBuffer {
     let frames = 0;
     for (let i = 0; i < this.segments.length; i++) {
       if (frames + this.segments[i].length > target) {
-        this.off = { segment: i, frame: target - frames }
+        this.off = { segment: i, frame: target - frames };
         this.frameNum = target;
         return true;
       }
@@ -95,4 +101,4 @@ class FrameBuffer {
   }
 }
 
-export default FrameBuffer
+export default FrameBuffer;

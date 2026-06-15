@@ -21,7 +21,7 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import XhrLoader from './utils/xhr-loader.js';
+import XhrLoader from "./utils/xhr-loader.js";
 
 // If possible, keep hlsDefaultConfig shallow
 // It is cloned whenever a new Hls instance is created, by keeping the config

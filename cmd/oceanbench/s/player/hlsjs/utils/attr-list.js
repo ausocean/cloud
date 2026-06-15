@@ -3,8 +3,8 @@ const ATTR_LIST_REGEX = /\s*(.+?)\s*=((?:\".*?\")|.*?)(?:,|$)/g; // eslint-disab
 
 // adapted from https://github.com/kanongil/node-m3u8parse/blob/master/attrlist.js
 class AttrList {
-  constructor (attrs) {
-    if (typeof attrs === 'string') {
+  constructor(attrs) {
+    if (typeof attrs === "string") {
       attrs = AttrList.parseAttrList(attrs);
     }
 
@@ -15,7 +15,7 @@ class AttrList {
     }
   }
 
-  decimalInteger (attrName) {
+  decimalInteger(attrName) {
     const intValue = parseInt(this[attrName], 10);
     if (intValue > Number.MAX_SAFE_INTEGER) {
       return Infinity;
@@ -24,10 +24,10 @@ class AttrList {
     return intValue;
   }
 
-  hexadecimalInteger (attrName) {
+  hexadecimalInteger(attrName) {
     if (this[attrName]) {
-      let stringValue = (this[attrName] || '0x').slice(2);
-      stringValue = ((stringValue.length & 1) ? '0' : '') + stringValue;
+      let stringValue = (this[attrName] || "0x").slice(2);
+      stringValue = (stringValue.length & 1 ? "0" : "") + stringValue;
 
       const value = new Uint8Array(stringValue.length / 2);
       for (let i = 0; i < stringValue.length / 2; i++) {
@@ -40,7 +40,7 @@ class AttrList {
     }
   }
 
-  hexadecimalIntegerAsNumber (attrName) {
+  hexadecimalIntegerAsNumber(attrName) {
     const intValue = parseInt(this[attrName], 16);
     if (intValue > Number.MAX_SAFE_INTEGER) {
       return Infinity;
@@ -49,15 +49,15 @@ class AttrList {
     return intValue;
   }
 
-  decimalFloatingPoint (attrName) {
+  decimalFloatingPoint(attrName) {
     return parseFloat(this[attrName]);
   }
 
-  enumeratedString (attrName) {
+  enumeratedString(attrName) {
     return this[attrName];
   }
 
-  decimalResolution (attrName) {
+  decimalResolution(attrName) {
     const res = DECIMAL_RESOLUTION_REGEX.exec(this[attrName]);
     if (res === null) {
       return undefined;
@@ -65,18 +65,22 @@ class AttrList {
 
     return {
       width: parseInt(res[1], 10),
-      height: parseInt(res[2], 10)
+      height: parseInt(res[2], 10),
     };
   }
 
-  static parseAttrList (input) {
-    let match, attrs = {};
+  static parseAttrList(input) {
+    let match,
+      attrs = {};
     ATTR_LIST_REGEX.lastIndex = 0;
     while ((match = ATTR_LIST_REGEX.exec(input)) !== null) {
-      let value = match[2], quote = '"';
+      let value = match[2],
+        quote = '"';
 
-      if (value.indexOf(quote) === 0 &&
-          value.lastIndexOf(quote) === (value.length - 1)) {
+      if (
+        value.indexOf(quote) === 0 &&
+        value.lastIndexOf(quote) === value.length - 1
+      ) {
         value = value.slice(1, -1);
       }
 

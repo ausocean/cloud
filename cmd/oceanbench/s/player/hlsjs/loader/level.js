@@ -1,5 +1,5 @@
 export default class Level {
-  constructor (baseUrl) {
+  constructor(baseUrl) {
     // Please keep properties in alphabetical order
     this.endCC = 0;
     this.endSN = 0;
@@ -17,7 +17,9 @@ export default class Level {
     this.version = null;
   }
 
-  get hasProgramDateTime () {
-    return !!(this.fragments[0] && Number.isFinite(this.fragments[0].programDateTime));
+  get hasProgramDateTime() {
+    return !!(
+      this.fragments[0] && Number.isFinite(this.fragments[0].programDateTime)
+    );
   }
 }

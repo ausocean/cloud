@@ -81,7 +81,8 @@ function prevPage() {
 
 function showLogs() {
   // Show page numbers and result numbers.
-  document.querySelector("#page-num").innerHTML = `Page ${n + 1} of ${page.length} pages`;
+  document.querySelector("#page-num").innerHTML =
+    `Page ${n + 1} of ${page.length} pages`;
   document.querySelector("#result-num").innerHTML = logs.length;
 
   // Show table.

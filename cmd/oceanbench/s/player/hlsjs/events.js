@@ -27,29 +27,29 @@ LICENSE
  */
 const HlsEvents = {
   // fired to signal that a manifest loading starts - data: { url : manifestURL}
-  MANIFEST_LOADING: 'hlsManifestLoading',
+  MANIFEST_LOADING: "hlsManifestLoading",
   // fired after manifest has been loaded - data: { levels : [available quality levels], audioTracks : [ available audio tracks], url : manifestURL, stats : { trequest, tfirst, tload, mtime}}
-  MANIFEST_LOADED: 'hlsManifestLoaded',
+  MANIFEST_LOADED: "hlsManifestLoaded",
   // fired when a level playlist loading starts - data: { url : level URL, level : id of level being loaded}
-  LEVEL_LOADING: 'hlsLevelLoading',
+  LEVEL_LOADING: "hlsLevelLoading",
   // fired when a level playlist loading finishes - data: { details : levelDetails object, level : id of loaded level, stats : { trequest, tfirst, tload, mtime} }
-  LEVEL_LOADED: 'hlsLevelLoaded',
+  LEVEL_LOADED: "hlsLevelLoaded",
   // fired when a level's details have been updated based on previous details, after it has been loaded - data: { details : levelDetails object, level : id of updated level }
-  LEVEL_UPDATED: 'hlsLevelUpdated',
+  LEVEL_UPDATED: "hlsLevelUpdated",
   // fired when an audio track loading starts - data: { url : audio track URL, id : audio track id }
-  AUDIO_TRACK_LOADING: 'hlsAudioTrackLoading',
+  AUDIO_TRACK_LOADING: "hlsAudioTrackLoading",
   // fired when an audio track loading finishes - data: { details : levelDetails object, id : audio track id, stats : { trequest, tfirst, tload, mtime } }
-  AUDIO_TRACK_LOADED: 'hlsAudioTrackLoaded',
+  AUDIO_TRACK_LOADED: "hlsAudioTrackLoaded",
   // fired when a subtitle track loading starts - data: { url : subtitle track URL, id : subtitle track id }
-  SUBTITLE_TRACK_LOADING: 'hlsSubtitleTrackLoading',
+  SUBTITLE_TRACK_LOADING: "hlsSubtitleTrackLoading",
   // fired when a subtitle track loading finishes - data: { details : levelDetails object, id : subtitle track id, stats : { trequest, tfirst, tload, mtime } }
-  SUBTITLE_TRACK_LOADED: 'hlsSubtitleTrackLoaded',
+  SUBTITLE_TRACK_LOADED: "hlsSubtitleTrackLoaded",
   // fired when a fragment loading starts - data: { frag : fragment object }
-  FRAG_LOADING: 'hlsFragLoading',
+  FRAG_LOADING: "hlsFragLoading",
   // fired when a fragment loading is progressing - data: { frag : fragment object, { trequest, tfirst, loaded } }
-  FRAG_LOAD_PROGRESS: 'hlsFragLoadProgress',
+  FRAG_LOAD_PROGRESS: "hlsFragLoadProgress",
   // fired when a fragment loading is completed - data: { frag : fragment object, payload : fragment payload, stats : { trequest, tfirst, tload, length } }
-  FRAG_LOADED: 'hlsFragLoaded'
+  FRAG_LOADED: "hlsFragLoaded",
 };
 
 export default HlsEvents;

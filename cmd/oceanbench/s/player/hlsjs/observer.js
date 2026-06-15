@@ -21,7 +21,7 @@ LICENSE
   For hls.js Copyright notice and license, see LICENSE file.
 */
 
-import EventEmitter from '../eventemitter3/index.js';
+import EventEmitter from "../eventemitter3/index.js";
 
 /**
  * Simple adapter sub-class of Nodejs-like EventEmitter.
