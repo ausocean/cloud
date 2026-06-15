@@ -156,6 +156,7 @@ function uncheckAll(form) {
 }
 
 function buttonClick(button) {
+  button.form.action = window.location.href
   button.form.querySelector("input[name='action']").value = button.value;
   button.form.submit();
 }
