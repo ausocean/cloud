@@ -69,6 +69,9 @@ const (
 	VarTypeString = "string"
 )
 
+// Scope for broadcast vars.
+const broadcastScope = "Broadcast"
+
 // Encode serializes a Variable into tab-separated values.
 func (v *Variable) Encode() []byte {
 	return []byte(fmt.Sprintf("%d\t%s\t%s\t%s\t%d", v.Skey, v.Scope, v.Name, v.Value, v.Updated.Unix()))
@@ -267,7 +270,6 @@ func DeleteVariables(ctx context.Context, store datastore.Store, skey int64, sco
 
 // GetBroadcastVarByUUID gets the variable associated with a given broadcast UUID.
 func GetBroadcastVarByUUID(ctx context.Context, store datastore.Store, uuid string) (*Variable, error) {
-	const broadcastScope = "Broadcast"
 	q := store.NewQuery(typeVariable, false)
 	q.FilterField("Name", "=", broadcastScope+"."+uuid)
 
@@ -284,6 +286,15 @@ func GetBroadcastVarByUUID(ctx context.Context, store datastore.Store, uuid stri
 	}
 
 	return &vars[0], nil
+}
+
+// GetBroadcastKeysBySite returns the keys for all the broadcasts for a given site.
+func GetBroadcastKeysBySite(ctx context.Context, store datastore.Store, skey int64) ([]*datastore.Key, error) {
+	q := store.NewQuery(typeVariable, true, "Skey", "Scope", "Name")
+	q.FilterField("Skey", "=", skey)
+	q.FilterField("Scope", "=", broadcastScope)
+
+	return store.GetAll(ctx, q, nil)
 }
 
 // ComputeVarSum computes the var sum from a slice of variables. The
