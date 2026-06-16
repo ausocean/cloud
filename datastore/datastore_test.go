@@ -322,6 +322,8 @@ func TestFileFilterField(t *testing.T) {
 		{Name: "A", Value: "abalone"},
 		{Name: "B", Value: "bullseye"},
 		{Name: "C", Value: "abalone"},
+		{Name: "D", Value: "abalone"},
+		{Name: "E", Value: "abalone"},
 	}
 	for _, nv := range values {
 		_, err := store.Put(ctx, store.NameKey(typeNameValue, nv.Name), &nv)
@@ -335,12 +337,58 @@ func TestFileFilterField(t *testing.T) {
 	q.FilterField("Value", "=", "abalone")
 
 	var results []NameValue
-	_, err = store.GetAll(ctx, q, &results)
+	keys, err := store.GetAll(ctx, q, &results)
 	if err != nil {
 		t.Fatalf("FilterField query failed: %v", err)
 	}
+	if len(results) != 4 {
+		t.Errorf("expected 4 results for Value = 'abalone', got %d", len(results))
+	}
+	if len(keys) != 4 {
+		t.Errorf("expected 4 returned keys, got %d", len(keys))
+	}
+	for _, k := range keys {
+		if k.Name == "B" {
+			t.Errorf("expected key B to be filtered out, but it was returned")
+		}
+	}
+
+	// Filter by Value using keysOnly = true.
+	q = store.NewQuery(typeNameValue, true, "Name")
+	q.FilterField("Value", "=", "abalone")
+	keys, err = store.GetAll(ctx, q, nil)
+	if err != nil {
+		t.Fatalf("FilterField keysOnly query failed: %v", err)
+	}
+	if len(keys) != 4 {
+		t.Errorf("expected 4 returned keys for keysOnly query, got %d", len(keys))
+	}
+	for _, k := range keys {
+		if k.Name == "B" {
+			t.Errorf("expected key B to be filtered out in keysOnly, but it was returned")
+		}
+	}
+
+	// Offset and limit combo with non-matching elements interleaved.
+	q = store.NewQuery(typeNameValue, false, "Name")
+	q.FilterField("Value", "=", "abalone")
+	q.Order("Name")
+	q.Offset(1)
+	q.Limit(2)
+
+	results = nil
+	keys, err = store.GetAll(ctx, q, &results)
+	if err != nil {
+		t.Fatalf("FilterField query with limit/offset failed: %v", err)
+	}
 	if len(results) != 2 {
 		t.Errorf("expected 2 results for Value = 'abalone', got %d", len(results))
+	}
+	if results[0].Name != "C" || results[1].Name != "D" {
+		t.Errorf("expected names C and D, got %s and %s", results[0].Name, results[1].Name)
+	}
+	if len(keys) != 2 {
+		t.Errorf("expected 2 returned keys, got %d", len(keys))
 	}
 
 	// Filter by Name using FilterField (should fall back to Filter for efficiency).

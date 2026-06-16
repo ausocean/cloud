@@ -245,6 +245,31 @@ func (s *FileStore) GetAll(ctx context.Context, query Query, dst interface{}) ([
 		keys = filtered
 	}
 
+	// Apply field filters if any.
+	var matchedEntities map[string]Entity
+	if len(q.fieldFilters) > 0 {
+		entity := newEntity[q.kind]
+		if entity == nil {
+			return nil, ErrUnimplemented
+		}
+		matchedEntities = make(map[string]Entity)
+		var filtered []*Key
+		for _, k := range keys {
+			e := entity()
+			err := s.Get(ctx, k, e)
+			if err != nil {
+				return nil, err
+			}
+			if matchesFieldFilters(e, q.fieldFilters) {
+				filtered = append(filtered, k)
+				if !q.keysOnly {
+					matchedEntities[k.Name] = e
+				}
+			}
+		}
+		keys = filtered
+	}
+
 	// Sort the keys if ordering.
 	if q.order {
 		sort.Slice(keys, func(i, j int) bool {
@@ -257,7 +282,9 @@ func (s *FileStore) GetAll(ctx context.Context, query Query, dst interface{}) ([
 	}
 
 	// Apply query's limit and offset to the keys.
-	if q.offset+q.limit > len(keys) {
+	if q.offset > len(keys) {
+		keys = nil
+	} else if q.offset+q.limit > len(keys) {
 		keys = keys[q.offset:]
 	} else {
 		keys = keys[q.offset:(q.offset + q.limit)]
@@ -276,18 +303,17 @@ func (s *FileStore) GetAll(ctx context.Context, query Query, dst interface{}) ([
 	// Get each entity and append it to dst.
 	dv := reflect.ValueOf(dst).Elem()
 	for _, k := range keys {
-		e := entity()
-		err := s.Get(ctx, k, e)
-		if err != nil {
-			return nil, err
+		var e Entity
+		if matchedEntities != nil {
+			e = matchedEntities[k.Name]
 		}
-		// The underlying entity type is a pointer, so we need its indirect type.
-
-		// Apply field filters if needed.
-		if len(q.fieldFilters) > 0 && !matchesFieldFilters(e, q.fieldFilters) {
-			continue
+		if e == nil {
+			e = entity()
+			err := s.Get(ctx, k, e)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 		ev := reflect.Indirect(reflect.ValueOf(e))
 		// As with the Cloud datastore, if the Key field is present we populate it.
 		fld := ev.FieldByName("Key")
