@@ -28,7 +28,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -270,36 +269,6 @@ func GetDevicesBySite(ctx context.Context, store datastore.Store, skey int64) ([
 	var devs []Device
 	_, err := store.GetAll(ctx, q, &devs)
 	return devs, err
-}
-
-// getDevicesBySiteFromFileStore retrieves devices from a FileStore.
-// Since FileStore does not index devides by skey, this requires
-// retrieving all of the devices then filtering out the ones that
-// don't match.
-func getDevicesBySiteFromFileStore(ctx context.Context, store datastore.Store, skey int64) ([]Device, error) {
-	q := store.NewQuery(typeDevice, false)
-	var devices []Device
-	_, err := store.GetAll(ctx, q, &devices)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter out devices that don't match the given skey.
-	for i := len(devices) - 1; i >= 0; i -= 1 {
-		if devices[i].Skey != skey {
-			if i == len(devices)-1 {
-				devices = devices[:i]
-			} else {
-				devices = append(devices[:i], devices[i+1:]...)
-			}
-		}
-	}
-
-	// Order by device ID.
-	sort.Slice(devices, func(i, j int) bool {
-		return devices[i].Name < devices[j].Name
-	})
-	return devices, nil
 }
 
 // DeleteDevice deletes a device.
