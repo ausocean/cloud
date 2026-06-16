@@ -151,6 +151,12 @@ func (s *FileStore) NameKey(kind, name string) *Key {
 
 // IncompleteKey returns an incomplete key given a kind.
 func (s *FileStore) IncompleteKey(kind string) *Key {
+	// Ensure the directory for the kind exists.
+	dir := filepath.Join(s.dir, s.id, kind)
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		os.MkdirAll(dir, 0766)
+	}
 	// Continue selecting an ID until we find one not used.
 	for {
 		var name string
@@ -160,7 +166,7 @@ func (s *FileStore) IncompleteKey(kind string) *Key {
 		} else {
 			name = strconv.FormatInt(ID>>32, 10) + "." + strconv.FormatInt(ID&0xffffffff, 10)
 		}
-		path := filepath.Join(s.dir, s.id, kind, name)
+		path := filepath.Join(dir, name)
 		_, err := os.Stat(path)
 		if os.IsNotExist(err) {
 			return &Key{Kind: kind, ID: ID, Name: name}
