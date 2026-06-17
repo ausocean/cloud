@@ -60,9 +60,8 @@ type BroadcastService interface {
 	StartBroadcast(
 		name, bID, sID string,
 		saveLink func(key, link string) error,
-		extStart, extStop func() error,
 		notify func(msg string) error,
-		onLiveActions func() error,
+		log func(string, ...any),
 	) error
 
 	BroadcastStatus(ctx Ctx, id string) (string, error)
@@ -170,21 +169,20 @@ func (s *YouTubeBroadcastService) CreateBroadcast(
 func (s *YouTubeBroadcastService) StartBroadcast(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
-	extStart, extStop func() error,
 	notify func(msg string) error,
-	onLiveActions func() error,
+	log func(string, ...interface{}),
 ) error {
 	return yt.Start(
 		name,
 		bID,
 		sID,
 		saveLink,
-		extStart,
-		extStop,
+		func() error { return nil }, // This is now handled by the hardware state machine.,
+		func() error { return nil }, // This is now handled by the hardware state machine.,
 		notify,
-		onLiveActions,
+		func() error { return nil }, // This is now handled by the hardware state machine.,
 		s.tokenURI,
-		s.log,
+		log,
 	)
 }
 

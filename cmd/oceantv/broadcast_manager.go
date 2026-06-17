@@ -174,15 +174,18 @@ func (m *OceanBroadcastManager) StartBroadcast(
 	}
 
 	go func() {
+		startTime := time.Now()
 		err := svc.StartBroadcast(
 			cfg.Name,
 			cfg.BID,
 			cfg.SID,
 			saveLinkFunc(),
-			func() error { return nil }, // This is now handled by the hardware state machine.
-			func() error { return nil }, // This is now handled by the hardware state machine.
 			opsHealthNotifyFunc(ctx, cfg),
-			func() error { return nil }) // This is now handled by the hardware state machine.
+			func(s string, args ...any) {
+				// Append go routine start time to logs.
+				fmtString := fmt.Sprintf("[go-rout:%s] %s", startTime.Format(time.TimeOnly), s)
+				m.log(fmtString, args)
+			})
 		if err != nil {
 			onFailure(fmt.Errorf("could not start broadcast: %w", err))
 			return

@@ -271,9 +271,8 @@ func (d *dummyService) CreateBroadcast(
 func (d *dummyService) StartBroadcast(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
-	extStart, extStop func() error,
 	notify func(msg string) error,
-	onLiveActions func() error,
+	log func(string, ...any),
 ) error {
 	return nil
 }
