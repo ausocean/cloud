@@ -236,12 +236,14 @@
       function searchQuery(form) {
         presubmit();
         form.querySelector("input[name='search']").value = true;
+        form.action = window.location.href
         form.submit();
       }
       function exportQuery(form) {
         presubmit();
         form.querySelector("input[name='export']").value = true;
         document.getElementById("export-msg").innerHTML = "<p>Export may take several minutes...</p>";
+        form.action = window.location.href
         form.submit();
       }
       function viewJPEG(url){
