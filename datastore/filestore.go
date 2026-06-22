@@ -317,13 +317,16 @@ func matchesFieldFilters(e Entity, filters []fieldFilter) bool {
 			return false
 		}
 
+		// Convert custom types to basic types so that comparisons work on custom types.
+		a := toBasicType(field.Interface())
+		b := toBasicType(f.Value)
 		switch f.Operator {
 		case "=":
-			if field.Interface() != f.Value {
+			if a != b {
 				return false
 			}
 		case "<", ">", "<=", ">=":
-			if !compare(field.Interface(), f.Value, f.Operator) {
+			if !compare(a, b, f.Operator) {
 				return false
 			}
 		default:
