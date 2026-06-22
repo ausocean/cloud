@@ -372,6 +372,27 @@ func compare(a, b interface{}, op string) bool {
 		return false
 	}
 
+	// Try boolean comparison.
+	abool, aok := a.(bool)
+	bbool, bok := b.(bool)
+	if aok && bok {
+		switch op {
+		case "=":
+			return abool == bbool
+		case "<":
+			// The only true case is false < true.
+			return !abool && bbool
+		case ">":
+			// The only true case is true > false.
+			return abool && !bbool
+		case "<=":
+			return abool == bbool || (!abool && bbool)
+		case ">=":
+			return abool == bbool || (abool && !bbool)
+		}
+		return false
+	}
+
 	// Compare as integers if both values are int-compatible.
 	ai, aok := toInt64Strict(a)
 	bi, bok := toInt64Strict(b)

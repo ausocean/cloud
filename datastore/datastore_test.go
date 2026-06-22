@@ -74,6 +74,7 @@ type Mixed struct {
 	Int     int64     // test integer comparisons
 	Float   float64   // test float comparisons
 	Created time.Time // test time comparisons if needed
+	Bool    bool      // test boolean comparisons
 	cache   Cache
 }
 
@@ -497,10 +498,10 @@ func TestFileFilterFieldMixedTypes(t *testing.T) {
 
 	now := time.Now().UTC()
 	entities := []Mixed{
-		{ID: "1", Str: "alpha", Int: 10, Float: 1.1, Created: now.Add(-10 * time.Hour)},
-		{ID: "2", Str: "bravo", Int: 20, Float: 2.2, Created: now.Add(-5 * time.Hour)},
-		{ID: "3", Str: "charlie", Int: 30, Float: 3.3, Created: now.Add(-1 * time.Hour)},
-		{ID: "4", Str: "delta", Int: 40, Float: 4.4, Created: now},
+		{ID: "1", Str: "alpha", Int: 10, Float: 1.1, Created: now.Add(-10 * time.Hour), Bool: true},
+		{ID: "2", Str: "bravo", Int: 20, Float: 2.2, Created: now.Add(-5 * time.Hour), Bool: false},
+		{ID: "3", Str: "charlie", Int: 30, Float: 3.3, Created: now.Add(-1 * time.Hour), Bool: true},
+		{ID: "4", Str: "delta", Int: 40, Float: 4.4, Created: now, Bool: false},
 	}
 
 	for _, e := range entities {
@@ -549,6 +550,86 @@ func TestFileFilterFieldMixedTypes(t *testing.T) {
 			value:     now,
 			keyParts:  []string{"ID"},
 			expectIDs: []string{"1", "2", "3"},
+		},
+		{
+			name:      "Bool = true",
+			field:     "Bool",
+			operator:  "=",
+			value:     true,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "3"},
+		},
+		{
+			name:      "Bool = false",
+			field:     "Bool",
+			operator:  "=",
+			value:     false,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"2", "4"},
+		},
+		{
+			name:      "Bool < false",
+			field:     "Bool",
+			operator:  "<",
+			value:     false,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{}, // This should never return any results.
+		},
+		{
+			name:      "Bool < true",
+			field:     "Bool",
+			operator:  "<",
+			value:     true,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"2", "4"}, // This should only return results where Bool = false.
+		},
+		{
+			name:      "Bool > false",
+			field:     "Bool",
+			operator:  ">",
+			value:     false,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "3"}, // This should only return results where Bool = true.
+		},
+		{
+			name:      "Bool > true",
+			field:     "Bool",
+			operator:  ">",
+			value:     true,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{}, // This should never return any results.
+		},
+		{
+			name:      "Bool <= false",
+			field:     "Bool",
+			operator:  "<=",
+			value:     false,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"2", "4"}, // This should only return results where Bool = false.
+		},
+		{
+			name:      "Bool <= true",
+			field:     "Bool",
+			operator:  "<=",
+			value:     true,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "2", "3", "4"}, // This should return everything.
+		},
+		{
+			name:      "Bool >= false",
+			field:     "Bool",
+			operator:  ">=",
+			value:     false,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "2", "3", "4"}, // This should return everything.
+		},
+		{
+			name:      "Bool >= true",
+			field:     "Bool",
+			operator:  ">=",
+			value:     true,
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "3"}, // This should only return results where Bool = true.
 		},
 	}
 
