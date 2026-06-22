@@ -240,7 +240,7 @@ func (q *CloudQuery) Filter(filterStr string, value interface{}) error {
 	if value == nil {
 		return nil
 	}
-	q.query = q.query.Filter(filterStr, value)
+	q.query = q.query.Filter(filterStr, toBasicType(value))
 	return nil
 }
 
@@ -249,7 +249,7 @@ func (q *CloudQuery) FilterField(fieldName string, operator string, value interf
 	if value == nil {
 		return nil
 	}
-	q.query = q.query.FilterField(fieldName, operator, value)
+	q.query = q.query.FilterField(fieldName, operator, toBasicType(value))
 	return nil
 }
 
