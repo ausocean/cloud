@@ -131,35 +131,44 @@ func init() {
 
 // TestFile tests the file store.
 func TestFile(t *testing.T) {
-	testNameValue(t, "file", nil)
+	ctx := context.Background()
+	store, err := NewStore(ctx, "file", "test", "store")
+	if err != nil {
+		t.Errorf("NewStore(file, test) failed with error: %v", err)
+	}
+	testNameValue(t, "file", nil, ctx, store)
 }
 
 // TestCloud tests the cloud store without caching.
-// OPENFISH_CREDENTIALS must be supplied.
+// AUSOCEAN_CREDENTIALS must be supplied.
 func TestCloud(t *testing.T) {
-	if os.Getenv("OPENFISH_CREDENTIALS") == "" {
-		t.Skip("OPENFISH_CREDENTIALS")
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS are missing")
 	}
-	testNameValue(t, "cloud", nil)
+	ctx := context.Background()
+	store, err := NewStore(ctx, "cloud", "ausocean/test", "")
+	if err != nil {
+		t.Errorf("NewStore(cloud, ausocean/test) failed with error: %v", err)
+	}
+	testNameValue(t, "cloud", nil, ctx, store)
 }
 
 // TestCloudCaching tests the cloud store with caching.
-// OPENFISH_CREDENTIALS must be supplied.
+// AUSOCEAN_CREDENTIALS must be supplied.
 func TestCloudCaching(t *testing.T) {
-	if os.Getenv("OPENFISH_CREDENTIALS") == "" {
-		t.Skip("OPENFISH_CREDENTIALS")
+	if os.Getenv("AUSOCEAN_CREDENTIALS") == "" {
+		t.Skip("AUSOCEAN_CREDENTIALS are missing")
 	}
-	testNameValue(t, "cloud", NewEntityCache())
+	ctx := context.Background()
+	store, err := NewStore(ctx, "cloud", "ausocean/test", "")
+	if err != nil {
+		t.Errorf("NewStore(cloud, ausocean/test) failed with error: %v", err)
+	}
+	testNameValue(t, "cloud", NewEntityCache(), ctx, store)
 }
 
 // testNameValue tests various NameValue methods.
-func testNameValue(t *testing.T, kind string, cache Cache) {
-	ctx := context.Background()
-
-	store, err := NewStore(ctx, kind, "openfish", "")
-	if err != nil {
-		t.Errorf("NewStore(%s, openfish) failed with error: %v", kind, err)
-	}
+func testNameValue(t *testing.T, kind string, cache Cache, ctx context.Context, store Store) {
 
 	tests := []struct {
 		key   string
@@ -184,7 +193,7 @@ func testNameValue(t *testing.T, kind string, cache Cache) {
 	}
 
 	for i, test := range tests {
-		err = PutNameValue(ctx, store, test.key, test.value)
+		err := PutNameValue(ctx, store, test.key, test.value)
 		if err != nil {
 			t.Errorf("PutNameValue %d failed with error: %v", i, err)
 		}
