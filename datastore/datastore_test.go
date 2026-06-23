@@ -31,8 +31,9 @@ import (
 	"time"
 )
 
-const typeNameValue = "NameValue" // NameValue datastore type.
-const typeMixed = "Mixed"         // Mixed datastore type.
+const typeNameValue = "NameValue"     // NameValue datastore type.
+const typeMixed = "Mixed"             // Mixed datastore type.
+const typeMixedCustom = "MixedCustom" // MixedCustom datastore type.
 
 // NameValue represents a key/value pair.
 type NameValue struct {
@@ -88,6 +89,29 @@ func (m *Mixed) GetCache() Cache {
 	return m.cache
 }
 
+type CustomInt int64
+type CustomFloat float64
+type CustomString string
+
+// MixedCustom represents an entity with custom types for testing.
+type MixedCustom struct {
+	ID    string
+	Str   CustomString
+	Int   CustomInt
+	Float CustomFloat
+	cache Cache
+}
+
+// Copy copies a MixedCustom to dst, or returns a copy of the MixedCustom when dst is nil.
+func (m *MixedCustom) Copy(dst Entity) (Entity, error) {
+	return CopyEntity(m, dst)
+}
+
+// GetCache returns the MixedCustom cache.
+func (m *MixedCustom) GetCache() Cache {
+	return m.cache
+}
+
 // CreateNameValue creates a NameValue.
 func CreateNameValue(ctx context.Context, store Store, key, value string) error {
 	k := store.NameKey(typeNameValue, key)
@@ -127,6 +151,7 @@ func DeleteNameValue(ctx context.Context, store Store, key string) error {
 func init() {
 	RegisterEntity(typeNameValue, func() Entity { return new(NameValue) })
 	RegisterEntity(typeMixed, func() Entity { return new(Mixed) })
+	RegisterEntity(typeMixedCustom, func() Entity { return new(MixedCustom) })
 }
 
 // TestFile tests the file store.
@@ -137,6 +162,7 @@ func TestFile(t *testing.T) {
 		t.Errorf("NewStore(file, test) failed with error: %v", err)
 	}
 	testNameValue(t, "file", nil, ctx, store)
+	testFilterFieldCustomTypes(t, "file", ctx, store)
 }
 
 // TestCloud tests the cloud store without caching.
@@ -151,6 +177,7 @@ func TestCloud(t *testing.T) {
 		t.Errorf("NewStore(cloud, ausocean/test) failed with error: %v", err)
 	}
 	testNameValue(t, "cloud", nil, ctx, store)
+	testFilterFieldCustomTypes(t, "cloud", ctx, store)
 }
 
 // TestCloudCaching tests the cloud store with caching.
@@ -661,6 +688,92 @@ func TestFileFilterFieldMixedTypes(t *testing.T) {
 			if !equalUnordered(gotIDs, tc.expectIDs) {
 				t.Errorf("unexpected result IDs: got %v, want %v", gotIDs, tc.expectIDs)
 			}
+		})
+	}
+}
+
+func testFilterFieldCustomTypes(t *testing.T, kind string, ctx context.Context, store Store) {
+	entities := []MixedCustom{
+		{ID: "1", Str: CustomString("alpha"), Int: CustomInt(10), Float: CustomFloat(1.1)},
+		{ID: "2", Str: CustomString("bravo"), Int: CustomInt(20), Float: CustomFloat(2.2)},
+		{ID: "3", Str: CustomString("charlie"), Int: CustomInt(30), Float: CustomFloat(3.3)},
+		{ID: "4", Str: CustomString("delta"), Int: CustomInt(40), Float: CustomFloat(4.4)},
+	}
+
+	for _, e := range entities {
+		_, err := store.Put(ctx, store.NameKey(typeMixedCustom, e.ID), &e)
+		if err != nil {
+			t.Fatalf("failed to insert test MixedCustom entity %s: %v", e.ID, err)
+		}
+	}
+
+	tests := []struct {
+		name      string
+		field     string
+		operator  string
+		value     interface{}
+		keyParts  []string
+		expectIDs []string
+	}{
+		{
+			name:      "Int >= 30",
+			field:     "Int",
+			operator:  ">=",
+			value:     CustomInt(30),
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"3", "4"},
+		},
+		{
+			name:      "Float < 3.0",
+			field:     "Float",
+			operator:  "<",
+			value:     CustomFloat(3.0),
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"1", "2"},
+		},
+		{
+			name:      "Str > 'bravo'",
+			field:     "Str",
+			operator:  ">",
+			value:     CustomString("bravo"),
+			keyParts:  []string{"ID"},
+			expectIDs: []string{"3", "4"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := store.NewQuery(typeMixedCustom, false, tc.keyParts...)
+			q.FilterField(tc.field, tc.operator, tc.value)
+			q.Order(tc.field)
+
+			var results []MixedCustom
+			_, err := store.GetAll(ctx, q, &results)
+			if err != nil {
+				t.Fatalf("GetAll failed: %v", err)
+			}
+
+			var gotIDs []string
+			for _, r := range results {
+				gotIDs = append(gotIDs, r.ID)
+			}
+			if !equalUnordered(gotIDs, tc.expectIDs) {
+				t.Errorf("unexpected result IDs: got %v, want %v", gotIDs, tc.expectIDs)
+			}
+		})
+	}
+	if kind == "cloud" {
+		t.Cleanup(func() {
+			for _, e := range entities {
+				err := store.Delete(ctx, store.NameKey(typeMixedCustom, e.ID))
+				if err != nil {
+					t.Errorf("failed to delete entity: %v", err)
+				}
+			}
+		})
+	} else {
+		t.Cleanup(func() {
+			os.RemoveAll("store/test/MixedCustom")
 		})
 	}
 }
