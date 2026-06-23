@@ -31,6 +31,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"reflect"
 
 	"cloud.google.com/go/datastore"
 )
@@ -241,4 +242,27 @@ func GetCache(kind string) Cache {
 		return nil
 	}
 	return entity().GetCache()
+}
+
+// toBasicType converts a value to a basic type that can be used in a datastore query.
+// This is used for custom types such as enums as the underlying datastore
+// library doesn't automatically convert them to basic types.
+func toBasicType(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.String:
+		return v.String()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int()
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.Bool:
+		return v.Bool()
+	default:
+		// Fall back to the underlying datastore library for other types such as structs.
+		return value
+	}
 }
