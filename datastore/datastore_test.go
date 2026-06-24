@@ -432,6 +432,7 @@ func TestFileFilterFieldVariants(t *testing.T) {
 		keyParts    []string
 		limit       int
 		offset      int
+		keysOnly    bool
 		expectNames []string
 	}{
 		{
@@ -492,11 +493,41 @@ func TestFileFilterFieldVariants(t *testing.T) {
 			offset:      1,
 			expectNames: []string{"b", "c"},
 		},
+		{
+			name:        "KeysOnly query with field filter",
+			field:       "Value",
+			operator:    "=",
+			value:       "apple",
+			keyParts:    []string{"Name"},
+			keysOnly:    true,
+			expectNames: []string{"a", "d"},
+		},
+		{
+			name:        "Limit and offset combo with filtered-out intermediate keys",
+			field:       "Value",
+			operator:    "=",
+			value:       "apple",
+			keyParts:    []string{"Name"},
+			limit:       1,
+			offset:      1,
+			expectNames: []string{"d"},
+		},
+		{
+			name:        "KeysOnly limit and offset combo with filtered-out intermediate keys",
+			field:       "Value",
+			operator:    "=",
+			value:       "apple",
+			keyParts:    []string{"Name"},
+			limit:       1,
+			offset:      1,
+			keysOnly:    true,
+			expectNames: []string{"d"},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			q := store.NewQuery(typeNameValue, false, tc.keyParts...)
+			q := store.NewQuery(typeNameValue, tc.keysOnly, tc.keyParts...)
 			q.FilterField(tc.field, tc.operator, tc.value)
 			q.Order(tc.field)
 			if tc.limit > 0 {
@@ -507,14 +538,30 @@ func TestFileFilterFieldVariants(t *testing.T) {
 			}
 
 			var results []NameValue
-			_, err := store.GetAll(ctx, q, &results)
+			keys, err := store.GetAll(ctx, q, &results)
 			if err != nil {
 				t.Fatalf("GetAll failed: %v", err)
 			}
 
 			var gotNames []string
-			for _, r := range results {
-				gotNames = append(gotNames, r.Name)
+			if tc.keysOnly {
+				if len(results) != 0 {
+					t.Errorf("expected no results loaded into dst for keysOnly query, got %+v", results)
+				}
+				for _, k := range keys {
+					gotNames = append(gotNames, k.Name)
+				}
+			} else {
+				for _, r := range results {
+					gotNames = append(gotNames, r.Name)
+				}
+				var gotKeyNames []string
+				for _, k := range keys {
+					gotKeyNames = append(gotKeyNames, k.Name)
+				}
+				if !equalUnordered(gotKeyNames, tc.expectNames) {
+					t.Errorf("unexpected key names returned: got %v, want %v", gotKeyNames, tc.expectNames)
+				}
 			}
 
 			if !equalUnordered(gotNames, tc.expectNames) {
