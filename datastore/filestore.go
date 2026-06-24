@@ -262,11 +262,71 @@ func (s *FileStore) GetAll(ctx context.Context, query Query, dst interface{}) ([
 		})
 	}
 
+	if len(q.fieldFilters) > 0 {
+		entity := newEntity[q.kind]
+		if entity == nil {
+			return nil, ErrUnimplemented
+		}
+
+		var filteredKeys []*Key
+		var filteredEntities []Entity
+		for _, k := range keys {
+			e := entity()
+			err := s.Get(ctx, k, e)
+			if err != nil {
+				return nil, err
+			}
+			if matchesFieldFilters(e, q.fieldFilters) {
+				filteredKeys = append(filteredKeys, k)
+				if !q.keysOnly {
+					filteredEntities = append(filteredEntities, e)
+				}
+			}
+		}
+		keys = filteredKeys
+
+		// Apply query's limit and offset.
+		if q.offset >= len(keys) {
+			keys = nil
+			filteredEntities = nil
+		} else {
+			end := q.offset + q.limit
+			if end > len(keys) {
+				end = len(keys)
+			}
+			keys = keys[q.offset:end]
+			if !q.keysOnly {
+				filteredEntities = filteredEntities[q.offset:end]
+			}
+		}
+
+		if q.keysOnly {
+			return keys, nil
+		}
+
+		// Populate dst.
+		dv := reflect.ValueOf(dst).Elem()
+		for i, k := range keys {
+			e := filteredEntities[i]
+			ev := reflect.Indirect(reflect.ValueOf(e))
+			fld := ev.FieldByName("Key")
+			if fld.IsValid() {
+				fld.Set(reflect.ValueOf(k))
+			}
+			dv.Set(reflect.Append(dv, ev))
+		}
+		return keys, nil
+	}
+
 	// Apply query's limit and offset to the keys.
-	if q.offset+q.limit > len(keys) {
-		keys = keys[q.offset:]
+	if q.offset >= len(keys) {
+		keys = nil
 	} else {
-		keys = keys[q.offset:(q.offset + q.limit)]
+		end := q.offset + q.limit
+		if end > len(keys) {
+			end = len(keys)
+		}
+		keys = keys[q.offset:end]
 	}
 
 	if q.keysOnly {
@@ -288,11 +348,6 @@ func (s *FileStore) GetAll(ctx context.Context, query Query, dst interface{}) ([
 			return nil, err
 		}
 		// The underlying entity type is a pointer, so we need its indirect type.
-
-		// Apply field filters if needed.
-		if len(q.fieldFilters) > 0 && !matchesFieldFilters(e, q.fieldFilters) {
-			continue
-		}
 
 		ev := reflect.Indirect(reflect.ValueOf(e))
 		// As with the Cloud datastore, if the Key field is present we populate it.
