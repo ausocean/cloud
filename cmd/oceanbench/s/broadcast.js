@@ -388,6 +388,10 @@ function populateForm(data) {
       syncDateTime("end-time", "end-timestamp", "time-zone", false);
   }
 
+  // Update states element.
+  const broadcastStatesEl = document.getElementById("broadcast-state-disp");
+  broadcastStatesEl.setAttribute("broadcast-id", data.UUID)
+
   // Check sensor config dynamically
   if (data.SensorList && Array.isArray(data.SensorList)) {
     // Uncheck all first
