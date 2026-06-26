@@ -4,7 +4,7 @@ Ocean Bench, part of AusOcean's [Cloud Blue](https://www.cloudblue.org), is a cl
 
 ## Installation and Usage
 
-Before you begin, ensure you have **git**, **go**, and **npm** installed.
+Before you begin, ensure you have **git**, **go**, and **npm** installed. For local development, it is also highly recommended to install [Air](https://github.com/air-verse/air) for live reloading.
 
 1.  **Clone the repository:**
     ```bash
@@ -17,21 +17,25 @@ Before you begin, ensure you have **git**, **go**, and **npm** installed.
     npm install
     ```
 
-3.  **Build the project:**
-    This command compiles the TypeScript/Lit components and generates the global Tailwind CSS bundle (`s/dist/tailwind.global.css`).
+3.  **Run a Local Development Instance**
+    The easiest way to develop locally and test changes quickly is using Air. Air will monitor changes to `go`, `javascript`, `typescript`, and `html` files, and trigger a build, and browser refresh when connected to the proxied `:8090` port.
     ```bash
+    air
+    ```
+    Once started, open your browser and navigate to `http://localhost:8090`.
+
+4.  **Alternative without Air: Build the Project Manually**
+    ```bash
+    # 1. Compile TypeScript/Lit components and Tailwind CSS via Vite
     npm run build
-    ```
-
-4.  **Compile the Go server:**
-    ```bash
+    
+    # 2. Compile the Go server
     go build
+    
+    # 3. Run the binary in standalone mode
+    ./oceanbench --standalone --tvurl=http://localhost:8082 --cronurl=http://localhost:8081
     ```
 
-5.  **Run a local instance:**
-    ```bash
-    ./oceanbench --standalone
-    ```
 
 ### Command-Line Flags
 
@@ -55,9 +59,7 @@ The following flags are available when running the `oceanbench` binary, particul
 ## Development
 
 ### Tailwind CSS
-We use **Tailwind CSS v4** for styling. The main entry point is `ts/tailwind.css`.
-- To build CSS separately: `npm run build:css`
-- To watch for changes: `npm run build:watch` (this watches both TS and CSS)
+We use **Tailwind CSS v4** for styling Lit Elements. The main entry point is `ts/shared/tailwind.css`. Building of the production css file is handled by Vite during the build process.
 
 ### Project Structure
 - `ts/`: TypeScript source files for Lit components.
@@ -68,4 +70,3 @@ We use **Tailwind CSS v4** for styling. The main entry point is `ts/tailwind.css
 ## See Also
 * [Ocean Bench service](https://bench.cloudblue.org)
 * [AusOcean](https://www.ausocean.org)
-
