@@ -3,6 +3,7 @@
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
+    "dev": "concurrently \"npm run build:watch\" \"air\"",
     "format": "prettier --write \"**/*.{html,js,ts}\"",
     "serve": "es-dev-server --node-resolve --watch",
     "deploy": "../../scripts/deploy.sh -b oceanbench",
@@ -19,6 +20,7 @@
     "@tailwindcss/cli": "^4.2.1",
     "@tailwindcss/vite": "^4.3.1",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^10.0.3",
     "postcss": "^8.5.8",
     "prettier": "^3.4.2",
     "stylelint": "^15.10.3",

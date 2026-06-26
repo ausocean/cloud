@@ -18,9 +18,9 @@ Before you begin, ensure you have **git**, **go**, and **npm** installed. For lo
     ```
 
 3.  **Run a Local Development Instance**
-    The easiest way to develop locally and test changes quickly is using Air. Air will monitor changes to `go`, `javascript`, `typescript`, and `html` files, and trigger a build, and browser refresh when connected to the proxied `:8090` port.
+    The easiest way to develop locally and test changes quickly is using the `dev` script, which launches Air for backend (go) changes, and watching Vite builds together.
     ```bash
-    air
+    npm run dev
     ```
     Once started, open your browser and navigate to `http://localhost:8090`.
 

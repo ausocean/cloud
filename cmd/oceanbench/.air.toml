@@ -1,6 +1,5 @@
 # .air.toml
 [build]
-  pre_cmd = ["npm run build"]
   cmd = "go build -o ./tmp/main ."
   entrypoint = ["./tmp/main"]
   args_bin = ["--standalone", "--tvurl=http://localhost:8082", "--cronurl=http://localhost:8081"]
