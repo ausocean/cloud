@@ -57,9 +57,11 @@ func (s *directLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event
 		sm.transition(newDirectLive(sm.ctx))
 	case fixFailureEvent:
 		sm.transition(newDirectFailure(sm.ctx, e))
+	case hardwareStartFailedEvent:
+		// This causes the hardware to go into failure mode, so we should go into failure mode for the broadcast state too.
+		sm.transition(newDirectFailure(sm.ctx, e.error))
 	case
 		criticalFailureEvent,
-		hardwareStartFailedEvent,
 		lowVoltageEvent,
 		startEvent,
 		startFailedEvent,
