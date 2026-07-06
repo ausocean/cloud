@@ -28,6 +28,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -57,6 +58,8 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Delete("/media", deleteV1MediaHandler)
 	v1.Get("/broadcasts/", getV1BroadcastIDHandler)
 	v1.Get("/broadcasts/:uuid", getV1BroadcastHandler)
+	v1.Get("/logs/:mac", getV1LogsByDevice)
+	v1.Put("/log/:mac", putV1LogByDevice)
 }
 
 // withProfileJSON is Fiber middleware that authenticates the request and stores
@@ -486,4 +489,86 @@ func getV1BroadcastIDHandler(c *fiber.Ctx) error {
 		names = append(names, k.Name)
 	}
 	return c.JSON(names)
+}
+
+// getV1LogsByDevice handles GET /logs/:mac.
+// Returns all Log entries for the device matching the encoded MAC.
+func getV1LogsByDevice(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	p := c.Locals(profileKey).(*gauth.Profile)
+	m, err := c.ParamsInt("MAC", 0)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to parse mac from URL: %v", err)})
+	} else if m == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "must provide encoded mac"})
+	}
+	mac := int64(m)
+
+	dev, err := model.GetDevice(ctx, settingsStore, mac)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get device with mac (%s): %v", model.MacDecode(mac), err)})
+	}
+
+	user, err := model.GetUser(ctx, settingsStore, dev.Skey, p.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || (user.Perm&model.WritePermission) == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "user does not have required permission for reading logs (write permission or greater)"})
+	} else if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get user from store: %v", err)})
+	}
+
+	logs, err := model.GetLogsByDevice(ctx, settingsStore, mac)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": fmt.Sprintf("unable to get logs: %v", err)})
+	}
+
+	return c.JSON(logs)
+}
+
+// putV1LogByDevice handles PUT /log/:mac.
+// Accepts form values "note" and "level" and creates a Log entry for the device.
+func putV1LogByDevice(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	p := c.Locals(profileKey).(*gauth.Profile)
+	m, err := c.ParamsInt("MAC", 0)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to parse mac from URL: %v", err)})
+	} else if m == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "must provide encoded mac"})
+	}
+	mac := int64(m)
+
+	dev, err := model.GetDevice(ctx, settingsStore, mac)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get device with mac (%s): %v", model.MacDecode(mac), err)})
+	}
+
+	user, err := model.GetUser(ctx, settingsStore, dev.Skey, p.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || (user.Perm&model.WritePermission) == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "user does not have required permission for writing logs (write permission or greater)"})
+	} else if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get user from store: %v", err)})
+	}
+
+	note := c.FormValue("note")
+	if note == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "log form submission must contain note"})
+	}
+	level := c.FormValue("level")
+
+	log := &model.Log{
+		Skey:      dev.Skey,
+		DeviceMAC: mac,
+		Note:      note,
+		Level:     level,
+	}
+	err = model.PutLog(ctx, settingsStore, log)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to put log: %v", err)})
+	}
+
+	// Write an approximate created timestamp (for UI purposes only).
+	log.Created = time.Now()
+	return c.JSON(log)
 }
