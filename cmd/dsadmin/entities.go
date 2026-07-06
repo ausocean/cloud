@@ -459,3 +459,23 @@ type SignalRange struct {
 	From, To time.Time
 	Max      int64
 }
+
+// Kind of entity to store / fetch from the datastore.
+// Note: Species Entity is copied here from ausoceantv because I didn't want circular repo. imports.
+const TypeSpecies = "Species"
+const typeSpeciesV2 = "Species_v2"
+
+type Species struct {
+	ScientificName     string
+	CommonName         string
+	ImageSources       []string
+	ImageAttributions  []string
+	INaturalistTaxonID *int // Optional.
+	SearchIndex        []string
+	datastore.NoCache
+}
+
+// Implements Copy from the Entity interface.
+func (vs *Species) Copy(dst datastore.Entity) (datastore.Entity, error) {
+	return datastore.CopyEntity(vs, dst)
+}
