@@ -201,6 +201,7 @@
       }
     </script>
     <script type="module" src="/s/lit/site-footer.js"></script>
+    <script type="module" src="/s/lit/device-logs.js"></script>
   </head>
   <body onload="init();">
     <div id="data">
@@ -608,6 +609,7 @@
           {{end}}
         </div>
       </div>
+      <device-logs mac="{{.Device.Mac}}"></device-logs>
     </section>
     <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
     <script type="text/javascript">
