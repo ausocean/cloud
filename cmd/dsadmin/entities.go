@@ -472,6 +472,7 @@ type Species struct {
 	ImageAttributions  []string
 	INaturalistTaxonID *int // Optional.
 	SearchIndex        []string
+	Rarity             int64
 	datastore.NoCache
 }
 

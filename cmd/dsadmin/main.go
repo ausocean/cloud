@@ -104,7 +104,7 @@ func main() {
 	log.SetPrefix("ERROR: ")
 
 	switch ds {
-	case "netreceiver", "vidgrind", "ausocean":
+	case "netreceiver", "vidgrind", "ausocean", "ausocean/ausoceantv-dev":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds) missing or invalid")
@@ -136,7 +136,7 @@ func main() {
 	var err error
 	ctx := context.Background()
 	if input == "" {
-		ev := strings.ToUpper(ds) + "_CREDENTIALS"
+		ev := strings.Split(strings.ToUpper(ds), "/")[0] + "_CREDENTIALS"
 		if os.Getenv(ev) == "" {
 			log.Fatalf("%s required to access %s", ev, ds)
 		}
@@ -282,6 +282,11 @@ func main() {
 			err = migrateSignals(store, store2, sr, false) // Set count to false to actually migrate.
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
+			}
+		case TypeSpecies:
+			err = migrateSpeciesRarity(store)
+			if err != nil {
+				log.Fatalf("migrateSpeciesRarity failed with error: %v", err)
 			}
 		case typeSpeciesV2:
 			err = migrateSpecies(store)
@@ -1158,6 +1163,41 @@ func migrateSpecies(store datastore.Store) error {
 		n += 1
 
 		if n%500 == 0 {
+			fmt.Printf("Progress: Migrated %d / %d species...\n", n, total)
+		}
+	}
+	fmt.Printf("Migration complete. Total migrated: %d species\n", n)
+	return nil
+}
+
+// migrateSpeciesRarity migrates Species to add the Rarity field.
+func migrateSpeciesRarity(store datastore.Store) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(TypeSpecies, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	total := len(keys)
+	fmt.Printf("Found %d Species entities to migrate. Starting migration...\n", total)
+
+	n := 0
+	for _, k := range keys {
+		s := new(Species)
+		err := store.Get(ctx, k, s)
+		if err != nil {
+			return err
+		}
+
+		// Rarity defaults to 0 if not present in the datastore, and then gets saved.
+		_, err = store.Put(ctx, k, s)
+		if err != nil {
+			return err
+		}
+		n += 1
+
+		if n%50 == 0 {
 			fmt.Printf("Progress: Migrated %d / %d species...\n", n, total)
 		}
 	}
