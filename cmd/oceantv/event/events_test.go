@@ -1,4 +1,4 @@
-package main
+package event
 
 import (
 	"errors"
@@ -8,27 +8,29 @@ import (
 	"testing"
 
 	"context"
+
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 )
 
 func TestBasicEventBus(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	storedEvents := []event{}
+	storedEvents := []Event{}
 
-	storeMock := func(event event) {
+	storeMock := func(event Event) {
 		storedEvents = append(storedEvents, event)
 	}
 
 	log := func(string, ...interface{}) {}
 
-	bus := newBasicEventBus(ctx, storeMock, log)
+	bus := NewBasicEventBus(ctx, storeMock, log)
 
 	t.Run("subscribe and publish", func(t *testing.T) {
 		var mu sync.Mutex
-		receivedEvents := []event{}
+		receivedEvents := []Event{}
 
-		handler := func(e event) error {
+		handler := func(e Event) error {
 			mu.Lock()
 			receivedEvents = append(receivedEvents, e)
 			mu.Unlock()
@@ -36,30 +38,30 @@ func TestBasicEventBus(t *testing.T) {
 		}
 
 		bus.subscribe(handler)
-		bus.publish(timeEvent{})
+		bus.publish(Time{})
 
 		if len(receivedEvents) != 1 {
 			t.Errorf("expected 1 event, got %d", len(receivedEvents))
 		}
 
 		// Check the type of event.
-		if _, ok := receivedEvents[0].(timeEvent); !ok {
-			t.Errorf("expected timeEvent, got %T", receivedEvents[0])
+		if _, ok := receivedEvents[0].(Time); !ok {
+			t.Errorf("expected Time event, got %T", receivedEvents[0])
 		}
 	})
 
 	t.Run("Multiple subscribers", func(t *testing.T) {
 		var mu sync.Mutex
-		receivedEvents := []event{}
+		receivedEvents := []Event{}
 
-		handler1 := func(e event) error {
+		handler1 := func(e Event) error {
 			mu.Lock()
 			receivedEvents = append(receivedEvents, e)
 			mu.Unlock()
 			return nil
 		}
 
-		handler2 := func(e event) error {
+		handler2 := func(e Event) error {
 			mu.Lock()
 			receivedEvents = append(receivedEvents, e)
 			mu.Unlock()
@@ -68,33 +70,33 @@ func TestBasicEventBus(t *testing.T) {
 
 		bus.subscribe(handler1)
 		bus.subscribe(handler2)
-		bus.publish(timeEvent{})
+		bus.publish(Time{})
 
 		if len(receivedEvents) != 2 {
 			t.Errorf("expected 2 events, got %d", len(receivedEvents))
 		}
 
 		// Test type of events.
-		if _, ok := receivedEvents[0].(timeEvent); !ok {
-			t.Errorf("expected timeEvent, got %T", receivedEvents[0])
+		if _, ok := receivedEvents[0].(Time); !ok {
+			t.Errorf("expected Time, got %T", receivedEvents[0])
 		}
 
-		if _, ok := receivedEvents[1].(timeEvent); !ok {
-			t.Errorf("expected timeEvent, got %T", receivedEvents[1])
+		if _, ok := receivedEvents[1].(Time); !ok {
+			t.Errorf("expected Time, got %T", receivedEvents[1])
 		}
 	})
 
 	t.Run("Storing events after cancel", func(t *testing.T) {
 		cancel() // cancel the context
-		bus.publish(startEvent{})
+		bus.publish(Start{})
 
 		if len(storedEvents) != 1 {
 			t.Errorf("expected 1 stored event, got %d", len(storedEvents))
 		}
 
 		// Test type of event.
-		if _, ok := storedEvents[0].(startEvent); !ok {
-			t.Errorf("expected startEvent, got %T", storedEvents[0])
+		if _, ok := storedEvents[0].(Start); !ok {
+			t.Errorf("expected Start event, got %T", storedEvents[0])
 		}
 	})
 
@@ -104,33 +106,33 @@ func TestBasicEventBus(t *testing.T) {
 				t.Errorf("The code did not panic")
 			}
 		}()
-		busNonCancelable := newBasicEventBus(context.Background(), storeMock, log)
-		busNonCancelable.publish(startEvent{})
+		busNonCancelable := NewBasicEventBus(context.Background(), storeMock, log)
+		busNonCancelable.publish(Start{})
 	})
 }
 
 func TestStringToEvent(t *testing.T) {
 	tests := []struct {
 		name      string
-		expected  event
+		expected  Event
 		wantPanic bool
 	}{
-		{"timeEvent", timeEvent{}, false},
-		{"finishEvent", finishEvent{}, false},
-		{"startEvent", startEvent{}, false},
-		{"startedEvent", startedEvent{}, false},
-		{"startFailedEvent", startFailedEvent{}, false},
-		{"healthCheckDueEvent", healthCheckDueEvent{}, false},
-		{"statusCheckDueEvent", statusCheckDueEvent{}, false},
-		{"chatMessageDueEvent", chatMessageDueEvent{}, false},
-		{"badHealthEvent", badHealthEvent{}, false},
-		{"goodHealthEvent", goodHealthEvent{}, false},
-		{"hardwareResetRequestEvent", hardwareResetRequestEvent{}, false},
-		{"hardwareStartFailedEvent", hardwareStartFailedEvent{}, false},
-		{"hardwareStopFailedEvent", hardwareStopFailedEvent{}, false},
-		{"hardwareStartedEvent", hardwareStartedEvent{}, false},
-		{"hardwareStoppedEvent", hardwareStoppedEvent{}, false},
-		{"slateResetRequested", slateResetRequested{}, false},
+		{"TimeEvent", Time{}, false},
+		{"finishEvent", Finish{}, false},
+		{"StartEvent", Start{}, false},
+		{"startedEvent", Started{}, false},
+		{"startFailedEvent", StartFailed{}, false},
+		{"healthCheckDueEvent", HealthCheckDue{}, false},
+		{"statusCheckDueEvent", StatusCheckDue{}, false},
+		{"chatMessageDueEvent", ChatMessageDue{}, false},
+		{"badHealthEvent", BadHealth{}, false},
+		{"goodHealthEvent", GoodHealth{}, false},
+		{"hardwareResetRequestEvent", HardwareResetRequest{}, false},
+		{"hardwareStartFailedEvent", HardwareStartFailed{}, false},
+		{"hardwareStopFailedEvent", HardwareStopFailed{}, false},
+		{"hardwareStartedEvent", HardwareStarted{}, false},
+		{"hardwareStoppedEvent", HardwareStopped{}, false},
+		{"slateResetRequested", SlateResetRequested{}, false},
 		{"NonExistentEvent", nil, true},
 	}
 
@@ -147,7 +149,7 @@ func TestStringToEvent(t *testing.T) {
 				}
 			}()
 
-			got := stringToEvent(tt.name)
+			got := StringToEvent(tt.name)
 			if !tt.wantPanic && !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("stringToEvent() got = %v, expected %v", got, tt.expected)
 			}
@@ -163,54 +165,54 @@ func TestErrorsIs(t *testing.T) {
 		expectMatch bool
 	}
 
-	warn := warnSkipShutdown
+	warn := broadcast.WarnSkipShutdown
 
 	tests := []testCase{
 		{
-			name:        "ShutdownEvent wraps warnSkipShutdown directly",
-			err:         hardwareShutdownFailedEvent{warn},
+			name:        "ShutdownEvent wraps broadcast.WarnSkipShutdown directly",
+			err:         HardwareShutdownFailed{warn},
 			target:      warn,
 			expectMatch: true,
 		},
 		{
-			name:        "ShutdownEvent wraps fmt.Errorf with warnSkipShutdown",
-			err:         hardwareShutdownFailedEvent{fmt.Errorf("could not perform shutdown actions: %w", warn)},
+			name:        "ShutdownEvent wraps fmt.Errorf with broadcast.WarnSkipShutdown",
+			err:         HardwareShutdownFailed{fmt.Errorf("could not perform shutdown actions: %w", warn)},
 			target:      warn,
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOffEvent wraps empty ShutdownEvent directly",
-			err:         hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{}},
-			target:      hardwareShutdownFailedEvent{},
+			err:         HardwarePowerOffFailed{HardwareShutdownFailed{}},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOffEvent wraps fmt.Errorf with empty ShutdownEvent",
-			err:         hardwarePowerOffFailedEvent{fmt.Errorf("got error event: %w", hardwareShutdownFailedEvent{})},
-			target:      hardwareShutdownFailedEvent{},
+			err:         HardwarePowerOffFailed{fmt.Errorf("got error event: %w", HardwareShutdownFailed{})},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
-			name:        "PowerOffEvent wraps fmt.Errorf with ShutdownEvent{warn}",
-			err:         hardwarePowerOffFailedEvent{fmt.Errorf("got error event: %w", hardwareShutdownFailedEvent{warn})},
-			target:      hardwareShutdownFailedEvent{},
+			name:        "PowerOffEvent wraps fmt.Errorf with Shutdown{warn}",
+			err:         HardwarePowerOffFailed{fmt.Errorf("got error event: %w", HardwareShutdownFailed{warn})},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
-			name:        "PowerOffEvent wraps fmt.Errorf with ShutdownEvent{warn}, match on warn",
-			err:         hardwarePowerOffFailedEvent{fmt.Errorf("got error event: %w", hardwareShutdownFailedEvent{warn})},
+			name:        "PowerOffEvent wraps fmt.Errorf with Shutdown{warn}, match on warn",
+			err:         HardwarePowerOffFailed{fmt.Errorf("got error event: %w", HardwareShutdownFailed{warn})},
 			target:      warn,
 			expectMatch: true,
 		},
 		{
-			name:        "PowerOffEvent wraps ShutdownEvent{warn} directly",
-			err:         hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{warn}},
-			target:      hardwareShutdownFailedEvent{},
+			name:        "PowerOffEvent wraps Shutdown{warn} directly",
+			err:         HardwarePowerOffFailed{HardwareShutdownFailed{warn}},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
-			name:        "PowerOffEvent wraps ShutdownEvent{warn} directly, match on warn",
-			err:         hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{warn}},
+			name:        "PowerOffEvent wraps Shutdown{warn} directly, match on warn",
+			err:         HardwarePowerOffFailed{HardwareShutdownFailed{warn}},
 			target:      warn,
 			expectMatch: true,
 		},
@@ -229,49 +231,49 @@ func TestErrorsIs(t *testing.T) {
 func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 	tests := []struct {
 		name        string
-		input       event
+		input       Event
 		target      error // Only relevant if input is errorEvent
 		expectMatch bool  // Only applies for errorEvent + target
 	}{
 		{
 			name:        "Shutdown wraps warn",
-			input:       hardwareShutdownFailedEvent{warnSkipShutdown},
-			target:      warnSkipShutdown,
+			input:       HardwareShutdownFailed{broadcast.WarnSkipShutdown},
+			target:      broadcast.WarnSkipShutdown,
 			expectMatch: true,
 		},
 		{
 			name:        "Shutdown wraps fmt.Errorf(warn)",
-			input:       hardwareShutdownFailedEvent{fmt.Errorf("wrap: %w", warnSkipShutdown)},
-			target:      warnSkipShutdown,
+			input:       HardwareShutdownFailed{fmt.Errorf("wrap: %w", broadcast.WarnSkipShutdown)},
+			target:      broadcast.WarnSkipShutdown,
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOff wraps Shutdown{warn}",
-			input:       hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{warnSkipShutdown}},
-			target:      hardwareShutdownFailedEvent{},
+			input:       HardwarePowerOffFailed{HardwareShutdownFailed{broadcast.WarnSkipShutdown}},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOff wraps fmt.Errorf(wrapped Shutdown{warn})",
-			input:       hardwarePowerOffFailedEvent{fmt.Errorf("wrap: %w", hardwareShutdownFailedEvent{warnSkipShutdown})},
-			target:      warnSkipShutdown,
+			input:       HardwarePowerOffFailed{fmt.Errorf("wrap: %w", HardwareShutdownFailed{broadcast.WarnSkipShutdown})},
+			target:      broadcast.WarnSkipShutdown,
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOff wraps Shutdown with no cause",
-			input:       hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{}},
-			target:      hardwareShutdownFailedEvent{},
+			input:       HardwarePowerOffFailed{HardwareShutdownFailed{}},
+			target:      HardwareShutdownFailed{},
 			expectMatch: true,
 		},
 		{
 			name:        "PowerOff wraps Shutdown with no cause – doesn't match warn",
-			input:       hardwarePowerOffFailedEvent{hardwareShutdownFailedEvent{}},
-			target:      warnSkipShutdown,
+			input:       HardwarePowerOffFailed{HardwareShutdownFailed{}},
+			target:      broadcast.WarnSkipShutdown,
 			expectMatch: false,
 		},
 		{
-			name:        "Non-error startEvent round-trip",
-			input:       startEvent{},
+			name:        "Non-error Start round-trip",
+			input:       Start{},
 			target:      nil,
 			expectMatch: false, // unused
 		},
@@ -279,8 +281,8 @@ func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			data := marshalEvent(tc.input)
-			unmarshalled := unmarshalEvent(data)
+			data := MarshalEvent(tc.input)
+			unmarshalled := UnmarshalEvent(data)
 
 			if _, ok := tc.input.(error); ok && tc.target != nil {
 				// Check that Error() returns the same string.

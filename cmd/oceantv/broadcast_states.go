@@ -38,16 +38,6 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 	broadcast.LogForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
 }
 
-const (
-	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown or un-categorized.
-	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
-	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
-	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
-	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
-	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
-	broadcastService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
-)
-
 var errNoGlobalNotifier = errors.New("global notifier is nil")
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {

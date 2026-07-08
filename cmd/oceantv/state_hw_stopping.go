@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 )
@@ -168,7 +169,7 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 	case *hardwareShuttingDown:
 		// We want to get notified for failures and misconfigured configs, and log
 		// when shutdown is skipped.
-		if errors.Is(event, warnSkipShutdown) {
+		if errors.Is(event, broadcast.WarnSkipShutdown) {
 			s.log("skipping shutdown: %v:", event.Error)
 		} else if errors.Is(event, errNoShutdownActions) {
 			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())

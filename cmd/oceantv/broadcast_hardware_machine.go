@@ -10,7 +10,6 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/cloud/notify"
 )
 
 func register(state registry.Named) struct{} {
@@ -33,94 +32,6 @@ func newableWithContext(new func(ctx *broadcastContext) any, args ...interface{}
 		return nil, errors.New("init args did not contain required broadcast context")
 	}
 	return new(ctx), nil
-}
-
-type hardwareShutdownFailedEvent struct{ error }
-
-var _ = registerEvent(hardwareShutdownFailedEvent{})
-
-func (e hardwareShutdownFailedEvent) String() string { return "hardwareShutdownFailedEvent" }
-func (e hardwareShutdownFailedEvent) Error() string {
-	if e.error == nil {
-		return "(" + e.String() + ") <nil>"
-	}
-	return "(" + e.String() + ") " + e.error.Error()
-}
-func (e hardwareShutdownFailedEvent) New(args ...any) (any, error) {
-	var err error = nil
-	if len(args) != 0 {
-		err = args[0].(error)
-	}
-	return hardwareShutdownFailedEvent{err}, nil
-}
-
-// Kind implements the errorEvent interface.
-func (e hardwareShutdownFailedEvent) Kind() notify.Kind {
-	if errEvent, ok := e.error.(errorEvent); ok {
-		return errEvent.Kind()
-	}
-
-	if unwrapped := unwrapErrEvent(e.error, nil); unwrapped != nil {
-		return unwrapped.Kind()
-	}
-
-	return broadcastHardware
-}
-
-func (e hardwareShutdownFailedEvent) Unwrap() error { return e.error }
-
-func (e hardwareShutdownFailedEvent) Is(target error) bool {
-	if _, ok := target.(hardwareShutdownFailedEvent); ok {
-		return true
-	}
-	return errors.Is(e.error, target)
-}
-
-type hardwareShutdownEvent struct{}
-
-var _ = registerEvent(hardwareShutdownEvent{})
-
-func (e hardwareShutdownEvent) String() string { return "hardwareShutdownEvent" }
-
-type hardwarePowerOffFailedEvent struct{ error }
-
-var _ = registerEvent(hardwarePowerOffFailedEvent{})
-
-func (e hardwarePowerOffFailedEvent) String() string { return "hardwarePowerOffFailedEvent" }
-func (e hardwarePowerOffFailedEvent) Error() string {
-	if e.error == nil {
-		return "(" + e.String() + ") <nil>"
-	}
-	return "(" + e.String() + ") " + e.error.Error()
-}
-func (e hardwarePowerOffFailedEvent) New(args ...any) (any, error) {
-	var err error = nil
-	if len(args) != 0 {
-		err = args[0].(error)
-	}
-	return hardwarePowerOffFailedEvent{err}, nil
-}
-
-// Kind implements the errorEvent interface.
-func (e hardwarePowerOffFailedEvent) Kind() notify.Kind {
-	if errEvent, ok := e.error.(errorEvent); ok {
-		return errEvent.Kind()
-	}
-
-	if unwrapped := unwrapErrEvent(e.error, nil); unwrapped != nil {
-		return unwrapped.Kind()
-	}
-
-	return broadcastHardware
-}
-
-func (e hardwarePowerOffFailedEvent) Unwrap() error { return e.error }
-
-func (e hardwarePowerOffFailedEvent) Is(target error) bool {
-	if _, ok := target.(hardwarePowerOffFailedEvent); ok {
-		return true
-	}
-	return errors.Is(e.error, target)
 }
 
 type hardwareStateMachine struct {
