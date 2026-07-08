@@ -73,6 +73,19 @@ func main() {
 	var key, ts int64
 	var idKey bool
 
+	// Command-line flags for dsadmin:
+	// -task:   The specific operation to perform (count, dump, delete, extract, copy, transfer, or migrate)
+	// -kind:   The primary datastore entity kind to operate on (e.g. Site, Device)
+	// -kind1:  Alias for -kind, used as the source kind in copy operations
+	// -kind2:  The destination datastore entity kind, used in copy operations
+	// -ds:     The primary (source) datastore project/database (netreceiver, vidgrind, or ausocean). Defaults to netreceiver
+	// -ds2:    The secondary (destination) datastore project/database, used in transfer operations
+	// -input:  Path to an input file/filestore for reading entities instead of cloud datastore
+	// -output: Path to an output file for dump/extract operations
+	// -key:    A specific datastore key (usually an integer like Skey) to target a single entity
+	// -id:     Alias for -key
+	// -idkey:  Boolean flag. If true, operations like copy will use ID-based keys instead of Name-based keys
+	// -ts:     Timestamp filter, used primarily in delete operations to remove old records
 	flag.StringVar(&task, "task", "", "Datastore task (count, dump, delete, extract, copy, transfer, or migrate)")
 	flag.StringVar(&kind, "kind", "", "Datastore kind")
 	flag.StringVar(&kind, "kind1", "", "Datastore kind 1 (same as -kind)")
@@ -91,13 +104,13 @@ func main() {
 	log.SetPrefix("ERROR: ")
 
 	switch ds {
-	case "netreceiver", "vidgrind", "ausocean":
+	case "netreceiver", "vidgrind", "ausocean", "ausocean/ausoceantv-dev":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds) missing or invalid")
 	}
 	switch ds2 {
-	case "netreceiver", "vidgrind", "ausocean":
+	case "", "netreceiver", "vidgrind", "ausocean":
 		// Do nothing
 	default:
 		log.Fatal("datastore (-ds2) invalid")
@@ -116,12 +129,14 @@ func main() {
 	datastore.RegisterEntity(typeSiteV2, func() datastore.Entity { return new(SiteV2) })
 	datastore.RegisterEntity(typeSiteV3, func() datastore.Entity { return new(SiteV3) })
 	datastore.RegisterEntity(typeSignal, func() datastore.Entity { return new(Signal) })
+	datastore.RegisterEntity(TypeSpecies, func() datastore.Entity { return new(Species) })
+	datastore.RegisterEntity(typeSpeciesV2, func() datastore.Entity { return new(Species) })
 
 	var store, store2 datastore.Store
 	var err error
 	ctx := context.Background()
 	if input == "" {
-		ev := strings.ToUpper(ds) + "_CREDENTIALS"
+		ev := strings.Split(strings.ToUpper(ds), "/")[0] + "_CREDENTIALS"
 		if os.Getenv(ev) == "" {
 			log.Fatalf("%s required to access %s", ev, ds)
 		}
@@ -267,6 +282,16 @@ func main() {
 			err = migrateSignals(store, store2, sr, false) // Set count to false to actually migrate.
 			if err != nil {
 				log.Fatalf("migrateSignals failed with error: %v", err)
+			}
+		case TypeSpecies:
+			err = migrateSpeciesRarity(store)
+			if err != nil {
+				log.Fatalf("migrateSpeciesRarity failed with error: %v", err)
+			}
+		case typeSpeciesV2:
+			err = migrateSpecies(store)
+			if err != nil {
+				log.Fatalf("migrateSpecies failed with error: %v", err)
 			}
 		default:
 			log.Fatalf("invalid kind %s", kind)
@@ -1101,5 +1126,81 @@ func analyzeSite(store datastore.Store, skey int64) error {
 		fmt.Printf("%s, %s\n", dev.MAC(), dev.Name)
 	}
 
+	return nil
+}
+
+// migrateSpecies migrates Species_v2 to Species.
+func migrateSpecies(store datastore.Store) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(typeSpeciesV2, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	total := len(keys)
+	fmt.Printf("Found %d Species_v2 entities to migrate. Starting migration...\n", total)
+
+	n := 0
+	for _, k := range keys {
+		s := new(Species)
+		err := store.Get(ctx, k, s)
+		if err != nil {
+			return err
+		}
+
+		var k2 *datastore.Key
+		if k.Name != "" {
+			k2 = store.NameKey(TypeSpecies, k.Name)
+		} else {
+			k2 = store.IDKey(TypeSpecies, k.ID)
+		}
+
+		_, err = store.Put(ctx, k2, s)
+		if err != nil {
+			return err
+		}
+		n += 1
+
+		if n%500 == 0 {
+			fmt.Printf("Progress: Migrated %d / %d species...\n", n, total)
+		}
+	}
+	fmt.Printf("Migration complete. Total migrated: %d species\n", n)
+	return nil
+}
+
+// migrateSpeciesRarity migrates Species to add the Rarity field.
+func migrateSpeciesRarity(store datastore.Store) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(TypeSpecies, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	total := len(keys)
+	fmt.Printf("Found %d Species entities to migrate. Starting migration...\n", total)
+
+	n := 0
+	for _, k := range keys {
+		s := new(Species)
+		err := store.Get(ctx, k, s)
+		if err != nil {
+			return err
+		}
+
+		// Rarity defaults to 0 if not present in the datastore, and then gets saved.
+		_, err = store.Put(ctx, k, s)
+		if err != nil {
+			return err
+		}
+		n += 1
+
+		if n%50 == 0 {
+			fmt.Printf("Progress: Migrated %d / %d species...\n", n, total)
+		}
+	}
+	fmt.Printf("Migration complete. Total migrated: %d species\n", n)
 	return nil
 }

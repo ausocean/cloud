@@ -1,8 +1,8 @@
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { NavMenu } from "./nav-menu.js";
-import "../s/lit/nav-menu.js";
-import "../s/lit/site-menu.js";
+import "./nav-menu.ts";
+import "./site-menu.ts";
 @customElement("header-group")
 class HeaderGroup extends LitElement {
   @property({ type: Number, attribute: "selected-perm" })

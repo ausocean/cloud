@@ -5,7 +5,7 @@
 // The build:css step must run before Rollup so the compiled CSS is available.
 
 import { LitElement, unsafeCSS } from "lit";
-import globalStyles from "../../s/dist/tailwind.global.css";
+import globalStyles from "./tailwind.css?inline";
 
 const tailwindStyles = unsafeCSS(globalStyles);
 
