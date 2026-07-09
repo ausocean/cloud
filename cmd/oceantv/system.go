@@ -121,7 +121,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the YouTube broadcast service.
-	man := newOceanBroadcastManager(svc, cfg, store, log)
+	man := manager.NewOceanBroadcast(svc, cfg, store, log, setVar, broadcastByName)
 
 	// This will get called in the case that events are published to
 	// the event bus but our context is cancelled. This might happen if a routine

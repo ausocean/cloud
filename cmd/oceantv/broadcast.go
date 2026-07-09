@@ -75,7 +75,6 @@ const (
 
 // Datastore broadcast and live scopes.
 const (
-	liveScope                 = "Live"                                // Scope under which live stream URLs are stored.
 	defaultMessage            = "Welcome to the AusOcean livestream!" // Default message to be sent to the YouTube live chat.
 	tempPin                   = "X60"                                 // Standard temperature pin value.
 	scalar                    = 0.1                                   // Scalar for temperature conversions from int to float.
@@ -265,14 +264,6 @@ func (e ErrInvalidEndTime) Error() string {
 	return fmt.Sprintf("end time (%v) is invalid relative to start time (%v)", e.end, e.start)
 }
 
-// saveLinkFunc provides a closure for saving a broadcast link with a given key.
-func saveLinkFunc() func(string, string) error {
-	return func(key, link string) error {
-		key = removeDate(key)
-		return model.PutVariable(context.Background(), store, -1, liveScope+"."+key, link)
-	}
-}
-
 // extStart uses the OnActions in the provided broadcast config to perform
 // external streaming hardware startup. In addition, the RTMP key is obtained
 // from the broadcast's associated stream object and used to set the devices
@@ -337,7 +328,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := model.GetVariable(ctx, store, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, store, -1, broadcast.LiveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return

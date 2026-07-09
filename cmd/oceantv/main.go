@@ -39,6 +39,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/composite"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/gauth"
@@ -343,7 +344,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the broadcast manager to save the broadcast.
 	// We can provide a nil Svc given that Save
 	// won't need this.
-	err = newOceanBroadcastManager(nil, &cfg, store, log).Save(ctx, func(_cfg *Cfg) {
+	err = manager.NewOceanBroadcast(nil, &cfg, store, log, setVar, broadcastByName).Save(ctx, func(_cfg *Cfg) {
 		// Update only the fields that can be updated via the UI.
 		// NOTE: This needs to be kept in sync with the UI. To aid this, the fields
 		// have been updated in the same order which they're currently being updated on oceanbench.
