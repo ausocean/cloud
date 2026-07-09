@@ -39,6 +39,10 @@ type Context struct {
 	logOutput func(v ...any)
 }
 
+func NewContext(store datastore.Store, cfg *broadcast.Config, bus event.EventBus, log func(v ...any)) *Context {
+	return &Context{store, cfg, bus, log}
+}
+
 func (ctx *Context) Log(msg string, args ...interface{}) {
 	// If context has nil log output, use standard logger log.Println.
 	if ctx.logOutput == nil {

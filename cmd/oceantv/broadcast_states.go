@@ -97,6 +97,10 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	}
 }
 
+func (ctx *broadcastContext) newHWContext() *hardware.Context {
+	return hardware.NewContext(ctx.store, ctx.cfg, ctx.bus, ctx.logOutput)
+}
+
 type state interface {
 	enter()
 	exit()

@@ -107,7 +107,7 @@ func (sm *hardwareStateMachine) handleEvent(e event.Event) error {
 func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 	sm.log("handling time event")
 	eventIfStatus := func(e event.Event, status bool) {
-		sm.ctx.hardware.PublishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
+		sm.ctx.hardware.PublishEventIfStatus(sm.ctx.newHWContext(), e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
@@ -130,7 +130,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 			return
 		}
 
-		voltage, err := sm.ctx.hardware.Voltage(sm.ctx)
+		voltage, err := sm.ctx.hardware.Voltage(sm.ctx.newHWContext())
 		if err != nil {
 			errWrapped := fmt.Errorf("could not get hardware voltage: %v", err)
 			sm.log(errWrapped.Error())
@@ -227,7 +227,7 @@ func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(e event.Hardware
 	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
-		sm.ctx.hardware.PublishEventIfStatus(sm.ctx, event.HardwareStarted{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
+		sm.ctx.hardware.PublishEventIfStatus(sm.ctx.newHWContext(), event.HardwareStarted{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	case *hardwareStopping:
 		// Ignore and log.
 		sm.log("ignoring hardware start request event since hardware is still stopping")

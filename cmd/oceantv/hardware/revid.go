@@ -204,8 +204,8 @@ func extStart(
 	return nil
 }
 
-// errNoShutdownActions represents no shutdown actions being registered for the broadcast.
-var errNoShutdownActions = errors.New("no shutdown actions provided")
+// ErrNoShutdownActions represents no shutdown actions being registered for the broadcast.
+var ErrNoShutdownActions = errors.New("no shutdown actions provided")
 
 // SkipAction is the placeholder used to represent that the action step should be skipped.
 const SkipAction = "skip"
@@ -221,7 +221,7 @@ func extShutdown(
 		return broadcast.WarnSkipShutdown
 	}
 	if cfg.ShutdownActions == "" {
-		return errNoShutdownActions
+		return ErrNoShutdownActions
 	}
 
 	err := setActionVars(ctx, cfg.SKey, cfg.ShutdownActions, store, log)

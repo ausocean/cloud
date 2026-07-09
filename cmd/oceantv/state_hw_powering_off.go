@@ -22,7 +22,7 @@ func newHardwarePoweringOff(ctx *broadcastContext) *hardwarePoweringOff {
 
 func (s *hardwarePoweringOff) enter() {
 	s.LastEntered = time.Now()
-	s.hardware.Stop(s.broadcastContext)
+	s.hardware.Stop(s.broadcastContext.newHWContext())
 }
 
 func (s *hardwarePoweringOff) exit() {}
