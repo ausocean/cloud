@@ -36,6 +36,7 @@ import (
 	rv_config "github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -122,7 +123,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		limiterRefillRate = 2.0 // per hour
 		limiterID         = "ocean_token_bucket"
 	)
-	limiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	limiter, err := ratelimit.GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
 	if err != nil {
 		return fmt.Errorf("could not get token bucket limiter: %w", err)
 	}
