@@ -10,6 +10,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
@@ -27,7 +28,7 @@ type broadcastSystem struct {
 
 type broadcastSystemOption func(*broadcastSystem) error
 
-func withBroadcastManager(bm BroadcastManager) broadcastSystemOption {
+func withBroadcastManager(bm manager.Broadcast) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.man = bm
 		return nil

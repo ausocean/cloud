@@ -13,6 +13,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/notify"
 	"github.com/stretchr/testify/assert"
 )
@@ -341,7 +342,7 @@ func (hs *hardwareSystem) tick() error {
 
 type hardwareSystemOption func(*hardwareSystem) error
 
-func (h hardwareSystem) withBroadcastManager(bm BroadcastManager) hardwareSystemOption {
+func (h hardwareSystem) withBroadcastManager(bm manager.Broadcast) hardwareSystemOption {
 	return func(bs *hardwareSystem) error {
 		bs.ctx.man = bm
 		return nil
@@ -396,7 +397,7 @@ func newHardwareOnlySystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...a
 		broadcast.LogForBroadcast(cfg, logOutput, msg, args...)
 	}
 
-	var man BroadcastManager
+	var man manager.Broadcast
 
 	// This will get called in the case that events are published to
 	// the event bus but our context is cancelled. This might happen if a routine
@@ -455,7 +456,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 		finalHardwareState state
 		initialEvent       event.Event
 		hardwareMan        hardwareManager
-		newBroadcastMan    func(*testing.T, *Cfg) BroadcastManager
+		newBroadcastMan    func(*testing.T, *Cfg) manager.Broadcast
 
 		// Leave unset to use default max ticks.
 		// Some tests may require more ticks to reach the final state.
@@ -479,7 +480,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOff{},
 			initialEvent:       event.HardwareStopRequest{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{event.HardwareStopRequest{},
@@ -506,7 +507,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOff{},
 			initialEvent:       event.HardwareStopRequest{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{event.HardwareStopRequest{}, event.Time{}, event.Time{}, event.HardwareShutdown{}, event.Time{}, event.HardwareStopped{}},
@@ -527,7 +528,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOn{},
 			initialEvent:       event.HardwareResetRequest{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{
@@ -558,7 +559,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 			finalHardwareState: &hardwareOn{},
 			initialEvent:       event.HardwareResetRequest{},
 			hardwareMan:        newDummyHardwareManager(withInitialCameraState(true)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{

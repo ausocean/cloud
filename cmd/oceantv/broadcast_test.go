@@ -36,6 +36,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
@@ -151,7 +152,7 @@ func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	}
 	return nil
 }
-func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call BroadcastCallback) error {
+func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call manager.BroadcastCallback) error {
 	d.statusHandled = true
 	return nil
 }

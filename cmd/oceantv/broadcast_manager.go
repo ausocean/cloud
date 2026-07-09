@@ -35,6 +35,7 @@ import (
 
 	rv_config "github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
@@ -43,34 +44,6 @@ import (
 	"github.com/ausocean/utils/nmea"
 	"github.com/google/uuid"
 )
-
-// BroadcastManager is an interface for managing broadcasts.
-type BroadcastManager interface {
-	CreateBroadcast(cfg *Cfg, store Store, svc Svc) error
-
-	StartBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc, extStart func() error,
-		onSuccess func(),
-		onFailure func(error))
-	StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) error
-	Save(ctx Ctx, update func(*Cfg)) error
-
-	// HandleStatus checks the status of a broadcast and would perform any
-	// necessary actions based on this status. For example, if the broadcast
-	// status is complete or revoked, it might stop the broadcast.
-	HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, noBroadcastCallBack BroadcastCallback) error
-
-	// HandleChatMessage prepares and sends chat messages to the broadcast
-	// service's chat session. This might contain information such as
-	// auxillary sensor data.
-	HandleChatMessage(ctx Ctx, cfg *Cfg) error
-
-	// HandleHealth interprets the health of a broadcast and would perform any
-	// necessary actions based on this health. For example, if the health is
-	// bad, it might restart the broadcast.
-	HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error
-
-	SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error
-}
 
 // OceanBroadcastManager is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
@@ -287,7 +260,7 @@ func (m *OceanBroadcastManager) Save(ctx Ctx, update func(_cfg *Cfg)) error {
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
-func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, noBroadcastCallBack BroadcastCallback) error {
+func (m *OceanBroadcastManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, noBroadcastCallBack manager.BroadcastCallback) error {
 	m.log("handling status check")
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {

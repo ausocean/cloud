@@ -13,6 +13,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
@@ -20,7 +21,7 @@ import (
 
 type broadcastContext struct {
 	cfg      *Cfg
-	man      BroadcastManager
+	man      manager.Broadcast
 	store    Store
 	svc      Svc
 	fwd      forwarding.Service

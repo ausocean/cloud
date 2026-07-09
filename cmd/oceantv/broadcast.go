@@ -257,8 +257,6 @@ func performChecks(ctx Ctx, cfg *Cfg, store Store, eventHooks []eventHook, state
 	)
 }
 
-type BroadcastCallback func(Ctx, *Cfg, Store, Svc) error
-
 type ErrInvalidEndTime struct {
 	start, end time.Time
 }
