@@ -7,6 +7,7 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -92,7 +93,7 @@ func TestCreateBroadcast(t *testing.T) {
 		cfg            func(*Cfg)
 		initialState   state
 		finalState     state
-		expectedEvents []event
+		expectedEvents []event.Event
 		expectedLogs   []string
 		expectedNotify map[int64]map[notify.Kind][]string
 	}{

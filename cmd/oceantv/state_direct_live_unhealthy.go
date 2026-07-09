@@ -26,6 +26,9 @@ package main
 import (
 	"fmt"
 	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 )
 
 type directLiveUnhealthy struct {
@@ -40,34 +43,34 @@ func newDirectLiveUnhealthy(ctx *broadcastContext) *directLiveUnhealthy {
 	return &directLiveUnhealthy{broadcastContext: ctx}
 }
 
-func (s *directLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case timeEvent:
-		if sm.finishIsDue(e) {
-			sm.ctx.bus.publish(finishEvent{})
+func (s *directLiveUnhealthy) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.Time:
+		if sm.finishIsDue(e_) {
+			sm.ctx.bus.Publish(event.Finish{})
 			return
 		}
-		sm.publishHealthStatusOrChatEvents(e)
+		sm.publishHealthStatusOrChatEvents(e_)
 		sm.tryToFixCurrentState()
-	case finishEvent:
+	case event.Finish:
 		sm.transition(newDirectIdle(sm.ctx))
-	case invalidConfigurationEvent:
-		sm.transition(newDirectFailure(sm.ctx, e))
-	case goodHealthEvent:
+	case event.InvalidConfiguration:
+		sm.transition(newDirectFailure(sm.ctx, e_))
+	case event.GoodHealth:
 		sm.transition(newDirectLive(sm.ctx))
-	case fixFailureEvent:
-		sm.transition(newDirectFailure(sm.ctx, e))
-	case hardwareStartFailedEvent:
+	case event.FixFailure:
+		sm.transition(newDirectFailure(sm.ctx, e_))
+	case event.HardwareStartFailed:
 		// This causes the hardware to go into failure mode, so we should go into failure mode for the broadcast state too.
-		sm.transition(newDirectFailure(sm.ctx, e.error))
+		sm.transition(newDirectFailure(sm.ctx, e_.Err))
 	case
-		criticalFailureEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
 
@@ -77,16 +80,16 @@ func (s *directLiveUnhealthy) fix() {
 		return
 	}
 
-	var e event
+	var e event.Event
 	const maxAttempts = 3
 	if s.Attempts >= maxAttempts {
-		e = fixFailureEvent{fmt.Errorf("failed to fix broadcast (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)}
+		e = event.FixFailure{fmt.Errorf("failed to fix broadcast (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)}
 	} else {
-		s.logAndNotify(broadcastHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
+		s.logAndNotify(notification.KindHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
 		s.Attempts++
-		e = hardwareResetRequestEvent{}
+		e = event.HardwareResetRequest{}
 	}
 
 	s.LastResetAttempt = time.Now()
-	s.bus.publish(e)
+	s.bus.Publish(e)
 }

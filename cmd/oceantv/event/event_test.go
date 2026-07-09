@@ -1,3 +1,25 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
+
+  This file is part of Ocean TV. Ocean TV is free software: you can
+  redistribute it and/or modify it under the terms of the GNU
+  General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option)
+  any later version.
+
+  Ocean TV is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package event
 
 import (
@@ -37,8 +59,8 @@ func TestBasicEventBus(t *testing.T) {
 			return nil
 		}
 
-		bus.subscribe(handler)
-		bus.publish(Time{})
+		bus.Subscribe(handler)
+		bus.Publish(Time{})
 
 		if len(receivedEvents) != 1 {
 			t.Errorf("expected 1 event, got %d", len(receivedEvents))
@@ -68,9 +90,9 @@ func TestBasicEventBus(t *testing.T) {
 			return nil
 		}
 
-		bus.subscribe(handler1)
-		bus.subscribe(handler2)
-		bus.publish(Time{})
+		bus.Subscribe(handler1)
+		bus.Subscribe(handler2)
+		bus.Publish(Time{})
 
 		if len(receivedEvents) != 2 {
 			t.Errorf("expected 2 events, got %d", len(receivedEvents))
@@ -88,7 +110,7 @@ func TestBasicEventBus(t *testing.T) {
 
 	t.Run("Storing events after cancel", func(t *testing.T) {
 		cancel() // cancel the context
-		bus.publish(Start{})
+		bus.Publish(Start{})
 
 		if len(storedEvents) != 1 {
 			t.Errorf("expected 1 stored event, got %d", len(storedEvents))
@@ -107,7 +129,7 @@ func TestBasicEventBus(t *testing.T) {
 			}
 		}()
 		busNonCancelable := NewBasicEventBus(context.Background(), storeMock, log)
-		busNonCancelable.publish(Start{})
+		busNonCancelable.Publish(Start{})
 	})
 }
 
@@ -117,9 +139,9 @@ func TestStringToEvent(t *testing.T) {
 		expected  Event
 		wantPanic bool
 	}{
-		{"TimeEvent", Time{}, false},
+		{"timeEvent", Time{}, false},
 		{"finishEvent", Finish{}, false},
-		{"StartEvent", Start{}, false},
+		{"startEvent", Start{}, false},
 		{"startedEvent", Started{}, false},
 		{"startFailedEvent", StartFailed{}, false},
 		{"healthCheckDueEvent", HealthCheckDue{}, false},

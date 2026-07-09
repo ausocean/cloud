@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 )
 
 func TestUpdateBroadcastBasedOnState(t *testing.T) {
@@ -481,17 +483,17 @@ func TestRateLimited(t *testing.T) {
 	tests := []struct {
 		desc      string
 		limited   bool
-		expEvents []event
+		expEvents []event.Event
 	}{
 		{
 			desc:      "Not rate Limited",
 			limited:   false,
-			expEvents: []event{hardwareStartRequestEvent{}},
+			expEvents: []event.Event{event.HardwareStartRequest{}},
 		},
 		{
 			desc:      "Rate Limited",
 			limited:   true,
-			expEvents: []event{criticalFailureEvent{}},
+			expEvents: []event.Event{event.CriticalFailure{}},
 		},
 	}
 

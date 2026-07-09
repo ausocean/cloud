@@ -28,6 +28,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 )
 
 type directFailure struct {
@@ -41,9 +44,9 @@ func newDirectFailure(ctx *broadcastContext, err error) *directFailure {
 }
 func (s *directFailure) enter() {
 	notifyMsg := "entering direct broadcast failure state"
-	notifyKind := broadcastGeneric
+	notifyKind := notification.KindGeneric
 	if s.err != nil {
-		if errEvent, ok := s.err.(errorEvent); ok {
+		if errEvent, ok := s.err.(event.Error); ok {
 			notifyKind = errEvent.Kind()
 		}
 		notifyMsg = fmt.Sprintf("entering direct broadcast failure state due to: %v", s.err)
@@ -54,26 +57,26 @@ func (s *directFailure) enter() {
 	if err != nil {
 		s.log("could not stop broadcast on entry: %v", err)
 	} else {
-		s.bus.publish(finishedEvent{})
+		s.bus.Publish(event.Finished{})
 	}
-	s.bus.publish(hardwareStopRequestEvent{})
+	s.bus.Publish(event.HardwareStopRequest{})
 }
 
-func (s *directFailure) handleEvent(sm *broadcastStateMachine, event event) {
-	switch event.(type) {
+func (s *directFailure) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e.(type) {
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		invalidConfigurationEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.InvalidConfiguration,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
 

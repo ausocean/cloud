@@ -1,3 +1,25 @@
+/*
+AUTHORS
+  David Sutton <davidsutton@ausocean.org>
+
+LICENSE
+  Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
+
+  This file is part of Ocean TV. Ocean TV is free software: you can
+  redistribute it and/or modify it under the terms of the GNU
+  General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option)
+  any later version.
+
+  Ocean TV is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package event
 
 import (
@@ -8,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/notify"
 )
@@ -77,17 +99,17 @@ var _ = registerEvent(Started{})
 func (e Started) String() string { return "startedEvent" }
 
 // StartFailed represents that a broadcast has failed to start.
-type StartFailed struct{ error }
+type StartFailed struct{ Err error }
 
 var _ = registerEvent(StartFailed{})
 
 // String implements the Event interface.
 func (e StartFailed) String() string { return "startFailedEvent" }
 func (e StartFailed) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -101,40 +123,40 @@ func (e StartFailed) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e StartFailed) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindGeneric
+	return notification.KindGeneric
 }
 
 // Unwrap implements the Error interface.
-func (e StartFailed) Unwrap() error { return e.error }
+func (e StartFailed) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e StartFailed) Is(target error) bool {
 	if _, ok := target.(StartFailed); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // CriticalFailure is really a non recoverable start failure event.
-type CriticalFailure struct{ error }
+type CriticalFailure struct{ Err error }
 
 var _ = registerEvent(CriticalFailure{})
 
 // String implements the Event interface.
 func (e CriticalFailure) String() string { return "criticalFailureEvent" }
 func (e CriticalFailure) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -148,26 +170,26 @@ func (e CriticalFailure) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e CriticalFailure) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindGeneric
+	return notification.KindGeneric
 }
 
 // Unwrap implements the Error interface.
-func (e CriticalFailure) Unwrap() error { return e.error }
+func (e CriticalFailure) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e CriticalFailure) Is(target error) bool {
 	if _, ok := target.(CriticalFailure); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // HealthCheckDue represents that a broadcast is due for a health check.
@@ -235,17 +257,17 @@ var _ = registerEvent(HardwareResetRequest{})
 func (e HardwareResetRequest) String() string { return "hardwareResetRequestEvent" }
 
 // HardwareStartFailed represents that the hardware failed to start.
-type HardwareStartFailed struct{ error }
+type HardwareStartFailed struct{ Err error }
 
 var _ = registerEvent(HardwareStartFailed{})
 
 // String implements the Event interface.
 func (e HardwareStartFailed) String() string { return "hardwareStartFailedEvent" }
 func (e HardwareStartFailed) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -259,40 +281,40 @@ func (e HardwareStartFailed) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e HardwareStartFailed) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindHardware
+	return notification.KindHardware
 }
 
 // Unwrap implements the Error interface.
-func (e HardwareStartFailed) Unwrap() error { return e.error }
+func (e HardwareStartFailed) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e HardwareStartFailed) Is(target error) bool {
 	if _, ok := target.(HardwareStartFailed); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // HardwareStopFailed represents that the hardware has failed to stop.
-type HardwareStopFailed struct{ error }
+type HardwareStopFailed struct{ Err error }
 
 var _ = registerEvent(HardwareStopFailed{})
 
 // String implements the Event interface.
 func (e HardwareStopFailed) String() string { return "hardwareStopFailedEvent" }
 func (e HardwareStopFailed) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -306,26 +328,26 @@ func (e HardwareStopFailed) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e HardwareStopFailed) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindHardware
+	return notification.KindHardware
 }
 
 // Unwrap implements the Error interface.
-func (e HardwareStopFailed) Unwrap() error { return e.error }
+func (e HardwareStopFailed) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e HardwareStopFailed) Is(target error) bool {
 	if _, ok := target.(HardwareStartFailed); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // HardwareStarted represents that the hardware has started.
@@ -345,17 +367,17 @@ var _ = registerEvent(HardwareStopped{})
 func (e HardwareStopped) String() string { return "hardwareStoppedEvent" }
 
 // ControllerFailure represents that the controller has experienced a failure.
-type ControllerFailure struct{ error }
+type ControllerFailure struct{ Err error }
 
 var _ = registerEvent(ControllerFailure{})
 
 // String implements the Event interface.
 func (e ControllerFailure) String() string { return "controllerFailureEvent" }
 func (e ControllerFailure) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -365,26 +387,26 @@ func (e ControllerFailure) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e ControllerFailure) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindHardware
+	return notification.KindHardware
 }
 
 // Unwrap implements the Error interface.
-func (e ControllerFailure) Unwrap() error { return e.error }
+func (e ControllerFailure) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e ControllerFailure) Is(target error) bool {
 	if _, ok := target.(ControllerFailure); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // SlateResetRequested represents that there has been a request to reset the slate.
@@ -396,17 +418,17 @@ var _ = registerEvent(SlateResetRequested{})
 func (e SlateResetRequested) String() string { return "slateResetRequested" }
 
 // FixFailure represents that an attempted state fix has failed.
-type FixFailure struct{ error }
+type FixFailure struct{ Err error }
 
 var _ = registerEvent(FixFailure{})
 
 // String implements the Event interface.
 func (e FixFailure) String() string { return "fixFailureEvent" }
 func (e FixFailure) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -420,40 +442,40 @@ func (e FixFailure) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e FixFailure) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindGeneric
+	return notification.KindGeneric
 }
 
 // Unwrap implements the Error interface.
-func (e FixFailure) Unwrap() error { return e.error }
+func (e FixFailure) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e FixFailure) Is(target error) bool {
 	if _, ok := target.(FixFailure); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // InvalidConfiguration represents that a broadcast has an invalid configuration.
-type InvalidConfiguration struct{ error }
+type InvalidConfiguration struct{ Err error }
 
 var _ = registerEvent(InvalidConfiguration{})
 
 // String implements the Event interface.
 func (e InvalidConfiguration) String() string { return "invalidConfigurationEvent" }
 func (e InvalidConfiguration) Error() string {
-	if e.error == nil {
+	if e.Err == nil {
 		return "(" + e.String() + ") <nil>"
 	}
-	return "(" + e.String() + ") " + e.error.Error()
+	return "(" + e.String() + ") " + e.Err.Error()
 }
 
 // New implements the Error interface.
@@ -467,26 +489,26 @@ func (e InvalidConfiguration) New(args ...any) (any, error) {
 
 // Kind implements the Error interface.
 func (e InvalidConfiguration) Kind() notify.Kind {
-	if errEvent, ok := e.error.(Error); ok {
+	if errEvent, ok := e.Err.(Error); ok {
 		return errEvent.Kind()
 	}
 
-	if unwrapped := UnwrapErrEvent(e.error, nil); unwrapped != nil {
+	if unwrapped := UnwrapErrEvent(e.Err, nil); unwrapped != nil {
 		return unwrapped.Kind()
 	}
 
-	return broadcast.KindConfiguration
+	return notification.KindConfiguration
 }
 
 // Unwrap implements the Error interface.
-func (e InvalidConfiguration) Unwrap() error { return e.error }
+func (e InvalidConfiguration) Unwrap() error { return e.Err }
 
 // Is implements the Error interface.
 func (e InvalidConfiguration) Is(target error) bool {
 	if _, ok := target.(InvalidConfiguration); ok {
 		return true
 	}
-	return errors.Is(e.error, target)
+	return errors.Is(e.Err, target)
 }
 
 // LowVoltage represents that the hardware is reporting a voltage
@@ -513,15 +535,15 @@ type Handler func(Event) error
 // EventBus is an interface to be used to handle events fired and handled by
 // a state machine.
 type EventBus interface {
-	subscribe(handler Handler)
-	publish(event Event)
+	Subscribe(handler Handler)
+	Publish(event Event)
 }
 
 // BasicEventBus is a simple event bus that stores events when the context is
 // cancelled.
 type BasicEventBus struct {
 	ctx        context.Context
-	handlers   []Handler
+	Handlers   []Handler
 	storeEvent func(event Event)
 	log        func(string, ...interface{})
 }
@@ -534,9 +556,9 @@ func NewBasicEventBus(ctx context.Context, storeEventAfterCancel func(event Even
 	return &BasicEventBus{storeEvent: storeEventAfterCancel, ctx: ctx, log: log}
 }
 
-func (bus *BasicEventBus) subscribe(handler Handler) { bus.handlers = append(bus.handlers, handler) }
+func (bus *BasicEventBus) Subscribe(handler Handler) { bus.Handlers = append(bus.Handlers, handler) }
 
-func (bus *BasicEventBus) publish(event Event) {
+func (bus *BasicEventBus) Publish(event Event) {
 	bus.log("publishing event: %s", event.String())
 	doneChan := bus.ctx.Done()
 	if doneChan == nil {
@@ -550,7 +572,7 @@ func (bus *BasicEventBus) publish(event Event) {
 	default:
 	}
 
-	for _, handler := range bus.handlers {
+	for _, handler := range bus.Handlers {
 		err := handler(event)
 		if err != nil {
 			bus.log("error handling event: %s: %v", event.String(), err)

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -72,54 +74,54 @@ func newHardwareStateMachine(ctx *broadcastContext) *hardwareStateMachine {
 	return sm
 }
 
-func (sm *hardwareStateMachine) handleEvent(event event) error {
-	switch event.(type) {
-	case timeEvent:
-		sm.handleTimeEvent(event.(timeEvent))
-	case hardwareStartFailedEvent:
-		sm.handleHardwareStartFailedEvent(event.(hardwareStartFailedEvent))
-	case hardwareStopFailedEvent:
-		sm.handleHardwareStopFailedEvent(event.(hardwareStopFailedEvent))
-	case hardwareStartedEvent:
-		sm.handleHardwareStartedEvent(event.(hardwareStartedEvent))
-	case hardwareResetRequestEvent:
-		sm.handleHardwareResetRequestEvent(event.(hardwareResetRequestEvent))
-	case hardwareShutdownFailedEvent:
-		sm.handleHardwareShutdownFailedEvent(event.(hardwareShutdownFailedEvent))
-	case hardwarePowerOffFailedEvent:
-		sm.handleHardwarePowerOffFailedEvent(event.(hardwarePowerOffFailedEvent))
-	case hardwareStoppedEvent:
-		sm.handleHardwareStoppedEvent(event.(hardwareStoppedEvent))
-	case hardwareStartRequestEvent:
-		sm.handleHardwareStartRequestEvent(event.(hardwareStartRequestEvent))
-	case hardwareStopRequestEvent:
-		sm.handleHardwareStopRequestEvent(event.(hardwareStopRequestEvent))
-	case controllerFailureEvent:
-		sm.handleControllerFailureEvent(event.(controllerFailureEvent))
-	case lowVoltageEvent:
-		sm.handleLowVoltageEvent(event.(lowVoltageEvent))
-	case voltageRecoveredEvent:
-		sm.handleVoltageRecoveredEvent(event.(voltageRecoveredEvent))
+func (sm *hardwareStateMachine) handleEvent(e event.Event) error {
+	switch e.(type) {
+	case event.Time:
+		sm.handleTimeEvent(e.(event.Time))
+	case event.HardwareStartFailed:
+		sm.handleHardwareStartFailedEvent(e.(event.HardwareStartFailed))
+	case event.HardwareStopFailed:
+		sm.handleHardwareStopFailedEvent(e.(event.HardwareStopFailed))
+	case event.HardwareStarted:
+		sm.handleHardwareStartedEvent(e.(event.HardwareStarted))
+	case event.HardwareResetRequest:
+		sm.handleHardwareResetRequestEvent(e.(event.HardwareResetRequest))
+	case event.HardwareShutdownFailed:
+		sm.handleHardwareShutdownFailedEvent(e.(event.HardwareShutdownFailed))
+	case event.HardwarePowerOffFailed:
+		sm.handleHardwarePowerOffFailedEvent(e.(event.HardwarePowerOffFailed))
+	case event.HardwareStopped:
+		sm.handleHardwareStoppedEvent(e.(event.HardwareStopped))
+	case event.HardwareStartRequest:
+		sm.handleHardwareStartRequestEvent(e.(event.HardwareStartRequest))
+	case event.HardwareStopRequest:
+		sm.handleHardwareStopRequestEvent(e.(event.HardwareStopRequest))
+	case event.ControllerFailure:
+		sm.handleControllerFailureEvent(e.(event.ControllerFailure))
+	case event.LowVoltage:
+		sm.handleLowVoltageEvent(e.(event.LowVoltage))
+	case event.VoltageRecovered:
+		sm.handleVoltageRecoveredEvent(e.(event.VoltageRecovered))
 	default:
 		// Do nothing.
 	}
 	return sm.saveHardwareStateToConfig()
 }
 
-func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
+func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 	sm.log("handling time event")
-	eventIfStatus := func(e event, status bool) {
-		sm.ctx.hardware.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+	eventIfStatus := func(e event.Event, status bool) {
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			sm.ctx.bus.publish(hardwareStartFailedEvent{errors.New("exceed timeout during hardware starting")})
+			sm.ctx.bus.Publish(event.HardwareStartFailed{Err: errors.New("exceed timeout during hardware starting")})
 			sm.transition(newHardwareOff())
 			return
 		}
-		eventIfStatus(hardwareStartedEvent{}, true)
+		eventIfStatus(event.HardwareStarted{}, true)
 	case *hardwareStopping:
 		sm.currentState.(*hardwareStopping).handleTimeEvent(t)
 	case *hardwareRestarting:
@@ -127,7 +129,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 	case *hardwareRecoveringVoltage:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			sm.ctx.bus.publish(hardwareStartFailedEvent{errors.New("voltage recovery timed out")})
+			sm.ctx.bus.Publish(event.HardwareStartFailed{errors.New("voltage recovery timed out")})
 			sm.transition(newHardwareOff())
 			return
 		}
@@ -136,7 +138,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 		if err != nil {
 			errWrapped := fmt.Errorf("could not get hardware voltage: %v", err)
 			sm.log(errWrapped.Error())
-			sm.ctx.bus.publish(invalidConfigurationEvent{errWrapped})
+			sm.ctx.bus.Publish(event.InvalidConfiguration{errWrapped})
 			return
 		}
 
@@ -147,31 +149,31 @@ func (sm *hardwareStateMachine) handleTimeEvent(t timeEvent) {
 			try(
 				sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.RequiredStreamingVoltage = defaultRequiredStreamingVoltage }),
 				"could not save default required streaming voltage to config",
-				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(broadcastSoftware, msg, args...) },
+				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(notification.KindSoftware, msg, args...) },
 			)
 		}
 
 		if voltage >= sm.ctx.cfg.RequiredStreamingVoltage {
-			sm.ctx.bus.publish(voltageRecoveredEvent{})
+			sm.ctx.bus.Publish(event.VoltageRecovered{})
 		}
 	default:
 		// Do nothing.
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
+func (sm *hardwareStateMachine) handleHardwareShutdownFailedEvent(e event.HardwareShutdownFailed) {
 	sm.log("handling hardware shutdown failed event")
 	switch sm.currentState.(type) {
 	case *hardwareStopping:
-		sm.currentState.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
+		sm.currentState.(*hardwareStopping).handleHardwareShutdownFailedEvent(e)
 	case *hardwareRestarting:
-		sm.currentState.(*hardwareRestarting).handleHardwareShutdownFailedEvent(event)
+		sm.currentState.(*hardwareRestarting).handleHardwareShutdownFailedEvent(e)
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStoppedEvent) {
+func (sm *hardwareStateMachine) handleHardwareStoppedEvent(e event.HardwareStopped) {
 	sm.log("handling hardware stopped event")
 	switch sm.currentState.(type) {
 	case *hardwareStopping:
@@ -179,39 +181,39 @@ func (sm *hardwareStateMachine) handleHardwareStoppedEvent(event hardwareStopped
 	case *hardwareStarting:
 		sm.transition(newHardwareOff())
 	case *hardwareRestarting:
-		sm.currentState.(*hardwareRestarting).handleHardwareStoppedEvent(event)
+		sm.currentState.(*hardwareRestarting).handleHardwareStoppedEvent(e)
 	case *hardwareOn:
 		sm.transition(newHardwareOff())
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStopFailedEvent(event hardwareStopFailedEvent) {
+func (sm *hardwareStateMachine) handleHardwareStopFailedEvent(e event.HardwareStopFailed) {
 	switch sm.currentState.(type) {
 	case *hardwareStopping, *hardwareRestarting:
-		sm.transition(newHardwareFailure(sm.ctx, event))
+		sm.transition(newHardwareFailure(sm.ctx, e))
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+func (sm *hardwareStateMachine) handleHardwarePowerOffFailedEvent(e event.HardwarePowerOffFailed) {
 	switch sm.currentState.(type) {
 	case *hardwareStopping:
-		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(event)
+		sm.currentState.(*hardwareStopping).handleHardwarePowerOffFailedEvent(e)
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStartFailedEvent(event hardwareStartFailedEvent) {
+func (sm *hardwareStateMachine) handleHardwareStartFailedEvent(e event.HardwareStartFailed) {
 	switch sm.currentState.(type) {
 	case *hardwareStarting, *hardwareRestarting:
 		sm.log("handling hardware start failed event")
-		sm.transition(newHardwareFailure(sm.ctx, event))
+		sm.transition(newHardwareFailure(sm.ctx, e))
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStartedEvent(event hardwareStartedEvent) {
+func (sm *hardwareStateMachine) handleHardwareStartedEvent(e event.HardwareStarted) {
 	sm.log("handling hardware started event")
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
@@ -219,28 +221,28 @@ func (sm *hardwareStateMachine) handleHardwareStartedEvent(event hardwareStarted
 	case *hardwareRestarting:
 		sm.transition(newHardwareOn())
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(event hardwareStartRequestEvent) {
+func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(e event.HardwareStartRequest) {
 	sm.log("handling hardware start request event")
 	switch sm.currentState.(type) {
 	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
-		sm.ctx.hardware.publishEventIfStatus(sm.ctx, hardwareStartedEvent{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.publish)
+		sm.ctx.hardware.publishEventIfStatus(sm.ctx, event.HardwareStarted{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	case *hardwareStopping:
 		// Ignore and log.
 		sm.log("ignoring hardware start request event since hardware is still stopping")
 	case *hardwareOn:
 		// Ignore.
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareStopRequestEvent(event hardwareStopRequestEvent) {
+func (sm *hardwareStateMachine) handleHardwareStopRequestEvent(e event.HardwareStopRequest) {
 	sm.log("handling hardware stop request event")
 	switch sm.currentState.(type) {
 	case *hardwareOn, *hardwareStarting, *hardwareRestarting:
@@ -248,11 +250,11 @@ func (sm *hardwareStateMachine) handleHardwareStopRequestEvent(event hardwareSto
 	case *hardwareOff, *hardwareStopping:
 		// Ignore.
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareResetRequestEvent) {
+func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(e event.HardwareResetRequest) {
 	sm.log("handling hardware reset request event")
 	switch sm.currentState.(type) {
 	case *hardwareOn:
@@ -262,15 +264,15 @@ func (sm *hardwareStateMachine) handleHardwareResetRequestEvent(event hardwareRe
 	case *hardwareRestarting, *hardwareStarting, *hardwareStopping:
 		// Ignore.
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleControllerFailureEvent(event controllerFailureEvent) {
-	sm.transition(newHardwareFailure(sm.ctx, event))
+func (sm *hardwareStateMachine) handleControllerFailureEvent(e event.ControllerFailure) {
+	sm.transition(newHardwareFailure(sm.ctx, e))
 }
 
-func (sm *hardwareStateMachine) handleLowVoltageEvent(event lowVoltageEvent) {
+func (sm *hardwareStateMachine) handleLowVoltageEvent(e event.LowVoltage) {
 	sm.log("handling low voltage event")
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
@@ -280,17 +282,17 @@ func (sm *hardwareStateMachine) handleLowVoltageEvent(event lowVoltageEvent) {
 	case *hardwareOff, *hardwareStopping:
 		// Ignore.
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
-func (sm *hardwareStateMachine) handleVoltageRecoveredEvent(event voltageRecoveredEvent) {
+func (sm *hardwareStateMachine) handleVoltageRecoveredEvent(e event.VoltageRecovered) {
 	sm.log("handling voltage recovered event")
 	switch sm.currentState.(type) {
 	case *hardwareRecoveringVoltage:
 		sm.transition(newHardwareStarting(sm.ctx))
 	default:
-		sm.unexpectedEvent(event, sm.currentState)
+		sm.unexpectedEvent(e, sm.currentState)
 	}
 }
 
@@ -306,8 +308,8 @@ func (sm *hardwareStateMachine) transition(newState state) {
 	sm.currentState.enter()
 }
 
-func (sm *hardwareStateMachine) unexpectedEvent(event event, state state) {
-	sm.log("unexpected event %s in current state %s", event.String(), stateToString(state))
+func (sm *hardwareStateMachine) unexpectedEvent(e event.Event, state state) {
+	sm.log("unexpected event %s in current state %s", e.String(), stateToString(state))
 }
 
 func (sm *hardwareStateMachine) log(format string, args ...interface{}) {
@@ -321,7 +323,7 @@ type hardwareManager interface {
 	start(ctx *broadcastContext)
 	shutdown(ctx *broadcastContext)
 	stop(ctx *broadcastContext)
-	publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event))
+	publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event))
 	error(ctx *broadcastContext) (error, error)
 }
 
@@ -420,7 +422,7 @@ func (c *revidCameraClient) start(ctx *broadcastContext) {
 	err := extStart(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not start external hardware: %v", err)
-		ctx.bus.publish(hardwareStartFailedEvent{fmt.Errorf("external hardware start actions failed: %w", err)})
+		ctx.bus.Publish(event.HardwareStartFailed{Err: fmt.Errorf("external hardware start actions failed: %w", err)})
 		return
 	}
 }
@@ -428,7 +430,7 @@ func (c *revidCameraClient) start(ctx *broadcastContext) {
 func (c *revidCameraClient) shutdown(ctx *broadcastContext) {
 	err := extShutdown(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
-		ctx.bus.publish(hardwareShutdownFailedEvent{fmt.Errorf("could not perform shutdown actions: %w", err)})
+		ctx.bus.Publish(event.HardwareShutdownFailed{Err: fmt.Errorf("could not perform shutdown actions: %w", err)})
 		return
 	}
 }
@@ -437,14 +439,14 @@ func (c *revidCameraClient) stop(ctx *broadcastContext) {
 	err := extStop(context.Background(), ctx.cfg, ctx.log)
 	if err != nil {
 		ctx.log("could not stop external hardware: %v", err)
-		ctx.bus.publish(hardwareStopFailedEvent{fmt.Errorf("could not perform stop actions: %w", err)})
+		ctx.bus.Publish(event.HardwareStopFailed{Err: fmt.Errorf("could not perform stop actions: %w", err)})
 		return
 	}
 }
 
-func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(event event)) {
+func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(e event.Event)) {
 	if mac == 0 {
-		publish(invalidConfigurationEvent{errors.New("camera mac is empty")})
+		publish(event.InvalidConfiguration{errors.New("camera mac is empty")})
 		return
 	}
 	log("checking status of device with mac: %d", mac)
@@ -455,7 +457,7 @@ func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, event ev
 	}
 	log("status from DeviceIsUp check: %v", alive)
 	if alive == status {
-		publish(event)
+		publish(e)
 		return
 	}
 }

@@ -8,6 +8,8 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -20,16 +22,16 @@ func TestHandleTimeEvent(t *testing.T) {
 	tests := []struct {
 		desc           string
 		initialState   state
-		event          event
-		expectedEvents []event
+		e              event.Event
+		expectedEvents []event.Event
 		expectedState  state
 		cfg            *Cfg
 	}{
 		{
 			desc:           "vidforwardPermanentLive with time after End",
 			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardPermanentTransitionLiveToSlate(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -39,8 +41,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryLive with time after End",
 			initialState:   newVidforwardSecondaryLive(bCtx),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -50,8 +52,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directLive with time after End",
 			initialState:   newDirectLive(bCtx),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -61,8 +63,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentLiveUnhealthy with time after End",
 			initialState:   newVidforwardPermanentLiveUnhealthy(bCtx),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardPermanentTransitionLiveToSlate(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -72,8 +74,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryLiveUnhealthy with time after End",
 			initialState:   newVidforwardSecondaryLiveUnhealthy(),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -83,8 +85,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directLiveUnhealthy with time after End",
 			initialState:   newDirectLiveUnhealthy(bCtx),
-			event:          timeEvent{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(2 * time.Hour)}, // Assuming this is after cfg.End
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &Cfg{
 				Start: now,
@@ -94,9 +96,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentIdle with time after end",
 			initialState: newVidforwardPermanentIdle(bCtx),
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: newVidforwardPermanentIdle(bCtx),
 			cfg: &Cfg{
@@ -107,9 +109,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardSecondaryIdle with time after end",
 			initialState: newVidforwardSecondaryIdle(bCtx),
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
@@ -120,9 +122,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentSlate with time after end",
 			initialState: newVidforwardPermanentSlate(),
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: newVidforwardPermanentSlate(),
 			cfg: &Cfg{
@@ -133,9 +135,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentSlateUnhealthy with time after end",
 			initialState: newVidforwardPermanentSlateUnhealthy(bCtx),
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: newVidforwardPermanentSlateUnhealthy(bCtx),
 			cfg: &Cfg{
@@ -146,9 +148,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "directIdle with time after end",
 			initialState: newDirectIdle(bCtx),
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: newDirectIdle(bCtx),
 			cfg: &Cfg{
@@ -159,9 +161,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentStarting with time after end",
 			initialState: &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &Cfg{
@@ -172,9 +174,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardSecondaryStarting with time after end",
 			initialState: &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &Cfg{
@@ -185,9 +187,9 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "directStarting with time after end",
 			initialState: &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
-			event:        timeEvent{now.Add(70 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
+			e:            event.Time{now.Add(70 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
 			},
 			expectedState: &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(67*time.Minute))},
 			cfg: &Cfg{
@@ -198,11 +200,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentLive within broadcast period",
 			initialState: newVidforwardPermanentLive(),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
 			},
 			expectedState: newVidforwardPermanentLive(),
 			cfg: &Cfg{
@@ -213,11 +215,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardSecondaryLive within broadcast period",
 			initialState: newVidforwardSecondaryLive(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
 			},
 			expectedState: newVidforwardSecondaryLive(bCtx),
 			cfg: &Cfg{
@@ -228,11 +230,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "directLive within broadcast period",
 			initialState: newDirectLive(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
 			},
 			expectedState: newDirectLive(bCtx),
 			cfg: &Cfg{
@@ -243,12 +245,12 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentLiveUnhealthy within broadcast period",
 			initialState: newVidforwardPermanentLiveUnhealthy(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
-				hardwareResetRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
+				event.HardwareResetRequest{},
 			},
 			expectedState: newVidforwardPermanentLiveUnhealthy(bCtx),
 			cfg: &Cfg{
@@ -259,11 +261,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardSecondaryLiveUnhealthy within broadcast period",
 			initialState: newVidforwardSecondaryLiveUnhealthy(),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
 			},
 			expectedState: newVidforwardSecondaryLiveUnhealthy(),
 			cfg: &Cfg{
@@ -274,12 +276,12 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "directLiveUnhealthy within broadcast period",
 			initialState: newDirectLiveUnhealthy(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
-				hardwareResetRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
+				event.HardwareResetRequest{},
 			},
 			expectedState: newDirectLiveUnhealthy(bCtx),
 			cfg: &Cfg{
@@ -290,11 +292,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardSecondaryIdle within broadcast period",
 			initialState: newVidforwardSecondaryIdle(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
 			},
 			expectedState: newVidforwardSecondaryStarting(bCtx),
 			cfg: &Cfg{
@@ -305,11 +307,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentIdle within broadcast period",
 			initialState: newVidforwardPermanentIdle(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
 			},
 			expectedState: newVidforwardPermanentStarting(bCtx),
 			cfg: &Cfg{
@@ -320,11 +322,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "vidforwardPermanentSlate within broadcast period",
 			initialState: newVidforwardPermanentSlate(),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
 			},
 			expectedState: newVidforwardPermanentTransitionSlateToLive(bCtx),
 			cfg: &Cfg{
@@ -335,11 +337,11 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:         "directIdle in broadcastPeriod",
 			initialState: newDirectIdle(bCtx),
-			event:        timeEvent{now.Add(30 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
+			e:            event.Time{now.Add(30 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
 			},
 			expectedState: newDirectStarting(bCtx),
 			cfg: &Cfg{
@@ -350,8 +352,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentStarting in broadcastPeriod",
 			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
-			event:          timeEvent{now.Add(14 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(14 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -361,8 +363,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryStarting in broadcastPeriod",
 			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
-			event:          timeEvent{now.Add(14 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(14 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -372,8 +374,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directStarting in broadcastPeriod",
 			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
-			event:          timeEvent{now.Add(14 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(14 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now.Add(10*time.Minute))},
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -383,8 +385,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentLive before start",
 			initialState:   newVidforwardPermanentLive(),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardPermanentTransitionLiveToSlate(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -394,8 +396,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryLive before start",
 			initialState:   newVidforwardSecondaryLive(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -405,8 +407,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directLive before start",
 			initialState:   newDirectLive(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -416,8 +418,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentLiveUnhealthy before start",
 			initialState:   newVidforwardPermanentLiveUnhealthy(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardPermanentTransitionLiveToSlate(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -427,8 +429,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryLiveUnhealthy before start",
 			initialState:   newVidforwardSecondaryLiveUnhealthy(),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -438,8 +440,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "directLiveUnhealthy before start",
 			initialState:   newDirectLiveUnhealthy(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, finishEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.Finish{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -449,8 +451,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardSecondaryIdle before start",
 			initialState:   newVidforwardSecondaryIdle(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -460,8 +462,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentIdle before start",
 			initialState:   newVidforwardPermanentIdle(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  newVidforwardPermanentIdle(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -471,8 +473,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentSlate before start",
 			initialState:   newVidforwardPermanentSlate(),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  newVidforwardPermanentSlate(),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -482,8 +484,8 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentSlateUnhealthy before start",
 			initialState:   newVidforwardPermanentSlateUnhealthy(bCtx),
-			event:          timeEvent{now.Add(5 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(5 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  newVidforwardPermanentSlateUnhealthy(bCtx),
 			cfg: &Cfg{
 				Start: now.Add(10 * time.Minute),
@@ -493,48 +495,48 @@ func TestHandleTimeEvent(t *testing.T) {
 		{
 			desc:           "vidforwardPermanentStarting timed out",
 			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(6 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, startFailedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(6 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.StartFailed{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardPermanentIdle(bCtx),
 			cfg:            &Cfg{},
 		},
 		{
 			desc:           "vidforwardPermanentStarting not timed out",
 			initialState:   &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(4 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(4 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &vidforwardPermanentStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &Cfg{},
 		},
 		{
 			desc:           "vidforwardSecondaryStarting timed out",
 			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(6 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(6 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.HardwareStopRequest{}},
 			expectedState:  newVidforwardSecondaryIdle(bCtx),
 			cfg:            &Cfg{},
 		},
 		{
 			desc:           "vidforwardSecondaryStarting not timed out",
 			initialState:   &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(4 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(4 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &vidforwardSecondaryStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &Cfg{},
 		},
 		{
 			desc:           "directStarting timed out",
 			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(11 * time.Minute)},
-			expectedEvents: []event{timeEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}},
+			e:              event.Time{now.Add(11 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}, event.StartFailed{}, event.Finished{}, event.HardwareStopRequest{}},
 			expectedState:  newDirectIdle(bCtx),
 			cfg:            &Cfg{},
 		},
 		{
 			desc:           "directStarting not timed out",
 			initialState:   &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
-			event:          timeEvent{now.Add(4 * time.Minute)},
-			expectedEvents: []event{timeEvent{}},
+			e:              event.Time{now.Add(4 * time.Minute)},
+			expectedEvents: []event.Event{event.Time{}},
 			expectedState:  &directStarting{stateWithTimeoutFields: newStateWithTimeoutFieldsWithLastEntered(bCtx, now)},
 			cfg:            &Cfg{},
 		},
@@ -542,14 +544,14 @@ func TestHandleTimeEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			var publishedEvents []event
-			handler := func(e event) error {
+			var publishedEvents []event.Event
+			handler := func(e event.Event) error {
 				publishedEvents = append(publishedEvents, e)
 				return nil
 			}
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
-			bus.subscribe(handler)
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus.Subscribe(handler)
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -563,9 +565,9 @@ func TestHandleTimeEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(tt.event)
+			bus.Publish(tt.e)
 
 			if len(publishedEvents) != len(tt.expectedEvents) {
 				t.Fatalf(
@@ -652,7 +654,7 @@ func TestHandleStartFailedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -666,9 +668,9 @@ func TestHandleStartFailedEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(startFailedEvent{})
+			bus.Publish(event.StartFailed{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -771,7 +773,7 @@ func TestHandleBadHealthEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -785,9 +787,9 @@ func TestHandleBadHealthEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(badHealthEvent{})
+			bus.Publish(event.BadHealth{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -890,7 +892,7 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -904,9 +906,9 @@ func TestHandleGoodHealthEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(goodHealthEvent{})
+			bus.Publish(event.GoodHealth{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -991,7 +993,7 @@ func TestHandleFinishEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -1005,9 +1007,9 @@ func TestHandleFinishEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(finishEvent{})
+			bus.Publish(event.Finish{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -1098,7 +1100,7 @@ func TestHandleStartEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -1112,9 +1114,9 @@ func TestHandleStartEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(startEvent{})
+			bus.Publish(event.Start{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -1169,7 +1171,7 @@ func TestHandleStartedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, func(string, ...interface{}) {})
+			bus := event.NewBasicEventBus(ctx, nil, func(string, ...interface{}) {})
 
 			bCtx.man = newDummyManager(t, tt.cfg)
 			bCtx.fwd = newDummyForwardingService()
@@ -1183,9 +1185,9 @@ func TestHandleStartedEvent(t *testing.T) {
 
 			sm.currentState = tt.initialState
 
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
-			bus.publish(startedEvent{})
+			bus.Publish(event.Started{})
 
 			// Assuming you have a stateToString function
 			if stateToString(sm.currentState) != stateToString(tt.expectedState) {
@@ -1215,8 +1217,8 @@ func TestBroadcastStart(t *testing.T) {
 		hardwareMan              hardwareManager
 		expectHardwareStartCall  bool
 		expectBroadcastStartCall bool
-		inputEvent               event
-		expectedEvents           []event
+		inputEvent               event.Event
+		expectedEvents           []event.Event
 	}{
 		{
 			desc: "direct broadcast successful start",
@@ -1229,16 +1231,16 @@ func TestBroadcastStart(t *testing.T) {
 			hardwareMan:              newDummyHardwareManager(),
 			expectHardwareStartCall:  true,
 			expectBroadcastStartCall: true,
-			inputEvent:               timeEvent{now.Add(1 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				timeEvent{},
-				hardwareStartedEvent{},
-				startedEvent{},
-				statusCheckDueEvent{},
-				chatMessageDueEvent{},
+			inputEvent:               event.Time{now.Add(1 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.Time{},
+				event.HardwareStarted{},
+				event.Started{},
+				event.StatusCheckDue{},
+				event.ChatMessageDue{},
 			},
 		},
 		{
@@ -1252,12 +1254,12 @@ func TestBroadcastStart(t *testing.T) {
 			hardwareMan:              newDummyHardwareManager(withHardwareFault()),
 			expectHardwareStartCall:  true,
 			expectBroadcastStartCall: false,
-			inputEvent:               timeEvent{now.Add(1 * time.Minute)},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				timeEvent{},
+			inputEvent:               event.Time{now.Add(1 * time.Minute)},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.Time{},
 			},
 		},
 	}
@@ -1265,12 +1267,12 @@ func TestBroadcastStart(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			ctx, _ := context.WithCancel(context.Background())
-			bus := newBasicEventBus(ctx, nil, t.Logf)
+			bus := event.NewBasicEventBus(ctx, nil, t.Logf)
 
 			// Record all events published.
-			var gotEvents []event
-			bus.subscribe(
-				func(e event) error {
+			var gotEvents []event.Event
+			bus.Subscribe(
+				func(e event.Event) error {
 					gotEvents = append(gotEvents, e)
 					return nil
 				},
@@ -1283,19 +1285,19 @@ func TestBroadcastStart(t *testing.T) {
 			bCtx.bus = bus
 
 			hsm := newHardwareStateMachine(bCtx)
-			bus.subscribe(hsm.handleEvent)
+			bus.Subscribe(hsm.handleEvent)
 
 			sm, err := getBroadcastStateMachine(bCtx)
 			if err != nil {
 				t.Fatalf("failed to create state machine: %v", err)
 			}
-			bus.subscribe(sm.handleEvent)
+			bus.Subscribe(sm.handleEvent)
 
 			sm.currentState = tt.initialState
-			bus.publish(tt.inputEvent)
+			bus.Publish(tt.inputEvent)
 			const timeEventInterval = 1 * time.Minute
 			nextTimeEventTime := time.Now().Add(timeEventInterval)
-			bus.publish(timeEvent{nextTimeEventTime})
+			bus.Publish(event.Time{nextTimeEventTime})
 
 			// Wait for broadcast start to complete, or timeout (if something failed).
 			timeout := time.NewTimer(100 * time.Millisecond)
@@ -1353,7 +1355,7 @@ func TestBroadcastStart(t *testing.T) {
 	}
 }
 
-func eventsToStringSlice(events []event) []string {
+func eventsToStringSlice(events []event.Event) []string {
 	var result []string
 	for _, e := range events {
 		result = append(result, e.String())
@@ -1369,7 +1371,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 		cfg            func(*Cfg)
 		initialState   state
 		finalState     state
-		expectedEvents []event
+		expectedEvents []event.Event
 		expectedLogs   []string
 		expectedNotify map[int64]map[notify.Kind][]string
 	}{
@@ -1384,20 +1386,20 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			},
 			initialState: &directIdle{},
 			finalState:   &directFailure{},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				invalidConfigurationEvent{},
-				finishedEvent{},
-				hardwareStopRequestEvent{},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.InvalidConfiguration{},
+				event.Finished{},
+				event.HardwareStopRequest{},
 			},
 			expectedLogs: []string{
 				"(invalidConfigurationEvent) camera mac is empty",
 			},
 			expectedNotify: map[int64]map[notify.Kind][]string{
 				testSiteKey: {
-					broadcastConfiguration: []string{
+					notification.KindConfiguration: []string{
 						"error event: (invalidConfigurationEvent) camera mac is empty",
 						"entering direct broadcast failure state due to: (invalidConfigurationEvent) camera mac is empty",
 					},
@@ -1414,14 +1416,14 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			},
 			initialState: &directIdle{},
 			finalState:   &directLive{},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				timeEvent{},
-				timeEvent{},
-				hardwareStartedEvent{},
-				startedEvent{},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.Time{},
+				event.Time{},
+				event.HardwareStarted{},
+				event.Started{},
 			},
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1520,10 +1522,10 @@ func TestHandleCameraConfiguration(t *testing.T) {
 func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 	const testSiteKey = 7845764367
 
-	timeEvents := func(n int) []event {
-		var events []event
+	timeEvents := func(n int) []event.Event {
+		var events []event.Event
 		for i := 0; i < n; i++ {
-			events = append(events, timeEvent{})
+			events = append(events, event.Time{})
 		}
 		return events
 	}
@@ -1541,7 +1543,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 		// Some tests may require more ticks to reach the final state.
 		requiredTicks int
 
-		expectedEvents []event
+		expectedEvents []event.Event
 		expectedLogs   []string
 		expectedNotify map[int64]map[notify.Kind][]string
 	}{
@@ -1564,7 +1566,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
-			expectedEvents: []event{timeEvent{}, startEvent{}, hardwareStartRequestEvent{}, lowVoltageEvent{}},
+			expectedEvents: []event.Event{event.Time{}, event.Start{}, event.HardwareStartRequest{}, event.LowVoltage{}},
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
 		},
@@ -1590,13 +1592,13 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			requiredTicks: 60,
 			expectedEvents: append(
 				append(
-					[]event{
-						timeEvent{},
-						startEvent{},
-						hardwareStartRequestEvent{},
-						lowVoltageEvent{},
+					[]event.Event{
+						event.Time{},
+						event.Start{},
+						event.HardwareStartRequest{},
+						event.LowVoltage{},
 					}, timeEvents(48)...),
-				[]event{voltageRecoveredEvent{}}...,
+				[]event.Event{event.VoltageRecovered{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1623,13 +1625,13 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			requiredTicks: 260,
 			expectedEvents: append(
 				append(
-					[]event{
-						timeEvent{},
-						startEvent{},
-						hardwareStartRequestEvent{},
-						lowVoltageEvent{},
+					[]event.Event{
+						event.Time{},
+						event.Start{},
+						event.HardwareStartRequest{},
+						event.LowVoltage{},
 					}, timeEvents(241)...), // Time events to account for charging time.
-				[]event{hardwareStartFailedEvent{}, startFailedEvent{}, finishedEvent{}, hardwareStopRequestEvent{}}...,
+				[]event.Event{event.HardwareStartFailed{}, event.StartFailed{}, event.Finished{}, event.HardwareStopRequest{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1654,13 +1656,13 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				controllerFailureEvent{},
-				finishedEvent{},
-				hardwareStopRequestEvent{},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.ControllerFailure{},
+				event.Finished{},
+				event.HardwareStopRequest{},
 			},
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1688,13 +1690,13 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			requiredTicks: 60,
 			expectedEvents: append(
 				append(
-					[]event{
-						timeEvent{},
-						startEvent{},
-						hardwareStartRequestEvent{},
-						lowVoltageEvent{},
+					[]event.Event{
+						event.Time{},
+						event.Start{},
+						event.HardwareStartRequest{},
+						event.LowVoltage{},
 					}, timeEvents(48)...),
-				[]event{voltageRecoveredEvent{}}...,
+				[]event.Event{event.VoltageRecovered{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1720,11 +1722,11 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,
-			expectedEvents: []event{
-				timeEvent{},
-				startEvent{},
-				hardwareStartRequestEvent{},
-				lowVoltageEvent{},
+			expectedEvents: []event.Event{
+				event.Time{},
+				event.Start{},
+				event.HardwareStartRequest{},
+				event.LowVoltage{},
 			},
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
@@ -1753,25 +1755,25 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			requiredTicks: 60,
 			expectedEvents: append(
 				append(
-					[]event{
-						timeEvent{},
-						startEvent{},
-						hardwareStartRequestEvent{},
-						lowVoltageEvent{},
+					[]event.Event{
+						event.Time{},
+						event.Start{},
+						event.HardwareStartRequest{},
+						event.LowVoltage{},
 					}, timeEvents(48)...),
-				[]event{
-					voltageRecoveredEvent{},
-					hardwareStartRequestEvent{},
-					timeEvent{},
-					healthCheckDueEvent{},
-					goodHealthEvent{},
-					timeEvent{},
-					hardwareStartedEvent{},
-					timeEvent{},
-					healthCheckDueEvent{},
-					goodHealthEvent{},
-					statusCheckDueEvent{},
-					chatMessageDueEvent{},
+				[]event.Event{
+					event.VoltageRecovered{},
+					event.HardwareStartRequest{},
+					event.Time{},
+					event.HealthCheckDue{},
+					event.GoodHealth{},
+					event.Time{},
+					event.HardwareStarted{},
+					event.Time{},
+					event.HealthCheckDue{},
+					event.GoodHealth{},
+					event.StatusCheckDue{},
+					event.ChatMessageDue{},
 				}...,
 			),
 			expectedLogs:   []string{},
@@ -1795,7 +1797,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
 				return newDummyManager(t, c)
 			},
-			expectedEvents: []event{timeEvent{}, startEvent{}, hardwareStartRequestEvent{}, lowVoltageEvent{}},
+			expectedEvents: []event.Event{event.Time{}, event.Start{}, event.HardwareStartRequest{}, event.LowVoltage{}},
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},
 		},
@@ -1820,13 +1822,13 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			requiredTicks: 60,
 			expectedEvents: append(
 				append(
-					[]event{
-						timeEvent{},
-						startEvent{},
-						hardwareStartRequestEvent{},
-						lowVoltageEvent{},
+					[]event.Event{
+						event.Time{},
+						event.Start{},
+						event.HardwareStartRequest{},
+						event.LowVoltage{},
 					}, timeEvents(49)...),
-				[]event{voltageRecoveredEvent{}}...,
+				[]event.Event{event.VoltageRecovered{}}...,
 			),
 			expectedLogs:   []string{},
 			expectedNotify: map[int64]map[notify.Kind][]string{},

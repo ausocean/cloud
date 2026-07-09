@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -96,7 +97,7 @@ type oceanTVService struct {
 
 type oceanTVOption func(*oceanTVService) error
 
-type eventHook func(event, *Cfg)
+type eventHook func(event.Event, *Cfg)
 type stateHook func(state, *Cfg)
 
 func withEventHooks(hooks ...eventHook) oceanTVOption {
@@ -215,9 +216,9 @@ func performChecksInternalThroughStateMachine(
 	// Construct the event handlers from the hooks.
 	// We have to do this because event handlers are not on a per config basic like
 	// the hooks are, so we use a closure to capture the config.
-	var eventHandlers []handler
+	var eventHandlers []event.Handler
 	for _, hook := range eventHooks {
-		eventHandlers = append(eventHandlers, func(e event) error {
+		eventHandlers = append(eventHandlers, func(e event.Event) error {
 			hook(e, cfg)
 			return nil
 		})

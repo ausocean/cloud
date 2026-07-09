@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -46,7 +47,7 @@ import (
 
 const (
 	projectID             = "oceantv"
-	version               = "v0.13.7"
+	version               = "v0.14.0"
 	projectURL            = "https://tv.cloudblue.org"
 	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
@@ -280,7 +281,7 @@ func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error)
 	}
 	recipients := []string{site.OpsEmail}
 	switch kind {
-	case broadcastHardware, broadcastNetwork, broadcastConfiguration:
+	case notification.KindHardware, notification.KindNetwork, notification.KindConfiguration:
 		if site.YouTubeEmail == "" {
 			log.Printf("YouTubeEmail not defined for site %s", site.Name)
 			break

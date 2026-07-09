@@ -23,6 +23,8 @@ LICENSE
 
 package main
 
+import "github.com/ausocean/cloud/cmd/oceantv/event"
+
 type vidforwardSecondaryLiveUnhealthy struct {
 	stateFields
 	liveStateFields
@@ -32,38 +34,38 @@ func newVidforwardSecondaryLiveUnhealthy() *vidforwardSecondaryLiveUnhealthy {
 	return &vidforwardSecondaryLiveUnhealthy{}
 }
 
-func (s *vidforwardSecondaryLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardSecondaryLiveUnhealthy) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case goodHealthEvent:
+	case event.GoodHealth:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
-	case timeEvent:
-		if sm.finishIsDue(e) {
-			sm.ctx.bus.publish(finishEvent{})
+	case event.Time:
+		if sm.finishIsDue(e_) {
+			sm.ctx.bus.Publish(event.Finish{})
 			return
 		}
-		sm.publishHealthStatusOrChatEvents(e)
+		sm.publishHealthStatusOrChatEvents(e_)
 		sm.tryToFixCurrentState()
-	case finishEvent:
+	case event.Finish:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
 	case
-		criticalFailureEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 
 }

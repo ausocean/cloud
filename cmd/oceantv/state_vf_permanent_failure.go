@@ -23,6 +23,11 @@ LICENSE
 
 package main
 
+import (
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
+)
+
 type vidforwardPermanentFailure struct {
 	stateFields
 	*broadcastContext `json: "-"`
@@ -34,37 +39,37 @@ func newVidforwardPermanentFailure(ctx *broadcastContext) *vidforwardPermanentFa
 
 func (s *vidforwardPermanentFailure) enter() { s.requestSlate() }
 
-func (s *vidforwardPermanentFailure) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardPermanentFailure) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case badHealthEvent:
-		sm.logAndNotify(broadcastNetwork, "getting bad health event in permanent failure state")
+	case event.BadHealth:
+		sm.logAndNotify(notification.KindNetwork, "getting bad health event in permanent failure state")
 	case
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		timeEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.Time,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
 
 func (s *vidforwardPermanentFailure) fix() { s.requestSlate() }
 
 func (s *vidforwardPermanentFailure) requestSlate() {
-	s.bus.publish(hardwareStopRequestEvent{})
+	s.bus.Publish(event.HardwareStopRequest{})
 	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }

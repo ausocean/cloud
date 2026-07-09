@@ -23,6 +23,11 @@ LICENSE
 
 package main
 
+import (
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
+)
+
 type vidforwardPermanentLive struct {
 	stateFields
 	liveStateFields
@@ -30,38 +35,38 @@ type vidforwardPermanentLive struct {
 
 func newVidforwardPermanentLive() *vidforwardPermanentLive { return &vidforwardPermanentLive{} }
 
-func (s *vidforwardPermanentLive) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardPermanentLive) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case hardwareStartFailedEvent:
-		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
+	case event.HardwareStartFailed:
+		sm.logAndNotify(notification.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case badHealthEvent:
+	case event.BadHealth:
 		sm.transition(newVidforwardPermanentLiveUnhealthy(sm.ctx))
-	case timeEvent:
-		if sm.finishIsDue(e) {
-			sm.ctx.bus.publish(finishEvent{})
+	case event.Time:
+		if sm.finishIsDue(e_) {
+			sm.ctx.bus.Publish(event.Finish{})
 			return
 		}
-		sm.publishHealthStatusOrChatEvents(e)
-	case finishEvent:
+		sm.publishHealthStatusOrChatEvents(e_)
+	case event.Finish:
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case
-		criticalFailureEvent,
-		fixFailureEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.FixFailure,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }

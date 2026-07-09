@@ -23,6 +23,8 @@ LICENSE
 
 package main
 
+import "github.com/ausocean/cloud/cmd/oceantv/event"
+
 type vidforwardSecondaryIdle struct {
 	stateFields
 	*broadcastContext `json: "-"`
@@ -33,31 +35,31 @@ func newVidforwardSecondaryIdle(ctx *broadcastContext) *vidforwardSecondaryIdle 
 }
 
 func (s *vidforwardSecondaryIdle) enter() {
-	s.bus.publish(hardwareStopRequestEvent{})
+	s.bus.Publish(event.HardwareStopRequest{})
 }
 
-func (s *vidforwardSecondaryIdle) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case timeEvent:
-		if sm.startIsDue(e) {
-			sm.ctx.bus.publish(startEvent{})
+func (s *vidforwardSecondaryIdle) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.Time:
+		if sm.startIsDue(e_) {
+			sm.ctx.bus.Publish(event.Start{})
 			return
 		} else {
-			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e_.Time.Format("15:04"))
 		}
-	case startEvent:
+	case event.Start:
 		sm.transition(newVidforwardSecondaryStarting(sm.ctx))
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		invalidConfigurationEvent,
-		lowVoltageEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.InvalidConfiguration,
+		event.LowVoltage,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }

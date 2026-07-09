@@ -26,6 +26,8 @@ package main
 import (
 	"fmt"
 	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 )
 
 type vidforwardSecondaryStarting struct {
@@ -56,50 +58,50 @@ func (s *vidforwardSecondaryStarting) enter() {
 	)
 }
 
-func (s *vidforwardSecondaryStarting) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case lowVoltageEvent:
+func (s *vidforwardSecondaryStarting) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.LowVoltage:
 		// If we're in the starting state we need to reset the timeout to allow for
 		// hardware voltage recovery (remembering that this is not our primary timeout
 		// mechanism, which is handled by the hardware SM but a rather a contingency that
 		// we shouldn't hit with normal behaviour).
 		const broadcastVoltageRecoveryOffset = 10 * time.Minute
 		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
-	case voltageRecoveredEvent:
+	case event.VoltageRecovered:
 		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
-	case invalidConfigurationEvent:
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case startFailedEvent:
+	case event.StartFailed:
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case criticalFailureEvent:
+	case event.CriticalFailure:
 		// There might need to be a secondary failure state, but we're not sure
 		// yet. For now, we'll just transition to idle. Most failures will occur
 		// as a result of a hardware failure, for which the primary broadcast
 		// will subsequently be in a failure state.
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case hardwareStartFailedEvent:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e)
-	case controllerFailureEvent:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(e)
+	case event.HardwareStartFailed:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e_)
+	case event.ControllerFailure:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(e_)
 		sm.transition(newVidforwardSecondaryIdle(sm.ctx))
-	case timeEvent:
-		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), e)
-	case hardwareStartedEvent:
+	case event.Time:
+		sm.transitionIfTimedOut(sm.currentState, newVidforwardSecondaryIdle(sm.ctx), e_)
+	case event.HardwareStarted:
 		startBroadcast(sm.ctx, sm.ctx.cfg)
-	case startedEvent:
+	case event.Started:
 		sm.transition(newVidforwardSecondaryLive(sm.ctx))
 	case
-		badHealthEvent,
-		finishEvent,
-		fixFailureEvent,
-		startEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.Finish,
+		event.FixFailure,
+		event.Start:
+		sm.unexpectedEvent(e, s)
 	}
 }

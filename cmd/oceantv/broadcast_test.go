@@ -34,6 +34,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -436,7 +437,7 @@ func (h *dummyHardwareManager) shutdown(ctx *broadcastContext) {
 	ctx.log("shutting down hardware")
 	h.shutdownCalled = true
 	if ctx.cfg.ShutdownActions == "" {
-		ctx.bus.publish(hardwareShutdownFailedEvent{})
+		ctx.bus.Publish(event.HardwareShutdownFailed{})
 		return
 	}
 	h.latestRequest = request{"shutdown", time.Now()}
@@ -446,21 +447,21 @@ func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
 	h.stopCalled = true
 	h.latestRequest = request{"stop", time.Now()}
 }
-func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, event event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(event event)) {
+func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event)) {
 	if h.checkMAC && mac == 0 {
-		publish(invalidConfigurationEvent{errors.New("camera mac is empty")})
+		publish(event.InvalidConfiguration{errors.New("camera mac is empty")})
 		return
 	}
 	up, err := h.isUp(ctx, model.MacDecode(mac))
 	if err != nil {
-		publish(invalidConfigurationEvent{fmt.Errorf("could not get device: %w", err)})
+		publish(event.InvalidConfiguration{fmt.Errorf("could not get device: %w", err)})
 		return
 	}
 
 	if status == true && up {
-		publish(event)
+		publish(e)
 	} else if status == false {
-		publish(event)
+		publish(e)
 	}
 }
 func (h *dummyHardwareManager) error(ctx *broadcastContext) (error, error) {
@@ -574,9 +575,9 @@ func (r *logRecorder) checkLogs(want []string) error {
 // cancelled.
 type mockEventBus struct {
 	disabled     bool
-	handlers     []handler
+	handlers     []event.Handler
 	log          func(string, ...interface{})
-	eventHistory []event
+	eventHistory []event.Event
 }
 
 // newmockEventBus creates a new mockEventBus.
@@ -584,22 +585,24 @@ func newMockEventBus(log func(string, ...interface{})) *mockEventBus {
 	return &mockEventBus{log: log}
 }
 
-func (bus *mockEventBus) subscribe(handler handler) { bus.handlers = append(bus.handlers, handler) }
+func (bus *mockEventBus) Subscribe(handler event.Handler) {
+	bus.handlers = append(bus.handlers, handler)
+}
 
-func (bus *mockEventBus) publish(event event) {
-	bus.eventHistory = append(bus.eventHistory, event)
-	bus.log("publishing event: %s: %v", event.String(), event)
+func (bus *mockEventBus) Publish(e event.Event) {
+	bus.eventHistory = append(bus.eventHistory, e)
+	bus.log("publishing event: %s: %v", e.String(), e)
 
 	for _, handler := range bus.handlers {
-		err := handler(event)
+		err := handler(e)
 		if err != nil {
-			bus.log("error handling event: %s: %v", event.String(), err)
+			bus.log("error handling event: %s: %v", e.String(), err)
 		}
 	}
 }
 
-func (bus *mockEventBus) checkEvents(want []event) error {
-	fmtError := func(want, got []event) error {
+func (bus *mockEventBus) checkEvents(want []event.Event) error {
+	fmtError := func(want, got []event.Event) error {
 		return fmt.Errorf(
 			"expected %d events, got %d, expected: %v, got: %v",
 			len(want),

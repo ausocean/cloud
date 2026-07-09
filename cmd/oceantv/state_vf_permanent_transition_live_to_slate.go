@@ -23,7 +23,12 @@ LICENSE
 
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notification"
+)
 
 type vidforwardPermanentTransitionLiveToSlate struct {
 	stateFields
@@ -39,44 +44,44 @@ func newVidforwardPermanentTransitionLiveToSlate(ctx *broadcastContext) *vidforw
 func (s *vidforwardPermanentTransitionLiveToSlate) enter() {
 	s.LastEntered = time.Now()
 
-	s.bus.publish(hardwareStopRequestEvent{})
+	s.bus.Publish(event.HardwareStopRequest{})
 	try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 }
 
-func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case goodHealthEvent:
+	case event.GoodHealth:
 		if sm.currentState.(*vidforwardPermanentTransitionLiveToSlate).isHardwareStopped() {
 			sm.transition(newVidforwardPermanentSlate())
 		}
-	case timeEvent:
+	case event.Time:
 		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(e.Time) {
-			sm.logAndNotify(broadcastForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
+		if withTimeout.timedOut(e_.Time) {
+			sm.logAndNotify(notification.KindForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
 			sm.transition(newVidforwardPermanentLive())
 		}
-		sm.publishHealthEvent(e)
+		sm.publishHealthEvent(e_)
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
 

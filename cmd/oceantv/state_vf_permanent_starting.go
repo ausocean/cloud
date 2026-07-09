@@ -28,6 +28,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 )
 
 type vidforwardPermanentStarting struct {
@@ -48,7 +50,7 @@ func (s *vidforwardPermanentStarting) enter() {
 	cfg.End = cfg.End.AddDate(1, 0, 0)
 
 	if !try(s.man.SetupSecondary(context.Background(), s.cfg, s.store), "could not setup secondary broadcast", s.log) {
-		s.bus.publish(startFailedEvent{})
+		s.bus.Publish(event.StartFailed{})
 		return
 	}
 
@@ -69,49 +71,49 @@ func (s *vidforwardPermanentStarting) enter() {
 	)
 }
 
-func (s *vidforwardPermanentStarting) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case lowVoltageEvent:
+func (s *vidforwardPermanentStarting) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.LowVoltage:
 		// If we're in the starting state we need to reset the timeout to allow for
 		// hardware voltage recovery (remembering that this is not our primary timeout
 		// mechanism, which is handled by the hardware SM but a rather a contingency that
 		// we shouldn't hit with normal behaviour).
 		const broadcastVoltageRecoveryOffset = 10 * time.Minute
 		sm.currentState.(stateWithTimeout).reset(time.Duration(sanatisedVoltageRecoveryTimeout(sm.ctx))*time.Hour + broadcastVoltageRecoveryOffset)
-	case voltageRecoveredEvent:
+	case event.VoltageRecovered:
 		sm.currentState.(stateWithTimeout).reset(5 * time.Minute)
-	case invalidConfigurationEvent:
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case startFailedEvent:
+	case event.StartFailed:
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case criticalFailureEvent:
+	case event.CriticalFailure:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case hardwareStartFailedEvent:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e)
-	case controllerFailureEvent:
-		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(e)
+	case event.HardwareStartFailed:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, false)(e_)
+	case event.ControllerFailure:
+		onFailureClosure(sm.ctx, sm.ctx.cfg, true)(e_)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case timeEvent:
+	case event.Time:
 		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(e.Time) {
+		if withTimeout.timedOut(e_.Time) {
 			onFailureClosure(sm.ctx, sm.ctx.cfg, false)(errors.New("permanent starting timed out"))
 		}
-	case hardwareStartedEvent:
+	case event.HardwareStarted:
 		startBroadcast(sm.ctx, sm.ctx.cfg)
-	case startedEvent:
+	case event.Started:
 		sm.transition(newVidforwardPermanentLive())
 	case
-		badHealthEvent,
-		finishEvent,
-		fixFailureEvent,
-		startEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.Finish,
+		event.FixFailure,
+		event.Start:
+		sm.unexpectedEvent(e, s)
 	}
 }
