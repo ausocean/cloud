@@ -1,6 +1,29 @@
-package main
+/*
+AUTHORS
+  Saxon Nelson-Milton <saxon@ausocean.org>
+
+LICENSE
+  Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
+
+  This file is part of Ocean TV. Ocean TV is free software: you can
+  redistribute it and/or modify it under the terms of the GNU
+  General Public License as published by the Free Software
+  Foundation, either version 3 of the License, or (at your option)
+  any later version.
+
+  Ocean TV is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+package composite
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -8,11 +31,18 @@ import (
 	"github.com/ausocean/cloud/datastore"
 )
 
-// ausOceanCompositeStore returns a composite store that delegates to the
+type (
+	ctx   = context.Context
+	store = datastore.Store
+	key   = datastore.Key
+	ety   = datastore.Entity
+)
+
+// AusOceanStore returns a composite store that delegates to the
 // appropriate store based on the kind of the entity. This tries to fix the
 // awkwardness of selecting the right store based on the kind of the entity
 // you're dealing with.
-func ausOceanCompositeStore(settingsStore, mediaStore Store) *CompositeStore {
+func AusOceanStore(settingsStore, mediaStore store) *Store {
 	getKindFromQuery := func(query datastore.Query) string {
 		getKindField := func(v reflect.Value) string {
 			const kindField = "kind"
@@ -40,8 +70,8 @@ func ausOceanCompositeStore(settingsStore, mediaStore Store) *CompositeStore {
 		}
 	}
 
-	return NewCompositeStore(
-		map[string]Store{
+	return NewStore(
+		map[string]store{
 			"Scalar":     mediaStore,
 			"Text":       mediaStore,
 			"MtsMedia":   mediaStore,
@@ -64,13 +94,13 @@ func ausOceanCompositeStore(settingsStore, mediaStore Store) *CompositeStore {
 	)
 }
 
-// CompositeStore is a datastore "facade" that delegates to the appropriate
+// Store is a datastore "facade" that delegates to the appropriate
 // store based on the kind of the entity. This is useful when you have multiple
 // stores that you want to treat as a single store.
-// CompositeStore implements the Store interface and can therefore
+// Store implements the Store interface and can therefore
 // substitute for any particular store instance.
-type CompositeStore struct {
-	stores        map[string]Store
+type Store struct {
+	stores        map[string]store
 	kindFromQuery KindFromQuery
 }
 
@@ -81,39 +111,39 @@ type CompositeStore struct {
 // assertion switch if there are multiple query types to be handled.
 type KindFromQuery func(datastore.Query) string
 
-// NewCompositeStore returns a new CompositeStore with the given stores.
+// NewStore returns a new CompositeStore with the given stores.
 // The stores map should be keyed by the kind of the entity.
-func NewCompositeStore(stores map[string]Store, kindFromQuery KindFromQuery) *CompositeStore {
-	return &CompositeStore{stores, kindFromQuery}
+func NewStore(stores map[string]store, kindFromQuery KindFromQuery) *Store {
+	return &Store{stores, kindFromQuery}
 }
 
 // IDKey implements the Store.IDKey by calling IDKey on the appropriate
 // store based on the kind.
-func (s *CompositeStore) IDKey(kind string, id int64) *Key {
+func (s *Store) IDKey(kind string, id int64) *key {
 	return s.getStore(kind).IDKey(kind, id)
 }
 
 // NameKey implements the Store.NameKey by calling NameKey on the appropriate
 // store based on the kind.
-func (s *CompositeStore) NameKey(kind, name string) *Key {
+func (s *Store) NameKey(kind, name string) *key {
 	return s.getStore(kind).NameKey(kind, name)
 }
 
 // IncompleteKey implements the Store.IncompleteKey by calling IncompleteKey
 // on the appropriate store based on the kind.
-func (s *CompositeStore) IncompleteKey(kind string) *Key {
+func (s *Store) IncompleteKey(kind string) *key {
 	return s.getStore(kind).IncompleteKey(kind)
 }
 
 // NewQuery implements the Store.NewQuery by calling NewQuery on the appropriate
 // store based on the kind.
-func (s *CompositeStore) NewQuery(kind string, keysOnly bool, keyParts ...string) datastore.Query {
+func (s *Store) NewQuery(kind string, keysOnly bool, keyParts ...string) datastore.Query {
 	return s.getStore(kind).NewQuery(kind, keysOnly, keyParts...)
 }
 
 // Get implements the Store.Get by calling Get on the appropriate store based
 // on the kind.
-func (s *CompositeStore) Get(ctx Ctx, key *Key, dst Ety) error {
+func (s *Store) Get(ctx ctx, key *key, dst ety) error {
 	return s.getStore(key.Kind).Get(ctx, key, dst)
 }
 
@@ -121,41 +151,41 @@ func (s *CompositeStore) Get(ctx Ctx, key *Key, dst Ety) error {
 // We find the appropriate store through trial and error given that the query
 // does not contain the kind. We look at possible stores and try to find the matching
 // one.
-func (s *CompositeStore) GetAll(ctx Ctx, query datastore.Query, dst interface{}) ([]*Key, error) {
+func (s *Store) GetAll(ctx ctx, query datastore.Query, dst interface{}) ([]*key, error) {
 	return s.getStore(s.kindFromQuery(query)).GetAll(ctx, query, dst)
 }
 
 // Create implements the Store.Create by calling Create on the appropriate store
 // based on the kind.
-func (s *CompositeStore) Create(ctx Ctx, key *Key, src Ety) error {
+func (s *Store) Create(ctx ctx, key *key, src ety) error {
 	return s.getStore(key.Kind).Create(ctx, key, src)
 }
 
 // Put implements the Store.Put by calling Put on the appropriate store
 // based on the kind.
-func (s *CompositeStore) Put(ctx Ctx, key *Key, src Ety) (*Key, error) {
+func (s *Store) Put(ctx ctx, key *key, src ety) (*key, error) {
 	return s.getStore(key.Kind).Put(ctx, key, src)
 }
 
 // Update implements the Store.Update by calling Update on the appropriate store
 // based on the kind.
-func (s *CompositeStore) Update(ctx Ctx, key *Key, fn func(Ety), dst Ety) error {
+func (s *Store) Update(ctx ctx, key *key, fn func(ety), dst ety) error {
 	return s.getStore(key.Kind).Update(ctx, key, fn, dst)
 }
 
 // DeleteMulti implements the Store.DeleteMulti by calling DeleteMulti on the
 // appropriate store based on the kind.
-func (s *CompositeStore) DeleteMulti(ctx Ctx, keys []*Key) error {
+func (s *Store) DeleteMulti(ctx ctx, keys []*key) error {
 	return s.getStore(keys[0].Kind).DeleteMulti(ctx, keys)
 }
 
 // Delete implements the Store.Delete by calling Delete on the appropriate store
 // based on the kind.
-func (s *CompositeStore) Delete(ctx Ctx, key *Key) error {
+func (s *Store) Delete(ctx ctx, key *key) error {
 	return s.getStore(key.Kind).Delete(ctx, key)
 }
 
-func (s *CompositeStore) getStore(kind string) Store {
+func (s *Store) getStore(kind string) store {
 	store, ok := s.stores[kind]
 	if !ok {
 		panic(fmt.Sprintf("store not found for kind: %q, ensure this kind is mapped to a store", kind))
