@@ -38,7 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -60,7 +60,6 @@ var (
 	store      *CompositeStore
 	debug      bool
 	standalone bool
-	notifier   notify.Notifier
 	cronSecret []byte
 	tvSecret   []byte
 	storePath  string
@@ -195,7 +194,7 @@ func errNoGlobalNotifierHandler(secrets map[string]string) utils.RecoveryHandler
 			return false
 		}
 		if errors.Is(err, errNoGlobalNotifier) {
-			notifier, err = notify.NewMailjetNotifier(
+			notifier.N, err = notify.NewMailjetNotifier(
 				notify.WithSecrets(secrets),
 				notify.WithRecipientLookup(tvRecipients),
 				notify.WithStore(notify.NewStore(store)),
@@ -258,7 +257,7 @@ func setup(ctx Ctx) {
 		log.Fatalf("could not get secrets: %v", err)
 	}
 
-	notifier, err = notify.NewMailjetNotifier(
+	notifier.N, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(tvRecipients),
 		notify.WithStore(notify.NewStore(store)),
@@ -281,7 +280,7 @@ func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error)
 	}
 	recipients := []string{site.OpsEmail}
 	switch kind {
-	case notification.KindHardware, notification.KindNetwork, notification.KindConfiguration:
+	case notifier.KindHardware, notifier.KindNetwork, notifier.KindConfiguration:
 		if site.YouTubeEmail == "" {
 			log.Printf("YouTubeEmail not defined for site %s", site.Name)
 			break

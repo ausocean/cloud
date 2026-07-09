@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -149,7 +149,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 			try(
 				sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.RequiredStreamingVoltage = defaultRequiredStreamingVoltage }),
 				"could not save default required streaming voltage to config",
-				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(notification.KindSoftware, msg, args...) },
+				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(notifier.KindSoftware, msg, args...) },
 			)
 		}
 

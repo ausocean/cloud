@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentTransitionSlateToLive struct {
@@ -61,7 +61,7 @@ func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStat
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.HardwareStartFailed:
-		sm.logAndNotify(notification.KindHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
+		sm.logAndNotify(notifier.KindHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case event.GoodHealth:
 		if s.isHardwareStarted() {
@@ -69,7 +69,7 @@ func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStat
 		}
 	case event.Time:
 		if s.timedOut(e_.Time) {
-			sm.ctx.logAndNotify(notification.KindGeneric, "transition from slate to live timed out, transitioning to failure slate state")
+			sm.ctx.logAndNotify(notifier.KindGeneric, "transition from slate to live timed out, transitioning to failure slate state")
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 		sm.publishHealthStatusOrChatEvents(e_)

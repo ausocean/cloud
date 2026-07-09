@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentLiveUnhealthy struct {
@@ -65,7 +65,7 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 		e = event.HardwareResetRequest{}
 	}
 
-	s.logAndNotify(notification.KindGeneric, msg, s.Attempts, maxAttempts)
+	s.logAndNotify(notifier.KindGeneric, msg, s.Attempts, maxAttempts)
 	s.bus.Publish(e)
 	s.LastResetAttempt = time.Now()
 }
@@ -82,7 +82,7 @@ func (s *vidforwardPermanentLiveUnhealthy) handleEvent(sm *broadcastStateMachine
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.HardwareStartFailed:
-		sm.logAndNotify(notification.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
+		sm.logAndNotify(notifier.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case event.GoodHealth:
 		sm.transition(newVidforwardPermanentLive())

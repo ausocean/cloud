@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type hardwareRecoveringVoltage struct {
@@ -39,7 +39,7 @@ func sanatisedVoltageRecoveryTimeout(ctx *broadcastContext) int {
 		try(
 			ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.VoltageRecoveryTimeout = defaultRechargeTimeoutHours }),
 			"could not save default recharge timeout hours to config",
-			func(msg string, args ...interface{}) { ctx.logAndNotify(notification.KindSoftware, msg, args...) },
+			func(msg string, args ...interface{}) { ctx.logAndNotify(notifier.KindSoftware, msg, args...) },
 		)
 	}
 	return ctx.cfg.VoltageRecoveryTimeout

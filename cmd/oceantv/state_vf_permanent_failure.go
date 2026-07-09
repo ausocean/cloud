@@ -25,7 +25,7 @@ package main
 
 import (
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentFailure struct {
@@ -51,7 +51,7 @@ func (s *vidforwardPermanentFailure) handleEvent(sm *broadcastStateMachine, e ev
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.BadHealth:
-		sm.logAndNotify(notification.KindNetwork, "getting bad health event in permanent failure state")
+		sm.logAndNotify(notifier.KindNetwork, "getting bad health event in permanent failure state")
 	case
 		event.CriticalFailure,
 		event.Finish,

@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type directLiveUnhealthy struct {
@@ -85,7 +85,7 @@ func (s *directLiveUnhealthy) fix() {
 	if s.Attempts >= maxAttempts {
 		e = event.FixFailure{fmt.Errorf("failed to fix broadcast (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)}
 	} else {
-		s.logAndNotify(notification.KindHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
+		s.logAndNotify(notifier.KindHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
 		s.Attempts++
 		e = event.HardwareResetRequest{}
 	}

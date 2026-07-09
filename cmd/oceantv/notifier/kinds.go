@@ -1,6 +1,6 @@
 /*
 AUTHORS
-  David Sutton <davidsutton@ausocean.org>
+  Saxon Nelson-Milton <saxon@ausocean.org>
 
 LICENSE
   Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
@@ -20,7 +20,7 @@ LICENSE
   in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package notification
+package notifier
 
 import "github.com/ausocean/cloud/notify"
 

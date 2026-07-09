@@ -30,7 +30,7 @@ import (
 	"fmt"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type directFailure struct {
@@ -44,7 +44,7 @@ func newDirectFailure(ctx *broadcastContext, err error) *directFailure {
 }
 func (s *directFailure) enter() {
 	notifyMsg := "entering direct broadcast failure state"
-	notifyKind := notification.KindGeneric
+	notifyKind := notifier.KindGeneric
 	if s.err != nil {
 		if errEvent, ok := s.err.(event.Error); ok {
 			notifyKind = errEvent.Kind()

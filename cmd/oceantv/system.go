@@ -9,7 +9,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
@@ -206,7 +206,7 @@ func (bs *broadcastSystem) tick() error {
 				if status == yt.StatusLive {
 					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
-						bs.ctx.logAndNotify(notification.KindService, "could not complete broadcast, please check this manually: %v", err)
+						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)
 					}
 				}
 			}

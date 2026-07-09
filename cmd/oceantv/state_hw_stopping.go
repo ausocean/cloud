@@ -8,7 +8,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 )
@@ -161,7 +161,7 @@ func (s *hardwareStopping) handleTimeEvent(t event.Time) {
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(notification.KindSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.Substate)
+		s.logAndNotify(notifier.KindSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }
@@ -174,7 +174,7 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(e event.HardwareShu
 		if errors.Is(e, broadcast.WarnSkipShutdown) {
 			s.log("skipping shutdown: %v:", e.Error)
 		} else if errors.Is(e, errNoShutdownActions) {
-			s.logAndNotify(notification.KindHardware, "shutdown skipped: %v", e.Error())
+			s.logAndNotify(notifier.KindHardware, "shutdown skipped: %v", e.Error())
 		}
 		s.transition()
 	default:

@@ -1,6 +1,6 @@
 /*
 AUTHORS
-  David Sutton <davidsutton@ausocean.org>
+  Saxon Nelson-Milton <saxon@ausocean.org>
 
 LICENSE
   Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/notify"
 )
@@ -131,7 +131,7 @@ func (e StartFailed) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindGeneric
+	return notifier.KindGeneric
 }
 
 // Unwrap implements the Error interface.
@@ -178,7 +178,7 @@ func (e CriticalFailure) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindGeneric
+	return notifier.KindGeneric
 }
 
 // Unwrap implements the Error interface.
@@ -289,7 +289,7 @@ func (e HardwareStartFailed) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindHardware
+	return notifier.KindHardware
 }
 
 // Unwrap implements the Error interface.
@@ -336,7 +336,7 @@ func (e HardwareStopFailed) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindHardware
+	return notifier.KindHardware
 }
 
 // Unwrap implements the Error interface.
@@ -395,7 +395,7 @@ func (e ControllerFailure) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindHardware
+	return notifier.KindHardware
 }
 
 // Unwrap implements the Error interface.
@@ -450,7 +450,7 @@ func (e FixFailure) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindGeneric
+	return notifier.KindGeneric
 }
 
 // Unwrap implements the Error interface.
@@ -497,7 +497,7 @@ func (e InvalidConfiguration) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindConfiguration
+	return notifier.KindConfiguration
 }
 
 // Unwrap implements the Error interface.

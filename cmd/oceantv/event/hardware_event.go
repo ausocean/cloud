@@ -1,6 +1,6 @@
 /*
 AUTHORS
-  David Sutton <davidsutton@ausocean.org>
+  Saxon Nelson-Milton <saxon@ausocean.org>
 
 LICENSE
   Copyright (C) 2026 the Australian Ocean Lab (AusOcean)
@@ -25,7 +25,7 @@ package event
 import (
 	"errors"
 
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -58,7 +58,7 @@ func (e HardwareShutdownFailed) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindHardware
+	return notifier.KindHardware
 }
 
 func (e HardwareShutdownFailed) Unwrap() error { return e.Err }
@@ -105,7 +105,7 @@ func (e HardwarePowerOffFailed) Kind() notify.Kind {
 		return unwrapped.Kind()
 	}
 
-	return notification.KindHardware
+	return notifier.KindHardware
 }
 
 func (e HardwarePowerOffFailed) Unwrap() error { return e.Err }

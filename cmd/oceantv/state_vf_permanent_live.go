@@ -25,7 +25,7 @@ package main
 
 import (
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentLive struct {
@@ -47,7 +47,7 @@ func (s *vidforwardPermanentLive) handleEvent(sm *broadcastStateMachine, e event
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.HardwareStartFailed:
-		sm.logAndNotify(notification.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
+		sm.logAndNotify(notifier.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case event.BadHealth:
 		sm.transition(newVidforwardPermanentLiveUnhealthy(sm.ctx))

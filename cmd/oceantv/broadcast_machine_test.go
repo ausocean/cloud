@@ -9,7 +9,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -1399,7 +1399,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 			},
 			expectedNotify: map[int64]map[notify.Kind][]string{
 				testSiteKey: {
-					notification.KindConfiguration: []string{
+					notifier.KindConfiguration: []string{
 						"error event: (invalidConfigurationEvent) camera mac is empty",
 						"entering direct broadcast failure state due to: (invalidConfigurationEvent) camera mac is empty",
 					},

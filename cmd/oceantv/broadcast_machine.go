@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -152,9 +152,9 @@ func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ..
 }
 
 func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(notification.KindSoftware, msg, args...)
+	sm.ctx.logAndNotify(notifier.KindSoftware, msg, args...)
 }
 
 func (sm *broadcastStateMachine) logAndNotifyConfiguration(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(notification.KindConfiguration, msg, args...)
+	sm.ctx.logAndNotify(notifier.KindConfiguration, msg, args...)
 }

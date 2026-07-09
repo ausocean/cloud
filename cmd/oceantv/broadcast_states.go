@@ -12,7 +12,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -47,7 +47,7 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 
 	formattedMsg := fmt.Sprintf(msg, args...)
 
-	// Unmarshal the notification suppression rules from the broadcast configuration.
+	// Unmarshal the notifier suppression rules from the broadcast configuration.
 	// It is of format (case-insensitive for both kinds and containing strings):
 	// {
 	//  "SuppressKinds": ["broadcast-network" , "broadcast-hardware"],
@@ -61,18 +61,18 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	if ctx.cfg.NotifySuppressRules != "" {
 		err := json.Unmarshal([]byte(ctx.cfg.NotifySuppressRules), suppressionRules)
 		if err != nil {
-			ctx.log("could not unmarshal notification suppression rules: %v", err)
+			ctx.log("could not unmarshal notifier suppression rules: %v", err)
 		} else {
 			for _, k := range suppressionRules.SuppressKinds {
 				if strings.EqualFold(k, string(kind)) {
-					ctx.log("suppressing notification of kind %s: %s", kind, formattedMsg)
+					ctx.log("suppressing notifier of kind %s: %s", kind, formattedMsg)
 					return
 				}
 			}
 
 			for _, cont := range suppressionRules.SuppressContaining {
 				if strings.Contains(strings.ToLower(formattedMsg), strings.ToLower(cont)) {
-					ctx.log("suppressing notification containing %q: %s", cont, formattedMsg)
+					ctx.log("suppressing notifier containing %q: %s", cont, formattedMsg)
 					return
 				}
 			}
@@ -82,14 +82,14 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	// If context has nil notifier, use global notifier
 	if ctx.notifier == nil {
 		ctx.log("broadcast context notifier is nil, setting to global notifier")
-		if notifier == nil {
+		if notifier.N == nil {
 			panic(errNoGlobalNotifier)
 		}
-		ctx.notifier = notifier
+		ctx.notifier = notifier.N
 	}
 	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
-		ctx.log("could not send health notification: %v", err)
+		ctx.log("could not send health notifier: %v", err)
 	}
 }
 
@@ -132,7 +132,7 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 			func() { sm.ctx.bus.Publish(event.GoodHealth{}) },
 			func(issue string) {
 				sm.ctx.bus.Publish(event.BadHealth{})
-				sm.ctx.logAndNotify(notification.KindNetwork, "poor stream health, status: %s", issue)
+				sm.ctx.logAndNotify(notifier.KindNetwork, "poor stream health, status: %s", issue)
 			},
 		)
 		if err != nil {

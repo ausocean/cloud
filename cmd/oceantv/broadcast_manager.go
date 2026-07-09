@@ -35,7 +35,7 @@ import (
 
 	rv_config "github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -468,10 +468,10 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 }
 
 // opsHealthNotifyFunc returns a closure of notifier.Send given to the
-// broadcast.BroadcastStream function for notifications.
+// broadcast.BroadcastStream function for notifiers.
 func opsHealthNotifyFunc(ctx Ctx, cfg *Cfg) func(string) error {
 	return func(msg string) error {
-		return notifier.Send(ctx, cfg.SKey, notification.KindGeneric, msg)
+		return notifier.N.Send(ctx, cfg.SKey, notifier.KindGeneric, msg)
 	}
 }
 

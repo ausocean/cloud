@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentSlateUnhealthy struct {
@@ -43,7 +43,7 @@ func newVidforwardPermanentSlateUnhealthy(ctx *broadcastContext) *vidforwardPerm
 func (s *vidforwardPermanentSlateUnhealthy) fix() {
 	const resetInterval = 5 * time.Minute
 	if time.Since(s.LastResetAttempt) > resetInterval {
-		s.logAndNotify(notification.KindForwarder, "slate is unhealthy, requesting vidforward reconfiguration")
+		s.logAndNotify(notifier.KindForwarder, "slate is unhealthy, requesting vidforward reconfiguration")
 		try(s.fwd.Slate(s.cfg), "could not set vidforward mode to slate", s.log)
 		s.LastResetAttempt = time.Now()
 	}

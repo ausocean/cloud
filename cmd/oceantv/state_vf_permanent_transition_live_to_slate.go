@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
-	"github.com/ausocean/cloud/cmd/oceantv/notification"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type vidforwardPermanentTransitionLiveToSlate struct {
@@ -66,7 +66,7 @@ func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStat
 	case event.Time:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(e_.Time) {
-			sm.logAndNotify(notification.KindForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
+			sm.logAndNotify(notifier.KindForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
 			sm.transition(newVidforwardPermanentLive())
 		}
 		sm.publishHealthEvent(e_)
