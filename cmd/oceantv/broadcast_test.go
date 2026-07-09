@@ -112,7 +112,7 @@ func (d *dummyManager) CreateBroadcast(
 	svc Svc,
 ) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
-		return ErrRequestLimitExceeded
+		return yt.ErrRequestLimitExceeded
 	}
 	return nil
 }
@@ -266,8 +266,8 @@ func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
-	opts ...BroadcastOption,
-) (ServerResponse, yt.IDs, string, error) {
+	opts ...yt.BroadcastOption,
+) (yt.ServerResponse, yt.IDs, string, error) {
 	return nil, yt.IDs{}, "", nil
 }
 

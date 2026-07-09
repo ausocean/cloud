@@ -116,7 +116,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
 	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := newYouTubeBroadcastService(tokenURI, log)
+	svc := yt.NewYouTubeBroadcastService(tokenURI, log)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the YouTube broadcast service.

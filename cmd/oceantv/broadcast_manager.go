@@ -138,7 +138,7 @@ func (m *OceanBroadcastManager) CreateBroadcast(
 		cfg.Resolution,
 		timeCreated,
 		cfg.End,
-		WithRateLimiter(limiter),
+		yt.WithRateLimiter(limiter),
 	)
 	if err != nil {
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
