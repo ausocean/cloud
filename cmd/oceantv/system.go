@@ -10,6 +10,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
@@ -49,7 +50,7 @@ func withForwardingService(fs forwarding.Service) broadcastSystemOption {
 	}
 }
 
-func withHardwareManager(hm hardwareManager) broadcastSystemOption {
+func withHardwareManager(hm hardware.Manager) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.hardware = hm
 		return nil
@@ -142,7 +143,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	bus := event.NewBasicEventBus(ctx, storeEventsAfterCtx, log)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, forwarding.NewVidforwardService(log, broadcastByName), bus, &revidCameraClient{}, logOutput, nil}
+	broadcastContext := &broadcastContext{cfg, man, store, svc, forwarding.NewVidforwardService(log, broadcastByName), bus, &hardware.RevidCameraClient{}, logOutput, nil}
 
 	// Subscribe event handler that notifies on events that implement errorEvent.
 	bus.Subscribe(func(e event.Event) error {

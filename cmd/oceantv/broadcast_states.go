@@ -13,6 +13,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
@@ -26,7 +27,7 @@ type broadcastContext struct {
 	svc      Svc
 	fwd      forwarding.Service
 	bus      event.EventBus
-	hardware hardwareManager
+	hardware hardware.Manager
 
 	// When nil, defaults to log.Println. Useful to plug in test implementation.
 	logOutput func(v ...any)

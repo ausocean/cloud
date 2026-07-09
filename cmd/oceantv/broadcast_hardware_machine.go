@@ -1,17 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
-	"github.com/ausocean/cloud/datastore"
-	"github.com/ausocean/cloud/model"
 )
 
 func register(state registry.Named) struct{} {
@@ -111,7 +107,7 @@ func (sm *hardwareStateMachine) handleEvent(e event.Event) error {
 func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 	sm.log("handling time event")
 	eventIfStatus := func(e event.Event, status bool) {
-		sm.ctx.hardware.publishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
+		sm.ctx.hardware.PublishEventIfStatus(sm.ctx, e, status, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	}
 	switch sm.currentState.(type) {
 	case *hardwareStarting:
@@ -134,7 +130,7 @@ func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 			return
 		}
 
-		voltage, err := sm.ctx.hardware.voltage(sm.ctx)
+		voltage, err := sm.ctx.hardware.Voltage(sm.ctx)
 		if err != nil {
 			errWrapped := fmt.Errorf("could not get hardware voltage: %v", err)
 			sm.log(errWrapped.Error())
@@ -231,7 +227,7 @@ func (sm *hardwareStateMachine) handleHardwareStartRequestEvent(e event.Hardware
 	case *hardwareOff, *hardwareRestarting:
 		sm.transition(newHardwareStarting(sm.ctx))
 	case *hardwareStarting:
-		sm.ctx.hardware.publishEventIfStatus(sm.ctx, event.HardwareStarted{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
+		sm.ctx.hardware.PublishEventIfStatus(sm.ctx, event.HardwareStarted{}, true, sm.ctx.cfg.CameraMac, sm.ctx.store, sm.log, sm.ctx.bus.Publish)
 	case *hardwareStopping:
 		// Ignore and log.
 		sm.log("ignoring hardware start request event since hardware is still stopping")
@@ -314,161 +310,6 @@ func (sm *hardwareStateMachine) unexpectedEvent(e event.Event, state state) {
 
 func (sm *hardwareStateMachine) log(format string, args ...interface{}) {
 	sm.ctx.log("(hardware sm) "+format, args...)
-}
-
-type hardwareManager interface {
-	voltage(ctx *broadcastContext) (float64, error)
-	alarmVoltage(ctx *broadcastContext) (float64, error)
-	isUp(ctx *broadcastContext, mac string) (bool, error)
-	start(ctx *broadcastContext)
-	shutdown(ctx *broadcastContext)
-	stop(ctx *broadcastContext)
-	publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event))
-	error(ctx *broadcastContext) (error, error)
-}
-
-type revidCameraClient struct{}
-
-type ControllerError string
-
-const (
-	None            ControllerError = ""
-	LowVoltageAlarm ControllerError = "LowVoltage"
-)
-
-func (e ControllerError) Error() string {
-	return string(e)
-}
-
-func (e ControllerError) Is(target error) bool {
-	if target == nil {
-		return false
-	}
-	if t, ok := target.(ControllerError); ok {
-		return e == t
-	}
-	return false
-}
-
-func (c *revidCameraClient) voltage(ctx *broadcastContext) (float64, error) {
-	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
-	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, ctx.cfg.BatteryVoltagePin)
-	if err != nil {
-		return 0, fmt.Errorf("could not get battery voltage sensor (%s.%s): %w", model.MacDecode(ctx.cfg.ControllerMAC), ctx.cfg.BatteryVoltagePin, err)
-	}
-
-	// Get current battery voltage.
-	voltage, err := model.GetSensorValue(context.Background(), ctx.store, sensor)
-	switch {
-	case errors.Is(err, datastore.ErrNoSuchEntity):
-		// We'll get this if the controller is off from low voltage, so just
-		// assume we have alarm voltage.
-		alarmVoltage, err := c.alarmVoltage(ctx)
-		if err != nil {
-			return 0, fmt.Errorf("could not get alarm voltage: %w", err)
-		}
-		return alarmVoltage, nil
-	case err != nil:
-		return 0, fmt.Errorf("could not get current battery voltage: %w", err)
-	}
-
-	return voltage, nil
-}
-
-func (c *revidCameraClient) alarmVoltage(ctx *broadcastContext) (float64, error) {
-	// Get AlarmVoltage variable; if the voltage is above this we expect the controller to be on.
-	// If the voltage is below this, we expect the controller to be off.
-	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
-	alarmVoltageVar, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".AlarmVoltage")
-	if err != nil {
-		return 0, fmt.Errorf("could not get alarm voltage variable: %w", err)
-	}
-	ctx.log("got AlarmVoltage for %s: %s", controllerMACHex, alarmVoltageVar.Value)
-
-	uncalibratedAlarmVoltage, err := strconv.Atoi(alarmVoltageVar.Value)
-	if err != nil {
-		return 0, fmt.Errorf("could not convert uncalibrated alarm voltage from string: %w", err)
-	}
-
-	// Get battery voltage sensor, which we'll use to get scale factor and current voltage value.
-	batteryVoltagePin := ctx.cfg.BatteryVoltagePin
-	if batteryVoltagePin == "" {
-		const defaultBatteryVoltagePin = "A4"
-		batteryVoltagePin = defaultBatteryVoltagePin
-	}
-	sensor, err := model.GetSensorV2(context.Background(), ctx.store, ctx.cfg.ControllerMAC, batteryVoltagePin)
-	if err != nil {
-		return 0, fmt.Errorf("could not get battery voltage sensor: %w", err)
-	}
-
-	// Transform the alarm voltage to the actual voltage.
-	alarmVoltage, err := sensor.Transform(float64(uncalibratedAlarmVoltage))
-	if err != nil {
-		return 0, fmt.Errorf("could not transform alarm voltage: %w", err)
-	}
-
-	return alarmVoltage, nil
-}
-
-func (c *revidCameraClient) isUp(ctx *broadcastContext, mac string) (bool, error) {
-	deviceIsUp, err := model.DeviceIsUp(context.Background(), ctx.store, mac)
-	if err != nil {
-		return false, fmt.Errorf("could not get controller status: %w", err)
-	}
-	return deviceIsUp, nil
-}
-
-func (c *revidCameraClient) start(ctx *broadcastContext) {
-	err := extStart(context.Background(), ctx.cfg, ctx.log)
-	if err != nil {
-		ctx.log("could not start external hardware: %v", err)
-		ctx.bus.Publish(event.HardwareStartFailed{Err: fmt.Errorf("external hardware start actions failed: %w", err)})
-		return
-	}
-}
-
-func (c *revidCameraClient) shutdown(ctx *broadcastContext) {
-	err := extShutdown(context.Background(), ctx.cfg, ctx.log)
-	if err != nil {
-		ctx.bus.Publish(event.HardwareShutdownFailed{Err: fmt.Errorf("could not perform shutdown actions: %w", err)})
-		return
-	}
-}
-
-func (c *revidCameraClient) stop(ctx *broadcastContext) {
-	err := extStop(context.Background(), ctx.cfg, ctx.log)
-	if err != nil {
-		ctx.log("could not stop external hardware: %v", err)
-		ctx.bus.Publish(event.HardwareStopFailed{Err: fmt.Errorf("could not perform stop actions: %w", err)})
-		return
-	}
-}
-
-func (c *revidCameraClient) publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(string, ...interface{}), publish func(e event.Event)) {
-	if mac == 0 {
-		publish(event.InvalidConfiguration{errors.New("camera mac is empty")})
-		return
-	}
-	log("checking status of device with mac: %d", mac)
-	alive, err := model.DeviceIsUp(context.Background(), store, model.MacDecode(mac))
-	if err != nil {
-		log("could not get device status: %v", err)
-		return
-	}
-	log("status from DeviceIsUp check: %v", alive)
-	if alive == status {
-		publish(e)
-		return
-	}
-}
-
-func (c *revidCameraClient) error(ctx *broadcastContext) (error, error) {
-	controllerMACHex := (&model.Device{Mac: ctx.cfg.ControllerMAC}).Hex()
-	devErr, err := model.GetVariable(context.Background(), ctx.store, ctx.cfg.SKey, controllerMACHex+".error")
-	if err != nil {
-		return nil, fmt.Errorf("could not get controller error variable: %w", err)
-	}
-	return ControllerError(devErr.Value), nil
 }
 
 func (sm *hardwareStateMachine) saveHardwareStateToConfig() error {

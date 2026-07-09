@@ -9,6 +9,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
@@ -1215,7 +1216,7 @@ func TestBroadcastStart(t *testing.T) {
 		cfg                      *Cfg
 		initialState             state
 		finalState               state
-		hardwareMan              hardwareManager
+		hardwareMan              hardware.Manager
 		expectHardwareStartCall  bool
 		expectBroadcastStartCall bool
 		inputEvent               event.Event
@@ -1537,7 +1538,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 		initialBroadcastState state
 		finalBroadcastState   state
 		finalHardwareState    state
-		hardwareMan           hardwareManager
+		hardwareMan           hardware.Manager
 		newBroadcastMan       func(*testing.T, *Cfg) manager.Broadcast
 
 		// Leave unset to use default max ticks.
@@ -1794,7 +1795,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			initialBroadcastState: &directIdle{},
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareRecoveringVoltage{},
-			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(hardware.LowVoltageAlarm)),
 			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
@@ -1816,7 +1817,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			initialBroadcastState: &directIdle{},
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareStarting{},
-			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
+			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(hardware.LowVoltageAlarm)),
 			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
