@@ -12,6 +12,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 	"github.com/ausocean/cloud/notify"
 	"github.com/stretchr/testify/assert"
 )
@@ -354,7 +355,7 @@ func (h hardwareSystem) withBroadcastService(bs Svc) hardwareSystemOption {
 	}
 }
 
-func (h hardwareSystem) withForwardingService(fs ForwardingService) hardwareSystemOption {
+func (h hardwareSystem) withForwardingService(fs forwarding.Service) hardwareSystemOption {
 	return func(bs *hardwareSystem) error {
 		bs.ctx.fwd = fs
 		return nil
