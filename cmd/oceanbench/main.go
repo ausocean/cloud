@@ -251,7 +251,7 @@ func main() {
 	// TODO: convert these handlers to fiber handlers instead of just adapting them.
 	// New handlers should be fiber handlers.
 	app.All("/search", searchHandler)
-	app.All("/play/audiorequest", adaptor.HTTPHandlerFunc(filterHandler))
+	app.Post("/play/audiorequest", filterHandler)
 	app.All("/play", adaptor.HTTPHandlerFunc(playHandler))
 	app.All("/learn/mooring", adaptor.HTTPHandlerFunc(mooringHandler))
 	app.All("/upload", adaptor.HTTPHandlerFunc(uploadHandler))

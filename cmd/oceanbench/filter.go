@@ -42,6 +42,7 @@ import (
 
 	"github.com/ausocean/av/codec/adpcm"
 	"github.com/ausocean/av/codec/pcm"
+	"github.com/gofiber/fiber/v2"
 )
 
 // Parameters is a struct which contains the required information required to generate an
@@ -58,46 +59,35 @@ type Parameters struct {
 
 // filterHandler handles HTTP POST requests sent to play/audiorequest input. The function receives the
 // filter parameters and creates an appropriate filter and applies it to the current audio file.
-func filterHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func filterHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
 	setup(ctx)
 
-	// Ensure correct request type.
-	if r.Method != "POST" {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
 	// Read the body of the HTTP request.
-	reader, err := r.MultipartReader()
-	if err != nil {
-		reportFilterError(w, r, "unable to create multipart reader: %v", err)
-		return
-	}
+	// reader, err := r.MultipartReader()
+	// if err != nil {
+	// 	return reportFilterErrorFiber(c, "unable to open file: %v", err)
+	// }
 
-	const maxReadSize = 32 << 20
-	form, err := reader.ReadForm(maxReadSize)
+	form, err := c.MultipartForm()
 	if err != nil {
-		reportFilterError(w, r, "unable to read form: %v", err)
-		return
+		return reportFilterErrorFiber(c, "unable to parse multipart form: %v", err)
 	}
 
 	file, err := form.File["audio-file"][0].Open()
 	if err != nil {
-		reportFilterError(w, r, "unable to open file: %v", err)
-		return
+		return reportFilterErrorFiber(c, "unable to open file: %v", err)
 	}
+
 	audio, err := io.ReadAll(file)
 	if err != nil {
-		reportFilterError(w, r, "unable to read file: %v", err)
-		return
+		return reportFilterErrorFiber(c, "unable to read file: %v", err)
 	}
 
 	// Convert all parameters to a usable format.
 	parameters, err := convParamTypes(form)
 	if err != nil {
-		reportFilterError(w, r, "could not convert paramaters to required type: %v", err)
-		return
+		return reportFilterErrorFiber(c, "could not convert paramaters to required type: %v", err)
 	}
 
 	// Decode the input audio for the right type.
@@ -109,7 +99,7 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 
 		// If the encoding type isn't pcm, report error.
 		if wavFMT != 1 {
-			reportFilterError(w, r, "unsupported wav encoding type")
+			return reportFilterErrorFiber(c, "unsupported wav encoding type")
 		}
 
 		parameters.Channels = uint(binary.LittleEndian.Uint16(audio[22:24]))
@@ -120,9 +110,9 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 		audio = audio[40:]
 
 		// Include header data in response.
-		w.Header().Add("channels", strconv.FormatUint(uint64(parameters.Channels), 10))
-		w.Header().Add("bit-depth", strconv.FormatUint(uint64(parameters.BitDepth), 10))
-		w.Header().Add("sample-rate", strconv.FormatUint(uint64(parameters.SampleRate), 10))
+		c.Set("channels", strconv.FormatUint(uint64(parameters.Channels), 10))
+		c.Set("bit-depth", strconv.FormatUint(uint64(parameters.BitDepth), 10))
+		c.Set("sample-rate", strconv.FormatUint(uint64(parameters.SampleRate), 10))
 
 	case "adpcm":
 		// Decode adpcm.
@@ -130,7 +120,7 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 		dec := adpcm.NewDecoder(decoded)
 		_, err = dec.Write(audio)
 		if err != nil {
-			reportFilterError(w, r, "could not decode adpcm file")
+			return reportFilterErrorFiber(c, "could not decode adpcm file")
 		}
 
 		// Copy decoded audio back into audio.
@@ -139,7 +129,7 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	case "raw", "pcm":
 		// Do nothing.
 	default:
-		reportFilterError(w, r, "unknown/unsupported file type")
+		return reportFilterErrorFiber(c, "unknown/unsupported file type")
 	}
 
 	// Create a PCM buffer.
@@ -161,36 +151,34 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	case "Amplifier":
 		filter = pcm.NewAmplifier(parameters.AmpFactor)
 	case "None":
-		_, err = w.Write(buff.Data)
+		_, err = c.Write(buff.Data)
 		if err != nil {
-			reportFilterError(w, r, "unable to write to response: %v", err)
-			return
+			return reportFilterErrorFiber(c, "unable to write to response: %v", err)
 		}
 		log.Println("Returned unfiltered audio.")
-		return
+		return nil
 	default:
 		log.Panicf("an error occurred when trying to generate filter with type: %v", parameters.FilterType)
-		return
+		return nil
 	}
 	if err != nil {
-		reportFilterError(w, r, "could not generate %s filter: %v", parameters.FilterType, err)
-		return
+		return reportFilterErrorFiber(c, "could not generate %s filter: %v", parameters.FilterType, err)
 	}
 	log.Printf("Generated %s filter.", parameters.FilterType)
 
 	// Apply the filter to the audio.
 	output, err := filter.Apply(buff)
 	if err != nil {
-		reportFilterError(w, r, "unable to apply audio filter: %v", err)
-		return
+		return reportFilterErrorFiber(c, "unable to apply audio filter: %v", err)
 	}
 
 	// Write the response.
-	_, err = w.Write(output)
+	_, err = c.Write(output)
 	if err != nil {
-		reportFilterError(w, r, "unable to write to response: %v", err)
-		return
+		return reportFilterErrorFiber(c, "unable to write to response: %v", err)
 	}
+
+	return nil
 }
 
 // convParamTypes takes a pointer to a multipart form and returns a Parameters struct filled with the data from the form,
@@ -245,4 +233,15 @@ func reportFilterError(w http.ResponseWriter, r *http.Request, f string, args ..
 	w.Header().Add("msg", f)
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write(nil)
+}
+
+// reportFilterErrorFiber c *fiber.Ctx, which can be used in an
+// alert to tell the user why the request failed.
+func reportFilterErrorFiber(c *fiber.Ctx, f string, args ...interface{}) error {
+	msg := fmt.Sprintf(f, args...)
+	log.Print(msg)
+
+	c.Set("msg", f)
+	c.Status(fiber.StatusBadRequest)
+	return nil
 }
