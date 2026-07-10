@@ -250,7 +250,7 @@ func main() {
 	// User requests.
 	// TODO: convert these handlers to fiber handlers instead of just adapting them.
 	// New handlers should be fiber handlers.
-	app.All("/search", adaptor.HTTPHandlerFunc(searchHandler))
+	app.All("/search", searchHandler)
 	app.All("/play/audiorequest", adaptor.HTTPHandlerFunc(filterHandler))
 	app.All("/play", adaptor.HTTPHandlerFunc(playHandler))
 	app.All("/learn/mooring", adaptor.HTTPHandlerFunc(mooringHandler))
@@ -654,6 +654,71 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	}
 }
 
+// writeTemplateFiber writes the given template with the supplied data,
+// populating some common properties.
+func writeTemplateFiber(c *fiber.Ctx, name string, data interface{}, msg string) {
+	profile, _ := getProfileFiber(c)
+	v := reflect.Indirect(reflect.ValueOf(data))
+	p := v.FieldByName("Standalone")
+	if p.IsValid() {
+		p.SetBool(standalone)
+	}
+	p = v.FieldByName("Debug")
+	if p.IsValid() {
+		p.SetBool(debug)
+	}
+	p = v.FieldByName("Version")
+	if p.IsValid() {
+		p.SetString(version)
+	}
+	p = v.FieldByName("CommitHash")
+	if p.IsValid() {
+		p.SetString(commitHash)
+	}
+	p = v.FieldByName("Msg")
+	if p.IsValid() {
+		p.SetString(msg)
+	}
+	p = v.FieldByName("Profile")
+	if p.IsValid() {
+		p.Set(reflect.ValueOf(profile))
+	}
+	skey, _ := requestSiteDataFiber(c, profile)
+	p = v.FieldByName("CurrentSiteKey")
+	if p.IsValid() {
+		p.SetInt(skey)
+	}
+	p = v.FieldByName("SuperAdmin")
+	if p.IsValid() {
+		if profile == nil {
+			p.SetBool(false)
+		} else {
+			p.SetBool(isSuperAdmin(profile.Email))
+		}
+	}
+	p = v.FieldByName("LoginURL")
+	if p.IsValid() {
+		p.Set(reflect.ValueOf("/login?redirect=" + c.OriginalURL()))
+	}
+	p = v.FieldByName("LogoutURL")
+	if p.IsValid() {
+		p.Set(reflect.ValueOf("/logout?redirect=" + c.OriginalURL()))
+	}
+
+	c.Type("html")
+	if strings.HasPrefix(name, "set/") {
+		err := setTemplates.ExecuteTemplate(c, name[4:], data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
+	} else {
+		err := templates.ExecuteTemplate(c, name, data)
+		if err != nil {
+			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+		}
+	}
+}
+
 // pages returns a copy of the app's pages, selecting the one that matches selected.
 func pages(selected string) []page {
 	pages := []page{
@@ -836,10 +901,32 @@ func logRequest(r *http.Request) {
 	log.Println(r.URL.Path + "?" + r.URL.RawQuery)
 }
 
+// logRequestFiber logs a request if in debug mode and standalone mode.
+// It does nothing in App Engine mode as App Engine logs requests
+// automatically.
+func logRequestFiber(c *fiber.Ctx) {
+	if !(debug || standalone) {
+		return
+	}
+	log.Println(c.OriginalURL())
+}
+
 // writeError writes an error in JSON format.
 func writeError(w http.ResponseWriter, err error) {
 	w.Header().Add("Content-Type", "application/json")
 	err2 := json.NewEncoder(w).Encode(map[string]string{"er": err.Error()})
+	if err2 != nil {
+		log.Printf("failed to write error (%v): %v", err, err2)
+		return
+	}
+	if debug {
+		log.Println("Wrote error: " + err.Error())
+	}
+}
+
+// writeErrorFiber c JSON format.
+func writeErrorFiber(c *fiber.Ctx, err error) {
+	err2 := c.JSON(fiber.Map{"er": err.Error()})
 	if err2 != nil {
 		log.Printf("failed to write error (%v): %v", err, err2)
 		return

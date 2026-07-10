@@ -34,6 +34,7 @@ import (
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/gofiber/fiber/v2"
 )
 
 // standaloneData holds (temporary) profile data in standalone mode.
@@ -93,6 +94,14 @@ func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) 
 	return auth.GetProfile(backend.NewNetHandler(w, r, auth.NetStore))
 }
 
+// getProfileFiber returns the profile for the logged-in user.
+func getProfileFiber(c *fiber.Ctx) (*gauth.Profile, error) {
+	if standalone {
+		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
+	}
+	return auth.GetProfile(backend.NewFiberHandler(c))
+}
+
 // putProfileData puts profile data.
 func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 	if standalone {
@@ -125,6 +134,18 @@ func profileData(profile *gauth.Profile) (int64, string) {
 // otherwise falls back to the user's profile data.
 func requestSiteData(r *http.Request, profile *gauth.Profile) (int64, string) {
 	if siteStr := r.URL.Query().Get("site"); siteStr != "" {
+		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
+			// A valid site key is in the URL.
+			return siteKey, ""
+		}
+	}
+	return profileData(profile)
+}
+
+// requestSiteDataFiber gets the site key from the request URL if present,
+// otherwise falls back to the user's profile data.
+func requestSiteDataFiber(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
+	if siteStr := c.Query("site"); siteStr != "" {
 		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
 			// A valid site key is in the URL.
 			return siteKey, ""

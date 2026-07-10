@@ -43,6 +43,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -122,17 +123,16 @@ type searchData struct {
 //	cp: clip period
 //
 // ToDo: log users performing searches.
-func searchHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	profile, err := getProfile(w, r)
+func searchHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
 	// searchData struct is used by the template.
 	sd := searchData{
@@ -141,36 +141,36 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			Standalone: standalone,
 		},
 		SKey:       skey,
-		Id:         r.FormValue("id"),
-		St:         r.FormValue("st"),
-		Ft:         r.FormValue("ft"),
-		Sd:         r.FormValue("sd"),
-		Fd:         r.FormValue("fd"),
-		Cp:         r.FormValue("cp"),
-		Tz:         r.FormValue("tz"),
-		Ma:         r.FormValue("ma"),
-		Pn:         r.FormValue("pn"),
-		Lv:         r.FormValue("lv"),
-		Ts:         r.FormValue("ts"),
-		Resolution: r.FormValue("resolution"),
-		Exporting:  r.FormValue("export") == "true",
-		Searching:  r.FormValue("search") == "true",
+		Id:         c.FormValue("id"),
+		St:         c.FormValue("st"),
+		Ft:         c.FormValue("ft"),
+		Sd:         c.FormValue("sd"),
+		Fd:         c.FormValue("fd"),
+		Cp:         c.FormValue("cp"),
+		Tz:         c.FormValue("tz"),
+		Ma:         c.FormValue("ma"),
+		Pn:         c.FormValue("pn"),
+		Lv:         c.FormValue("lv"),
+		Ts:         c.FormValue("ts"),
+		Resolution: c.FormValue("resolution"),
+		Exporting:  c.FormValue("export") == "true",
+		Searching:  c.FormValue("search") == "true",
 		DataHost:   dataHost,
 		PinNames:   pinMap,
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, searchTemplate, &sd, fmt.Sprintf("site %d not found", skey))
-		return
+		writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("site %d not found", skey))
+		return err
 	}
 	if !site.Public {
 		_, err = model.GetUser(ctx, settingsStore, skey, profile.Email)
 		if err != nil {
-			writeTemplate(w, r, searchTemplate, &sd, fmt.Sprintf("site %d is private", skey))
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("site %d is private", skey))
+			return nil
 		}
 	}
 	if sd.Tz == "" {
@@ -180,38 +180,38 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	// Compute default values.
 	sd.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, searchTemplate, &sd, "Datastore error: "+err.Error())
-		return
+		writeTemplateFiber(c, searchTemplate, &sd, "Datastore error: "+err.Error())
+		return nil
 	}
 	if len(sd.Devices) == 0 {
-		writeTemplate(w, r, searchTemplate, &sd, "No Devices to Search")
-		return
+		writeTemplateFiber(c, searchTemplate, &sd, "No Devices to Search")
+		return nil
 	}
 
 	// If user has input MAC/Device, set Pin field, otherwise return a blank search page.
 	if sd.Ma != "" {
 		sd.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(sd.Ma))
 		if err != nil {
-			writeTemplate(w, r, searchTemplate, &sd, "Device not found")
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, "Device not found")
+			return nil
 		}
 		if sd.Pn == "" && len(sd.Device.Inputs) >= 2 {
 			sd.Pn = sd.Device.Inputs[0:2]
 		}
 		if sd.Pn == "" {
-			writeTemplate(w, r, searchTemplate, &sd, "Cannot search devices without inputs")
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, "Cannot search devices without inputs")
+			return nil
 		}
 
 	} else {
-		writeTemplate(w, r, searchTemplate, &sd, "")
-		return
+		writeTemplateFiber(c, searchTemplate, &sd, "")
+		return nil
 	}
 
 	sensors, err := model.GetSensorsV2(ctx, settingsStore, sd.Device.Mac)
 	if err != nil {
-		writeError(w, fmt.Errorf("unable to get sensors for device with MAC: %s, err: %w", sd.Device.MAC(), err))
-		return
+		writeErrorFiber(c, fmt.Errorf("unable to get sensors for device with MAC: %s, err: %w", sd.Device.MAC(), err))
+		return nil
 	}
 	for _, s := range sensors {
 		sd.PinNames[s.Pin] = s.Name
@@ -221,8 +221,8 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	sd.Period = calcPeriod(sd.St, sd.Ft)
 
 	if sd.Pn == "throughput" {
-		writeTemplate(w, r, searchTemplate, &sd, "")
-		return
+		writeTemplateFiber(c, searchTemplate, &sd, "")
+		return nil
 	}
 
 	sd.PinType = sd.Pn[0]
@@ -235,32 +235,34 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		mid := model.ToMID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(mid))
 		if !sd.Searching {
-			writeTemplate(w, r, searchTemplate, &sd, "")
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, "")
+			return nil
 		}
 		err = searchMedia(&sd, ctx, mid)
 		if err != nil {
-			writeTemplate(w, r, searchTemplate, &sd, fmt.Sprintf("could not search media: %v", err))
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("could not search media: %v", err))
+			return nil
 		}
-		writeTemplate(w, r, searchTemplate, &sd, "")
+		writeTemplateFiber(c, searchTemplate, &sd, "")
 
 	case 'A', 'D', 'X':
 		sid := model.ToSID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(sid))
 		if !sd.Exporting {
-			writeTemplate(w, r, searchTemplate, &sd, "")
-			return
+			writeTemplateFiber(c, searchTemplate, &sd, "")
+			return nil
 		}
-		err := export(w, r, &sd)
+		err := export(c, &sd)
 		if err != nil {
 			errStr := fmt.Sprintf("could not export data for period %s to %s, error: %v", sd.St, sd.Ft, err)
-			writeTemplate(w, r, searchTemplate, &sd, errStr)
+			writeTemplateFiber(c, searchTemplate, &sd, errStr)
 		}
 
 	default:
-		writeTemplate(w, r, searchTemplate, &sd, "Unset pin type")
+		writeTemplateFiber(c, searchTemplate, &sd, "Unset pin type")
+		return nil
 	}
+	return nil
 }
 
 // searchMedia finds media data for V and S pins given the start and end data/times
@@ -321,7 +323,7 @@ func searchMedia(sd *searchData, ctx context.Context, mid int64) error {
 // export retrieves data for the selected pin (either X or A) and date/time range,
 // concats as required as CSV and then writes to the http.ResponseWriter for
 // downloading.
-func export(w http.ResponseWriter, r *http.Request, sd *searchData) error {
+func export(c *fiber.Ctx, sd *searchData) error {
 	stUnix, err := strconv.ParseInt(sd.St, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse start time: %w", err)
@@ -345,7 +347,7 @@ func export(w http.ResponseWriter, r *http.Request, sd *searchData) error {
 		return fmt.Errorf("could not retrieve data: %w", err)
 	}
 
-	writeData(w, csvData, "test/csv", sd.Ma+"-"+sd.Pn+"-"+s+"-"+f+".csv")
+	writeDataFiber(c, csvData, "test/csv", sd.Ma+"-"+sd.Pn+"-"+s+"-"+f+".csv")
 	sd.Exporting = false
 	return nil
 }

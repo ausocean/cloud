@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/pkg/errors"
 
 	"github.com/ausocean/av/codec/wav"
@@ -518,6 +519,16 @@ func writeData(w http.ResponseWriter, data []byte, mimeType, filename string) {
 		h.Add("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	}
 	fmt.Fprint(w, string(data))
+}
+
+// writeDataFiber writes MTS data using the supplied MIME type.
+func writeDataFiber(c *fiber.Ctx, data []byte, mimeType, filename string) {
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Content-Type", mimeType)
+	if filename != "" {
+		c.Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	}
+	fmt.Fprint(c, string(data))
 }
 
 // isMtsPin returns true if the pin is a video (V) or sound (S) pin, false otherwise.
