@@ -311,17 +311,15 @@ type playData struct {
 // URL supplied as a query param, if any.  Users must be logged in to
 // render the player, and must have read permissions for the media
 // they wish to play.
-func playHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func playHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	profile, _ := getProfile(w, r)
+	profile, _ := getProfileFiber(c)
 	if profile == nil {
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", http.StatusUnauthorized)
 	}
 
-	q := r.URL.Query()
-	id := q.Get("id")
+	id := c.Query("id")
 
 	var mid int64
 	var err error
@@ -340,7 +338,9 @@ func playHandler(w http.ResponseWriter, r *http.Request) {
 		MID: mid,
 	}
 
-	writeTemplate(w, r, "play.html", &data, msg)
+	writeTemplateFiber(c, "play.html", &data, msg)
+
+	return nil
 }
 
 // getMedia handles media requests, depending on the out parameter:
