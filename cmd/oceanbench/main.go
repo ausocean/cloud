@@ -254,7 +254,7 @@ func main() {
 	app.Post("/play/audiorequest", filterHandler)
 	app.All("/play", playHandler)
 	app.All("/learn/mooring", mooringHandler)
-	app.All("/upload", adaptor.HTTPHandlerFunc(uploadHandler))
+	app.All("/upload", uploadHandler)
 	app.All("/set/devices/edit/var", adaptor.HTTPHandlerFunc(editVarHandler))
 	app.All("/set/devices/edit/sensor", adaptor.HTTPHandlerFunc(editSensorHandler))
 	app.All("/set/devices/edit/actuator", adaptor.HTTPHandlerFunc(editActuatorHandler))

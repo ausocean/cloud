@@ -180,15 +180,15 @@ type uploadData struct {
 
 // uploadHandler handles MTS data uploading, which requires write
 // permission.
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func uploadHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
 	var isAJAX bool
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+	if c.Get("X-Requested-With") == "XMLHttpRequest" {
 		isAJAX = true
 	}
 
-	profile, err := getProfile(w, r)
+	profile, err := getProfileFiber(c)
 	data := uploadData{
 		commonData: commonData{
 			Pages:   pages("upload"),
@@ -200,41 +200,43 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplate(w, r, "index.html", &data, "")
-		return
+		writeTemplateFiber(c, "index.html", &data, "")
+		return nil
 	}
 
-	n, err := upload(w, r)
+	n, err := upload(c)
 	switch err {
 	case nil:
 		if isAJAX {
-			fmt.Fprint(w, "OK")
-			return
+			fmt.Fprint(c, "OK")
+			return nil
 		}
-		data.MID, _ = strconv.ParseInt(r.FormValue("id"), 10, 64) // Guaranteed to succeed since nil error.
+		data.MID, _ = strconv.ParseInt(c.FormValue("id"), 10, 64) // Guaranteed to succeed since nil error.
 		if n == 0 {
-			writeTemplate(w, r, "upload.html", &data, "")
+			writeTemplateFiber(c, "upload.html", &data, "")
 		} else {
-			writeTemplate(w, r, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
+			writeTemplateFiber(c, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
 		}
+		return nil
 
 	case errUserAuthRequired:
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return c.Redirect("/", fiber.StatusUnauthorized)
 
 	default:
 		log.Printf("upload failed: %v", err.Error())
 		if isAJAX {
-			writeHttpError(w, http.StatusBadRequest, err.Error())
-			return
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("upload failed: %v", err)})
 		}
-		writeTemplate(w, r, "upload.html", &data, err.Error())
+		writeTemplateFiber(c, "upload.html", &data, err.Error())
+		return nil
 	}
 }
 
 // upload implements the uploadHandler logic, returning the number of bytes uploaded or an error otherwise.
-func upload(w http.ResponseWriter, r *http.Request) (int, error) {
-	ctx := r.Context()
-	p, err := getProfile(w, r)
+func upload(c *fiber.Ctx) (int, error) {
+	ctx := c.UserContext()
+	p, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -242,7 +244,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, errUserAuthRequired
 	}
 
-	id := r.FormValue("id")
+	id := c.FormValue("id")
 	var mid int64
 	if id != "" {
 		mid, err = strconv.ParseInt(id, 10, 64)
@@ -250,15 +252,15 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 			return 0, errInvalidMID
 		}
 	}
-	if r.Method == "GET" {
+	if c.Method() == "GET" {
 		return 0, nil
 	}
 
 	// geohash is optional
-	gh := r.FormValue("gh")
+	gh := c.FormValue("gh")
 
 	// ts is optional
-	v := r.FormValue("ts")
+	v := c.FormValue("ts")
 	if v == "" {
 		v = strconv.FormatInt(time.Now().UTC().Unix(), 10)
 	}
@@ -276,9 +278,13 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, errPermissionDenied
 	}
 
-	f, fh, err := r.FormFile("file")
+	fh, err := c.FormFile("file")
 	if err != nil {
 		return 0, errMissingFile
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return 0, errInvalidBody
 	}
 	log.Printf("uploading %s with %d bytes", fh.Filename, fh.Size)
 
