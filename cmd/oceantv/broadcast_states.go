@@ -14,6 +14,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -469,7 +470,7 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *Cfg, onCreati
 		ctx.store,
 		ctx.svc,
 	)
-	if errors.Is(err, ErrRequestLimitExceeded) {
+	if errors.Is(err, yt.ErrRequestLimitExceeded) {
 		onFailureClosure(ctx, cfg, true)(fmt.Errorf("could not create broadcast: %w", err))
 		return
 	}

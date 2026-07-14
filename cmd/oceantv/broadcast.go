@@ -38,6 +38,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -51,7 +52,7 @@ type (
 	Store = datastore.Store
 	Key   = datastore.Key
 	Ety   = datastore.Entity
-	Svc   = BroadcastService
+	Svc   = yt.BroadcastService
 )
 
 const (
