@@ -480,3 +480,43 @@ type Species struct {
 func (vs *Species) Copy(dst datastore.Entity) (datastore.Entity, error) {
 	return datastore.CopyEntity(vs, dst)
 }
+
+// Kind of entity to store / fetch from the datastore.
+const TypeAnnotation = "Annotation"
+
+// BoundingBox is a rectangle enclosing something interesting in a video.
+// It is represented using two x y coordinates, top left corner and bottom right corner of the rectangle.
+type BoundingBox struct {
+	X1 float32 `json:"x1" example:"10.00`
+	X2 float32 `json:"x2" example:"50.00"`
+	Y1 float32 `json:"y1" example:"25.00"`
+	Y2 float32 `json:"y2" example:"75.00"`
+}
+
+// KeyPoint is a bounding box and time within the video.
+type KeyPoint struct {
+	BoundingBox BoundingBox `json:"box"`
+	Time        int64       `json:"time"`                 // Time of the keypoint in ms.
+	Confidence  float32     `json:"confidence,omitempty"` // Confidence of the keypoint (optional).
+}
+
+// An Annotation holds information about observations at a particular moment and region within a video stream.
+type Annotation struct {
+	SubFeedID int64
+	StartTime int64      // for indexing purposes.
+	EndTime   int64      // for indexing purposes.
+	Keypoints []KeyPoint `datastore:",noindex"`
+	CreatedBy int64
+
+	// User ID and Species ID are stored separately, so we can query for annotations made
+	// by a particular user or with a particular species. NOTE: a species ID may appear
+	// multiple times if it is identified by many users.
+	IdentificationUserID    []int64
+	IdentificationSpeciesID []int64
+	datastore.NoCache
+}
+
+// Implements Copy from the Entity interface.
+func (an *Annotation) Copy(dst datastore.Entity) (datastore.Entity, error) {
+	return datastore.CopyEntity(an, dst)
+}

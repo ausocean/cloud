@@ -131,6 +131,7 @@ func main() {
 	datastore.RegisterEntity(typeSignal, func() datastore.Entity { return new(Signal) })
 	datastore.RegisterEntity(TypeSpecies, func() datastore.Entity { return new(Species) })
 	datastore.RegisterEntity(typeSpeciesV2, func() datastore.Entity { return new(Species) })
+	datastore.RegisterEntity(TypeAnnotation, func() datastore.Entity { return new(Annotation) })
 
 	var store, store2 datastore.Store
 	var err error
@@ -292,6 +293,11 @@ func main() {
 			err = migrateSpecies(store)
 			if err != nil {
 				log.Fatalf("migrateSpecies failed with error: %v", err)
+			}
+		case TypeAnnotation:
+			err = migrateAnnotations(store)
+			if err != nil {
+				log.Fatalf("migrateAnnotations failed with error: %v", err)
 			}
 		default:
 			log.Fatalf("invalid kind %s", kind)
@@ -1202,5 +1208,43 @@ func migrateSpeciesRarity(store datastore.Store) error {
 		}
 	}
 	fmt.Printf("Migration complete. Total migrated: %d species\n", n)
+	return nil
+}
+
+// migrateAnnotations migrates Annotation entities to add/update EndTime.
+func migrateAnnotations(store datastore.Store) error {
+	ctx := context.Background()
+
+	q := store.NewQuery(TypeAnnotation, true)
+	keys, err := store.GetAll(ctx, q, nil)
+	if err != nil {
+		return err
+	}
+	total := len(keys)
+	fmt.Printf("Found %d Annotation entities to migrate. Starting migration...\n", total)
+
+	n := 0
+	for _, k := range keys {
+		a := new(Annotation)
+		err := store.Get(ctx, k, a)
+		if err != nil {
+			return err
+		}
+
+		if len(a.Keypoints) > 0 {
+			a.EndTime = a.Keypoints[len(a.Keypoints)-1].Time
+		}
+
+		_, err = store.Put(ctx, k, a)
+		if err != nil {
+			return err
+		}
+		n += 1
+
+		if n%50 == 0 {
+			fmt.Printf("Progress: Migrated %d / %d annotations...\n", n, total)
+		}
+	}
+	fmt.Printf("Migration complete. Total migrated: %d annotations\n", n)
 	return nil
 }
