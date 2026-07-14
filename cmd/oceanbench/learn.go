@@ -25,9 +25,10 @@ LICENSE
 package main
 
 import (
-	"net/http"
+	"github.com/gofiber/fiber/v2"
 )
 
-func mooringHandler(w http.ResponseWriter, r *http.Request) {
-	writeTemplate(w, r, "mooring.html", &commonData{}, "")
+func mooringHandler(c *fiber.Ctx) error {
+	writeTemplateFiber(c, "mooring.html", &commonData{}, "")
+	return nil
 }
