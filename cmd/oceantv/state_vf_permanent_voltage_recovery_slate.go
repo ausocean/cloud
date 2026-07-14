@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 )
 
 type vidforwardPermanentVoltageRecoverySlate struct {
@@ -74,5 +75,5 @@ func (s *vidforwardPermanentVoltageRecoverySlate) handleEvent(sm *broadcastState
 func (s *vidforwardPermanentVoltageRecoverySlate) fix() { s.requestSlate() }
 
 func (s *vidforwardPermanentVoltageRecoverySlate) requestSlate() {
-	try(s.fwd.Slate(s.cfg, WithType(LowVoltage)), "could not set vidforward mode to low voltage slate", s.log)
+	try(s.fwd.Slate(s.cfg, forwarding.WithType(forwarding.LowVoltage)), "could not set vidforward mode to low voltage slate", s.log)
 }

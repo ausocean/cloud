@@ -27,7 +27,6 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -80,8 +79,6 @@ const (
 	tempPin                   = "X60"                                 // Standard temperature pin value.
 	scalar                    = 0.1                                   // Scalar for temperature conversions from int to float.
 	absZero                   = -273.15                               // Offset for temperature conversions from int to float.
-	rtmpDestinationAddress    = "rtmp://a.rtmp.youtube.com/live2/"    // Base address for RTMP destination (RTMP key is appended).
-	secondaryBroadcastPostfix = "(Secondary)"                         // Post fix used on end of secondary broadcast names.
 	longTermBroadcastDuration = 1                                     // The duration of the long term broadcast in years.
 )
 
@@ -286,7 +283,7 @@ func extStart(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 		return nil
 	}
 
-	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + rtmpDestinationAddress + cfg.RTMPKey
+	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + broadcast.RTMPDestinationAddress + cfg.RTMPKey
 	err := setActionVars(ctx, cfg.SKey, onActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
@@ -327,34 +324,6 @@ func extStop(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
-}
-
-func performRequestWithRetries(dest string, data any, maxRetries int, log func(string, ...interface{})) error {
-	var retries int
-retry:
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		return fmt.Errorf("could not encode data struct: %w", err)
-	}
-
-	client := &http.Client{Timeout: 20 * time.Second}
-	httpReq, err := http.NewRequest(http.MethodPut, dest, &buf)
-	if err != nil {
-		return fmt.Errorf("could not create new http request: %w", err)
-	}
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		log("could not do http request, but retrying: %v", err)
-		if retries <= maxRetries {
-			retries++
-			goto retry
-		}
-		return fmt.Errorf("could not do http request: %w, resp: %v", err, resp)
 	}
 
 	return nil

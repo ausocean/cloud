@@ -358,7 +358,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			_cfg.Issues = 0
 
 			if cfg.UsingVidforward {
-				if strings.Contains(cfg.Name, secondaryBroadcastPostfix) {
+				if strings.Contains(cfg.Name, broadcast.SecondaryPostfix) {
 					_cfg.BroadcastState = stateToString(&vidforwardSecondaryIdle{})
 				} else {
 					_cfg.BroadcastState = stateToString(&vidforwardPermanentIdle{})

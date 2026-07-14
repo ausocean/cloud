@@ -406,7 +406,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 
 	// Sanity check. This should only be invoked for the primary broadcast only so make sure
 	// the name does not contain the secondary broadcast postfix.
-	if strings.Contains(cfg.Name, secondaryBroadcastPostfix) {
+	if strings.Contains(cfg.Name, broadcast.SecondaryPostfix) {
 		panic("setupVidforwardBroadcasting should only be invoked for the primary broadcast")
 	}
 
@@ -423,7 +423,7 @@ func (m *OceanBroadcastManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) e
 		return fmt.Errorf("could not set the camera output to http: %w", err)
 	}
 	// Check if secondary broadcast already exists.
-	secondaryName := cfg.Name + secondaryBroadcastPostfix
+	secondaryName := cfg.Name + broadcast.SecondaryPostfix
 
 	populateFields := func(_cfg *Cfg) {
 		// The secondary broadcast will for the most part copy the long term broadcast

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 )
 
@@ -274,22 +275,22 @@ func TestBroadcastCfgToState(t *testing.T) {
 		},
 		{
 			name: "Vidforward Secondary Live",
-			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + broadcast.SecondaryPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryLive(ctx),
 		},
 		{
 			name: "Vidforward Secondary Live Unhealthy",
-			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + broadcast.SecondaryPostfix, UsingVidforward: true, Active: true, Slate: false, Unhealthy: true, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryLiveUnhealthy(),
 		},
 		{
 			name: "Vidforward Secondary Idle",
-			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + broadcast.SecondaryPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: false, Transitioning: false},
 			want: newVidforwardSecondaryIdle(ctx),
 		},
 		{
 			name: "Vidforward Secondary Starting",
-			cfg:  Cfg{Name: "Broadcast" + secondaryBroadcastPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
+			cfg:  Cfg{Name: "Broadcast" + broadcast.SecondaryPostfix, UsingVidforward: true, Active: false, Slate: false, Unhealthy: false, AttemptingToStart: true, Transitioning: false},
 			want: newVidforwardSecondaryStarting(ctx),
 		},
 		{

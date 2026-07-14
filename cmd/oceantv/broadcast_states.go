@@ -12,6 +12,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
@@ -21,7 +22,7 @@ type broadcastContext struct {
 	man      BroadcastManager
 	store    Store
 	svc      Svc
-	fwd      ForwardingService
+	fwd      forwarding.Service
 	bus      event.EventBus
 	hardware hardwareManager
 
@@ -391,7 +392,7 @@ func updateBroadcastBasedOnState(state state, cfg *Cfg) {
 }
 
 func broadcastCfgToState(ctx *broadcastContext) state {
-	isSecondary := strings.Contains(ctx.cfg.Name, secondaryBroadcastPostfix)
+	isSecondary := strings.Contains(ctx.cfg.Name, broadcast.SecondaryPostfix)
 	var (
 		vid               = ctx.cfg.UsingVidforward
 		active            = ctx.cfg.Active
