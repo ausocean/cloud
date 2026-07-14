@@ -23,7 +23,12 @@ LICENSE
 
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+)
 
 type vidforwardPermanentLiveUnhealthy struct {
 	stateFields
@@ -46,59 +51,59 @@ func (s *vidforwardPermanentLiveUnhealthy) fix() {
 	s.Attempts++
 
 	var (
-		e   event
+		e   event.Event
 		msg string
 	)
 
 	const maxAttempts = 3
 	if s.Attempts > maxAttempts {
 		msg = "failed to fix permanent broadcast, transitioning to slate (attempts: %d, max attempts: %d)"
-		e = fixFailureEvent{}
+		e = event.FixFailure{}
 	} else {
 		msg = "attempting to fix permanent broadcast by hardware restart and forward stream re-request (attempts: %d, max attempts: %d)"
 		try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
-		e = hardwareResetRequestEvent{}
+		e = event.HardwareResetRequest{}
 	}
 
-	s.logAndNotify(broadcastGeneric, msg, s.Attempts, maxAttempts)
-	s.bus.publish(e)
+	s.logAndNotify(notifier.KindGeneric, msg, s.Attempts, maxAttempts)
+	s.bus.Publish(e)
 	s.LastResetAttempt = time.Now()
 }
 
-func (s *vidforwardPermanentLiveUnhealthy) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardPermanentLiveUnhealthy) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case hardwareStartFailedEvent:
-		sm.logAndNotify(broadcastHardware, "hardware failure event in permanent live state, moving to failure slate state")
+	case event.HardwareStartFailed:
+		sm.logAndNotify(notifier.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case goodHealthEvent:
+	case event.GoodHealth:
 		sm.transition(newVidforwardPermanentLive())
-	case timeEvent:
-		if sm.finishIsDue(e) {
-			sm.ctx.bus.publish(finishEvent{})
+	case event.Time:
+		if sm.finishIsDue(e_) {
+			sm.ctx.bus.Publish(event.Finish{})
 			return
 		}
-		sm.publishHealthStatusOrChatEvents(e)
+		sm.publishHealthStatusOrChatEvents(e_)
 		sm.tryToFixCurrentState()
-	case fixFailureEvent:
+	case event.FixFailure:
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case finishEvent:
+	case event.Finish:
 		sm.transition(newVidforwardPermanentTransitionLiveToSlate(sm.ctx))
 	case
-		criticalFailureEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }

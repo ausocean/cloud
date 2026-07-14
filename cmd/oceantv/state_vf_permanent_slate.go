@@ -23,41 +23,43 @@ LICENSE
 
 package main
 
+import "github.com/ausocean/cloud/cmd/oceantv/event"
+
 type vidforwardPermanentSlate struct{ stateFields }
 
 func newVidforwardPermanentSlate() *vidforwardPermanentSlate { return &vidforwardPermanentSlate{} }
 
-func (s *vidforwardPermanentSlate) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
+func (s *vidforwardPermanentSlate) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case badHealthEvent:
+	case event.BadHealth:
 		sm.transition(newVidforwardPermanentSlateUnhealthy(sm.ctx))
-	case timeEvent:
-		if sm.startIsDue(e) {
-			sm.ctx.bus.publish(startEvent{})
+	case event.Time:
+		if sm.startIsDue(e_) {
+			sm.ctx.bus.Publish(event.Start{})
 			return
 		} else {
-			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e_.Time.Format("15:04"))
 		}
-	case startEvent:
+	case event.Start:
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
 	case
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		lowVoltageEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.LowVoltage,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/model"
 )
 
@@ -43,21 +44,21 @@ func (s *hardwareStarting) enter() {
 		// NOTE here we could do this, however it's not certain that all ESPs
 		// will have the latest firmware that supports this, and so it's not
 		// necessarily a showstopper.
-		// s.bus.publish(invalidConfigurationEvent{errWrapped})
+		// s.bus.Publish(event.InvalidConfiguration{errWrapped})
 		// return
 	}
 
 	switch {
 	case errors.Is(hwErr, LowVoltageAlarm):
 		s.log("controller voltage is low, waiting for recovery before starting")
-		s.bus.publish(lowVoltageEvent{})
+		s.bus.Publish(event.LowVoltage{})
 		return
 	case errors.Is(hwErr, None):
 		// Continue other checks, this is good.
 	case hwErr != nil:
 		errWrapped := fmt.Errorf("unhandled controller hardware error: %w", hwErr)
 		s.log(errWrapped.Error())
-		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		s.bus.Publish(event.InvalidConfiguration{errWrapped})
 		return
 	default:
 		// This means we failed to get hwErr, which at this stage just means
@@ -68,7 +69,7 @@ func (s *hardwareStarting) enter() {
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware voltage: %w", err)
 		s.log(errWrapped.Error())
-		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		s.bus.Publish(event.InvalidConfiguration{errWrapped})
 		return
 	}
 
@@ -76,7 +77,7 @@ func (s *hardwareStarting) enter() {
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get alarm voltage: %w", err)
 		s.log(errWrapped.Error())
-		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		s.bus.Publish(event.InvalidConfiguration{errWrapped})
 		return
 	}
 
@@ -84,25 +85,25 @@ func (s *hardwareStarting) enter() {
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get controller status: %w", err)
 		s.log(errWrapped.Error())
-		s.bus.publish(invalidConfigurationEvent{errWrapped})
+		s.bus.Publish(event.InvalidConfiguration{errWrapped})
 		return
 	}
 
 	if voltage <= alarmVoltage {
 		if controllerIsOn {
 			s.log("voltage less than alarm voltage but controller is on, something is configured incorrectly")
-			s.bus.publish(invalidConfigurationEvent{errors.New("voltage less than alarm voltage but controller is on")})
+			s.bus.Publish(event.InvalidConfiguration{errors.New("voltage less than alarm voltage but controller is on")})
 			return
 		}
 		s.log("controller voltage is low, waiting for recovery before starting")
-		s.bus.publish(lowVoltageEvent{})
+		s.bus.Publish(event.LowVoltage{})
 		return
 	}
 
 	// Not below alarm voltage, but controller is not responding.
 	// This is a critical failure.
 	if !controllerIsOn {
-		s.bus.publish(controllerFailureEvent{errors.New("controller not responding above alarm voltage")})
+		s.bus.Publish(event.ControllerFailure{errors.New("controller not responding above alarm voltage")})
 		return
 	}
 
@@ -110,7 +111,7 @@ func (s *hardwareStarting) enter() {
 	// to wait for recovery.
 	if voltage < s.cfg.RequiredStreamingVoltage {
 		s.log("controller voltage is below required streaming voltage, waiting for recovery before starting")
-		s.bus.publish(lowVoltageEvent{})
+		s.bus.Publish(event.LowVoltage{})
 		return
 	}
 

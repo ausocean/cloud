@@ -25,6 +25,8 @@ package main
 
 import (
 	"context"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 )
 
 type directIdle struct {
@@ -39,33 +41,33 @@ func (s *directIdle) enter() {
 	if err != nil {
 		s.log("could not stop broadcast on entry: %v", err)
 	} else {
-		s.bus.publish(finishedEvent{})
+		s.bus.Publish(event.Finished{})
 	}
-	s.bus.publish(hardwareStopRequestEvent{})
+	s.bus.Publish(event.HardwareStopRequest{})
 }
 
-func (s *directIdle) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case timeEvent:
-		if sm.startIsDue(e) {
-			sm.ctx.bus.publish(startEvent{})
+func (s *directIdle) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.Time:
+		if sm.startIsDue(e_) {
+			sm.ctx.bus.Publish(event.Start{})
 			return
 		} else {
-			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e.Time.Format("15:04"))
+			sm.log("start is not due, Start: %v, End: %v, time of event: %v", sm.ctx.cfg.Start.Format("15:04"), sm.ctx.cfg.End.Format("15:04"), e_.Time.Format("15:04"))
 		}
-	case startEvent:
+	case event.Start:
 		sm.transition(newDirectStarting(sm.ctx))
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		invalidConfigurationEvent,
-		lowVoltageEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.InvalidConfiguration,
+		event.LowVoltage,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }

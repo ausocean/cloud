@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/openfish"
 	"github.com/ausocean/cloud/gauth"
 )
@@ -80,9 +81,9 @@ func sendWebhook(url string, data subjecter) error {
 
 // openfishEventHook is a callback function to be used to register streams
 // with the openfish service.
-func openfishEventHook(e event, cfg *Cfg) {
+func openfishEventHook(e event.Event, cfg *Cfg) {
 	// Only continue if we have a finished event.
-	if _, ok := e.(finishedEvent); !ok {
+	if _, ok := e.(event.Finished); !ok {
 		return
 	}
 

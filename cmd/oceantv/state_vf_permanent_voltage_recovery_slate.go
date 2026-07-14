@@ -23,7 +23,11 @@ LICENSE
 
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+)
 
 type vidforwardPermanentVoltageRecoverySlate struct {
 	stateFields
@@ -43,27 +47,27 @@ func (s *vidforwardPermanentVoltageRecoverySlate) enter() {
 	s.requestSlate()
 }
 
-func (s *vidforwardPermanentVoltageRecoverySlate) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case voltageRecoveredEvent:
+func (s *vidforwardPermanentVoltageRecoverySlate) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.VoltageRecovered:
 		sm.transition(newVidforwardPermanentTransitionSlateToLive(sm.ctx))
-	case timeEvent:
+	case event.Time:
 		withTimeout := sm.currentState.(stateWithTimeout)
-		if withTimeout.timedOut(e.Time) {
+		if withTimeout.timedOut(e_.Time) {
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		invalidConfigurationEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.InvalidConfiguration,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started:
+		sm.unexpectedEvent(e, s)
 	}
 }
 

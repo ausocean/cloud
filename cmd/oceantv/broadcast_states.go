@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -20,7 +22,7 @@ type broadcastContext struct {
 	store    Store
 	svc      Svc
 	fwd      ForwardingService
-	bus      eventBus
+	bus      event.EventBus
 	hardware hardwareManager
 
 	// When nil, defaults to log.Println. Useful to plug in test implementation.
@@ -38,16 +40,6 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 	broadcast.LogForBroadcast(ctx.cfg, ctx.logOutput, msg, args...)
 }
 
-const (
-	broadcastGeneric       notify.Kind = "broadcast-generic"       // Problems where cause is unknown or un-categorized.
-	broadcastForwarder     notify.Kind = "broadcast-forwarder"     // Problems related to our forwarding service i.e. can't stream slate.
-	broadcastHardware      notify.Kind = "broadcast-hardware"      // Problems related to streaming hardware i.e. controllers and cameras.
-	broadcastNetwork       notify.Kind = "broadcast-network"       // Problems related to bad bandwidth, generally indicated by bad health events.
-	broadcastSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
-	broadcastConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
-	broadcastService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
-)
-
 var errNoGlobalNotifier = errors.New("global notifier is nil")
 
 func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
@@ -55,7 +47,7 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 
 	formattedMsg := fmt.Sprintf(msg, args...)
 
-	// Unmarshal the notification suppression rules from the broadcast configuration.
+	// Unmarshal the notifier suppression rules from the broadcast configuration.
 	// It is of format (case-insensitive for both kinds and containing strings):
 	// {
 	//  "SuppressKinds": ["broadcast-network" , "broadcast-hardware"],
@@ -69,18 +61,18 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	if ctx.cfg.NotifySuppressRules != "" {
 		err := json.Unmarshal([]byte(ctx.cfg.NotifySuppressRules), suppressionRules)
 		if err != nil {
-			ctx.log("could not unmarshal notification suppression rules: %v", err)
+			ctx.log("could not unmarshal notifier suppression rules: %v", err)
 		} else {
 			for _, k := range suppressionRules.SuppressKinds {
 				if strings.EqualFold(k, string(kind)) {
-					ctx.log("suppressing notification of kind %s: %s", kind, formattedMsg)
+					ctx.log("suppressing notifier of kind %s: %s", kind, formattedMsg)
 					return
 				}
 			}
 
 			for _, cont := range suppressionRules.SuppressContaining {
 				if strings.Contains(strings.ToLower(formattedMsg), strings.ToLower(cont)) {
-					ctx.log("suppressing notification containing %q: %s", cont, formattedMsg)
+					ctx.log("suppressing notifier containing %q: %s", cont, formattedMsg)
 					return
 				}
 			}
@@ -90,14 +82,14 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	// If context has nil notifier, use global notifier
 	if ctx.notifier == nil {
 		ctx.log("broadcast context notifier is nil, setting to global notifier")
-		if notifier == nil {
+		if notifier.N == nil {
 			panic(errNoGlobalNotifier)
 		}
-		ctx.notifier = notifier
+		ctx.notifier = notifier.N
 	}
 	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
 	if err != nil {
-		ctx.log("could not send health notification: %v", err)
+		ctx.log("could not send health notifier: %v", err)
 	}
 }
 
@@ -112,41 +104,41 @@ func (s *stateFields) enter() {}
 func (s *stateFields) exit()  {}
 
 type stateWithBroadcastEventHandler interface {
-	handleGlobalEvents(sm *broadcastStateMachine, event event)
-	handleEvent(sm *broadcastStateMachine, event event)
+	handleGlobalEvents(sm *broadcastStateMachine, e event.Event)
+	handleEvent(sm *broadcastStateMachine, e event.Event)
 }
 
-func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, event event) {
-	switch event.(type) {
-	case statusCheckDueEvent:
+func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Event) {
+	switch e.(type) {
+	case event.StatusCheckDue:
 		err := sm.ctx.man.HandleStatus(
 			context.Background(),
 			sm.ctx.cfg,
 			sm.ctx.store,
 			sm.ctx.svc,
 			func(Ctx, *Cfg, Store, Svc) error {
-				sm.ctx.bus.publish(finishEvent{})
+				sm.ctx.bus.Publish(event.Finish{})
 				return nil
 			},
 		)
 		if err != nil {
 			sm.logAndNotifySoftware("could not handle health check: %v", err)
 		}
-	case healthCheckDueEvent:
+	case event.HealthCheckDue:
 		err := sm.ctx.man.HandleHealth(
 			context.Background(),
 			sm.ctx.cfg,
 			sm.ctx.store,
-			func() { sm.ctx.bus.publish(goodHealthEvent{}) },
+			func() { sm.ctx.bus.Publish(event.GoodHealth{}) },
 			func(issue string) {
-				sm.ctx.bus.publish(badHealthEvent{})
-				sm.ctx.logAndNotify(broadcastNetwork, "poor stream health, status: %s", issue)
+				sm.ctx.bus.Publish(event.BadHealth{})
+				sm.ctx.logAndNotify(notifier.KindNetwork, "poor stream health, status: %s", issue)
 			},
 		)
 		if err != nil {
 			sm.logAndNotifySoftware("could not handle health check: %v", err)
 		}
-	case chatMessageDueEvent:
+	case event.ChatMessageDue:
 		sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
 	}
 }
@@ -491,12 +483,12 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *Cfg, onCreati
 			return
 		}
 	}
-	ctx.bus.publish(hardwareStartRequestEvent{})
+	ctx.bus.Publish(event.HardwareStartRequest{})
 }
 
 func startBroadcast(ctx *broadcastContext, cfg *Cfg) {
 	onSuccess := func() {
-		ctx.bus.publish(startedEvent{})
+		ctx.bus.Publish(event.Started{})
 		err := ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.StartFailures = 0; *cfg = *_cfg })
 		if err != nil {
 			ctx.log("could not update config after successful start: %v", err)
@@ -517,25 +509,25 @@ func startBroadcast(ctx *broadcastContext, cfg *Cfg) {
 func onFailureClosure(ctx *broadcastContext, cfg *Cfg, disableOnFirstFail bool) func(err error) {
 	return func(err error) {
 		ctx.log("failed to start broadcast: %v", err)
-		var e event
+		var e event.Event
 		try(ctx.man.Save(nil, func(_cfg *Cfg) {
 			const maxStartFailures = 3
 			_cfg.StartFailures++
 			if disableOnFirstFail || _cfg.StartFailures > maxStartFailures {
 				// Critical start failure event. This means we've tried too many times (which could be even once).
-				e = criticalFailureEvent{fmt.Errorf("exceeded broadcast start failure limit: %w", err)}
+				e = event.CriticalFailure{fmt.Errorf("exceeded broadcast start failure limit: %w", err)}
 				_cfg.StartFailures = 0
 				return
 			}
 
 			// Less critical start failure event; this will give us another chance to broadcast
 			// if disableOnFirstFail is false.
-			e = startFailedEvent{fmt.Errorf("failed to start broadcast: %w", err)}
+			e = event.StartFailed{fmt.Errorf("failed to start broadcast: %w", err)}
 		}),
 			"could not update config after failed start",
 			ctx.log,
 		)
-		ctx.bus.publish(e)
+		ctx.bus.Publish(e)
 	}
 }
 

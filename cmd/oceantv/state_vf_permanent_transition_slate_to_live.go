@@ -23,7 +23,12 @@ LICENSE
 
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+)
 
 type vidforwardPermanentTransitionSlateToLive struct {
 	stateFields
@@ -38,46 +43,46 @@ func newVidforwardPermanentTransitionSlateToLive(ctx *broadcastContext) *vidforw
 
 func (s *vidforwardPermanentTransitionSlateToLive) enter() {
 	s.LastEntered = time.Now()
-	s.bus.publish(hardwareStartRequestEvent{})
+	s.bus.Publish(event.HardwareStartRequest{})
 	try(s.fwd.Stream(s.cfg), "could not set vidforward mode to stream", s.log)
 }
 
-func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case lowVoltageEvent:
+func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.LowVoltage:
 		sm.transition(newVidforwardPermanentVoltageRecoverySlate(sm.ctx))
-	case invalidConfigurationEvent:
+	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e.Error())
+		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
 			sm.logAndNotifySoftware,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
-	case hardwareStartFailedEvent:
-		sm.logAndNotify(broadcastHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
+	case event.HardwareStartFailed:
+		sm.logAndNotify(notifier.KindHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
-	case goodHealthEvent:
+	case event.GoodHealth:
 		if s.isHardwareStarted() {
 			sm.transition(newVidforwardPermanentLive())
 		}
-	case timeEvent:
-		if s.timedOut(e.Time) {
-			sm.ctx.logAndNotify(broadcastGeneric, "transition from slate to live timed out, transitioning to failure slate state")
+	case event.Time:
+		if s.timedOut(e_.Time) {
+			sm.ctx.logAndNotify(notifier.KindGeneric, "transition from slate to live timed out, transitioning to failure slate state")
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
-		sm.publishHealthStatusOrChatEvents(e)
+		sm.publishHealthStatusOrChatEvents(e_)
 	case
-		badHealthEvent,
-		criticalFailureEvent,
-		finishEvent,
-		fixFailureEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.BadHealth,
+		event.CriticalFailure,
+		event.Finish,
+		event.FixFailure,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -52,21 +54,21 @@ func getBroadcastStateMachine(ctx *broadcastContext) (*broadcastStateMachine, er
 	return sm, nil
 }
 
-func (sm *broadcastStateMachine) handleEvent(event event) error {
+func (sm *broadcastStateMachine) handleEvent(e event.Event) error {
 
 	s, ok := sm.currentState.(stateWithBroadcastEventHandler)
 	if !ok {
 		panic(fmt.Sprintf("(bsm) current state (%T) does not implement stateWithBroadcastEventHandler", sm.currentState))
 	}
-	s.handleGlobalEvents(sm, event)
-	s.handleEvent(sm, event)
+	s.handleGlobalEvents(sm, e)
+	s.handleEvent(sm, e)
 
 	// After handling of the event, we may have some changes in substates of the current state.
 	// So we need to update the config based on this state and possibly save some state data.
 	return sm.ctx.man.Save(nil, func(_cfg *Cfg) { updateBroadcastBasedOnState(sm.currentState, _cfg) })
 }
 
-func (sm *broadcastStateMachine) transitionIfTimedOut(s state, to state, t timeEvent) {
+func (sm *broadcastStateMachine) transitionIfTimedOut(s state, to state, t event.Time) {
 	withTimeout := s.(stateWithTimeout)
 	if withTimeout.timedOut(t.Time) {
 		sm.transition(to)
@@ -82,43 +84,43 @@ func (sm *broadcastStateMachine) tryToFixCurrentState() {
 	}
 }
 
-func (sm *broadcastStateMachine) finishIsDue(event timeEvent) bool {
+func (sm *broadcastStateMachine) finishIsDue(event event.Time) bool {
 	if event.Time.After(sm.ctx.cfg.End) || event.Time.Before(sm.ctx.cfg.Start) {
 		return true
 	}
 	return false
 }
 
-func (sm *broadcastStateMachine) startIsDue(event timeEvent) bool {
+func (sm *broadcastStateMachine) startIsDue(event event.Time) bool {
 	if event.Time.After(sm.ctx.cfg.Start) && event.Time.Before(sm.ctx.cfg.End) {
 		return true
 	}
 	return false
 }
 
-func (sm *broadcastStateMachine) publishHealthStatusOrChatEvents(event timeEvent) {
+func (sm *broadcastStateMachine) publishHealthStatusOrChatEvents(e event.Time) {
 	const (
 		statusInterval = 1 * time.Minute
 		chatInterval   = 30 * time.Minute
 	)
-	sm.publishHealthEvent(event)
-	now := event.Time
+	sm.publishHealthEvent(e)
+	now := e.Time
 	if liveState, ok := sm.currentState.(liveState); ok && now.Sub(liveState.lastStatusCheck()) > statusInterval {
 		liveState.setLastStatusCheck(now)
-		sm.ctx.bus.publish(statusCheckDueEvent{})
+		sm.ctx.bus.Publish(event.StatusCheckDue{})
 	}
 	if liveState, ok := sm.currentState.(liveState); ok && now.Sub(liveState.lastChatMsg()) > chatInterval {
 		liveState.setLastChatMsg(now)
-		sm.ctx.bus.publish(chatMessageDueEvent{})
+		sm.ctx.bus.Publish(event.ChatMessageDue{})
 	}
 }
 
-func (sm *broadcastStateMachine) publishHealthEvent(event timeEvent) {
+func (sm *broadcastStateMachine) publishHealthEvent(e event.Time) {
 	const healthInterval = 1 * time.Minute
-	now := event.Time
+	now := e.Time
 	if stateWithHealth, ok := sm.currentState.(stateWithHealth); ok && sm.ctx.cfg.CheckingHealth && now.Sub(stateWithHealth.lastHealthCheck()) > healthInterval {
 		stateWithHealth.setLastHealthCheck(now)
-		sm.ctx.bus.publish(healthCheckDueEvent{})
+		sm.ctx.bus.Publish(event.HealthCheckDue{})
 	}
 }
 
@@ -137,8 +139,8 @@ func (sm *broadcastStateMachine) transition(newState state) {
 	sm.stateHandler(newState)
 }
 
-func (sm *broadcastStateMachine) unexpectedEvent(event event, state state) {
-	sm.log("unexpected event %s in current state %s", event.String(), stateToString(state))
+func (sm *broadcastStateMachine) unexpectedEvent(e event.Event, state state) {
+	sm.log("unexpected event %s in current state %s", e.String(), stateToString(state))
 }
 
 func (sm *broadcastStateMachine) log(msg string, args ...interface{}) {
@@ -150,9 +152,9 @@ func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ..
 }
 
 func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(broadcastSoftware, msg, args...)
+	sm.ctx.logAndNotify(notifier.KindSoftware, msg, args...)
 }
 
 func (sm *broadcastStateMachine) logAndNotifyConfiguration(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(broadcastConfiguration, msg, args...)
+	sm.ctx.logAndNotify(notifier.KindConfiguration, msg, args...)
 }

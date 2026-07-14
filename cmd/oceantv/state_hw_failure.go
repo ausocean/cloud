@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 )
 
 type hardwareFailure struct {
@@ -41,9 +44,9 @@ func (s hardwareFailure) New(args ...interface{}) (any, error) {
 
 func (s *hardwareFailure) enter() {
 	notifyMsg := "entering hardware failure state"
-	notifyKind := broadcastGeneric
+	notifyKind := notifier.KindGeneric
 	if s.err != nil {
-		if errEvent, ok := s.err.(errorEvent); ok {
+		if errEvent, ok := s.err.(event.Error); ok {
 			notifyKind = errEvent.Kind()
 		}
 		notifyMsg = fmt.Sprintf("entering hardware failure state due to: %v", s.err)

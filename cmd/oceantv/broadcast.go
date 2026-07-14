@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -96,7 +97,7 @@ type oceanTVService struct {
 
 type oceanTVOption func(*oceanTVService) error
 
-type eventHook func(event, *Cfg)
+type eventHook func(event.Event, *Cfg)
 type stateHook func(state, *Cfg)
 
 func withEventHooks(hooks ...eventHook) oceanTVOption {
@@ -215,9 +216,9 @@ func performChecksInternalThroughStateMachine(
 	// Construct the event handlers from the hooks.
 	// We have to do this because event handlers are not on a per config basic like
 	// the hooks are, so we use a closure to capture the config.
-	var eventHandlers []handler
+	var eventHandlers []event.Handler
 	for _, hook := range eventHooks {
-		eventHandlers = append(eventHandlers, func(e event) error {
+		eventHandlers = append(eventHandlers, func(e event.Event) error {
 			hook(e, cfg)
 			return nil
 		})
@@ -297,15 +298,12 @@ func extStart(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 // errNoShutdownActions represents no shutdown actions being registered for the broadcast.
 var errNoShutdownActions = errors.New("no shutdown actions provided")
 
-// warnSkipShutdown is a pseudo-error which represents that shutdown was skipped.
-var warnSkipShutdown = errors.New("shutdown set to skip")
-
 // SkipAction is the placeholder used to represent that the action step should be skipped.
 const SkipAction = "skip"
 
 func extShutdown(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
 	if cfg.ShutdownActions == SkipAction {
-		return warnSkipShutdown
+		return broadcast.WarnSkipShutdown
 	}
 	if cfg.ShutdownActions == "" {
 		return errNoShutdownActions

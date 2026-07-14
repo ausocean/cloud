@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 )
-
 
 type hardwareRestarting struct {
 	stateWithTimeoutFields
@@ -125,12 +126,12 @@ func (s *hardwareRestarting) transition() {
 	}
 }
 
-func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
+func (s *hardwareRestarting) handleTimeEvent(t event.Time) {
 	switch s.Substate.(type) {
 	case *hardwareStopping:
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareStopFailedEvent{errors.New("hardware stop timed out")})
+			s.bus.Publish(event.HardwareStopFailed{errors.New("hardware stop timed out")})
 			return
 		}
 
@@ -138,24 +139,24 @@ func (s *hardwareRestarting) handleTimeEvent(t timeEvent) {
 	case *hardwareStarting:
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareStartFailedEvent{errors.New("exceeded starting timeout during hardware restart")})
+			s.bus.Publish(event.HardwareStartFailed{errors.New("exceeded starting timeout during hardware restart")})
 			return
 		}
 
 		// If the camera is reporting then the start has completed.
 		if s.cameraIsReporting() {
-			s.bus.publish(hardwareStartedEvent{})
+			s.bus.Publish(event.HardwareStarted{})
 			return
 		}
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.Substate)
+		s.logAndNotify(notifier.KindSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }
 
-func (s *hardwareRestarting) handleHardwareStoppedEvent(event hardwareStoppedEvent) {
+func (s *hardwareRestarting) handleHardwareStoppedEvent(e event.HardwareStopped) {
 	s.log("handling hardware stopped event")
 	switch s.Substate.(type) {
 	case *hardwareStopping:
@@ -165,10 +166,10 @@ func (s *hardwareRestarting) handleHardwareStoppedEvent(event hardwareStoppedEve
 	}
 }
 
-func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
+func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(e event.HardwareShutdownFailed) {
 	switch s.Substate.(type) {
 	case *hardwareStopping:
-		s.Substate.(*hardwareStopping).handleHardwareShutdownFailedEvent(event)
+		s.Substate.(*hardwareStopping).handleHardwareShutdownFailedEvent(e)
 	default:
 		// Ignore.
 	}
@@ -177,7 +178,7 @@ func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(event hardwareShu
 func (s *hardwareRestarting) cameraIsReporting() bool {
 	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
-		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
+		s.bus.Publish(event.InvalidConfiguration{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
 	}
 	return up

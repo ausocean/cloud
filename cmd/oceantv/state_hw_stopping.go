@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
 )
@@ -125,18 +128,18 @@ func (s *hardwareStopping) transition() {
 	}
 }
 
-func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
+func (s *hardwareStopping) handleTimeEvent(t event.Time) {
 	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
 		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwareShuttingDown")
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwareShutdownFailedEvent{errors.New("hardware shutdown timed out")})
+			s.bus.Publish(event.HardwareShutdownFailed{errors.New("hardware shutdown timed out")})
 			return
 		}
 
 		if !s.cameraIsReporting() {
-			s.bus.publish(hardwareShutdownEvent{})
+			s.bus.Publish(event.HardwareShutdown{})
 			s.transition()
 			return
 		}
@@ -146,32 +149,32 @@ func (s *hardwareStopping) handleTimeEvent(t timeEvent) {
 		s.log("(hardwareStopping) handling timeEvent in hardwareStopping state: substate is hardwarePoweringOff")
 		withTimeout := s.Substate.(stateWithTimeout)
 		if withTimeout.timedOut(t.Time) {
-			s.bus.publish(hardwarePowerOffFailedEvent{errors.New("hardware power off timed out")})
+			s.bus.Publish(event.HardwarePowerOffFailed{errors.New("hardware power off timed out")})
 			return
 		}
 
 		if !s.cameraIsReporting() {
-			s.bus.publish(hardwareStoppedEvent{})
+			s.bus.Publish(event.HardwareStopped{})
 			return
 		}
 		s.log("(hardwareStopping) camera is still reporting, waiting for power off to complete")
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(broadcastSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.Substate)
+		s.logAndNotify(notifier.KindSoftware, "unexpected substate in hardwareStopping: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }
 
-func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutdownFailedEvent) {
+func (s *hardwareStopping) handleHardwareShutdownFailedEvent(e event.HardwareShutdownFailed) {
 	switch s.Substate.(type) {
 	case *hardwareShuttingDown:
 		// We want to get notified for failures and misconfigured configs, and log
 		// when shutdown is skipped.
-		if errors.Is(event, warnSkipShutdown) {
-			s.log("skipping shutdown: %v:", event.Error)
-		} else if errors.Is(event, errNoShutdownActions) {
-			s.logAndNotify(broadcastHardware, "shutdown skipped: %v", event.Error())
+		if errors.Is(e, broadcast.WarnSkipShutdown) {
+			s.log("skipping shutdown: %v:", e.Error)
+		} else if errors.Is(e, errNoShutdownActions) {
+			s.logAndNotify(notifier.KindHardware, "shutdown skipped: %v", e.Error())
 		}
 		s.transition()
 	default:
@@ -179,10 +182,10 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(event hardwareShutd
 	}
 }
 
-func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePowerOffFailedEvent) {
+func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(e event.HardwarePowerOffFailed) {
 	switch s.Substate.(type) {
 	case *hardwarePoweringOff:
-		s.bus.publish(hardwareStopFailedEvent{event})
+		s.bus.Publish(event.HardwareStopFailed{e})
 	default:
 		// Ignore.
 	}
@@ -191,7 +194,7 @@ func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(event hardwarePower
 func (s *hardwareStopping) cameraIsReporting() bool {
 	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
-		s.bus.publish(invalidConfigurationEvent{fmt.Errorf("could not get camera reporting status: %w", err)})
+		s.bus.Publish(event.InvalidConfiguration{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false
 	}
 	return up

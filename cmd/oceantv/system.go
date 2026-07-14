@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
@@ -52,10 +54,10 @@ func withHardwareManager(hm hardwareManager) broadcastSystemOption {
 	}
 }
 
-func withEventBus(bus eventBus) broadcastSystemOption {
+func withEventBus(bus event.EventBus) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
-		for _, h := range bs.ctx.bus.(*basicEventBus).handlers {
-			bus.subscribe(h)
+		for _, h := range bs.ctx.bus.(*event.BasicEventBus).Handlers {
+			bus.Subscribe(h)
 		}
 		bs.ctx.bus = bus
 		return nil
@@ -73,10 +75,10 @@ func withNotifier(n notify.Notifier) broadcastSystemOption {
 // when an event is published to the event bus.
 // This is useful if you wish to notify external systems of events e.g.
 // add a webhook to notify a remote system of an event.
-func withEventHandlers(h ...handler) broadcastSystemOption {
+func withEventHandlers(h ...event.Handler) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		for _, h_ := range h {
-			bs.ctx.bus.subscribe(h_)
+			bs.ctx.bus.Subscribe(h_)
 		}
 		return nil
 	}
@@ -123,9 +125,9 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	// the event bus but our context is cancelled. This might happen if a routine
 	// is used to do a broadcast start and this function returns. We'll save them
 	// to the config and then load them next time we perform checks.
-	storeEventsAfterCtx := func(event event) {
-		log("storing event after cancel: %s", event.String())
-		eventData := marshalEvent(event)
+	storeEventsAfterCtx := func(e event.Event) {
+		log("storing event after cancel: %s", e.String())
+		eventData := event.MarshalEvent(e)
 		try(
 			man.Save(nil, func(_cfg *Cfg) {
 				_cfg.Events = append(_cfg.Events, string(eventData))
@@ -135,18 +137,18 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 		)
 	}
 
-	bus := newBasicEventBus(ctx, storeEventsAfterCtx, log)
+	bus := event.NewBasicEventBus(ctx, storeEventsAfterCtx, log)
 
 	// This context will be used by the state machines for access to our bits and bobs.
 	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, logOutput, nil}
 
 	// Subscribe event handler that notifies on events that implement errorEvent.
-	bus.subscribe(func(event event) error {
-		if _, ok := event.(errorEvent); !ok {
+	bus.Subscribe(func(e event.Event) error {
+		if _, ok := e.(event.Error); !ok {
 			return nil
 		}
 
-		errEvent := event.(errorEvent)
+		errEvent := e.(event.Error)
 
 		broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
 		return nil
@@ -157,12 +159,12 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	if err != nil {
 		return nil, fmt.Errorf("could not get broadcast state machine: %w", err)
 	}
-	bus.subscribe(sm.handleEvent)
+	bus.Subscribe(sm.handleEvent)
 
 	// The hardware state machine will be responsible for the external camera hardware
 	// state.
 	hsm := newHardwareStateMachine(broadcastContext)
-	bus.subscribe(hsm.handleEvent)
+	bus.Subscribe(hsm.handleEvent)
 
 	sys := &broadcastSystem{broadcastContext, sm, hsm, log, nil}
 
@@ -204,7 +206,7 @@ func (bs *broadcastSystem) tick() error {
 				if status == yt.StatusLive {
 					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
-						bs.ctx.logAndNotify(broadcastService, "could not complete broadcast, please check this manually: %v", err)
+						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)
 					}
 				}
 			}
@@ -217,9 +219,9 @@ func (bs *broadcastSystem) tick() error {
 	}
 
 	for _, eventData := range bs.ctx.cfg.Events {
-		event := unmarshalEvent([]byte(eventData))
+		event := event.UnmarshalEvent([]byte(eventData))
 		bs.log("publishing stored event: %s", event.String())
-		bs.ctx.bus.publish(event)
+		bs.ctx.bus.Publish(event)
 	}
 
 	// Remove stored events we just published from the config.
@@ -228,6 +230,6 @@ func (bs *broadcastSystem) tick() error {
 		return fmt.Errorf("could not clear config events: %w", err)
 	}
 
-	bs.ctx.bus.publish(timeEvent{time.Now()})
+	bs.ctx.bus.Publish(event.Time{time.Now()})
 	return nil
 }

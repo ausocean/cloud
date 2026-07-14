@@ -23,6 +23,8 @@ LICENSE
 
 package main
 
+import "github.com/ausocean/cloud/cmd/oceantv/event"
+
 type directLive struct {
 	*broadcastContext `json: "-"`
 	stateFields
@@ -33,29 +35,29 @@ func newDirectLive(ctx *broadcastContext) *directLive {
 	return &directLive{broadcastContext: ctx}
 }
 
-func (s *directLive) handleEvent(sm *broadcastStateMachine, event event) {
-	switch e := event.(type) {
-	case invalidConfigurationEvent:
-		sm.transition(newDirectFailure(sm.ctx, e))
-	case badHealthEvent:
+func (s *directLive) handleEvent(sm *broadcastStateMachine, e event.Event) {
+	switch e_ := e.(type) {
+	case event.InvalidConfiguration:
+		sm.transition(newDirectFailure(sm.ctx, e_))
+	case event.BadHealth:
 		sm.transition(newDirectLiveUnhealthy(sm.ctx))
-	case timeEvent:
-		if sm.finishIsDue(e) {
-			sm.ctx.bus.publish(finishEvent{})
+	case event.Time:
+		if sm.finishIsDue(e_) {
+			sm.ctx.bus.Publish(event.Finish{})
 			return
 		}
-		sm.publishHealthStatusOrChatEvents(e)
-	case finishEvent:
+		sm.publishHealthStatusOrChatEvents(e_)
+	case event.Finish:
 		sm.transition(newDirectIdle(sm.ctx))
 	case
-		criticalFailureEvent,
-		fixFailureEvent,
-		hardwareStartFailedEvent,
-		lowVoltageEvent,
-		startEvent,
-		startFailedEvent,
-		startedEvent,
-		voltageRecoveredEvent:
-		sm.unexpectedEvent(event, s)
+		event.CriticalFailure,
+		event.FixFailure,
+		event.HardwareStartFailed,
+		event.LowVoltage,
+		event.Start,
+		event.StartFailed,
+		event.Started,
+		event.VoltageRecovered:
+		sm.unexpectedEvent(e, s)
 	}
 }
