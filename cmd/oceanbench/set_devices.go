@@ -29,37 +29,37 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // setDevicesVars handles requests for the variables of the device, returning
 // the populated template.
-func setDevicesVars(w http.ResponseWriter, r *http.Request) {
-	profile, err := getProfile(w, r)
+func setDevicesVars(c *fiber.Ctx) error {
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
 	data := devicesData{
 		commonData: commonData{},
-		Mac:        r.FormValue("ma"),
+		Mac:        c.FormValue("ma"),
 		Device:     &model.Device{},
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 
 	// Return early if no device is selected.
 	if data.Mac == "" {
-		writeTemplate(w, r, "set/device_vars.html", &data, "")
+		writeTemplateFiber(c, "set/device_vars.html", &data, "")
+		return nil
 	}
 
 	data.Device.Mac = model.MacEncode(data.Mac)
@@ -68,12 +68,13 @@ func setDevicesVars(w http.ResponseWriter, r *http.Request) {
 
 	vars, err := model.GetVariablesBySite(ctx, settingsStore, skey, ma)
 	if err != nil {
-		writeError(w, fmt.Errorf("unable to get vars for device: %w", err))
+		writeErrorFiber(c, fmt.Errorf("unable to get vars for device: %w", err))
 	}
 
 	data.Vars = vars
 
-	writeTemplate(w, r, "set/device_vars.html", &data, "")
+	writeTemplateFiber(c, "set/device_vars.html", &data, "")
+	return nil
 }
 
 // editVarHandler handles per-device variable update/deletion requests.
@@ -83,23 +84,22 @@ func setDevicesVars(w http.ResponseWriter, r *http.Request) {
 //   - vn: variable name
 //   - vv: variable value
 //   - vd: variable delete
-func editVarHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+func editVarHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	ctx := c.UserContext()
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
-	ma := r.FormValue("ma")
-	vn := strings.TrimSpace(r.FormValue("vn"))
-	vv := strings.Join(r.Form["vv"], ",")
-	vd := r.FormValue("vd")
+	ma := c.FormValue("ma")
+	vn := strings.TrimSpace(c.FormValue("vn"))
+	vv := c.FormValue("vv")
+	vd := c.FormValue("vd")
 
 	log.Printf("variable name: %s", vn)
 	log.Printf("variable value: %s", vv)
@@ -112,19 +112,19 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 
 	mac := model.MacEncode(ma)
 	if mac == 0 {
-		writeTemplate(w, r, "set/device_vars.html", &data, "MAC address missing")
-		return
+		writeTemplateFiber(c, "set/device_vars.html", &data, "MAC address missing")
+		return nil
 	}
 
 	if vn == "" {
-		writeTemplate(w, r, "set/device_vars.html", &data, "Name Missing")
-		return
+		writeTemplateFiber(c, "set/device_vars.html", &data, "Name Missing")
+		return nil
 	}
 
 	dev, err := model.GetDevice(ctx, settingsStore, mac)
 	if err != nil {
-		writeTemplate(w, r, "set/device_vars.html", &data, err.Error())
-		return
+		writeTemplateFiber(c, "set/device_vars.html", &data, err.Error())
+		return err
 	}
 
 	if vd == "true" {
@@ -134,9 +134,9 @@ func editVarHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeTemplate(w, r, "set/device_vars.html", &data, err.Error())
-		return
+		writeTemplateFiber(c, "set/device_vars.html", &data, err.Error())
+		return err
 	}
 
-	setDevicesVars(w, r)
+	return setDevicesVars(c)
 }
