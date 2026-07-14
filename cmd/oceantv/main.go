@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/composite"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -57,7 +58,7 @@ const (
 
 var (
 	setupMutex sync.Mutex
-	store      *CompositeStore
+	store      *composite.Store
 	debug      bool
 	standalone bool
 	cronSecret []byte
@@ -240,7 +241,7 @@ func setup(ctx Ctx) {
 		log.Fatalf("could not set up datastore: %v", err)
 	}
 
-	store = ausOceanCompositeStore(settingsStore, mediaStore)
+	store = composite.AusOceanStore(settingsStore, mediaStore)
 
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
