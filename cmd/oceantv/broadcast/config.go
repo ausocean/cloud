@@ -37,6 +37,7 @@ import (
 
 const (
 	Scope                  = "Broadcast"                        // Scope under which broadcast configs are stored.
+	LiveScope              = "Live"                             // Scope under which live stream URLs are stored.
 	SecondaryPostfix       = "(Secondary)"                      // Post fix used on end of secondary broadcast names.
 	RTMPDestinationAddress = "rtmp://a.rtmp.youtube.com/live2/" // Base address for RTMP destination (RTMP key is appended).
 )

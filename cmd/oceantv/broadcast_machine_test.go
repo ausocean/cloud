@@ -9,6 +9,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/notify"
 )
@@ -1537,7 +1538,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 		finalBroadcastState   state
 		finalHardwareState    state
 		hardwareMan           hardwareManager
-		newBroadcastMan       func(*testing.T, *Cfg) BroadcastManager
+		newBroadcastMan       func(*testing.T, *Cfg) manager.Broadcast
 
 		// Leave unset to use default max ticks.
 		// Some tests may require more ticks to reach the final state.
@@ -1563,7 +1564,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareRecoveringVoltage{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{event.Time{}, event.Start{}, event.HardwareStartRequest{}, event.LowVoltage{}},
@@ -1586,7 +1587,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareStarting{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,
@@ -1619,7 +1620,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directIdle{},
 			finalHardwareState:    &hardwareOff{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withChargingFault()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 260,
@@ -1653,7 +1654,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directFailure{},
 			finalHardwareState:    &hardwareFailure{},
 			hardwareMan:           newDummyHardwareManager(withHardwareFault()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{
@@ -1684,7 +1685,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &vidforwardPermanentStarting{},
 			finalHardwareState:    &hardwareStarting{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,
@@ -1718,7 +1719,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &vidforwardPermanentVoltageRecoverySlate{},
 			finalHardwareState:    &hardwareRecoveringVoltage{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,
@@ -1749,7 +1750,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &vidforwardPermanentLive{},
 			finalHardwareState:    &hardwareOn{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage()),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,
@@ -1794,7 +1795,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareRecoveringVoltage{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			expectedEvents: []event.Event{event.Time{}, event.Start{}, event.HardwareStartRequest{}, event.LowVoltage{}},
@@ -1816,7 +1817,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 			finalBroadcastState:   &directStarting{},
 			finalHardwareState:    &hardwareStarting{},
 			hardwareMan:           newDummyHardwareManager(withLowVoltage(), withHardwareError(LowVoltageAlarm)),
-			newBroadcastMan: func(t *testing.T, c *Cfg) BroadcastManager {
+			newBroadcastMan: func(t *testing.T, c *Cfg) manager.Broadcast {
 				return newDummyManager(t, c)
 			},
 			requiredTicks: 60,

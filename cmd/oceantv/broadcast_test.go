@@ -36,32 +36,13 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 )
-
-// TestRemoveDate tests the removeDate helper function.
-func TestRemoveDate(t *testing.T) {
-	tests := []struct {
-		in   string
-		want string
-	}{
-		{in: "A Broadcast 23/04/15", want: "A Broadcast "},
-		{in: "A Broadcast 04/23/15", want: "A Broadcast "},
-		{in: "ABroadcast04/23/15", want: "ABroadcast"},
-		{in: "ABroadcast04/23/15AStream", want: "ABroadcastAStream"},
-	}
-
-	for i, test := range tests {
-		got := removeDate(test.in)
-		if got != test.want {
-			t.Errorf("did not get expected result for test no. %d \ngot: %s \nwant: %s", i, got, test.want)
-		}
-	}
-}
 
 // dummyManager is a dummy implementation of the broadcastManager interface.
 type dummyManager struct {
@@ -151,7 +132,7 @@ func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	}
 	return nil
 }
-func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call BroadcastCallback) error {
+func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call manager.BroadcastCallback) error {
 	d.statusHandled = true
 	return nil
 }
