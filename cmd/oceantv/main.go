@@ -40,6 +40,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/composite"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -128,7 +129,7 @@ func main() {
 		limiterRefillRate = 1 // per hour
 		limiterID         = "panic_notification_limiter"
 	)
-	panicNotificationLimiter, err := GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	panicNotificationLimiter, err := ratelimit.GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
 	if err != nil {
 		log.Fatalf("could not get panic notification limiter: %v", err)
 	}

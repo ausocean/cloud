@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/youtube/v3"
@@ -84,7 +85,7 @@ func (y YouTubeResponse) HTTPHeader() http.Header { return googleapi.ServerRespo
 
 // YouTubeBroadcastService is a BroadcastService implementation for YouTube.
 type YouTubeBroadcastService struct {
-	limiter  RateLimiter
+	limiter  ratelimit.RateLimiter
 	log      func(string, ...interface{})
 	tokenURI string
 }
@@ -95,7 +96,7 @@ func newYouTubeBroadcastService(tokenURI string, log func(string, ...interface{}
 
 // WithRateLimiter is a BroadcastOption that sets the rate limiter for a
 // YouTubeBroadcastService.
-func WithRateLimiter(limiter RateLimiter) BroadcastOption {
+func WithRateLimiter(limiter ratelimit.RateLimiter) BroadcastOption {
 	return func(i interface{}) error {
 		if s, ok := i.(*YouTubeBroadcastService); ok {
 			s.limiter = limiter

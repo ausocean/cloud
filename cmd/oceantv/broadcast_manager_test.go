@@ -8,6 +8,7 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -130,7 +131,7 @@ func TestCreateBroadcast(t *testing.T) {
 
 			svc := newDummyService()
 
-			limiter := &OceanTokenBucketLimiter{
+			limiter := &ratelimit.OceanTokenBucketLimiter{
 				ID:             "test-limiter",
 				Tokens:         10,
 				MaxTokens:      10,

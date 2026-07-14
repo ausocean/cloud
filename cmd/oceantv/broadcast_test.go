@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
@@ -66,14 +67,14 @@ type dummyManager struct {
 	cfg                                                                *Cfg
 	startDone                                                          chan struct{}
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
-	Limiter                                                            RateLimiter
+	Limiter                                                            ratelimit.RateLimiter
 	t                                                                  *testing.T
 	broadcastUnhealthy                                                 bool
 }
 
 type dummyManagerOption func(interface{}) error
 
-func withRateLimiter(l RateLimiter) dummyManagerOption {
+func withRateLimiter(l ratelimit.RateLimiter) dummyManagerOption {
 	return func(i interface{}) error {
 		if s, ok := i.(*dummyManager); ok {
 			s.Limiter = l
@@ -178,7 +179,7 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 // dummyStore is a dummy implementation of the datastore.Store interface.
 // It basically does nothing and is used to test the broadcast functions.
 type dummyStore struct {
-	tokenBucketLimiter *OceanTokenBucketLimiter
+	tokenBucketLimiter *ratelimit.OceanTokenBucketLimiter
 }
 
 type dummyStoreOption func(*dummyStore)
@@ -193,7 +194,7 @@ func newDummyStore(options ...dummyStoreOption) *dummyStore {
 }
 
 // WithTokenBucketLimiter is an option function for setting the token bucket limiter in the dummyStore.
-func WithTokenBucketLimiter(limiter *OceanTokenBucketLimiter) dummyStoreOption {
+func WithTokenBucketLimiter(limiter *ratelimit.OceanTokenBucketLimiter) dummyStoreOption {
 	return func(ds *dummyStore) {
 		ds.tokenBucketLimiter = limiter
 	}
