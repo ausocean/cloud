@@ -36,6 +36,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
@@ -366,17 +367,17 @@ func newDummyHardwareManager(options ...func(*dummyHardwareManager)) *dummyHardw
 	}
 	return m
 }
-func (h *dummyHardwareManager) voltage(ctx *broadcastContext) (float64, error) {
+func (h *dummyHardwareManager) Voltage(ctx *hardware.Context) (float64, error) {
 	// This is assuming we call this function every tick.
 	h.volts += h.chargeRate
 	return h.volts, nil
 }
-func (h *dummyHardwareManager) alarmVoltage(ctx *broadcastContext) (float64, error) {
+func (h *dummyHardwareManager) AlarmVoltage(ctx *hardware.Context) (float64, error) {
 	return h.alarmVolts, nil
 }
-func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, error) {
+func (h *dummyHardwareManager) IsUp(ctx *hardware.Context, mac string) (bool, error) {
 	if mac == h.controllerMAC {
-		ctx.log("checking controller status, volts: %v, alarmVolts: %v, hardwareHealthy: %v", h.volts, h.alarmVolts, h.hardwareHealthy)
+		ctx.Log("checking controller status, volts: %v, alarmVolts: %v, hardwareHealthy: %v", h.volts, h.alarmVolts, h.hardwareHealthy)
 		if h.volts < h.alarmVolts {
 			return false, nil
 		}
@@ -390,7 +391,7 @@ func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, er
 		if !h.hardwareHealthy {
 			return false, nil
 		}
-		ctx.log("checking camera status: %v", h.latestRequest)
+		ctx.Log("checking camera status: %v", h.latestRequest)
 		if h.latestRequest.kind != "" && time.Now().Sub(h.latestRequest.Time) > 1*time.Minute {
 			switch h.latestRequest.kind {
 			case "start":
@@ -408,34 +409,34 @@ func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, er
 	return false, fmt.Errorf("could not get device: %w", datastore.ErrNoSuchEntity)
 }
 
-func (h *dummyHardwareManager) start(ctx *broadcastContext) {
-	ctx.log("starting hardware")
+func (h *dummyHardwareManager) Start(ctx *hardware.Context) {
+	ctx.Log("starting hardware")
 	h.startCalled = true
 	// Can't start if we're already shutting down.
 	if h.latestRequest.kind != "shutdown" {
 		h.latestRequest = request{"start", time.Now()}
 	}
 }
-func (h *dummyHardwareManager) shutdown(ctx *broadcastContext) {
-	ctx.log("shutting down hardware")
+func (h *dummyHardwareManager) Shutdown(ctx *hardware.Context) {
+	ctx.Log("shutting down hardware")
 	h.shutdownCalled = true
-	if ctx.cfg.ShutdownActions == "" {
-		ctx.bus.Publish(event.HardwareShutdownFailed{})
+	if ctx.Cfg.ShutdownActions == "" {
+		ctx.Bus.Publish(event.HardwareShutdownFailed{})
 		return
 	}
 	h.latestRequest = request{"shutdown", time.Now()}
 }
-func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
-	ctx.log("stopping hardware")
+func (h *dummyHardwareManager) Stop(ctx *hardware.Context) {
+	ctx.Log("stopping hardware")
 	h.stopCalled = true
 	h.latestRequest = request{"stop", time.Now()}
 }
-func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event)) {
+func (h *dummyHardwareManager) PublishEventIfStatus(ctx *hardware.Context, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event)) {
 	if h.checkMAC && mac == 0 {
 		publish(event.InvalidConfiguration{errors.New("camera mac is empty")})
 		return
 	}
-	up, err := h.isUp(ctx, model.MacDecode(mac))
+	up, err := h.IsUp(ctx, model.MacDecode(mac))
 	if err != nil {
 		publish(event.InvalidConfiguration{fmt.Errorf("could not get device: %w", err)})
 		return
@@ -447,9 +448,9 @@ func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, e eve
 		publish(e)
 	}
 }
-func (h *dummyHardwareManager) error(ctx *broadcastContext) (error, error) {
+func (h *dummyHardwareManager) Error(ctx *hardware.Context) (error, error) {
 	if h.volts > h.alarmVolts {
-		return None, nil
+		return hardware.None, nil
 	}
 	return h.hwErr, nil
 }

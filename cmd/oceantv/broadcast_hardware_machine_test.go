@@ -13,6 +13,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/notify"
 	"github.com/stretchr/testify/assert"
@@ -363,7 +364,7 @@ func (h hardwareSystem) withForwardingService(fs forwarding.Service) hardwareSys
 	}
 }
 
-func (h hardwareSystem) withHardwareManager(hm hardwareManager) hardwareSystemOption {
+func (h hardwareSystem) withHardwareManager(hm hardware.Manager) hardwareSystemOption {
 	return func(bs *hardwareSystem) error {
 		bs.ctx.hardware = hm
 		return nil
@@ -455,7 +456,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 		cfg                func(*Cfg)
 		finalHardwareState state
 		initialEvent       event.Event
-		hardwareMan        hardwareManager
+		hardwareMan        hardware.Manager
 		newBroadcastMan    func(*testing.T, *Cfg) manager.Broadcast
 
 		// Leave unset to use default max ticks.

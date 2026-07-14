@@ -8,6 +8,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/model"
@@ -173,7 +174,7 @@ func (s *hardwareStopping) handleHardwareShutdownFailedEvent(e event.HardwareShu
 		// when shutdown is skipped.
 		if errors.Is(e, broadcast.WarnSkipShutdown) {
 			s.log("skipping shutdown: %v:", e.Error)
-		} else if errors.Is(e, errNoShutdownActions) {
+		} else if errors.Is(e, hardware.ErrNoShutdownActions) {
 			s.logAndNotify(notifier.KindHardware, "shutdown skipped: %v", e.Error())
 		}
 		s.transition()
@@ -192,7 +193,7 @@ func (s *hardwareStopping) handleHardwarePowerOffFailedEvent(e event.HardwarePow
 }
 
 func (s *hardwareStopping) cameraIsReporting() bool {
-	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.IsUp(s.broadcastContext.newHWContext(), model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
 		s.bus.Publish(event.InvalidConfiguration{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false

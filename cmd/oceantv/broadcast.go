@@ -29,7 +29,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -262,61 +261,6 @@ type ErrInvalidEndTime struct {
 
 func (e ErrInvalidEndTime) Error() string {
 	return fmt.Sprintf("end time (%v) is invalid relative to start time (%v)", e.end, e.start)
-}
-
-// extStart uses the OnActions in the provided broadcast config to perform
-// external streaming hardware startup. In addition, the RTMP key is obtained
-// from the broadcast's associated stream object and used to set the devices
-// RTMPKey variable.
-func extStart(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.OnActions == "" {
-		return nil
-	}
-
-	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + broadcast.RTMPDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables required to start stream: %w", err)
-	}
-
-	return nil
-}
-
-// errNoShutdownActions represents no shutdown actions being registered for the broadcast.
-var errNoShutdownActions = errors.New("no shutdown actions provided")
-
-// SkipAction is the placeholder used to represent that the action step should be skipped.
-const SkipAction = "skip"
-
-func extShutdown(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.ShutdownActions == SkipAction {
-		return broadcast.WarnSkipShutdown
-	}
-	if cfg.ShutdownActions == "" {
-		return errNoShutdownActions
-	}
-
-	err := setActionVars(ctx, cfg.SKey, cfg.ShutdownActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
-}
-
-// extStop uses the OffActions in the provided broadcast config to perform
-// external streaming hardware shutdown.
-func extStop(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.OffActions == "" {
-		return nil
-	}
-
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
 }
 
 // liveHandler handles requests to /live/<broadcast name>. This redirects to the
