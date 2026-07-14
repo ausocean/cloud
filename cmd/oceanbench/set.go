@@ -43,6 +43,7 @@ import (
 	"github.com/ausocean/cloud/system/controller"
 	"github.com/ausocean/utils/nmea"
 	"github.com/ausocean/utils/sliceutils"
+	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -57,9 +58,9 @@ var (
 // Device settings:
 
 // setDevicesHandler handles requests to the devices page.
-func setDevicesHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	writeDevices(w, r, "")
+func setDevicesHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	return writeDevices(c, "")
 }
 
 // devTypes are valid device types.
@@ -99,22 +100,21 @@ type devicesData struct {
 //   - _<hex>.uptime: uptime for device with given hexadecimal MAC address.
 //   - _<hex>.localaddr: local IP address for device with given hexadecimal MAC address.
 //   - _type.<var>: type of var
-func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...interface{}) {
-	profile, err := getProfile(w, r)
+func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
 	data := devicesData{
 		commonData: commonData{
 			Pages: pages("devices"),
 		},
-		Mac:        r.FormValue("ma"),
+		Mac:        c.FormValue("ma"),
 		Device:     &model.Device{Enabled: true},
 		Quantities: nmea.DefaultQuantities(),
 		Funcs:      model.SensorFuncs(),
@@ -122,7 +122,7 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 		DevTypes:   devTypes,
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
 	// If a MAC is present, fetch once here and reuse later.
@@ -130,11 +130,11 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	if model.IsMacAddress(data.Mac) {
 		d, err := model.GetDevice(ctx, settingsStore, model.MacEncode(data.Mac))
 		if err != nil {
-			reportDevicesError(w, r, data, "get device error for ma: %s, %v", data.Mac, err)
-			return
+			reportDevicesError(c, data, "get device error for ma: %s, %v", data.Mac, err)
+			return nil
 		}
 		data.Device = d
-		if data.Device.Skey != skey && r.FormValue("sk") == "auto" {
+		if data.Device.Skey != skey && c.FormValue("sk") == "auto" {
 			skey = data.Device.Skey
 			siteChanged = true
 			log.Printf("site %d auto selected for device %s", skey, data.Mac)
@@ -144,12 +144,10 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.WritePermission == 0) {
 		log.Println("user does not have write permissions")
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	} else if err != nil {
 		log.Printf("failed to get permission for user: %v", err)
-		http.Redirect(w, r, "/", http.StatusInternalServerError)
-		return
+		return c.Redirect("/", fiber.StatusInternalServerError)
 	}
 
 	// Fetch site and devices concurrently.
@@ -175,12 +173,12 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	})
 
 	if err := g.Wait(); err != nil {
-		reportDevicesError(w, r, data, "site or device list error: %v", err)
-		return
+		reportDevicesError(c, data, "site or device list error: %v", err)
+		return nil
 	}
 
 	if siteChanged {
-		err := putProfileData(w, r, fmt.Sprintf("%d:%s", site.Skey, site.Name))
+		err := putProfileDataFiber(c, fmt.Sprintf("%d:%s", site.Skey, site.Name))
 		if err != nil {
 			log.Printf("could not put profile data: %v", err)
 		}
@@ -188,14 +186,14 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	data.Timezone = site.Timezone
 
 	if msg != "" {
-		reportDevicesError(w, r, data, msg, args...)
-		return
+		reportDevicesError(c, data, msg, args...)
+		return nil
 	}
 
 	// If no MAC, render the selection page early. Avoid extra calls.
 	if !model.IsMacAddress(data.Mac) {
-		writeTemplate(w, r, "set/device.html", &data, "")
-		return
+		writeTemplateFiber(c, "set/device.html", &data, "")
+		return nil
 	}
 
 	// Parallelize per-device lookups.
@@ -264,8 +262,8 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	})
 
 	if err := g.Wait(); err != nil {
-		reportDevicesError(w, r, data, "per-device data error: %v", err)
-		return
+		reportDevicesError(c, data, "per-device data error: %v", err)
+		return nil
 	}
 
 	// Provide uptime and device status information.
@@ -291,39 +289,38 @@ func writeDevices(w http.ResponseWriter, r *http.Request, msg string, args ...in
 	data.Sensors = sensors
 	data.Actuators = actuators
 
-	writeTemplate(w, r, "set/device.html", &data, msg)
+	writeTemplateFiber(c, "set/device.html", &data, msg)
+	return nil
 }
 
 // reportDevicesError handles error encountered during writing of the devices page.
 // Errors are firstly logged, and then written to the device.html template.
-func reportDevicesError(w http.ResponseWriter, r *http.Request, d devicesData, f string, args ...interface{}) {
+func reportDevicesError(c *fiber.Ctx, d devicesData, f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplate(w, r, "set/device.html", &d, msg)
+	writeTemplateFiber(c, "set/device.html", &d, msg)
 }
 
 // editDevicesHandler handles device edit/deletion requests.
-func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+func editDevicesHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	ctx := c.UserContext()
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
-	ma := r.FormValue("ma")
-	dn := r.FormValue("dn")
-	task := r.FormValue("task")
+	ma := c.FormValue("ma")
+	dn := c.FormValue("dn")
+	task := c.FormValue("task")
 
 	mac := model.MacEncode(ma)
 	if mac == 0 {
-		writeDevices(w, r, "MAC address missing")
-		return
+		return writeDevices(c, "MAC address missing")
 	}
 
 	setup(ctx)
@@ -331,40 +328,36 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	if task != "Add" {
 		dev, err = model.GetDevice(ctx, settingsStore, mac)
 		if err != nil {
-			writeDevices(w, r, "%s", err.Error())
-			return
+			return writeDevices(c, "%s", err.Error())
 		}
 		if dev.Skey != skey {
-			writeDevices(w, r, "%s", errPermissionDenied.Error())
-			return
+			return writeDevices(c, "%s", errPermissionDenied.Error())
 		}
 	}
 
 	if task == "Delete" {
 		model.DeleteDevice(ctx, settingsStore, mac)
 		model.DeleteVariables(ctx, settingsStore, skey, dev.Hex())
-		http.Redirect(w, r, "/set/devices", http.StatusFound)
-		return
+		return c.Redirect("/set/devices", fiber.StatusFound)
 	}
 
 	// Update the device.
 	// Note that the MAC address is immutable.
-	ip := r.FormValue("ip")
-	op := r.FormValue("op")
-	wi := r.FormValue("wi")
-	mp := r.FormValue("mp")
-	ap := r.FormValue("ap")
-	ct := r.FormValue("ct")
-	cv := r.FormValue("cv")
-	lt := r.FormValue("lt")
-	ln := r.FormValue("ln")
-	dk := r.FormValue("dk")
-	de := r.FormValue("de")
+	ip := c.FormValue("ip")
+	op := c.FormValue("op")
+	wi := c.FormValue("wi")
+	mp := c.FormValue("mp")
+	ap := c.FormValue("ap")
+	ct := c.FormValue("ct")
+	cv := c.FormValue("cv")
+	lt := c.FormValue("lt")
+	ln := c.FormValue("ln")
+	dk := c.FormValue("dk")
+	de := c.FormValue("de")
 
 	if task == "Add" {
 		if dn == "" {
-			writeDevices(w, r, "Device ID missing")
-			return
+			return writeDevices(c, "Device ID missing")
 		}
 		// Generate an 8-digit random number for the device key.
 		rand.Seed(time.Now().UnixNano())
@@ -423,11 +416,10 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = model.PutDevice(ctx, settingsStore, dev)
 	if err != nil {
-		writeDevices(w, r, "%s", err.Error())
-		return
+		return writeDevices(c, "%s", err.Error())
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
 }
 
 // calibrateDevicesHandler handles calibration of controller-type
@@ -444,64 +436,54 @@ func editDevicesHandler(w http.ResponseWriter, r *http.Request) {
 //   - vr:  Alarm Recovery Voltage
 //
 // NOTE: All voltages are parsed in Volts.
-func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	if r.Method != http.MethodPost {
+func calibrateDevicesHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	if c.Method() != http.MethodPost {
 		log.Println("calibration request must use POST action")
-		http.Redirect(w, r, "/set/devices?ma="+r.FormValue("ma"), http.StatusSeeOther)
-		return
+		return c.Redirect("/set/devices?ma="+c.FormValue("ma"), fiber.StatusSeeOther)
 	}
 	ctx := context.Background()
-	p, err := getProfile(w, r)
+	p, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	mac := r.FormValue("ma")
-	vb, err := strconv.ParseFloat(r.FormValue("vb"), 64)
+	mac := c.FormValue("ma")
+	vb, err := strconv.ParseFloat(c.FormValue("vb"), 64)
 	if err != nil && vb != 0 {
-		writeDevices(w, r, "unable to parse battery voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse battery voltage: %v", err)
 	}
-	vnw, err := strconv.ParseFloat(r.FormValue("vnw"), 64)
+	vnw, err := strconv.ParseFloat(c.FormValue("vnw"), 64)
 	if err != nil && vnw != 0 {
-		writeDevices(w, r, "unable to parse network voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse network voltage: %v", err)
 	}
-	vp1, err := strconv.ParseFloat(r.FormValue("vp1"), 64)
+	vp1, err := strconv.ParseFloat(c.FormValue("vp1"), 64)
 	if err != nil && vp1 != 0 {
-		writeDevices(w, r, "unable to parse power 1 voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse power 1 voltage: %v", err)
 	}
-	vp2, err := strconv.ParseFloat(r.FormValue("vp2"), 64)
+	vp2, err := strconv.ParseFloat(c.FormValue("vp2"), 64)
 	if err != nil && vp2 != 0 {
-		writeDevices(w, r, "unable to parse power 2 voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse power 2 voltage: %v", err)
 	}
-	vp3, err := strconv.ParseFloat(r.FormValue("vp3"), 64)
+	vp3, err := strconv.ParseFloat(c.FormValue("vp3"), 64)
 	if err != nil && vp3 != 0 {
-		writeDevices(w, r, "unable to parse power 3 voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse power 3 voltage: %v", err)
 	}
-	va, err := strconv.ParseFloat(r.FormValue("va"), 64)
+	va, err := strconv.ParseFloat(c.FormValue("va"), 64)
 	if err != nil && va != 0 {
-		writeDevices(w, r, "unable to parse alarm voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse alarm voltage: %v", err)
 	}
-	vr, err := strconv.ParseFloat(r.FormValue("vr"), 64)
+	vr, err := strconv.ParseFloat(c.FormValue("vr"), 64)
 	if err != nil && vr != 0 {
-		writeDevices(w, r, "unable to parse alarm recovery voltage: %v", err)
-		return
+		return writeDevices(c, "unable to parse alarm recovery voltage: %v", err)
 	}
 
 	device, err := model.GetDevice(ctx, settingsStore, model.MacEncode(mac))
 	if err != nil {
-		writeDevices(w, r, "unable to get device to calibrate (%s): %v", mac, err)
-		return
+		return writeDevices(c, "unable to get device to calibrate (%s): %v", mac, err)
 	}
 
 	// Names of the voltage sensors to calibrate.
@@ -516,8 +498,7 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	// Load the most recent sensor values.
 	sensors, err := model.GetSensorsV2(ctx, settingsStore, model.MacEncode(mac))
 	if err != nil {
-		writeDevices(w, r, "unable to get sensors (%s): %v", mac, err)
-		return
+		return writeDevices(c, "unable to get sensors (%s): %v", mac, err)
 	}
 
 	// Calibrate each of the voltage sensors.
@@ -588,7 +569,7 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Calibrate the alarm voltage and alarm recovery voltage variables.
-		skey, _ := requestSiteData(r, p)
+		skey, _ := requestSiteDataFiber(c, p)
 		if va > 0 {
 			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, fmt.Sprintf("%d", int(va/scaleFactor)))
 			if err != nil {
@@ -606,151 +587,134 @@ func calibrateDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	msg := strings.Join(msgs, ",")
 	if msg != "" {
-		writeDevices(w, r, "errors during calibration: %s", msg)
-		return
+		return writeDevices(c, "errors during calibration: %s", msg)
 	}
-	writeDevices(w, r, "Device Calibrated")
+	return writeDevices(c, "Device Calibrated")
 }
 
 // editSensorHandler handles requests to /set/device/edit/sensor.
-func editSensorHandler(w http.ResponseWriter, r *http.Request) {
+func editSensorHandler(c *fiber.Ctx) error {
 	log.Println("edit sensor handler")
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+	logRequestFiber(c)
+	ctx := c.UserContext()
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 	_ = profile // ToDo: Check for write access.
 
-	ma := r.FormValue("ma")
+	ma := c.FormValue("ma")
 	mac := model.MacEncode(ma)
 	if mac == 0 {
-		writeDevices(w, r, "MAC address missing")
-		return
+		return writeDevices(c, "MAC address missing")
 	}
-	pin := r.FormValue("pin")
+	pin := c.FormValue("pin")
 	if pin == "" {
-		writeDevices(w, r, "pin missing")
-		return
+		return writeDevices(c, "pin missing")
 	}
 
 	formSensor := model.SensorV2{
-		Name:     r.FormValue("name"),
+		Name:     c.FormValue("name"),
 		Mac:      mac,
 		Pin:      pin,
-		Quantity: r.FormValue("sqty"),
-		Func:     r.FormValue("sfunc"),
-		Args:     r.FormValue("sargs"),
-		Units:    r.FormValue("sunits"),
-		Format:   r.FormValue("sfmt"),
+		Quantity: c.FormValue("sqty"),
+		Func:     c.FormValue("sfunc"),
+		Args:     c.FormValue("sargs"),
+		Units:    c.FormValue("sunits"),
+		Format:   c.FormValue("sfmt"),
 	}
 
 	setup(ctx)
-	if r.FormValue("delete") == "true" {
+	if c.FormValue("delete") == "true" {
 		log.Printf("deleting sensor %d.%s", mac, pin)
 		err := model.DeleteSensorV2(ctx, settingsStore, mac, pin)
 		if err != nil {
-			writeDevices(w, r, "delete sensor error: %v", err)
-			return
+			return writeDevices(c, "delete sensor error: %v", err)
 		}
-		http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
-		return
+		return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
 	}
 
 	if formSensor.Name == "" {
-		writeDevices(w, r, "sensor name missing")
-		return
+		return writeDevices(c, "sensor name missing")
 	}
 	if formSensor.Func == "" {
-		writeDevices(w, r, "sensor func missing")
-		return
+		return writeDevices(c, "sensor func missing")
 	}
 
 	log.Printf("putting sensor: %v", formSensor)
 	err = model.PutSensorV2(ctx, settingsStore, &formSensor)
 	if err != nil {
-		writeDevices(w, r, "put sensor error: %v", err)
-		return
+		return writeDevices(c, "put sensor error: %v", err)
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
 }
 
 // editActuatorHandler handles requests to /set/device/edit/actuator.
-func editActuatorHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+func editActuatorHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	ctx := c.Context()
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 	_ = profile // ToDo: Check for write access.
 
-	ma := r.FormValue("ma")
+	ma := c.FormValue("ma")
 	mac := model.MacEncode(ma)
 	if mac == 0 {
-		writeDevices(w, r, "MAC address missing")
-		return
+		return writeDevices(c, "MAC address missing")
 	}
-	pin := r.FormValue("pin")
+	pin := c.FormValue("pin")
 	if pin == "" {
-		writeDevices(w, r, "actuator pin missing")
-		return
+		return writeDevices(c, "actuator pin missing")
 	}
 
 	actuatorForm := model.ActuatorV2{
-		Name: r.FormValue("name"),
+		Name: c.FormValue("name"),
 		Mac:  mac,
 		Pin:  pin,
-		Var:  r.FormValue("var"),
+		Var:  c.FormValue("var"),
 	}
 
 	setup(ctx)
-	if r.FormValue("delete") == "true" {
+	if c.FormValue("delete") == "true" {
 		log.Printf("deleting actuator, %d.%s", mac, pin)
 		err := model.DeleteActuatorV2(ctx, settingsStore, mac, pin)
 		if err != nil {
-			writeDevices(w, r, "delete actuator error: %v", err)
-			return
+			return writeDevices(c, "delete actuator error: %v", err)
 		}
-		http.Redirect(w, r, "set/devices?ma="+ma, http.StatusFound)
-		return
+		return c.Redirect("set/devices?ma="+ma, fiber.StatusFound)
 	}
 
 	if actuatorForm.Name == "" {
-		writeDevices(w, r, "actuator name missing")
-		return
+		return writeDevices(c, "actuator name missing")
 	}
 	if actuatorForm.Var == "" {
-		writeDevices(w, r, "actuator var missing")
-		return
+		return writeDevices(c, "actuator var missing")
 	}
 
 	log.Printf("putting actuator: %v", actuatorForm)
 	err = model.PutActuatorV2(ctx, settingsStore, &actuatorForm)
 	if err != nil {
-		writeDevices(w, r, "put actuator error: %v", err)
-		return
+		return writeDevices(c, "put actuator error: %v", err)
 	}
 
-	http.Redirect(w, r, "/set/devices?ma="+ma, http.StatusFound)
+	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
 }
 
 // Cron settings:
 
 // setCronsHandler handles requests to the crons page.
-func setCronsHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	writeCrons(w, r, "")
+func setCronsHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	return writeCrons(c, "")
 }
 
 type dataFields struct {
@@ -760,49 +724,43 @@ type dataFields struct {
 	commonData
 }
 
-// writeCrons writes the crons page.
+// writeCrons writes the
 // If msg is not-empty it means the previous call generated an error message.
-func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
-	profile, err := getProfile(w, r)
+func writeCrons(c *fiber.Ctx, msg string) error {
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	if r.URL.Path != "/set/crons/" {
+	if c.Path() != "/set/crons/" {
 		// Redirect all requests to the cron base path to clear any actions.
-		http.Redirect(w, r, "/set/crons/", http.StatusFound)
-		return
+		return c.Redirect("/set/crons/", fiber.StatusFound)
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
 		log.Println("user does not have write permissions")
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	} else if err != nil {
 		log.Printf("failed to get permission for user: %v", err)
-		http.Redirect(w, r, "/", http.StatusInternalServerError)
-		return
+		return c.Redirect("/", fiber.StatusInternalServerError)
 	}
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
-		return
+		writeTemplateFiber(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
 	}
 
 	crons, err := model.GetCronsBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
-		return
+		writeTemplateFiber(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
 	}
 
 	data := dataFields{
@@ -815,7 +773,8 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 		Actions:  []string{"set", "del", "call", "rpc", "email"},
 	}
 
-	writeTemplate(w, r, "set/cron.html", &data, msg)
+	writeTemplateFiber(c, "set/cron.html", &data, msg)
+	return nil
 }
 
 // editCronsHandler handles cron edit/deletion requests.
@@ -827,71 +786,69 @@ func writeCrons(w http.ResponseWriter, r *http.Request, msg string) {
 //   - cv: cron variable
 //   - cd: cron data (variable value)
 //   - ce: cron enabled
-func editCronsHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
-	profile, err := getProfile(w, r)
+func editCronsHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	ctx := c.Context()
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+	skey, _ := requestSiteDataFiber(c, profile)
 
-	id := r.FormValue("ci")
-	ct := strings.Trim(r.FormValue("ct"), " ")
-	ca := strings.Trim(r.FormValue("ca"), " ")
-	cv := strings.Trim(r.FormValue("cv"), " ")
-	cd := r.FormValue("cd")
-	ce := r.FormValue("ce")
-	task := r.FormValue("task")
+	id := c.FormValue("ci")
+	ct := strings.Trim(c.FormValue("ct"), " ")
+	ca := strings.Trim(c.FormValue("ca"), " ")
+	cv := strings.Trim(c.FormValue("cv"), " ")
+	cd := c.FormValue("cd")
+	ce := c.FormValue("ce")
+	task := c.FormValue("task")
 
 	if id == "" {
-		writeError(w, errInvalidID)
-		return
+		writeErrorFiber(c, errInvalidID)
+		return errInvalidID
 	}
 
 	if task == "Delete" {
 		err := model.DeleteCron(ctx, settingsStore, skey, id)
 		if err != nil {
-			writeCrons(w, r, fmt.Sprintf("could not delete crons: %v", err))
-			return
+			return writeCrons(c, fmt.Sprintf("could not delete crons: %v", err))
 		}
 
 		err = cronScheduler.Set(&model.Cron{Skey: skey, ID: id, Enabled: false})
 		if err != nil {
-			writeCrons(w, r, fmt.Sprintf("could not unset cron: %v", err))
-			return
+			return writeCrons(c, fmt.Sprintf("could not unset cron: %v", err))
 		}
 
-		writeCrons(w, r, "")
-		return
+		return writeCrons(c, "")
 	}
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeError(w, fmt.Errorf("could not get site: %v", err))
-		return
+		writeErrorFiber(c, fmt.Errorf("could not get site: %v", err))
+		return err
 	}
 
-	c := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
-	err = c.ParseTime(ct, site.Timezone)
+	cr := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
+	err = cr.ParseTime(ct, site.Timezone)
 	if err != nil {
-		writeError(w, fmt.Errorf("could not parse time: %v", err))
-		return
+		writeErrorFiber(c, fmt.Errorf("could not parse time: %v", err))
+		return err
 	}
 
-	err = model.PutCron(ctx, settingsStore, &c)
+	err = model.PutCron(ctx, settingsStore, &cr)
 	if err != nil {
-		writeError(w, fmt.Errorf("could not put cron in datastore: %v", err))
-		return
+		writeErrorFiber(c, fmt.Errorf("could not put cron in datastore: %v", err))
+		return err
 	}
 
-	err = cronScheduler.Set(&c)
+	err = cronScheduler.Set(&cr)
 	if err != nil {
-		writeError(w, fmt.Errorf("could not schedule cron: %v", err))
-		return
+		writeErrorFiber(c, fmt.Errorf("could not schedule cron: %v", err))
+		return err
 	}
+
+	return nil
 }

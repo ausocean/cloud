@@ -111,6 +111,15 @@ func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
 	return auth.PutData(backend.NewNetHandler(w, r, auth.NetStore), val)
 }
 
+// putProfileDataFiber puts profile data.
+func putProfileDataFiber(c *fiber.Ctx, val string) error {
+	if standalone {
+		standaloneData = val
+		return nil
+	}
+	return auth.PutData(backend.NewFiberHandler(c), val)
+}
+
 // profileData extracts site key and name from the given profile.
 func profileData(profile *gauth.Profile) (int64, string) {
 	if profile == nil {
