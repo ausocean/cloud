@@ -355,29 +355,34 @@ func playHandler(c *fiber.Ctx) error {
 //	live:  output a playlist for live HLS streaming.
 //	media: extract and output MTS payload
 //	ts:    output MTS as is (default)
-func getMedia(w http.ResponseWriter, r *http.Request, mid int64, ts []int64, ky []uint64) (content []byte, mimeType string, err error) {
-	ctx := r.Context()
-	q := r.URL.Query()
+func getMedia(c *fiber.Ctx, mid int64, ts []int64, ky []uint64) (content []byte, mimeType string, err error) {
+	ctx := c.UserContext()
 
 	// Get optional fragment duration and (live) playlist duration.
-	d := q.Get("fd")
+	d := c.Query("fd")
 	fd, err := strconv.ParseInt(d, 10, 6)
 	if err != nil {
 		fd = hlsFragDuration
 	}
-	d = q.Get("pd")
+	d = c.Query("pd")
 	pd, err := strconv.ParseInt(d, 10, 64)
 	if err != nil {
 		pd = hlsLiveDuration
 	}
 
-	out := q.Get("out")
+	out := c.Query("out")
 	switch out {
 	case "m3u":
-		writePlaylist(w, r, mid, ts, fd)
+		err = writePlaylist(c, mid, ts, fd)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to write playlist: %v", err)
+		}
 
 	case "live":
-		writeLivePlaylist(w, r, mid, pd, fd)
+		err = writeLivePlaylist(c, mid, pd, fd)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to write live playlist: %v", err)
+		}
 
 	case "ts", "media":
 		fallthrough

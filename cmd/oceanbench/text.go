@@ -32,16 +32,16 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // getText handles text data requests. The text data and mime type are returned.
-func getText(r *http.Request, mid int64, ts []int64, ky []uint64) ([]byte, string, error) {
+func getText(c *fiber.Ctx, mid int64, ts []int64, ky []uint64) ([]byte, string, error) {
 	// Download text data.
-	media, err := model.GetText(r.Context(), mediaStore, mid, ts)
+	media, err := model.GetText(c.UserContext(), mediaStore, mid, ts)
 	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		return nil, "", fmt.Errorf("could not get text from datastore: %w", err)
 	}

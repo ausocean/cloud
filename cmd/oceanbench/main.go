@@ -264,7 +264,7 @@ func main() {
 	app.All("/set/devices/*", setDevicesHandler)
 	app.All("/set/crons/edit", editCronsHandler)
 	app.All("/set/crons/*", setCronsHandler)
-	app.All("/get", adaptor.HTTPHandlerFunc(getHandler))
+	app.All("/get", getHandler)
 	app.All("/test/*", adaptor.HTTPHandlerFunc(testHandler))
 	app.All("/login", adaptor.HTTPHandlerFunc(loginHandler))
 	app.All("/logout", adaptor.HTTPHandlerFunc(logoutHandler))
@@ -470,50 +470,49 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 // Requires read permission for the requested media, otherwise permission is denied.
 // The user need not be logged in to access public sites.
 // When no output is specified, media data is downloaded to the client.
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func getHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	p, _ := getProfile(w, r) // Ignore errors, since users need not be logged in.
+	p, _ := getProfileFiber(c) // Ignore errors, since users need not be logged in.
 
-	q := r.URL.Query()
-	id := q.Get("id")
+	id := c.Query("id")
 	mid, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		writeError(w, errInvalidMID)
-		return
+		writeErrorFiber(c, errInvalidMID)
+		return err
 	}
 
-	t := q.Get("ts")
+	t := c.Query("ts")
 	var ts []int64
 	if t != "" {
 		ts, err = splitTimestamps(t, false)
 		if err != nil {
-			writeError(w, errInvalidTimestamp)
-			return
+			writeErrorFiber(c, errInvalidTimestamp)
+			return err
 		}
 	}
 
-	k := q.Get("ky")
+	k := c.Query("ky")
 	var ky []uint64
 	if k != "" {
 		ky, err = splitUints(k)
 		if err != nil {
-			writeError(w, errInvalidKey)
-			return
+			writeErrorFiber(c, errInvalidKey)
+			return err
 		}
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
 	ok, err := hasPermission(ctx, p, mid, model.ReadPermission)
 	if err != nil {
-		writeError(w, err)
-		return
+		writeErrorFiber(c, err)
+		return err
 	}
 	if !ok {
-		writeError(w, errPermissionDenied)
-		return
+		writeErrorFiber(c, errPermissionDenied)
+		return err
 	}
 
 	var content []byte
@@ -522,10 +521,10 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	_, pin := model.FromMID(mid)
 	switch pin[0] {
 	case 'V', 'S':
-		content, mime, err = getMedia(w, r, mid, ts, ky)
+		content, mime, err = getMedia(c, mid, ts, ky)
 		if err != nil {
-			writeError(w, fmt.Errorf("could not get media: %w", err))
-			return
+			writeErrorFiber(c, fmt.Errorf("could not get media: %w", err))
+			return err
 		}
 
 		if mime == "video/mp2t" {
@@ -542,10 +541,10 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		name = split[0] + "." + split[0]
 
 	case 'T':
-		content, mime, err = getText(r, mid, ts, ky)
+		content, mime, err = getText(c, mid, ts, ky)
 		if err != nil {
-			writeError(w, fmt.Errorf("could not get text: %w", err))
-			return
+			writeErrorFiber(c, fmt.Errorf("could not get text: %w", err))
+			return err
 		}
 
 		if mime == "application/json" {
@@ -556,10 +555,13 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		name = "data.txt"
 
 	default:
-		writeError(w, fmt.Errorf("unknown pin type: %v", pin[0]))
+		err := fmt.Errorf("unknown pin type: %v", pin[0])
+		writeErrorFiber(c, err)
+		return err
 	}
 
-	writeData(w, content, mime, name)
+	writeDataFiber(c, content, mime, name)
+	return nil
 }
 
 // hasPermission returns true if the user has the requested media
