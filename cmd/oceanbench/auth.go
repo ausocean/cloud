@@ -41,49 +41,51 @@ import (
 var standaloneData string
 
 // loginHandler handles user login requests.
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func loginHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 	if standalone {
-		return
+		return nil
 	}
 
-	err := auth.LoginHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	err := auth.LoginHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeError(w, err)
-		return
+		writeErrorFiber(c, err)
+		return err
 	}
+	return nil
 }
 
 // logoutHandler handles user logout requests.
-func logoutHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func logoutHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 	if standalone {
-		return
+		return nil
 	}
 
-	err := auth.LogoutHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	err := auth.LogoutHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeError(w, err)
-		return
+		writeErrorFiber(c, err)
+		return err
 	}
+	return nil
 }
 
 // oauthCallbackHandler implements the OAuth2 callback that completes the authentication process.
-func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func oauthCallbackHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 	if standalone {
-		return
+		return nil
 	}
-	_, err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	_, err := auth.CallbackHandler(backend.NewFiberHandler(c))
 	log.Println("errors is:", errors.Is(err, &gauth.ErrOauth2RedirectError{}))
 	if errors.Is(err, &gauth.ErrOauth2RedirectError{}) {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
+		return c.Redirect("/", fiber.StatusFound)
 	} else if err != nil {
 		log.Println("got error:", err)
-		writeError(w, err)
-		return
+		writeErrorFiber(c, err)
+		return err
 	}
+	return nil
 }
 
 // getProfile returns the profile for the logged-in user.
