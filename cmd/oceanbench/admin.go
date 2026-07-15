@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"runtime"
 	"sort"

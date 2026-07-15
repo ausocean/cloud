@@ -322,7 +322,7 @@ func playHandler(c *fiber.Ctx) error {
 
 	profile, _ := getProfileFiber(c)
 	if profile == nil {
-		return c.Redirect("/", http.StatusUnauthorized)
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
 	id := c.Query("id")
