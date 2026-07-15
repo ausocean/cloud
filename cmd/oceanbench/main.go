@@ -279,7 +279,7 @@ func main() {
 	app.All("/admin/user/delete", adminHandler)
 	app.All("/admin/site", adminHandler)
 	app.All("/admin/broadcast", adminHandler)
-	app.All("/admin/tv-overview", adaptor.HTTPHandlerFunc(tvOverviewHandler))
+	app.All("/admin/tv-overview", tvOverviewHandler)
 	app.All("/admin/missioncontrol", adminHandler)
 	app.All("/admin/mediamanager", adminHandler)
 	app.All("/admin/sandbox/configure", adaptor.HTTPHandlerFunc(configDevicesHandler))
