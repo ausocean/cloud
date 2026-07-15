@@ -287,7 +287,7 @@ func main() {
 	app.All("/admin/utils", adminHandler)
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
-	app.All("/logs", adaptor.HTTPHandlerFunc(logPageHandler))
+	app.All("/logs", logPageHandler)
 	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
 
 	// Setup routes for the API, ie. /api requests.

@@ -35,6 +35,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // setLogHandler creates a new log for the given device MAC and sitekey. The request parameters are:
@@ -101,17 +102,16 @@ func setLogHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // logPageHandler handles requests for the log page.
-func logPageHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func logPageHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	if r.URL.Path != "/logs" {
+	if c.Path() != "/logs" {
 		// Redirect all invalid URLs to the root homepage.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
+		return c.Redirect("/", fiber.StatusFound)
 	}
 
-	profile, err := getProfile(w, r)
-	skey, _ := requestSiteData(r, profile)
+	profile, err := getProfileFiber(c)
+	skey, _ := requestSiteDataFiber(c, profile)
 	data := adminData{
 		commonData: commonData{
 			Pages:   pages("logs"),
@@ -122,12 +122,12 @@ func logPageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
-			http.Redirect(w, r, "/", http.StatusUnauthorized)
-			return
+			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
-		writeTemplate(w, r, "log.html", &data, "")
-		return
+		writeTemplateFiber(c, "log.html", &data, "")
+		return err
 	}
 
-	writeTemplate(w, r, "log.html", &data, "")
+	writeTemplateFiber(c, "log.html", &data, "")
+	return nil
 }
