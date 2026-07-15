@@ -288,7 +288,7 @@ func main() {
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
 	app.All("/logs", logPageHandler)
-	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
+	app.All("/", indexHandler)
 
 	// Setup routes for the API, ie. /api requests.
 	setupAPIRoutes(app)
@@ -435,16 +435,15 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 
 // indexHandler handles requests for the home page and unimplemented pages.
 // Signed-in users are presented with a list of their sites.
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func indexHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	if r.URL.Path != "/" {
+	if c.Path() != "/" {
 		// Redirect all invalid URLs to the root homepage.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
+		return c.Redirect("/", fiber.StatusFound)
 	}
 
-	profile, err := getProfile(w, r)
+	profile, err := getProfileFiber(c)
 	data := commonData{
 		Pages:   pages("home"),
 		Profile: profile,
@@ -453,11 +452,12 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplate(w, r, "index.html", &data, "")
-		return
+		writeTemplateFiber(c, "index.html", &data, "")
+		return nil
 	}
 
-	writeTemplate(w, r, "index.html", &data, "")
+	writeTemplateFiber(c, "index.html", &data, "")
+	return nil
 }
 
 // warmupHandler handles warmup requests. It is a no-op that simply ensures that the intance is loaded.
