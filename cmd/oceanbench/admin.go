@@ -44,6 +44,8 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
 )
 
 // struct role maps NetReceiver and Ocean Bench permissions.
@@ -71,27 +73,25 @@ type utilsData struct {
 }
 
 // adminHandler performs various admin tasks.
-func adminHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func adminHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	p, err := getProfile(w, r)
+	p, err := getProfileFiber(c)
 	switch {
 	case err != nil && !errors.Is(err, gauth.TokenNotFound):
 		log.Printf("authentication error: %v", err)
 		fallthrough
 	case err != nil:
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
 	// Adding a new site requires the user to be a super admin.
-	if r.URL.Path == "/admin/site/add" {
+	if c.Path() == "/admin/site/add" {
 		if !isSuperAdmin(p.Email) {
-			http.Redirect(w, r, "/", http.StatusUnauthorized)
-			return
+			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
 		data := adminData{
 			commonData: commonData{
@@ -100,100 +100,93 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
-		switch r.Method {
+		switch c.Method() {
 		case "GET":
-			writeTemplate(w, r, "register.html", &data, "")
+			writeTemplateFiber(c, "register.html", &data, "")
+			return nil
 
 		case "POST":
-			err = addSite(w, r, p)
+			err = addSite(c, p)
 			if err != nil {
-				writeTemplate(w, r, "register.html", &data, err.Error())
+				writeTemplateFiber(c, "register.html", &data, err.Error())
+				return err
 			} else {
-				http.Redirect(w, r, "/admin", http.StatusFound)
+				return c.Redirect("/admin", fiber.StatusFound)
 			}
 
 		default:
-			http.Redirect(w, r, "/", http.StatusMethodNotAllowed)
+			return c.Redirect("/", fiber.StatusMethodNotAllowed)
 		}
-		return
 	}
 
 	// Require POST method, except for admin landing pages.
-	if r.Method != "POST" {
-		switch r.URL.Path {
+	if c.Method() != "POST" {
+		switch c.Path() {
 		case "/admin/site", "/admin/broadcast", "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
 			// Okay.
 		default:
-			http.Redirect(w, r, "/", http.StatusMethodNotAllowed)
-			return
+			return c.Redirect("/", fiber.StatusMethodNotAllowed)
 		}
 	}
 
 	// The following tasks all require admin privilege.
-	skey, _ := requestSiteData(r, p)
+	skey, _ := requestSiteDataFiber(c, p)
 	if !isAdmin(ctx, skey, p.Email) {
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	switch r.URL.Path {
+	switch c.Path() {
 	case "/admin/site/update":
-		err = updateSite(w, r, p)
+		err = updateSite(c, p)
 
 	case "/admin/site/delete":
-		err = deleteSite(w, r, p)
+		err = deleteSite(c, p)
 		if err == nil {
-			http.Redirect(w, r, "/", http.StatusFound)
-			return
+			return c.Redirect("/", fiber.StatusFound)
 		}
 
 	case "/admin/user/add", "/admin/user/update":
-		err = updateUser(w, r, p)
+		err = updateUser(c, p)
 
 	case "/admin/user/delete":
-		err = deleteUser(w, r, p)
+		err = deleteUser(c, p)
 
 	case "/admin/broadcast":
-		broadcastHandler(w, r)
-		return
+		return adaptor.HTTPHandlerFunc(broadcastHandler)(c)
 
 	case "/admin/missioncontrol":
 		if !isSuperAdmin(p.Email) {
-			http.Redirect(w, r, "/", http.StatusUnauthorized)
-			return
+			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
-		missionControlHandler(w, r, p)
-		return
+		return missionControlHandler(c, p)
 
 	case "/admin/mediamanager":
 		if !isSuperAdmin(p.Email) {
-			http.Redirect(w, r, "/", http.StatusUnauthorized)
-			return
+			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
-		mediaManagerHandler(w, r, p)
-		return
+		return mediaManagerHandler(c, p)
 
 	case "/admin/utils":
-		utilsHandler(w, r, p)
-		return
+		return utilsHandler(c, p)
 
 	case "/admin/site":
 		err = nil // Just render the admin page.
 
 	default:
-		err = errors.New("invalid request: " + r.URL.Path)
+		err = errors.New("invalid request: " + c.Path())
 	}
 
-	writeAdmin(w, r, p, err)
+	writeAdmin(c, p, err)
+	return nil
 }
 
 // addSite creates a new site and its first associated admin user.
 // Sites are created as private sites initially.
-func addSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	ctx := r.Context()
+func addSite(c *fiber.Ctx, p *gauth.Profile) error {
+	ctx := c.UserContext()
 
 	// Create a new site, with just a name.
-	sn := r.FormValue("sn")
+	sn := c.FormValue("sn")
 	if sn == "" {
 		return errors.New("empty site name")
 	}
@@ -219,9 +212,7 @@ func addSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
 		return fmt.Errorf("cannot create user: %w", err)
 	}
 
-	putProfileData(w, r, strconv.FormatInt(skey, 10)+":"+sn)
-
-	return nil
+	return putProfileDataFiber(c, strconv.FormatInt(skey, 10)+":"+sn)
 }
 
 // location represents a latitude, longitude, altitude tuple.
@@ -306,33 +297,33 @@ func parseLocation(s string) (location, error) {
 // ee: endpoint enabled
 // vn: version
 // er: error (results in a client-side netsender.ServerError)
-func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := requestSiteData(r, p)
-	name := r.FormValue("sn")
+func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
+	skey, _ := requestSiteDataFiber(c, p)
+	name := c.FormValue("sn")
 	if name == "" {
 		return errors.New("empty site name")
 	}
-	desc := r.FormValue("sd")
-	org := r.FormValue("org")
-	tz, err := strconv.ParseFloat(r.FormValue("tz"), 64)
+	desc := c.FormValue("sd")
+	org := c.FormValue("org")
+	tz, err := strconv.ParseFloat(c.FormValue("tz"), 64)
 	if err != nil {
 		return fmt.Errorf("invalid timezone: %w", err)
 	}
-	ll, err := parseLocation(r.FormValue("ll"))
+	ll, err := parseLocation(c.FormValue("ll"))
 	if err != nil {
 		return fmt.Errorf("invalid location: %w", err)
 	}
-	ops := r.FormValue("ops")
-	yt := r.FormValue("yt")
-	np, err := strconv.ParseInt(r.FormValue("np"), 10, 64)
+	ops := c.FormValue("ops")
+	yt := c.FormValue("yt")
+	np, err := strconv.ParseInt(c.FormValue("np"), 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid notify period: %w", err)
 	}
-	pb := r.FormValue("pb") != ""
-	cf := r.FormValue("cf") != ""
-	en := r.FormValue("en") != ""
+	pb := c.FormValue("pb") != ""
+	cf := c.FormValue("cf") != ""
+	en := c.FormValue("en") != ""
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		return fmt.Errorf("cannot get site: %w", err)
@@ -360,9 +351,9 @@ func updateSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 }
 
 // deleteSite deletes the current site and all associated users.
-func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := requestSiteData(r, p)
-	ctx := r.Context()
+func deleteSite(c *fiber.Ctx, p *gauth.Profile) error {
+	skey, _ := requestSiteDataFiber(c, p)
+	ctx := c.UserContext()
 
 	err := model.DeleteSite(ctx, settingsStore, skey)
 	if err != nil {
@@ -381,22 +372,22 @@ func deleteSite(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 		}
 	}
 
-	putProfileData(w, r, "") // Deselect the site.
+	putProfileDataFiber(c, "") // Deselect the site.
 
 	return nil
 }
 
 // updateUser creates or updates a site user.
-func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := requestSiteData(r, p)
+func updateUser(c *fiber.Ctx, p *gauth.Profile) error {
+	skey, _ := requestSiteDataFiber(c, p)
 
-	email := r.FormValue("email")
-	perm, err := strconv.ParseInt(r.FormValue("perm"), 10, 64)
+	email := c.FormValue("email")
+	perm, err := strconv.ParseInt(c.FormValue("perm"), 10, 64)
 	if err != nil {
 		return fmt.Errorf("cannot parse permission: %w", err)
 	}
 	user := model.User{Skey: skey, Email: email, Perm: perm, Created: time.Now()}
-	err = model.PutUser(r.Context(), settingsStore, &user)
+	err = model.PutUser(c.UserContext(), settingsStore, &user)
 	if err != nil {
 		return fmt.Errorf("cannot put user: %w", err)
 	}
@@ -405,11 +396,11 @@ func updateUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 }
 
 // deleteUser deletes a site user.
-func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error {
-	skey, _ := requestSiteData(r, p)
+func deleteUser(c *fiber.Ctx, p *gauth.Profile) error {
+	skey, _ := requestSiteDataFiber(c, p)
 
-	email := r.FormValue("email")
-	err := model.DeleteUser(r.Context(), settingsStore, skey, email)
+	email := c.FormValue("email")
+	err := model.DeleteUser(c.UserContext(), settingsStore, skey, email)
 	if err != nil {
 		return fmt.Errorf("cannot delete user: %w", err)
 	}
@@ -418,8 +409,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request, p *gauth.Profile) error 
 }
 
 // writeAdmin writes the admin page.
-func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err error) {
-	skey, _ := requestSiteData(r, p)
+func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
+	skey, _ := requestSiteDataFiber(c, p)
 
 	data := adminData{
 		commonData: commonData{
@@ -451,7 +442,7 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 		msg = err.Error()
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 
 	data.Site, err = model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
@@ -462,13 +453,13 @@ func writeAdmin(w http.ResponseWriter, r *http.Request, p *gauth.Profile, err er
 		log.Printf("GetUsersBySite error: %v", err)
 	}
 
-	writeTemplate(w, r, "admin.html", &data, msg)
+	writeTemplateFiber(c, "admin.html", &data, msg)
 }
 
 // utilsHandler handles admin utils requests.
-func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
-	ctx := r.Context()
-	skey, _ := requestSiteData(r, p)
+func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
+	ctx := c.UserContext()
+	skey, _ := requestSiteDataFiber(c, p)
 
 	var msg string
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
@@ -499,30 +490,30 @@ func utilsHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile) {
 		},
 	}
 
-	if r.Method == "GET" {
-		writeTemplate(w, r, "utils.html", &data, msg)
-		return
+	if c.Method() == "GET" {
+		writeTemplateFiber(c, "utils.html", &data, msg)
+		return nil
 	}
 
-	err = utilsTaskHandler(w, r, p, &data)
+	err = utilsTaskHandler(c, p, &data)
 	if err != nil {
 		msg = err.Error()
 	} else {
 		msg = data.Msg
 	}
-	writeTemplate(w, r, "utils.html", &data, msg)
-	return
+	writeTemplateFiber(c, "utils.html", &data, msg)
+	return nil
 }
 
 // utilsTaskHandler handles an admin utils task
-func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, data *utilsData) error {
-	ctx := r.Context()
-	skey, _ := requestSiteData(r, p)
+func utilsTaskHandler(c *fiber.Ctx, p *gauth.Profile, data *utilsData) error {
+	ctx := c.UserContext()
+	skey, _ := requestSiteDataFiber(c, p)
 
-	task := r.FormValue("task")
+	task := c.FormValue("task")
 
 	// Get device.
-	ma := r.FormValue("ma")
+	ma := c.FormValue("ma")
 	data.Ma = ma
 	mac := model.MacEncode(ma)
 
@@ -542,7 +533,7 @@ func utilsTaskHandler(w http.ResponseWriter, r *http.Request, p *gauth.Profile, 
 	case "find":
 		targetSkey = dev.Skey
 	case "move":
-		sk := r.FormValue("sk")
+		sk := c.FormValue("sk")
 		targetSkey, err = strconv.ParseInt(sk, 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid site key %s", sk)

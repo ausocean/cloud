@@ -27,14 +27,13 @@ LICENSE
 package main
 
 import (
-	"net/http"
-
 	"github.com/ausocean/cloud/gauth"
+	"github.com/gofiber/fiber/v2"
 )
 
 // missionControlHandler handles mission control page requests.
-func missionControlHandler(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
+func missionControlHandler(c *fiber.Ctx, profile *gauth.Profile) error {
 	data := monitorData{commonData: commonData{Pages: pages("mission control"), Profile: profile}}
-
-	writeTemplate(w, r, "mission-control.html", &data, "")
+	writeTemplateFiber(c, "mission-control.html", &data, "")
+	return nil
 }

@@ -24,13 +24,13 @@ LICENSE
 package main
 
 import (
-	"net/http"
-
 	"github.com/ausocean/cloud/gauth"
+	"github.com/gofiber/fiber/v2"
 )
 
 // mediaManagerHandler handles media manager page requests.
-func mediaManagerHandler(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
+func mediaManagerHandler(c *fiber.Ctx, profile *gauth.Profile) error {
 	data := monitorData{commonData: commonData{Pages: pages("media manager"), Profile: profile}}
-	writeTemplate(w, r, "media-manager.html", &data, "")
+	writeTemplateFiber(c, "media-manager.html", &data, "")
+	return nil
 }
