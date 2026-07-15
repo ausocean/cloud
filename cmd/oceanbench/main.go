@@ -269,7 +269,7 @@ func main() {
 	app.All("/login", loginHandler)
 	app.All("/logout", logoutHandler)
 	app.All("/oauth2callback", oauthCallbackHandler)
-	app.All("/live/*", adaptor.HTTPHandlerFunc(liveHandler))
+	app.All("/live/:broadcastName", liveHandler)
 	app.All("/monitor", adaptor.HTTPHandlerFunc(monitorHandler))
 	app.All("/admin/site/add", adaptor.HTTPHandlerFunc(adminHandler))
 	app.All("/admin/site/update", adaptor.HTTPHandlerFunc(adminHandler))

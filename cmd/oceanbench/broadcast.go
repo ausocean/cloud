@@ -45,6 +45,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils"
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"google.golang.org/api/youtube/v3"
 )
@@ -655,17 +656,17 @@ retry:
 // liveHandler handles requests to /live/<broadcast name>. This redirects to the
 // livestream URL stored in a variable with name corresponding to the given broadcast name.
 // A counter for link visits is also kept and incremented on each visit.
-func liveHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func liveHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
-	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
+	key := c.Params("broadcastName")
 	v, err := model.GetVariable(ctx, settingsStore, -1, liveScope+"."+key)
 	if err != nil {
-		fmt.Fprintf(w, "livestream %s does not exist", key)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("livestream %s does not exist: %v", key, err)})
 	}
 
 	// Increment the link visit count.
@@ -678,15 +679,16 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Transform the YouTube URL based on options in query parameters.
 	redirectURL := v.Value
-	redirectURL, err = transformYouTubeURL(redirectURL, r)
+	redirectURL, err = transformYouTubeURL(redirectURL, c)
 	if err != nil {
-		log.Printf("error transforming YouTube URL: %v", err)
-		writeHttpError(w, http.StatusInternalServerError, "invalid livestream URL")
-		return
+		_err := fmt.Errorf("error transforming YouTube URL: %v", err)
+		log.Print(_err)
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": _err})
 	}
 
 	log.Printf("redirecting to livestream link: %s", redirectURL)
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+	return c.Redirect(redirectURL, fiber.StatusFound)
 }
 
 // incrementVisitCount increments the visits counter for the given stream name.
@@ -715,7 +717,7 @@ func incrementVisitCount(ctx context.Context, store datastore.Store, streamName 
 // transformYouTubeURL transforms the YouTube URL based on options in the query parameters.
 // The options are autoplay, mute, and embed. The embed option will also cause rel=0 to be added.
 // rel=0 means that only videos from your channel will be suggested when the video is stopped.
-func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
+func transformYouTubeURL(rawURL string, c *fiber.Ctx) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", fmt.Errorf("could not parse YouTube watch URL: %w", err)
@@ -729,17 +731,17 @@ func transformYouTubeURL(rawURL string, r *http.Request) (string, error) {
 
 	// Update path if embed is requested, otherwise keep the video ID in the query.
 	newQuery := url.Values{}
-	if _, ok := r.URL.Query()["embed"]; ok {
+	if c.Query("embed") != "" {
 		u.Path = fmt.Sprintf("/embed/%s", videoID)
 		u.RawQuery = "" // Reset query parameters.
 		// Always set rel=0 for embedded videos.
 		newQuery.Set("rel", "0")
 
 		// Conditionally set mute and autoplay if requested.
-		if _, ok := r.URL.Query()["mute"]; ok {
+		if c.Query("mute") != "" {
 			newQuery.Set("mute", "1")
 		}
-		if _, ok := r.URL.Query()["autoplay"]; ok {
+		if c.Query("autoplay") != "" {
 			newQuery.Set("autoplay", "1")
 		}
 	} else {
