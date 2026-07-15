@@ -70,7 +70,6 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/sliceutils"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 )
@@ -233,7 +232,9 @@ func main() {
 	// Serve static files from the "s" directory.
 	app.Static("/s", "./s")
 	// Except for favicon.ico.
-	app.Get("/favicon.ico", adaptor.HTTPHandlerFunc(faviconHandler))
+	app.Get("/favicon.ico", func(c *fiber.Ctx) error {
+		return c.SendFile("./favicon.ico")
+	})
 
 	// Get shared cronSecret.
 	var err error
@@ -427,11 +428,6 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 	err = model.PutDevice(ctx, store, &model.Device{Skey: 1, Mac: 1, Dkey: 0, Name: localDevice, Inputs: "A0,V0,S0", MonitorPeriod: 60, Enabled: true})
 
 	return err
-}
-
-// faviconHandler serves favicon.ico.
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "favicon.ico")
 }
 
 // indexHandler handles requests for the home page and unimplemented pages.
