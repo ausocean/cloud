@@ -265,7 +265,7 @@ func main() {
 	app.All("/set/crons/edit", editCronsHandler)
 	app.All("/set/crons/*", setCronsHandler)
 	app.All("/get", getHandler)
-	app.All("/test/*", adaptor.HTTPHandlerFunc(testHandler))
+	app.All("/test/*", testHandler)
 	app.All("/login", adaptor.HTTPHandlerFunc(loginHandler))
 	app.All("/logout", adaptor.HTTPHandlerFunc(logoutHandler))
 	app.All("/oauth2callback", adaptor.HTTPHandlerFunc(oauthCallbackHandler))
@@ -866,14 +866,14 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 //	/test/operation/operand
 //
 // Users need not be signed in.
-func testHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
+func testHandler(c *fiber.Ctx) error {
+	logRequestFiber(c)
+	ctx := c.UserContext()
 
-	req := strings.Split(r.URL.Path, "/")
+	req := strings.Split(c.Path(), "/")
 	if len(req) < 5 {
-		writeHttpError(w, http.StatusBadRequest, "invalid length of url path")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Errorf("invalid length of url path")})
 	}
 
 	switch req[2] {
@@ -884,16 +884,17 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 			case "1":
 				err := model.PutDevice(ctx, settingsStore, &model.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
 				if err != nil {
-					writeHttpErrorf(w, http.StatusInternalServerError, "could not put devices: %v", err)
-					return
+					c.Status(fiber.StatusInternalServerError)
+					return c.JSON(fiber.Map{"error": fmt.Errorf("could not put devices: %v", err)})
 				}
-				fmt.Fprint(w, "OK")
-				return
+				_, err = fmt.Fprint(c, "OK")
+				return err
 			}
 		}
 	}
 
-	writeHttpError(w, http.StatusBadRequest, "invalid url path, does not exist")
+	c.Status(fiber.StatusBadRequest)
+	return c.JSON(fiber.Map{"error": fmt.Errorf("invalid url path, does not exist")})
 }
 
 // logRequest logs a request if in debug mode and standalone mode.
