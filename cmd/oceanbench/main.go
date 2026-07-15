@@ -142,8 +142,9 @@ var (
 )
 
 var (
-	errInvalidBody = errors.New("invalid body")
-	errInvalidJSON = errors.New("invalid JSON")
+	errInvalidBody   = errors.New("invalid body")
+	errInvalidJSON   = errors.New("invalid JSON")
+	errInvalidFormat = errors.New("invalid format")
 )
 
 var (
