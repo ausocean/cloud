@@ -285,8 +285,8 @@ func main() {
 	app.All("/admin/sandbox/configure", configDevicesHandler)
 	app.All("/admin/sandbox", sandboxHandler)
 	app.All("/admin/utils", adminHandler)
-	app.All("/data/*", adaptor.HTTPHandlerFunc(dataHandler))
-	app.All("/throughputs", adaptor.HTTPHandlerFunc(throughputsHandler))
+	app.All("/data/*", dataHandler)
+	app.All("/throughputs", throughputsHandler)
 	app.All("/logs", adaptor.HTTPHandlerFunc(logPageHandler))
 	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
 
