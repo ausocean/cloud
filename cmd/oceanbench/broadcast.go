@@ -45,6 +45,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils"
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"google.golang.org/api/youtube/v3"
@@ -193,82 +194,81 @@ func (c *BroadcastConfig) parseStartEnd() error {
 }
 
 // broadcastHandler handles modification to broadcast configurations.
-func broadcastHandler(w http.ResponseWriter, r *http.Request) {
-	profile, err := getProfile(w, r)
+func broadcastHandler(c *fiber.Ctx) error {
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	sKey, _ := requestSiteData(r, profile)
+	sKey, _ := requestSiteDataFiber(c, profile)
 
 	req := broadcastRequest{
 		commonData: commonData{
 			Pages: pages("broadcast"),
 		},
 		CurrentBroadcast: BroadcastConfig{
-			UUID:                  r.FormValue("broadcast-uuid"),
+			UUID:                  c.FormValue("broadcast-uuid"),
 			SKey:                  sKey,
-			Name:                  r.FormValue("broadcast-name"),
-			BID:                   r.FormValue("broadcast-id"),
-			StreamName:            r.FormValue("stream-name"),
-			Description:           r.FormValue("description"),
-			LivePrivacy:           r.FormValue("live-privacy"),
-			PostLivePrivacy:       r.FormValue("post-live-privacy"),
-			Resolution:            r.FormValue("resolution"),
-			StartTimestamp:        r.FormValue("start-timestamp"),
-			EndTimestamp:          r.FormValue("end-timestamp"),
-			RTMPVar:               r.FormValue("rtmp-key-var"),
-			RTMPKey:               r.FormValue("rtmp-key"),
-			VidforwardHost:        r.FormValue("vidforward-host"),
-			CameraMac:             model.MacEncode(r.FormValue("camera-mac")),
-			ControllerMAC:         model.MacEncode(r.FormValue("controller-mac")),
-			OnActions:             r.FormValue("on-actions"),
-			OffActions:            r.FormValue("off-actions"),
-			ShutdownActions:       r.FormValue("shutdown-actions"),
-			SendMsg:               r.FormValue("report-sensor") == "Chat",
-			UsingVidforward:       r.FormValue("use-vidforward") == "using-vidforward",
-			CheckingHealth:        r.FormValue("check-health") == "checking-health",
-			Enabled:               r.FormValue("enabled") == "enabled",
-			InFailure:             r.FormValue("in-failure") == "in-failure",
-			RegisterOpenFish:      r.FormValue("register-openfish") == "register-openfish",
-			OpenFishCaptureSource: r.FormValue("openfish-capturesource"),
-			BatteryVoltagePin:     r.FormValue("battery-voltage-pin"),
-			NotifySuppressRules:   r.FormValue("notify-suppress-rules"),
+			Name:                  c.FormValue("broadcast-name"),
+			BID:                   c.FormValue("broadcast-id"),
+			StreamName:            c.FormValue("stream-name"),
+			Description:           c.FormValue("description"),
+			LivePrivacy:           c.FormValue("live-privacy"),
+			PostLivePrivacy:       c.FormValue("post-live-privacy"),
+			Resolution:            c.FormValue("resolution"),
+			StartTimestamp:        c.FormValue("start-timestamp"),
+			EndTimestamp:          c.FormValue("end-timestamp"),
+			RTMPVar:               c.FormValue("rtmp-key-var"),
+			RTMPKey:               c.FormValue("rtmp-key"),
+			VidforwardHost:        c.FormValue("vidforward-host"),
+			CameraMac:             model.MacEncode(c.FormValue("camera-mac")),
+			ControllerMAC:         model.MacEncode(c.FormValue("controller-mac")),
+			OnActions:             c.FormValue("on-actions"),
+			OffActions:            c.FormValue("off-actions"),
+			ShutdownActions:       c.FormValue("shutdown-actions"),
+			SendMsg:               c.FormValue("report-sensor") == "Chat",
+			UsingVidforward:       c.FormValue("use-vidforward") == "using-vidforward",
+			CheckingHealth:        c.FormValue("check-health") == "checking-health",
+			Enabled:               c.FormValue("enabled") == "enabled",
+			InFailure:             c.FormValue("in-failure") == "in-failure",
+			RegisterOpenFish:      c.FormValue("register-openfish") == "register-openfish",
+			OpenFishCaptureSource: c.FormValue("openfish-capturesource"),
+			BatteryVoltagePin:     c.FormValue("battery-voltage-pin"),
+			NotifySuppressRules:   c.FormValue("notify-suppress-rules"),
 		},
-		Action:             r.FormValue("action"),
-		ListingSecondaries: r.FormValue("list-secondaries") == "listing-secondaries",
+		Action:             c.FormValue("action"),
+		ListingSecondaries: c.FormValue("list-secondaries") == "listing-secondaries",
 		Settings: Settings{
 			Resolution: []string{"1080p"},
 			Privacy:    []string{"unlisted", "private", "public"},
 		},
 	}
 
-	streamVoltage := r.FormValue("required-streaming-voltage")
+	streamVoltage := c.FormValue("required-streaming-voltage")
 	if streamVoltage == "" {
 		req.CurrentBroadcast.RequiredStreamingVoltage = 0
 	} else {
 		req.CurrentBroadcast.RequiredStreamingVoltage, err = strconv.ParseFloat(streamVoltage, 64)
 		if err != nil {
-			reportError(w, r, req, "could not parse required streaming voltage: %v", err)
-			return
+			reportError(c, req, "could not parse required streaming voltage: %v", err)
+			return nil
 		}
 	}
 
-	voltageTimeout := r.FormValue("voltage-recovery-timeout")
+	voltageTimeout := c.FormValue("voltage-recovery-timeout")
 	if voltageTimeout == "" {
 		req.CurrentBroadcast.VoltageRecoveryTimeout = 0
 	} else {
-		req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(r.FormValue("voltage-recovery-timeout"))
+		req.CurrentBroadcast.VoltageRecoveryTimeout, err = strconv.Atoi(c.FormValue("voltage-recovery-timeout"))
 		if err != nil {
-			reportError(w, r, req, "could not parse voltage recovery timeout: %v", err)
-			return
+			reportError(c, req, "could not parse voltage recovery timeout: %v", err)
+			return nil
 		}
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 
 	cfg := &req.CurrentBroadcast
 
@@ -277,8 +277,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	if cfg.StartTimestamp != "" {
 		err = cfg.parseStartEnd()
 		if err != nil {
-			reportError(w, r, req, "could not parse start and end times: %v", err)
-			return
+			reportError(c, req, "could not parse start and end times: %v", err)
+			return nil
 		}
 	}
 
@@ -287,16 +287,16 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	switch err {
 	case nil, datastore.ErrNoSuchEntity:
 	default:
-		reportError(w, r, req, "could not get broadcast configs variable: %v", err)
-		return
+		reportError(c, req, "could not get broadcast configs variable: %v", err)
+		return nil
 	}
 
 	for _, v := range req.BroadcastVars {
 		cfg := &BroadcastConfig{}
 		err := json.Unmarshal([]byte(v.Value), cfg)
 		if err != nil {
-			reportError(w, r, req, "could not unmarshal broadcast variables: %v", err)
-			return
+			reportError(c, req, "could not unmarshal broadcast variables: %v", err)
+			return nil
 		}
 
 		// Handle older version broadcasts which don't have a UUID.
@@ -320,8 +320,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Get site to use the site's timezone.
 	req.Site, err = model.GetSite(ctx, settingsStore, sKey)
 	if err != nil {
-		reportError(w, r, req, "could not get site to establish timezone: %v", err)
-		return
+		reportError(c, req, "could not get site to establish timezone: %v", err)
+		return nil
 	}
 
 	action := stringToAction(req.Action, req)
@@ -329,8 +329,8 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	// Get all Cameras and Controllers that could be used by the broadcast.
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, sKey)
 	if err != nil {
-		reportError(w, r, req, "could not get sites devices: %v", err)
-		return
+		reportError(c, req, "could not get sites devices: %v", err)
+		return nil
 	}
 
 	for _, dev := range devices {
@@ -343,28 +343,37 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Populate sensor list that contains sensors that will display values in
 	// live chat.
-	err = updateSensorList(ctx, &req, r, settingsStore)
+	err = updateSensorList(ctx, &req, c, settingsStore)
 	if err != nil {
-		reportError(w, r, req, "could not update sensor list: %v", err)
-		return
+		reportError(c, req, "could not update sensor list: %v", err)
+		return nil
 	}
 
 	var msg string
 	switch action {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
-		err = yt.AuthChannel(ctx, w, r, youtube.YoutubeScope, tokenURI)
+
+		var err error
+		adaptErr := adaptor.HTTPHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			err = yt.AuthChannel(r.Context(), w, r, youtube.YoutubeScope, tokenURI)
+		})(c)
+		if adaptErr != nil {
+			reportError(c, req, "internal adapter error: %v", adaptErr)
+			return nil
+		}
+
 		if err != nil {
-			reportError(w, r, req, "could not authenticate channel: %v", err)
-			return
+			reportError(c, req, "could not authenticate channel: %v", err)
+			return nil
 		}
 
 		// Store the account email in the broadcast config.
 		cfg.Account = profile.Email
-		err := saveBroadcast(ctx, &req.CurrentBroadcast)
+		err = saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
-			reportError(w, r, req, "could not save broadcast: %v", err)
-			return
+			reportError(c, req, "could not save broadcast: %v", err)
+			return nil
 		}
 		msg = "channel authenticated successfully"
 	case broadcastSave:
@@ -375,9 +384,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, ErrBroadcastNotFound{}) {
 			// Assume the broadcast is newly saved.
 		} else if err != nil {
-			reportError(w, r, req, "could not get broadcast from vars to check hardware state: %v", err)
-			return
-		} else if r.FormValue("in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
+			reportError(c, req, "could not get broadcast from vars to check hardware state: %v", err)
+			return nil
+		} else if c.FormValue("in-failure") == "false" && curBroadcast.HardwareState == "hardwareFailure" {
 			cfg.HardwareState = "hardwareOff"
 		}
 
@@ -388,14 +397,14 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			// If the broadcast doesn't exist, we will be creating a new broadcast.
 			// Do nothing.
 		} else if err != nil {
-			reportError(w, r, req, "could not get existing account for name: %s: %v", cfg.Name, err)
-			return
+			reportError(c, req, "could not get existing account for name: %s: %v", cfg.Name, err)
+			return nil
 		}
 
 		err = saveBroadcast(ctx, &req.CurrentBroadcast)
 		if err != nil {
-			reportError(w, r, req, "could not save broadcast: %v", err)
-			return
+			reportError(c, req, "could not save broadcast: %v", err)
+			return nil
 		}
 		msg = "broadcast saved successfully"
 
@@ -403,66 +412,72 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		const broadcastCheckCronID = "Broadcast Check"
 		_, err = model.GetCron(ctx, settingsStore, cfg.SKey, broadcastCheckCronID)
 		if errors.Is(err, datastore.ErrNoSuchEntity) {
-			c := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
-			err = model.PutCron(context.Background(), settingsStore, c)
+			cr := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
+			err = model.PutCron(context.Background(), settingsStore, cr)
 			if err != nil {
-				reportError(w, r, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
-				return
+				reportError(c, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
+				return nil
 			}
 
-			err = cronScheduler.Set(c)
+			err = cronScheduler.Set(cr)
 			if err != nil {
-				reportError(w, r, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
-				return
+				reportError(c, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
+				return nil
 			}
 		} else if err != nil {
-			reportError(w, r, req, "unexpected error when checking for the broadcast check cron: %v", err)
-			return
+			reportError(c, req, "unexpected error when checking for the broadcast check cron: %v", err)
+			return nil
 		}
 
 	case broadcastDelete:
 		err = deleteBroadcast(ctx, &req, settingsStore)
 		if err != nil {
-			reportError(w, r, req, "could not delete broadcast: %v", err)
-			return
+			reportError(c, req, "could not delete broadcast: %v", err)
+			return nil
 		}
 		msg = "broadcast deleted successfully"
 
 	case vidforwardSlateUpdate:
 		const fieldName = "slate-file"
-		file, header, err := r.FormFile(fieldName)
+		fh, err := c.FormFile(fieldName)
 		if err != nil {
-			reportError(w, r, req, "could not get file from request form: %v", err)
-			return
+			reportError(c, req, "could not get file from request form: %v", err)
+			return nil
+		}
+		file, err := fh.Open()
+		if err != nil {
+			reportError(c, req, "could not open file: %v", err)
+			return nil
 		}
 		defer file.Close()
-		err = (NewVidforwardService()).UploadSlate(cfg, header.Filename, file)
+		err = (NewVidforwardService()).UploadSlate(cfg, fh.Filename, file)
 		if err != nil {
-			reportError(w, r, req, "could not upload slate: %v", err)
-			return
+			reportError(c, req, "could not upload slate: %v", err)
+			return nil
 
 		}
 		msg = "slate uploaded successfully"
 	case broadcastResetState:
 		err = resetState(ctx, &req.CurrentBroadcast)
 		if err != nil {
-			reportError(w, r, req, "could not reset state: %v", err)
-			return
+			reportError(c, req, "could not reset state: %v", err)
+			return nil
 		}
 
 		v, err := model.GetVariable(ctx, settingsStore, sKey, broadcastScope+"."+cfg.UUID)
 		if err != nil {
-			reportError(w, r, req, "could not load saved broadcast: %v", err)
-			return
+			reportError(c, req, "could not load saved broadcast: %v", err)
+			return nil
 		}
 		err = json.Unmarshal([]byte(v.Value), cfg)
 		if err != nil {
-			reportError(w, r, req, "could not unmarshal broadcast: %v", err)
-			return
+			reportError(c, req, "could not unmarshal broadcast: %v", err)
+			return nil
 		}
 	}
 
-	writeTemplate(w, r, "broadcast.html", &req, msg)
+	writeTemplateFiber(c, "broadcast.html", &req, msg)
+	return nil
 }
 
 func stringToAction(s string, req broadcastRequest) Action {
@@ -589,7 +604,7 @@ func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) (stri
 	return _cfg.Account, nil
 }
 
-func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Request, store datastore.Store) error {
+func updateSensorList(ctx context.Context, req *broadcastRequest, c *fiber.Ctx, store datastore.Store) error {
 	devices, err := model.GetDevicesBySite(ctx, store, req.CurrentBroadcast.SKey)
 	if err != nil {
 		return fmt.Errorf("could no get devices: %w", err)
@@ -606,7 +621,7 @@ func updateSensorList(ctx context.Context, req *broadcastRequest, r *http.Reques
 		}
 		for _, sensor := range sensors {
 			entry := SensorEntry{
-				SendMsg:   r.FormValue(strings.ToLower(sensor.Name)) == sensor.Name,
+				SendMsg:   c.FormValue(strings.ToLower(sensor.Name)) == sensor.Name,
 				Sensor:    sensor,
 				Name:      strings.ToLower(sensor.Name),
 				DeviceMac: dev.Mac,

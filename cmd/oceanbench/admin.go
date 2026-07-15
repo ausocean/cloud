@@ -43,7 +43,6 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -151,7 +150,7 @@ func adminHandler(c *fiber.Ctx) error {
 		err = deleteUser(c, p)
 
 	case "/admin/broadcast":
-		return adaptor.HTTPHandlerFunc(broadcastHandler)(c)
+		return broadcastHandler(c)
 
 	case "/admin/missioncontrol":
 		if !isSuperAdmin(p.Email) {
