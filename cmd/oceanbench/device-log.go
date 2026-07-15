@@ -43,48 +43,48 @@ import (
 //	sk: site key
 //	ma: device MAC address (encoded as int64)
 //	ld: log data.
-func setLogHandler(w http.ResponseWriter, r *http.Request) {
+func setLogHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Validate the user is logged in.
-	profile, err := getProfile(w, r)
+	profile, err := getProfileFiber(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		c.Status(http.StatusUnauthorized)
+		return nil
 	}
 
 	// Parse the fields to be put into the log.
-	skStr := r.FormValue("sk")
-	maStr := r.FormValue("ma")
-	ld := r.FormValue("lg")
+	skStr := c.FormValue("sk")
+	maStr := c.FormValue("ma")
+	ld := c.FormValue("lg")
 
 	// Convert the site key and device MAC to int64.
 	sk, err := strconv.ParseInt(skStr, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse site key: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return err
 	}
 	ma, err := strconv.ParseInt(maStr, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse device MAC: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return err
 	}
 
 	// Check the user has at least admin permissions for the site they are trying to create a log for.
 	user, err := model.GetUser(ctx, settingsStore, sk, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.AdminPermission == 0) {
 		log.Println("user does not have admin permissions")
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return err
 	} else if err != nil {
 		log.Printf("failed to get permission for user: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return err
 	}
 
 	// Put the new Log into the datastore.
@@ -93,12 +93,12 @@ func setLogHandler(w http.ResponseWriter, r *http.Request) {
 	// Return any errors from putting the log.
 	if err != nil {
 		log.Printf("failed to put Log: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return err
 	}
 
 	// Redirect to the log page.
-	http.Redirect(w, r, "/logs", http.StatusSeeOther)
+	return c.Redirect("/logs", fiber.StatusSeeOther)
 }
 
 // logPageHandler handles requests for the log page.
