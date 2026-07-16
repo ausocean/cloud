@@ -28,7 +28,6 @@ package main
 import (
 	"errors"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -42,14 +41,14 @@ var standaloneData string
 
 // loginHandler handles user login requests.
 func loginHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	if standalone {
 		return nil
 	}
 
 	err := auth.LoginHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	return nil
@@ -57,14 +56,14 @@ func loginHandler(c *fiber.Ctx) error {
 
 // logoutHandler handles user logout requests.
 func logoutHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	if standalone {
 		return nil
 	}
 
 	err := auth.LogoutHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	return nil
@@ -72,7 +71,7 @@ func logoutHandler(c *fiber.Ctx) error {
 
 // oauthCallbackHandler implements the OAuth2 callback that completes the authentication process.
 func oauthCallbackHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	if standalone {
 		return nil
 	}
@@ -82,22 +81,14 @@ func oauthCallbackHandler(c *fiber.Ctx) error {
 		return c.Redirect("/", fiber.StatusFound)
 	} else if err != nil {
 		log.Println("got error:", err)
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	return nil
 }
 
 // getProfile returns the profile for the logged-in user.
-func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) {
-	if standalone {
-		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
-	}
-	return auth.GetProfile(backend.NewNetHandler(w, r, auth.NetStore))
-}
-
-// getProfileFiber returns the profile for the logged-in user.
-func getProfileFiber(c *fiber.Ctx) (*gauth.Profile, error) {
+func getProfile(c *fiber.Ctx) (*gauth.Profile, error) {
 	if standalone {
 		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
 	}
@@ -105,16 +96,7 @@ func getProfileFiber(c *fiber.Ctx) (*gauth.Profile, error) {
 }
 
 // putProfileData puts profile data.
-func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
-	if standalone {
-		standaloneData = val
-		return nil
-	}
-	return auth.PutData(backend.NewNetHandler(w, r, auth.NetStore), val)
-}
-
-// putProfileDataFiber puts profile data.
-func putProfileDataFiber(c *fiber.Ctx, val string) error {
+func putProfileData(c *fiber.Ctx, val string) error {
 	if standalone {
 		standaloneData = val
 		return nil
@@ -143,19 +125,7 @@ func profileData(profile *gauth.Profile) (int64, string) {
 
 // requestSiteData gets the site key from the request URL if present,
 // otherwise falls back to the user's profile data.
-func requestSiteData(r *http.Request, profile *gauth.Profile) (int64, string) {
-	if siteStr := r.URL.Query().Get("site"); siteStr != "" {
-		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
-			// A valid site key is in the URL.
-			return siteKey, ""
-		}
-	}
-	return profileData(profile)
-}
-
-// requestSiteDataFiber gets the site key from the request URL if present,
-// otherwise falls back to the user's profile data.
-func requestSiteDataFiber(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
+func requestSiteData(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
 	if siteStr := c.Query("site"); siteStr != "" {
 		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
 			// A valid site key is in the URL.

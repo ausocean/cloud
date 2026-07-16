@@ -92,9 +92,9 @@ type monitorData struct {
 
 // monitorHandler handles monitor requests.
 func monitorHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -106,7 +106,7 @@ func monitorHandler(c *fiber.Ctx) error {
 
 	ctx := c.UserContext()
 
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	// Check if user has write permissions to link to devices page.
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
@@ -159,7 +159,7 @@ func monitorHandler(c *fiber.Ctx) error {
 		return int(b.LastReportedTimestamp - a.LastReportedTimestamp)
 	})
 	data.Devices = monitorDevices
-	writeTemplateFiber(c, "monitor.html", &data, errMsg)
+	writeTemplate(c, "monitor.html", &data, errMsg)
 	return nil
 }
 
@@ -351,6 +351,6 @@ func secondsToUptime(v *model.Variable) (uptime string, err error) {
 func reportMonitorError(c *fiber.Ctx, d *monitorData, f string, args ...interface{}) error {
 	err := fmt.Errorf(f, args...)
 	log.Print(err)
-	writeTemplateFiber(c, "monitor.html", d, err.Error())
+	writeTemplate(c, "monitor.html", d, err.Error())
 	return err
 }

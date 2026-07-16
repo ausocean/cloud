@@ -44,14 +44,14 @@ type sandboxData struct {
 }
 
 func sandboxHandler(c *fiber.Ctx) error {
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	data := sandboxData{
 		commonData: commonData{
@@ -61,20 +61,20 @@ func sandboxHandler(c *fiber.Ctx) error {
 	}
 
 	if skey != model.SandboxSkey {
-		writeTemplateFiber(c, "sandbox.html", &data, "Must be on Sandbox Site.")
+		writeTemplate(c, "sandbox.html", &data, "Must be on Sandbox Site.")
 		return nil
 	}
 
 	ctx := context.Background()
 	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplateFiber(c, "sandbox.html", &data, "could not get devices by site")
+		writeTemplate(c, "sandbox.html", &data, "could not get devices by site")
 		return err
 	}
 
 	ma := c.FormValue("ma")
 	if !model.IsMacAddress(ma) && ma != "" {
-		writeTemplateFiber(c, "sandbox.html", &data, "invalid mac address")
+		writeTemplate(c, "sandbox.html", &data, "invalid mac address")
 		return nil
 	}
 
@@ -85,7 +85,7 @@ func sandboxHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	writeTemplateFiber(c, "sandbox.html", &data, "")
+	writeTemplate(c, "sandbox.html", &data, "")
 	return nil
 }
 
@@ -100,9 +100,9 @@ func sandboxHandler(c *fiber.Ctx) error {
 //	ll = comma seperated latitude and longitude (optional)
 //	sk = target site key for the new device
 func configDevicesHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := context.Background()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -124,7 +124,7 @@ func configDevicesHandler(c *fiber.Ctx) error {
 
 	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("unable to get device by mac: %w", err))
+		writeError(c, fmt.Errorf("unable to get device by mac: %w", err))
 		return err
 	}
 
@@ -133,12 +133,12 @@ func configDevicesHandler(c *fiber.Ctx) error {
 	if len(strings.Split(ll, ",")) == 2 {
 		lat, err = strconv.ParseFloat(strings.Split(ll, ",")[0], 64)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("unable to parse lat float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
+			writeError(c, fmt.Errorf("unable to parse lat float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
 			return err
 		}
 		long, err = strconv.ParseFloat(strings.Split(ll, ",")[1], 64)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("unable to parse long float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
+			writeError(c, fmt.Errorf("unable to parse long float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
 			return err
 		}
 	}
@@ -151,7 +151,7 @@ func configDevicesHandler(c *fiber.Ctx) error {
 	}
 
 	if !model.IsMacAddress(ma) {
-		writeErrorFiber(c, model.ErrInvalidMACAddress)
+		writeError(c, model.ErrInvalidMACAddress)
 		return model.ErrInvalidMACAddress
 	}
 
@@ -163,12 +163,12 @@ func configDevicesHandler(c *fiber.Ctx) error {
 		}
 	}
 	if !isValidType {
-		writeErrorFiber(c, model.ErrInvalidDevType)
+		writeError(c, model.ErrInvalidDevType)
 		return model.ErrInvalidDevType
 	}
 	skey, err := strconv.ParseInt(sk, 10, 64)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not parse site key: %w", err))
+		writeError(c, fmt.Errorf("could not parse site key: %w", err))
 		return err
 	}
 
@@ -182,41 +182,41 @@ func configDevicesHandler(c *fiber.Ctx) error {
 			system.WithLocation(lat, long),
 		)
 		if err != nil {
-			writeErrorFiber(c, err)
+			writeError(c, err)
 			return err
 		}
 
 		err = system.PutRigSystem(ctx, settingsStore, sys)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("unable to put rig system: %w", err))
+			writeError(c, fmt.Errorf("unable to put rig system: %w", err))
 			return err
 		}
 	case model.DevTypeCamera:
 		camSys, err := system.NewCamera(skey, dev.Dkey, dn, ma, system.WithCameraDefaults())
 		if err != nil {
-			writeErrorFiber(c, err)
+			writeError(c, err)
 			return err
 		}
 
 		err = system.PutCameraSystem(ctx, settingsStore, camSys)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("unable to put camera system: %w", err))
+			writeError(c, fmt.Errorf("unable to put camera system: %w", err))
 			return err
 		}
 
 	default:
-		writeErrorFiber(c, errNotImplemented)
+		writeError(c, errNotImplemented)
 		return errNotImplemented
 	}
 	site, err := model.GetSite(ctx, settingsStore, int64(skey))
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("failed to get site: %v", err))
+		writeError(c, fmt.Errorf("failed to get site: %v", err))
 		return err
 	}
 	profile.Data = fmt.Sprintf("%d:%s", skey, site.Name)
-	err = putProfileDataFiber(c, profile.Data)
+	err = putProfileData(c, profile.Data)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("failed to put profile data: %w", err))
+		writeError(c, fmt.Errorf("failed to put profile data: %w", err))
 		return err
 	}
 
@@ -240,7 +240,7 @@ func writeConfigure(c *fiber.Ctx, profile *gauth.Profile) error {
 
 	data.Sites, err = model.GetAllSites(ctx, settingsStore)
 	if err != nil {
-		writeTemplateFiber(c, "configure.html", &data, fmt.Sprintf("could not get all sites: %v", err.Error()))
+		writeTemplate(c, "configure.html", &data, fmt.Sprintf("could not get all sites: %v", err.Error()))
 		return err
 	}
 
@@ -252,6 +252,6 @@ func writeConfigure(c *fiber.Ctx, profile *gauth.Profile) error {
 	}
 	data.DevTypes = devTypes
 
-	writeTemplateFiber(c, "configure.html", &data, "")
+	writeTemplate(c, "configure.html", &data, "")
 	return nil
 }

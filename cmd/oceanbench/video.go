@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -181,14 +180,14 @@ type uploadData struct {
 // uploadHandler handles MTS data uploading, which requires write
 // permission.
 func uploadHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
 	var isAJAX bool
 	if c.Get("X-Requested-With") == "XMLHttpRequest" {
 		isAJAX = true
 	}
 
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	data := uploadData{
 		commonData: commonData{
 			Pages:   pages("upload"),
@@ -200,7 +199,7 @@ func uploadHandler(c *fiber.Ctx) error {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplateFiber(c, "index.html", &data, "")
+		writeTemplate(c, "index.html", &data, "")
 		return nil
 	}
 
@@ -213,9 +212,9 @@ func uploadHandler(c *fiber.Ctx) error {
 		}
 		data.MID, _ = strconv.ParseInt(c.FormValue("id"), 10, 64) // Guaranteed to succeed since nil error.
 		if n == 0 {
-			writeTemplateFiber(c, "upload.html", &data, "")
+			writeTemplate(c, "upload.html", &data, "")
 		} else {
-			writeTemplateFiber(c, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
+			writeTemplate(c, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
 		}
 		return nil
 
@@ -228,7 +227,7 @@ func uploadHandler(c *fiber.Ctx) error {
 			c.Status(fiber.StatusBadRequest)
 			return c.JSON(fiber.Map{"error": fmt.Sprintf("upload failed: %v", err)})
 		}
-		writeTemplateFiber(c, "upload.html", &data, err.Error())
+		writeTemplate(c, "upload.html", &data, err.Error())
 		return nil
 	}
 }
@@ -236,7 +235,7 @@ func uploadHandler(c *fiber.Ctx) error {
 // upload implements the uploadHandler logic, returning the number of bytes uploaded or an error otherwise.
 func upload(c *fiber.Ctx) (int, error) {
 	ctx := c.UserContext()
-	p, err := getProfileFiber(c)
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -318,9 +317,9 @@ type playData struct {
 // render the player, and must have read permissions for the media
 // they wish to play.
 func playHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
-	profile, _ := getProfileFiber(c)
+	profile, _ := getProfile(c)
 	if profile == nil {
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
@@ -344,7 +343,7 @@ func playHandler(c *fiber.Ctx) error {
 		MID: mid,
 	}
 
-	writeTemplateFiber(c, "play.html", &data, msg)
+	writeTemplate(c, "play.html", &data, msg)
 
 	return nil
 }
@@ -522,18 +521,7 @@ func joinMedia(clips []model.MtsMedia) []byte {
 }
 
 // writeData writes MTS data using the supplied MIME type.
-func writeData(w http.ResponseWriter, data []byte, mimeType, filename string) {
-	h := w.Header()
-	h.Add("Access-Control-Allow-Origin", "*")
-	h.Add("Content-Type", mimeType)
-	if filename != "" {
-		h.Add("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	}
-	fmt.Fprint(w, string(data))
-}
-
-// writeDataFiber writes MTS data using the supplied MIME type.
-func writeDataFiber(c *fiber.Ctx, data []byte, mimeType, filename string) {
+func writeData(c *fiber.Ctx, data []byte, mimeType, filename string) {
 	c.Set("Access-Control-Allow-Origin", "*")
 	c.Set("Content-Type", mimeType)
 	if filename != "" {

@@ -195,14 +195,14 @@ func (c *BroadcastConfig) parseStartEnd() error {
 
 // broadcastHandler handles modification to broadcast configurations.
 func broadcastHandler(c *fiber.Ctx) error {
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	sKey, _ := requestSiteDataFiber(c, profile)
+	sKey, _ := requestSiteData(c, profile)
 
 	req := broadcastRequest{
 		commonData: commonData{
@@ -476,7 +476,7 @@ func broadcastHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	writeTemplateFiber(c, "broadcast.html", &req, msg)
+	writeTemplate(c, "broadcast.html", &req, msg)
 	return nil
 }
 
@@ -672,7 +672,7 @@ retry:
 // livestream URL stored in a variable with name corresponding to the given broadcast name.
 // A counter for link visits is also kept and incremented on each visit.
 func liveHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
 	ctx := c.UserContext()
 	setup(ctx)

@@ -45,7 +45,7 @@ import (
 func reportError(c *fiber.Ctx, d broadcastRequest, f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplateFiber(c, "broadcast.html", &d, msg)
+	writeTemplate(c, "broadcast.html", &d, msg)
 }
 
 // removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.

@@ -40,7 +40,6 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
 // profileKey is the Locals key used to pass a *gauth.Profile through Fiber middleware.
@@ -66,16 +65,7 @@ func setupAPIV1Routes(api fiber.Router) {
 // the *gauth.Profile in c.Locals(profileKey). If authentication fails it writes
 // a JSON error response and aborts the chain.
 func withProfileJSON(c *fiber.Ctx) error {
-	// Build a *http.Request from the Fiber/fasthttp context so we can reuse the
-	// existing getProfile helper which relies on net/http cookies.
-	var r http.Request
-	if err := fasthttpadaptor.ConvertRequest(c.Context(), &r, true); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not read request"})
-	}
-
-	// A noop ResponseWriter is sufficient here: getProfile only reads from the
-	// request (cookies), it does not write to w.
-	p, err := getProfile(noopResponseWriter{}, &r)
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)

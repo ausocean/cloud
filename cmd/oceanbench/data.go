@@ -51,7 +51,7 @@ const (
 // Unlike NetReceiver, we only support timestamps for start (ds) and finish (df) times.
 // Data duration (dd) and data unit (du) params are currently unsupported.
 func dataHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
 	setup(ctx)
 
@@ -69,7 +69,7 @@ func dataHandler(c *fiber.Ctx) error {
 		res, err = strconv.Atoi(dr)
 		if err != nil {
 			c.Status(fiber.StatusBadRequest)
-			writeErrorFiber(c, fmt.Errorf("could not convert data resolution to integer: %w", err))
+			writeError(c, fmt.Errorf("could not convert data resolution to integer: %w", err))
 			return nil
 		}
 	}
@@ -79,7 +79,7 @@ func dataHandler(c *fiber.Ctx) error {
 	}
 	if !strings.Contains(validFmts, do) {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid data format: %s", do))
+		writeError(c, fmt.Errorf("invalid data format: %s", do))
 		return nil
 	}
 
@@ -87,45 +87,45 @@ func dataHandler(c *fiber.Ctx) error {
 	req := strings.Split(c.Path(), "/")
 	if len(req) < 3 {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid request: %s", c.Path()))
+		writeError(c, fmt.Errorf("invalid request: %s", c.Path()))
 		return nil
 	}
 	skey, err := strconv.ParseInt(req[2], 10, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid site key in request: %s", req[2]))
+		writeError(c, fmt.Errorf("invalid site key in request: %s", req[2]))
 		return nil
 	}
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		writeErrorFiber(c, fmt.Errorf("could not get the site of provided site key: %w", err))
+		writeError(c, fmt.Errorf("could not get the site of provided site key: %w", err))
 		return nil
 	}
 
 	stUnix, err := strconv.ParseInt(ds, 10, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid start time: %w", err))
+		writeError(c, fmt.Errorf("invalid start time: %w", err))
 		return nil
 	}
 	ftUnix, err := strconv.ParseInt(df, 10, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid finish time: %w", err))
+		writeError(c, fmt.Errorf("invalid finish time: %w", err))
 		return nil
 	}
 	tzUnix, err := strconv.ParseFloat(tz, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("invalid timezone: %w", err))
+		writeError(c, fmt.Errorf("invalid timezone: %w", err))
 		return nil
 	}
 
 	scalars, err := model.GetScalars(ctx, mediaStore, model.ToSID(ma, pn), []int64{stUnix, ftUnix})
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError)
-		writeErrorFiber(c, fmt.Errorf("could not get scalars for provided period: %w", err))
+		writeError(c, fmt.Errorf("could not get scalars for provided period: %w", err))
 		return nil
 	}
 
@@ -143,7 +143,7 @@ func dataHandler(c *fiber.Ctx) error {
 	sensor, err := model.GetSensorV2(ctx, settingsStore, model.MacEncode(ma), pn)
 	if err != nil && err != datastore.ErrNoSuchEntity {
 		c.Status(fiber.StatusInternalServerError)
-		writeErrorFiber(c, fmt.Errorf("could not get sensor: %w", err))
+		writeError(c, fmt.Errorf("could not get sensor: %w", err))
 		return nil
 	}
 	if sensor != nil {
@@ -151,7 +151,7 @@ func dataHandler(c *fiber.Ctx) error {
 			scalars[i].Value, err = sensor.Transform(scalars[i].Value)
 			if err != nil {
 				c.Status(fiber.StatusInternalServerError)
-				writeErrorFiber(c, fmt.Errorf("could not transform value %f: %w", scalars[i].Value, err))
+				writeError(c, fmt.Errorf("could not transform value %f: %w", scalars[i].Value, err))
 				return nil
 			}
 		}
@@ -166,7 +166,7 @@ func dataHandler(c *fiber.Ctx) error {
 			err := csvw.Write([]string{ts, s.FormatValue(3)})
 			if err != nil {
 				c.Status(fiber.StatusInternalServerError)
-				writeErrorFiber(c, fmt.Errorf("could not write csv scalar record: %w", err))
+				writeError(c, fmt.Errorf("could not write csv scalar record: %w", err))
 				return nil
 			}
 		}
@@ -201,19 +201,19 @@ func dataHandler(c *fiber.Ctx) error {
 		err = enc.Encode(out)
 		if err != nil {
 			c.Status(fiber.StatusInternalServerError)
-			writeErrorFiber(c, fmt.Errorf("could not encode json scalar record: %w", err))
+			writeError(c, fmt.Errorf("could not encode json scalar record: %w", err))
 			return nil
 		}
 	default:
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, fmt.Errorf("unimplemented data output format: %s", do))
+		writeError(c, fmt.Errorf("unimplemented data output format: %s", do))
 		return nil
 	}
 	return nil
 }
 
 func throughputsHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
 	setup(ctx)
 
@@ -227,32 +227,32 @@ func throughputsHandler(c *fiber.Ctx) error {
 		do = defaultOutFmt
 	}
 	if !strings.Contains(validFmts, do) {
-		writeErrorFiber(c, fmt.Errorf("invalid data format: %s", do))
+		writeError(c, fmt.Errorf("invalid data format: %s", do))
 	}
 
 	stUnix, err := strconv.ParseInt(ds, 10, 64)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("invalid start time: %w", err))
+		writeError(c, fmt.Errorf("invalid start time: %w", err))
 	}
 	ftUnix, err := strconv.ParseInt(df, 10, 64)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("invalid finish time: %w", err))
+		writeError(c, fmt.Errorf("invalid finish time: %w", err))
 	}
 	tzUnix, err := strconv.ParseFloat(tz, 64)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("invalid timezone: %w", err))
+		writeError(c, fmt.Errorf("invalid timezone: %w", err))
 	}
 
 	// Get the throughput data for the device.
 	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not get device: %w", err))
+		writeError(c, fmt.Errorf("could not get device: %w", err))
 	}
 	start := time.Unix(stUnix, 0).In(fixedTimezone(tzUnix))
 	end := time.Unix(ftUnix, 0).In(fixedTimezone(tzUnix))
 	throughputs, err := throughputsFor(ctx, dev, start, end)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not get throughputs for provided period: %w", err))
+		writeError(c, fmt.Errorf("could not get throughputs for provided period: %w", err))
 	}
 
 	const timeFmt = "2006-01-02 15:04"
@@ -263,7 +263,7 @@ func throughputsHandler(c *fiber.Ctx) error {
 			ts := start.Add(countPeriod * time.Duration(i)).Format(timeFmt)
 			err := csvw.Write([]string{ts, strconv.FormatFloat(throughput, 'f', 3, 64)})
 			if err != nil {
-				writeErrorFiber(c, fmt.Errorf("could not write csv scalar record: %w", err))
+				writeError(c, fmt.Errorf("could not write csv scalar record: %w", err))
 			}
 		}
 		csvw.Flush()
@@ -296,10 +296,10 @@ func throughputsHandler(c *fiber.Ctx) error {
 
 		err = enc.Encode(out)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("could not encode json scalar record: %w", err))
+			writeError(c, fmt.Errorf("could not encode json scalar record: %w", err))
 		}
 	default:
-		writeErrorFiber(c, fmt.Errorf("unimplemented data output format: %s", do))
+		writeError(c, fmt.Errorf("unimplemented data output format: %s", do))
 		return nil
 	}
 	return nil

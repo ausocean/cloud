@@ -57,7 +57,6 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"net/http"
 	"os"
 	"reflect"
 	rtdebug "runtime/debug"
@@ -433,14 +432,14 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 // indexHandler handles requests for the home page and unimplemented pages.
 // Signed-in users are presented with a list of their sites.
 func indexHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
 	if c.Path() != "/" {
 		// Redirect all invalid URLs to the root homepage.
 		return c.Redirect("/", fiber.StatusFound)
 	}
 
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	data := commonData{
 		Pages:   pages("home"),
 		Profile: profile,
@@ -449,18 +448,12 @@ func indexHandler(c *fiber.Ctx) error {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplateFiber(c, "index.html", &data, "")
+		writeTemplate(c, "index.html", &data, "")
 		return nil
 	}
 
-	writeTemplateFiber(c, "index.html", &data, "")
+	writeTemplate(c, "index.html", &data, "")
 	return nil
-}
-
-// warmupHandler handles warmup requests. It is a no-op that simply ensures that the intance is loaded.
-func warmupHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	w.Write([]byte{})
 }
 
 // getHandler handles media and text requests, depending on the pin type.
@@ -468,14 +461,14 @@ func warmupHandler(w http.ResponseWriter, r *http.Request) {
 // The user need not be logged in to access public sites.
 // When no output is specified, media data is downloaded to the client.
 func getHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
-	p, _ := getProfileFiber(c) // Ignore errors, since users need not be logged in.
+	p, _ := getProfile(c) // Ignore errors, since users need not be logged in.
 
 	id := c.Query("id")
 	mid, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		writeErrorFiber(c, errInvalidMID)
+		writeError(c, errInvalidMID)
 		return err
 	}
 
@@ -484,7 +477,7 @@ func getHandler(c *fiber.Ctx) error {
 	if t != "" {
 		ts, err = splitTimestamps(t, false)
 		if err != nil {
-			writeErrorFiber(c, errInvalidTimestamp)
+			writeError(c, errInvalidTimestamp)
 			return err
 		}
 	}
@@ -494,7 +487,7 @@ func getHandler(c *fiber.Ctx) error {
 	if k != "" {
 		ky, err = splitUints(k)
 		if err != nil {
-			writeErrorFiber(c, errInvalidKey)
+			writeError(c, errInvalidKey)
 			return err
 		}
 	}
@@ -504,11 +497,11 @@ func getHandler(c *fiber.Ctx) error {
 
 	ok, err := hasPermission(ctx, p, mid, model.ReadPermission)
 	if err != nil {
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	if !ok {
-		writeErrorFiber(c, errPermissionDenied)
+		writeError(c, errPermissionDenied)
 		return err
 	}
 
@@ -520,7 +513,7 @@ func getHandler(c *fiber.Ctx) error {
 	case 'V', 'S':
 		content, mime, err = getMedia(c, mid, ts, ky)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("could not get media: %w", err))
+			writeError(c, fmt.Errorf("could not get media: %w", err))
 			return err
 		}
 
@@ -540,7 +533,7 @@ func getHandler(c *fiber.Ctx) error {
 	case 'T':
 		content, mime, err = getText(c, mid, ts, ky)
 		if err != nil {
-			writeErrorFiber(c, fmt.Errorf("could not get text: %w", err))
+			writeError(c, fmt.Errorf("could not get text: %w", err))
 			return err
 		}
 
@@ -553,11 +546,11 @@ func getHandler(c *fiber.Ctx) error {
 
 	default:
 		err := fmt.Errorf("unknown pin type: %v", pin[0])
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 
-	writeDataFiber(c, content, mime, name)
+	writeData(c, content, mime, name)
 	return nil
 }
 
@@ -598,8 +591,8 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 
 // writeTemplate writes the given template with the supplied data,
 // populating some common properties.
-func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data interface{}, msg string) {
-	profile, _ := getProfile(w, r)
+func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) {
+	profile, _ := getProfile(c)
 	v := reflect.Indirect(reflect.ValueOf(data))
 	p := v.FieldByName("Standalone")
 	if p.IsValid() {
@@ -625,71 +618,7 @@ func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data int
 	if p.IsValid() {
 		p.Set(reflect.ValueOf(profile))
 	}
-	skey, _ := requestSiteData(r, profile)
-	p = v.FieldByName("CurrentSiteKey")
-	if p.IsValid() {
-		p.SetInt(skey)
-	}
-	p = v.FieldByName("SuperAdmin")
-	if p.IsValid() {
-		if profile == nil {
-			p.SetBool(false)
-		} else {
-			p.SetBool(isSuperAdmin(profile.Email))
-		}
-	}
-	p = v.FieldByName("LoginURL")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf("/login?redirect=" + r.URL.RequestURI()))
-	}
-	p = v.FieldByName("LogoutURL")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
-	}
-
-	if strings.HasPrefix(name, "set/") {
-		err := setTemplates.ExecuteTemplate(w, name[4:], data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	} else {
-		err := templates.ExecuteTemplate(w, name, data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	}
-}
-
-// writeTemplateFiber writes the given template with the supplied data,
-// populating some common properties.
-func writeTemplateFiber(c *fiber.Ctx, name string, data interface{}, msg string) {
-	profile, _ := getProfileFiber(c)
-	v := reflect.Indirect(reflect.ValueOf(data))
-	p := v.FieldByName("Standalone")
-	if p.IsValid() {
-		p.SetBool(standalone)
-	}
-	p = v.FieldByName("Debug")
-	if p.IsValid() {
-		p.SetBool(debug)
-	}
-	p = v.FieldByName("Version")
-	if p.IsValid() {
-		p.SetString(version)
-	}
-	p = v.FieldByName("CommitHash")
-	if p.IsValid() {
-		p.SetString(commitHash)
-	}
-	p = v.FieldByName("Msg")
-	if p.IsValid() {
-		p.SetString(msg)
-	}
-	p = v.FieldByName("Profile")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf(profile))
-	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 	p = v.FieldByName("CurrentSiteKey")
 	if p.IsValid() {
 		p.SetInt(skey)
@@ -864,7 +793,7 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 //
 // Users need not be signed in.
 func testHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
 
 	req := strings.Split(c.Path(), "/")
@@ -897,42 +826,15 @@ func testHandler(c *fiber.Ctx) error {
 // logRequest logs a request if in debug mode and standalone mode.
 // It does nothing in App Engine mode as App Engine logs requests
 // automatically.
-func logRequest(r *http.Request) {
-	if !(debug || standalone) {
-		return
-	}
-	if r.URL.RawQuery == "" {
-		log.Println(r.URL.Path)
-		return
-	}
-	log.Println(r.URL.Path + "?" + r.URL.RawQuery)
-}
-
-// logRequestFiber logs a request if in debug mode and standalone mode.
-// It does nothing in App Engine mode as App Engine logs requests
-// automatically.
-func logRequestFiber(c *fiber.Ctx) {
+func logRequest(c *fiber.Ctx) {
 	if !(debug || standalone) {
 		return
 	}
 	log.Println(c.OriginalURL())
 }
 
-// writeError writes an error in JSON format.
-func writeError(w http.ResponseWriter, err error) {
-	w.Header().Add("Content-Type", "application/json")
-	err2 := json.NewEncoder(w).Encode(map[string]string{"er": err.Error()})
-	if err2 != nil {
-		log.Printf("failed to write error (%v): %v", err, err2)
-		return
-	}
-	if debug {
-		log.Println("Wrote error: " + err.Error())
-	}
-}
-
-// writeErrorFiber c JSON format.
-func writeErrorFiber(c *fiber.Ctx, err error) {
+// writeError c JSON format.
+func writeError(c *fiber.Ctx, err error) {
 	err2 := c.JSON(fiber.Map{"er": err.Error()})
 	if err2 != nil {
 		log.Printf("failed to write error (%v): %v", err, err2)
@@ -941,14 +843,4 @@ func writeErrorFiber(c *fiber.Ctx, err error) {
 	if debug {
 		log.Println("Wrote error: " + err.Error())
 	}
-}
-
-// writeHttpError writes an HTTP error response with the given status code and plain message.
-func writeHttpError(w http.ResponseWriter, code int, msg string) {
-	http.Error(w, fmt.Sprintf("%s: %s", http.StatusText(code), msg), code)
-}
-
-// writeHttpErrorf writes an HTTP error response with the given status code and a formatted message.
-func writeHttpErrorf(w http.ResponseWriter, code int, format string, args ...interface{}) {
-	http.Error(w, fmt.Sprintf("%s: ", http.StatusText(code))+fmt.Sprintf(format, args...), code)
 }

@@ -31,6 +31,6 @@ import (
 // mediaManagerHandler handles media manager page requests.
 func mediaManagerHandler(c *fiber.Ctx, profile *gauth.Profile) error {
 	data := monitorData{commonData: commonData{Pages: pages("media manager"), Profile: profile}}
-	writeTemplateFiber(c, "media-manager.html", &data, "")
+	writeTemplate(c, "media-manager.html", &data, "")
 	return nil
 }

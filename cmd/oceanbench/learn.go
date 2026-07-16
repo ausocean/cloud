@@ -29,6 +29,6 @@ import (
 )
 
 func mooringHandler(c *fiber.Ctx) error {
-	writeTemplateFiber(c, "mooring.html", &commonData{}, "")
+	writeTemplate(c, "mooring.html", &commonData{}, "")
 	return nil
 }

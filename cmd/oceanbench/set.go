@@ -59,7 +59,7 @@ var (
 
 // setDevicesHandler handles requests to the devices page.
 func setDevicesHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	return writeDevices(c, "")
 }
 
@@ -101,14 +101,14 @@ type devicesData struct {
 //   - _<hex>.localaddr: local IP address for device with given hexadecimal MAC address.
 //   - _type.<var>: type of var
 func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	data := devicesData{
 		commonData: commonData{
@@ -178,7 +178,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	}
 
 	if siteChanged {
-		err := putProfileDataFiber(c, fmt.Sprintf("%d:%s", site.Skey, site.Name))
+		err := putProfileData(c, fmt.Sprintf("%d:%s", site.Skey, site.Name))
 		if err != nil {
 			log.Printf("could not put profile data: %v", err)
 		}
@@ -192,7 +192,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 
 	// If no MAC, render the selection page early. Avoid extra calls.
 	if !model.IsMacAddress(data.Mac) {
-		writeTemplateFiber(c, "set/device.html", &data, "")
+		writeTemplate(c, "set/device.html", &data, "")
 		return nil
 	}
 
@@ -289,7 +289,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	data.Sensors = sensors
 	data.Actuators = actuators
 
-	writeTemplateFiber(c, "set/device.html", &data, msg)
+	writeTemplate(c, "set/device.html", &data, msg)
 	return nil
 }
 
@@ -298,21 +298,21 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 func reportDevicesError(c *fiber.Ctx, d devicesData, f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplateFiber(c, "set/device.html", &d, msg)
+	writeTemplate(c, "set/device.html", &d, msg)
 }
 
 // editDevicesHandler handles device edit/deletion requests.
 func editDevicesHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	ma := c.FormValue("ma")
 	dn := c.FormValue("dn")
@@ -437,13 +437,13 @@ func editDevicesHandler(c *fiber.Ctx) error {
 //
 // NOTE: All voltages are parsed in Volts.
 func calibrateDevicesHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	if c.Method() != http.MethodPost {
 		log.Println("calibration request must use POST action")
 		return c.Redirect("/set/devices?ma="+c.FormValue("ma"), fiber.StatusSeeOther)
 	}
 	ctx := context.Background()
-	p, err := getProfileFiber(c)
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -569,7 +569,7 @@ func calibrateDevicesHandler(c *fiber.Ctx) error {
 		}
 
 		// Calibrate the alarm voltage and alarm recovery voltage variables.
-		skey, _ := requestSiteDataFiber(c, p)
+		skey, _ := requestSiteData(c, p)
 		if va > 0 {
 			err := model.PutVariable(ctx, settingsStore, skey, model.NameAlarmVoltage, fmt.Sprintf("%d", int(va/scaleFactor)))
 			if err != nil {
@@ -595,9 +595,9 @@ func calibrateDevicesHandler(c *fiber.Ctx) error {
 // editSensorHandler handles requests to /set/device/edit/sensor.
 func editSensorHandler(c *fiber.Ctx) error {
 	log.Println("edit sensor handler")
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -655,9 +655,9 @@ func editSensorHandler(c *fiber.Ctx) error {
 
 // editActuatorHandler handles requests to /set/device/edit/actuator.
 func editActuatorHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.Context()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -713,7 +713,7 @@ func editActuatorHandler(c *fiber.Ctx) error {
 
 // setCronsHandler handles requests to the crons page.
 func setCronsHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	return writeCrons(c, "")
 }
 
@@ -727,7 +727,7 @@ type dataFields struct {
 // writeCrons writes the
 // If msg is not-empty it means the previous call generated an error message.
 func writeCrons(c *fiber.Ctx, msg string) error {
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -742,7 +742,7 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 	ctx := c.UserContext()
 	setup(ctx)
 
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
@@ -755,12 +755,12 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplateFiber(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
+		writeTemplate(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get site: %v", err))
 	}
 
 	crons, err := model.GetCronsBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplateFiber(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
+		writeTemplate(c, "set/cron.html", &dataFields{commonData: commonData{}}, fmt.Sprintf("could not get crons by site: %v", err))
 	}
 
 	data := dataFields{
@@ -773,7 +773,7 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 		Actions:  []string{"set", "del", "call", "rpc", "email"},
 	}
 
-	writeTemplateFiber(c, "set/cron.html", &data, msg)
+	writeTemplate(c, "set/cron.html", &data, msg)
 	return nil
 }
 
@@ -787,16 +787,16 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 //   - cd: cron data (variable value)
 //   - ce: cron enabled
 func editCronsHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.Context()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	id := c.FormValue("ci")
 	ct := strings.Trim(c.FormValue("ct"), " ")
@@ -807,7 +807,7 @@ func editCronsHandler(c *fiber.Ctx) error {
 	task := c.FormValue("task")
 
 	if id == "" {
-		writeErrorFiber(c, errInvalidID)
+		writeError(c, errInvalidID)
 		return errInvalidID
 	}
 
@@ -827,26 +827,26 @@ func editCronsHandler(c *fiber.Ctx) error {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not get site: %v", err))
+		writeError(c, fmt.Errorf("could not get site: %v", err))
 		return err
 	}
 
 	cr := model.Cron{Skey: skey, ID: id, Action: ca, Var: cv, Data: cd, Enabled: ce != ""}
 	err = cr.ParseTime(ct, site.Timezone)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not parse time: %v", err))
+		writeError(c, fmt.Errorf("could not parse time: %v", err))
 		return err
 	}
 
 	err = model.PutCron(ctx, settingsStore, &cr)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not put cron in datastore: %v", err))
+		writeError(c, fmt.Errorf("could not put cron in datastore: %v", err))
 		return err
 	}
 
 	err = cronScheduler.Set(&cr)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("could not schedule cron: %v", err))
+		writeError(c, fmt.Errorf("could not schedule cron: %v", err))
 		return err
 	}
 

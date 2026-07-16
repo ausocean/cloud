@@ -47,7 +47,7 @@ func setLogHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Validate the user is logged in.
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -103,15 +103,15 @@ func setLogHandler(c *fiber.Ctx) error {
 
 // logPageHandler handles requests for the log page.
 func logPageHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
 	if c.Path() != "/logs" {
 		// Redirect all invalid URLs to the root homepage.
 		return c.Redirect("/", fiber.StatusFound)
 	}
 
-	profile, err := getProfileFiber(c)
-	skey, _ := requestSiteDataFiber(c, profile)
+	profile, err := getProfile(c)
+	skey, _ := requestSiteData(c, profile)
 	data := adminData{
 		commonData: commonData{
 			Pages:   pages("logs"),
@@ -124,10 +124,10 @@ func logPageHandler(c *fiber.Ctx) error {
 			log.Printf("authentication error: %v", err)
 			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
-		writeTemplateFiber(c, "log.html", &data, "")
+		writeTemplate(c, "log.html", &data, "")
 		return err
 	}
 
-	writeTemplateFiber(c, "log.html", &data, "")
+	writeTemplate(c, "log.html", &data, "")
 	return nil
 }

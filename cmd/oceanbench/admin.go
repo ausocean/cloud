@@ -72,9 +72,9 @@ type utilsData struct {
 
 // adminHandler performs various admin tasks.
 func adminHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
-	p, err := getProfileFiber(c)
+	p, err := getProfile(c)
 	switch {
 	case err != nil && !errors.Is(err, gauth.TokenNotFound):
 		log.Printf("authentication error: %v", err)
@@ -100,13 +100,13 @@ func adminHandler(c *fiber.Ctx) error {
 
 		switch c.Method() {
 		case "GET":
-			writeTemplateFiber(c, "register.html", &data, "")
+			writeTemplate(c, "register.html", &data, "")
 			return nil
 
 		case "POST":
 			err = addSite(c, p)
 			if err != nil {
-				writeTemplateFiber(c, "register.html", &data, err.Error())
+				writeTemplate(c, "register.html", &data, err.Error())
 				return err
 			} else {
 				return c.Redirect("/admin", fiber.StatusFound)
@@ -128,7 +128,7 @@ func adminHandler(c *fiber.Ctx) error {
 	}
 
 	// The following tasks all require admin privilege.
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 	if !isAdmin(ctx, skey, p.Email) {
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
@@ -210,7 +210,7 @@ func addSite(c *fiber.Ctx, p *gauth.Profile) error {
 		return fmt.Errorf("cannot create user: %w", err)
 	}
 
-	return putProfileDataFiber(c, strconv.FormatInt(skey, 10)+":"+sn)
+	return putProfileData(c, strconv.FormatInt(skey, 10)+":"+sn)
 }
 
 // location represents a latitude, longitude, altitude tuple.
@@ -296,7 +296,7 @@ func parseLocation(s string) (location, error) {
 // vn: version
 // er: error (results in a client-side netsender.ServerError)
 func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 	name := c.FormValue("sn")
 	if name == "" {
 		return errors.New("empty site name")
@@ -350,7 +350,7 @@ func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
 
 // deleteSite deletes the current site and all associated users.
 func deleteSite(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 	ctx := c.UserContext()
 
 	err := model.DeleteSite(ctx, settingsStore, skey)
@@ -370,14 +370,14 @@ func deleteSite(c *fiber.Ctx, p *gauth.Profile) error {
 		}
 	}
 
-	putProfileDataFiber(c, "") // Deselect the site.
+	putProfileData(c, "") // Deselect the site.
 
 	return nil
 }
 
 // updateUser creates or updates a site user.
 func updateUser(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 
 	email := c.FormValue("email")
 	perm, err := strconv.ParseInt(c.FormValue("perm"), 10, 64)
@@ -395,7 +395,7 @@ func updateUser(c *fiber.Ctx, p *gauth.Profile) error {
 
 // deleteUser deletes a site user.
 func deleteUser(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 
 	email := c.FormValue("email")
 	err := model.DeleteUser(c.UserContext(), settingsStore, skey, email)
@@ -408,7 +408,7 @@ func deleteUser(c *fiber.Ctx, p *gauth.Profile) error {
 
 // writeAdmin writes the admin page.
 func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 
 	data := adminData{
 		commonData: commonData{
@@ -451,13 +451,13 @@ func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
 		log.Printf("GetUsersBySite error: %v", err)
 	}
 
-	writeTemplateFiber(c, "admin.html", &data, msg)
+	writeTemplate(c, "admin.html", &data, msg)
 }
 
 // utilsHandler handles admin utils requests.
 func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 	ctx := c.UserContext()
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 
 	var msg string
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
@@ -489,7 +489,7 @@ func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 	}
 
 	if c.Method() == "GET" {
-		writeTemplateFiber(c, "utils.html", &data, msg)
+		writeTemplate(c, "utils.html", &data, msg)
 		return nil
 	}
 
@@ -499,14 +499,14 @@ func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 	} else {
 		msg = data.Msg
 	}
-	writeTemplateFiber(c, "utils.html", &data, msg)
+	writeTemplate(c, "utils.html", &data, msg)
 	return nil
 }
 
 // utilsTaskHandler handles an admin utils task
 func utilsTaskHandler(c *fiber.Ctx, p *gauth.Profile, data *utilsData) error {
 	ctx := c.UserContext()
-	skey, _ := requestSiteDataFiber(c, p)
+	skey, _ := requestSiteData(c, p)
 
 	task := c.FormValue("task")
 

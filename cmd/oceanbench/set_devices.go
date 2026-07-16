@@ -39,14 +39,14 @@ import (
 // setDevicesVars handles requests for the variables of the device, returning
 // the populated template.
 func setDevicesVars(c *fiber.Ctx) error {
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	data := devicesData{
 		commonData: commonData{},
@@ -58,7 +58,7 @@ func setDevicesVars(c *fiber.Ctx) error {
 
 	// Return early if no device is selected.
 	if data.Mac == "" {
-		writeTemplateFiber(c, "set/device_vars.html", &data, "")
+		writeTemplate(c, "set/device_vars.html", &data, "")
 		return nil
 	}
 
@@ -68,12 +68,12 @@ func setDevicesVars(c *fiber.Ctx) error {
 
 	vars, err := model.GetVariablesBySite(ctx, settingsStore, skey, ma)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("unable to get vars for device: %w", err))
+		writeError(c, fmt.Errorf("unable to get vars for device: %w", err))
 	}
 
 	data.Vars = vars
 
-	writeTemplateFiber(c, "set/device_vars.html", &data, "")
+	writeTemplate(c, "set/device_vars.html", &data, "")
 	return nil
 }
 
@@ -85,16 +85,16 @@ func setDevicesVars(c *fiber.Ctx) error {
 //   - vv: variable value
 //   - vd: variable delete
 func editVarHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 	ctx := c.UserContext()
-	profile, err := getProfileFiber(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := requestSiteData(c, profile)
 
 	ma := c.FormValue("ma")
 	vn := strings.TrimSpace(c.FormValue("vn"))
@@ -112,18 +112,18 @@ func editVarHandler(c *fiber.Ctx) error {
 
 	mac := model.MacEncode(ma)
 	if mac == 0 {
-		writeTemplateFiber(c, "set/device_vars.html", &data, "MAC address missing")
+		writeTemplate(c, "set/device_vars.html", &data, "MAC address missing")
 		return nil
 	}
 
 	if vn == "" {
-		writeTemplateFiber(c, "set/device_vars.html", &data, "Name Missing")
+		writeTemplate(c, "set/device_vars.html", &data, "Name Missing")
 		return nil
 	}
 
 	dev, err := model.GetDevice(ctx, settingsStore, mac)
 	if err != nil {
-		writeTemplateFiber(c, "set/device_vars.html", &data, err.Error())
+		writeTemplate(c, "set/device_vars.html", &data, err.Error())
 		return err
 	}
 
@@ -134,7 +134,7 @@ func editVarHandler(c *fiber.Ctx) error {
 	}
 
 	if err != nil {
-		writeTemplateFiber(c, "set/device_vars.html", &data, err.Error())
+		writeTemplate(c, "set/device_vars.html", &data, err.Error())
 		return err
 	}
 

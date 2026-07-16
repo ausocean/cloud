@@ -634,7 +634,7 @@ func setSiteHandler(c *fiber.Ctx) error {
 	}
 
 	// Update profile.
-	if err := putProfileDataFiber(c, val); err != nil {
+	if err := putProfileData(c, val); err != nil {
 		c.Status(fiber.StatusInternalServerError)
 		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not update profile data with site data: %v", err)})
 	}
@@ -665,7 +665,7 @@ func testUploadHandler(c *fiber.Ctx) error {
 	_, err = io.ReadFull(buf, body)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		writeErrorFiber(c, errInvalidBody)
+		writeError(c, errInvalidBody)
 		return nil
 	}
 
@@ -835,7 +835,7 @@ func getPathValue(c *fiber.Ctx, index int) (string, error) {
 // requireProfile ensures the request is from an authenticated user.
 // It returns the profile or writes an error and returns nil if auth fails.
 func requireProfile(c *fiber.Ctx) *gauth.Profile {
-	p, err := getProfileFiber(c)
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)

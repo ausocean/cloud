@@ -79,13 +79,13 @@ func writePlaylist(c *fiber.Ctx, mid int64, ts []int64, fd int64) error {
 	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
 	if err != nil {
 		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	if len(keys) == 0 {
 		c.Status(fiber.StatusNotFound)
 		err := errors.New("no data")
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 	_, from, _ := datastore.SplitIDKey(keys[0].ID)
@@ -138,7 +138,7 @@ func writeLivePlaylist(c *fiber.Ctx, mid int64, pd, fd int64) error {
 	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, []int64{from, datastore.EpochEnd})
 	if err != nil {
 		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 
@@ -157,11 +157,11 @@ func writeLivePlaylist(c *fiber.Ctx, mid int64, pd, fd int64) error {
 		c.Status(fiber.StatusNotFound)
 		if stale {
 			err = errors.New("live stream stopped")
-			writeErrorFiber(c, err)
+			writeError(c, err)
 			return err
 		} else {
 			err = errors.New("no live data")
-			writeErrorFiber(c, err)
+			writeError(c, err)
 			return err
 		}
 	}
@@ -172,7 +172,7 @@ func writeLivePlaylist(c *fiber.Ctx, mid int64, pd, fd int64) error {
 	if last-first < fd {
 		c.Status(fiber.StatusNotFound)
 		err = errors.New("buffering")
-		writeErrorFiber(c, err)
+		writeError(c, err)
 		return err
 	}
 

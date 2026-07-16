@@ -15,6 +15,6 @@ func tvOverviewHandler(c *fiber.Ctx) error {
 
 	// Write the template with the minimum data, and load the
 	// rest of the data asynchronously through the lit element.
-	writeTemplateFiber(c, "tv-overview.html", data, "")
+	writeTemplate(c, "tv-overview.html", data, "")
 	return nil
 }
