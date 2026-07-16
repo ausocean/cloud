@@ -7,5 +7,8 @@ node_modules
 s/lit
 s/dist
 
+# Configuration file
+.air.toml
+
 testdata/standalone-auto.json
 testdata/standalone-large.json
