@@ -70,6 +70,7 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/sliceutils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/joho/godotenv"
 )
 
@@ -227,6 +228,7 @@ func main() {
 
 	// Build the Fiber application.
 	app := fiber.New()
+	encryptCookies(ctx, app)
 
 	// Serve static files from the "s" directory.
 	app.Static("/s", "./s")
@@ -320,7 +322,7 @@ func main() {
 	} else {
 		log.Printf("Initializing OAuth2")
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-		auth.Init(backend.NewNetHandler(nil, nil, nil))
+		auth.Init(backend.NewFiberHandler(nil))
 
 		// If we are running in app engine mode locally, we want to request data
 		// from the local instance.
@@ -336,6 +338,21 @@ func main() {
 	log.Printf("Sending cron requests to %s", cronURL)
 	log.Printf("Sending TV requests to %s", tvURL)
 	log.Fatal(app.Listen(fmt.Sprintf("%s:%d", host, port)))
+}
+
+// encryptCookies encrypts all cookies in the fiber app with the project's
+// secret key. This must be called before any middleware or handlers that access
+// cookies are setup.
+//
+// All errors are considered fatal.
+func encryptCookies(ctx context.Context, app *fiber.App) {
+	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Fatalf("unable to get sessionKey secret: %v", err)
+	}
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: key[0:32],
+	}))
 }
 
 // setup executes per-instance one-time warmup and is used to
