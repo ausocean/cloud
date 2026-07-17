@@ -26,13 +26,17 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
 
 	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -121,6 +125,46 @@ func profileData(profile *gauth.Profile) (int64, string) {
 		return key, ""
 	}
 	return key, p[1]
+}
+
+// getDefaultSkey returns the default site key associated with a user's email. This
+// is stored in a variable scoped to the users email with '@' and '.' replaced with '_'.
+//
+// If no default site key yet exists, one will be automatically assigned based on the
+// user's current sites.
+//
+// A site key of `-1` will be returned on an error.
+// TODO: Make this configurable.
+func getDefaultSkey(ctx context.Context, profile *gauth.Profile) (int64, error) {
+	if profile == nil {
+		return -1, errors.New("no profile supplied")
+	}
+	scope := strings.ReplaceAll(profile.Email, "@", "_")
+	scope = strings.ReplaceAll(scope, ".", "_")
+	name := scope + ".defaultSkey"
+	v, err := model.GetVariable(ctx, settingsStore, -1, name)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		// Choose a default site from the user's current sites.
+		users, err := model.GetUsers(ctx, settingsStore, profile.Email)
+		if err != nil {
+			return -1, fmt.Errorf("failed to get users for email (%s): %v", profile.Email, err)
+		}
+		err = model.PutVariable(ctx, settingsStore, -1, name, fmt.Sprintf("%d", users[0].Skey))
+		if err != nil {
+			// This isn't considered an error, as the caller is still returned the default site,
+			// but we log it anyway as this likely indicates a systemic issue.
+			log.Printf("failed to put default site: %v", err)
+		}
+		return users[0].Skey, nil
+	} else if err != nil {
+		return -1, fmt.Errorf("unable to get default skey var: %v", err)
+	}
+
+	skey, err := strconv.ParseInt(v.Value, 10, 64)
+	if err != nil {
+		return -1, fmt.Errorf("unable to parse skey from default skey var (%s): %v", v.Value, err)
+	}
+	return skey, nil
 }
 
 // requestSiteData gets the site key from the request URL if present,
