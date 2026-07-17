@@ -55,7 +55,7 @@ func sandboxHandler(c *fiber.Ctx) error {
 
 	data := sandboxData{
 		commonData: commonData{
-			Pages:   pages("home"),
+			Pages:   pages(c, "home"),
 			Profile: profile,
 		},
 	}
@@ -233,7 +233,7 @@ type configureData struct {
 func writeConfigure(c *fiber.Ctx, profile *gauth.Profile) error {
 	data := configureData{
 		commonData: commonData{
-			Pages: pages("devices"),
+			Pages: pages(c, "devices"),
 		}}
 	ctx := c.UserContext()
 	var err error

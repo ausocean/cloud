@@ -112,7 +112,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 
 	data := devicesData{
 		commonData: commonData{
-			Pages: pages("devices"),
+			Pages: pages(c, "devices"),
 		},
 		Mac:        c.FormValue("ma"),
 		Device:     &model.Device{Enabled: true},
@@ -765,7 +765,7 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 
 	data := dataFields{
 		commonData: commonData{
-			Pages: pages("crons"),
+			Pages: pages(c, "crons"),
 			Msg:   msg,
 		},
 		Timezone: site.Timezone,

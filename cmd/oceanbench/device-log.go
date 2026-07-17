@@ -114,7 +114,7 @@ func logPageHandler(c *fiber.Ctx) error {
 	skey, _ := requestSiteData(c, profile)
 	data := adminData{
 		commonData: commonData{
-			Pages:   pages("logs"),
+			Pages:   pages(c, "logs"),
 			Profile: profile,
 		},
 		Skey: skey,

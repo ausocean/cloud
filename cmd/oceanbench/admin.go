@@ -93,7 +93,7 @@ func adminHandler(c *fiber.Ctx) error {
 		}
 		data := adminData{
 			commonData: commonData{
-				Pages:   pages("admin"),
+				Pages:   pages(c, "admin"),
 				Profile: p,
 			},
 		}
@@ -412,7 +412,7 @@ func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
 
 	data := adminData{
 		commonData: commonData{
-			Pages:   pages("site"),
+			Pages:   pages(c, "site"),
 			Profile: p,
 		},
 		Skey: skey,
@@ -476,7 +476,7 @@ func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 
 	data := utilsData{
 		commonData: commonData{
-			Pages:   pages("utils"),
+			Pages:   pages(c, "utils"),
 			Profile: p,
 		},
 		Devices: devices,
