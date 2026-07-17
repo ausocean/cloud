@@ -264,7 +264,6 @@ func main() {
 	setupAPIRoutes(app)
 
 	// User requests.
-	app.All("/search", searchHandler)
 	app.Post("/play/audiorequest", filterHandler)
 	app.All("/play", playHandler)
 	app.All("/learn/mooring", mooringHandler)
@@ -305,6 +304,7 @@ func main() {
 
 	// Handle paths with prefixed site keys.
 	app.Group("/:"+skeyParamKey).
+		All("/search", searchHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -719,7 +719,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name: "search",
-			URL:  "/search",
+			URL:  prefix + "/search",
 			Perm: model.ReadPermission,
 		},
 		{

@@ -132,7 +132,11 @@ func searchHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	// searchData struct is used by the template.
 	sd := searchData{
