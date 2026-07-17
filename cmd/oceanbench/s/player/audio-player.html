@@ -3,7 +3,7 @@
 <link href="https://unpkg.com/css.gg@2.0.0/icons/css/play-pause.css" rel="stylesheet" />
 <link href="https://unpkg.com/css.gg@2.0.0/icons/css/software-upload.css" rel="stylesheet" />
 <div class="row inputs">
-  <form action="/play/input" method="GET" id="player-form" class="w-100">
+  <form action="/{{ .CurrentSiteKey }}/play/input" method="GET" id="player-form" class="w-100">
     <div class="row">
       <div class="col">
         <progress hidden max="100" value="0" style="width: 100%" id="progress-bar"></progress>
