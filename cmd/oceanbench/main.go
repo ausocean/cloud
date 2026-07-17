@@ -682,7 +682,7 @@ func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) erro
 	if p.IsValid() {
 		p.Set(reflect.ValueOf(profile))
 	}
-	skey, _ := requestSiteData(c, profile)
+	skey, _ := getCurrentSkey(c, profile)
 	p = v.FieldByName("CurrentSiteKey")
 	if p.IsValid() {
 		p.SetInt(skey)
