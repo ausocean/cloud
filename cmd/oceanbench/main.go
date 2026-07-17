@@ -250,9 +250,10 @@ func main() {
 		return nil
 	})
 
+	// Setup routes for the API, ie. /api requests.
+	setupAPIRoutes(app)
+
 	// User requests.
-	// TODO: convert these handlers to fiber handlers instead of just adapting them.
-	// New handlers should be fiber handlers.
 	app.All("/search", searchHandler)
 	app.Post("/play/audiorequest", filterHandler)
 	app.All("/play", playHandler)
@@ -291,10 +292,7 @@ func main() {
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
 	app.All("/logs", logPageHandler)
-	app.All("/", indexHandler)
-
-	// Setup routes for the API, ie. /api requests.
-	setupAPIRoutes(app)
+	app.All("/*", indexHandler)
 
 	if standalone {
 		// Location and GPS only apply in standalone mode.
