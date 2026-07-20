@@ -68,7 +68,6 @@ type minimalSite struct {
 // Example routes:
 //
 //	/api/get/site/*id            → Get site by key
-//	/api/get/devices/site        → Get devices for the current profile's site
 //	/api/get/profile/data        → Get current user's profile data
 //	/api/set/site/*data          → Set profile site data
 //
@@ -78,17 +77,15 @@ func setupAPIRoutes(app *fiber.App) {
 	// Create /api group; wrapAPI middleware is applied to every route in the group.
 	api := app.Group("/api", wrapAPI)
 
-	// TODO: convert these handlers to fiber handlers instead of just adapting them.
-	// New handlers should be fiber handlers.
 	api.Get("/get/site/*", getSiteHandler)
-	api.Get("/get/devices/site", getDevicesForSiteHandler)
+	api.Get("/get/:skey/devices/site", getDevicesForSiteHandler)
 	api.Get("/get/sites/all", getAllSitesHandler)
 	api.Get("/get/sites/public", getPublicSitesHandler)
 	api.Get("/get/sites/user", getUserSitesHandler)
 	api.Get("/get/profile/data", getProfileDataHandler)
 	api.Get("/get/profile/tv-overview-config", getProfileTVConfigHandler)
 	api.Get("/get/broadcast/config", getBroadcastConfigHandler)
-	api.Get("/get/vars/site", getVarsForSiteHandler)
+	api.Get("/get/:skey/vars/site", getVarsForSiteHandler)
 	api.Get("/get/sensor/data/*", getSensorDataHandler)
 	api.Get("/get/gpstrail/*", getGPSTrailHandler)
 
@@ -153,15 +150,15 @@ func getDevicesForSiteHandler(c *fiber.Ctx) error {
 		return nil
 	}
 
-	parts := strings.Split(p.Data, ":")
-	if len(parts) != 2 {
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{"error": "no site data in profile"})
+		return c.JSON(fiber.Map{"error": "request must contain skey"})
 	}
-	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid site key in profile data: %s", p.Data)})
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get current skey: %v", err)})
 	}
 
 	user, err := model.GetUser(c.UserContext(), settingsStore, skey, p.Email)
@@ -373,16 +370,15 @@ func getVarsForSiteHandler(c *fiber.Ctx) error {
 		return nil
 	}
 
-	// Get site key from profile data.
-	parts := strings.Split(p.Data, ":")
-	if len(parts) != 2 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{"error": "no site data in profile"})
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "request must contain skey"})
 	}
-	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest)
-		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid site key in profile data: %s", p.Data)})
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get current skey: %v", err)})
 	}
 
 	// Check for read permission.

@@ -758,15 +758,21 @@ func writeCrons(c *fiber.Ctx, msg string) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	if c.Path() != "/set/crons/" {
+
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
+	baseCronPath := fmt.Sprintf("/%d/set/crons/", skey)
+	if c.Path() != baseCronPath {
 		// Redirect all requests to the cron base path to clear any actions.
-		return c.Redirect("/set/crons/", fiber.StatusFound)
+		return c.Redirect(baseCronPath, fiber.StatusFound)
 	}
 
 	ctx := c.UserContext()
 	setup(ctx)
-
-	skey, _ := requestSiteData(c, profile)
 
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
@@ -820,7 +826,12 @@ func editCronsHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(c, profile)
+
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	id := c.FormValue("ci")
 	ct := strings.Trim(c.FormValue("ct"), " ")

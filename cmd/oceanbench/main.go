@@ -266,8 +266,6 @@ func main() {
 	// User requests.
 	app.All("/learn/mooring", mooringHandler)
 	app.All("/upload", uploadHandler)
-	app.All("/set/crons/edit", editCronsHandler)
-	app.All("/set/crons/*", setCronsHandler)
 	app.All("/get", getHandler)
 	app.All("/test/*", testHandler)
 	app.All("/login", loginHandler)
@@ -298,6 +296,7 @@ func main() {
 		All("/monitor", monitorHandler).
 		Post("/play/audiorequest", filterHandler).
 		All("/play", playHandler).
+
 		// Settings.
 		All("/set/devices/edit/var", editVarHandler).
 		All("/set/devices/edit/sensor", editSensorHandler).
@@ -306,6 +305,8 @@ func main() {
 		All("/set/devices/edit", editDevicesHandler).
 		All("/set/devices/vars", setDevicesVars).
 		Get("/set/devices/*", setDevicesHandler).
+		All("/set/crons/edit", editCronsHandler).
+		All("/set/crons/*", setCronsHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -751,7 +752,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "crons",
-			URL:   "/set/crons",
+			URL:   prefix + "/set/crons",
 			Level: 1,
 			Perm:  model.WritePermission,
 		},
