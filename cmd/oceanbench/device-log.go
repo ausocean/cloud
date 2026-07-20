@@ -28,6 +28,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -104,14 +105,38 @@ func setLogHandler(c *fiber.Ctx) error {
 // logPageHandler handles requests for the log page.
 func logPageHandler(c *fiber.Ctx) error {
 	logRequest(c)
-
-	if c.Path() != "/logs" {
-		// Redirect all invalid URLs to the root homepage.
-		return c.Redirect("/", fiber.StatusFound)
+	profile, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	profile, err := getProfile(c)
-	skey, _ := requestSiteData(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
+	// Ensure user has write permission for the site.
+	ctx := c.UserContext()
+	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
+		log.Println("user does not have write permissions")
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	} else if err != nil {
+		log.Printf("failed to get permission for user: %v", err)
+		return c.Redirect("/", fiber.StatusInternalServerError)
+	}
+
+	expectedPath := fmt.Sprintf("/%d/logs", skey)
+	if c.Path() != expectedPath {
+		// Redirect all invalid URLs to the base URL.
+		return c.Redirect(expectedPath, fiber.StatusFound)
+	}
+
 	data := adminData{
 		commonData: commonData{
 			Pages:   pages(c, "logs"),
@@ -119,15 +144,6 @@ func logPageHandler(c *fiber.Ctx) error {
 		},
 		Skey: skey,
 	}
-	if err != nil {
-		if err != gauth.TokenNotFound {
-			log.Printf("authentication error: %v", err)
-			return c.Redirect("/", fiber.StatusUnauthorized)
-		}
-		writeTemplate(c, "log.html", &data, "")
-		return err
-	}
 
-	writeTemplate(c, "log.html", &data, "")
-	return nil
+	return writeTemplate(c, "log.html", &data, "")
 }
