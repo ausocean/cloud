@@ -9,18 +9,6 @@
     <script type="module" src="/s/lit/header-group.js"></script>
     <script type="text/javascript" src="/s/main.js"></script>
     <script type="text/javascript">
-      function init() {
-        document.getElementById("sitemenu").addEventListener("site-change", (event) => {
-          fetch("/api/set/site/" + event.detail.newSite).then((resp) => {
-            if (!resp.ok) {
-              alert("error switching sites");
-              return;
-            }
-            window.location.assign("/admin/site");
-          });
-        });
-      }
-
       function updateUser() {
         return copyFormValues("update_user", "users", {
           email: "input",
@@ -42,7 +30,7 @@
         </li>
         {{- end }}
       </nav-menu>
-      <site-menu id="sitemenu" custom-handling {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
+      <site-menu id="sitemenu" {{ if .Profile }}selected-data="{{ .Profile.Data }}" {{ end }} slot="site-menu">
         {{ range .Users -}}
         <option style="display: none" slot="{{ .PermissionText }}" value="{{ .Skey }}"></option>
         {{- end }}
@@ -59,7 +47,7 @@
         <span class="bold">Site</span>
         <hr />
         <div>
-          <form class="inline" enctype="multipart/form-data" action="/admin/site/update" method="post">
+          <form class="inline" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/admin/site/update" method="post">
             <label>Name:</label>
             <input type="text" name="sn" value="{{ .Site.Name }}" class="dbl bold w-25" />
             <br />
@@ -101,7 +89,7 @@
             <br />
             <input type="submit" value="Update" class="btn btn-primary" />
           </form>
-          <form class="inline" enctype="multipart/form-data" action="/admin/site/delete" method="post" onsubmit="return confirm('Really delete site?');">
+          <form class="inline" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/admin/site/delete" method="post" onsubmit="return confirm('Really delete site?');">
             <input type="submit" value="Delete" class="btn btn-primary" />
           </form>
         </div>
@@ -138,7 +126,7 @@
           </tr>
           {{ end }}
           <tr>
-            <form enctype="multipart/form-data" action="/admin/user/add" method="post">
+            <form enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/admin/user/add" method="post">
               <td class="select">
                 <button type="submit" value="Add" class="border-0 bg-white">
                   <img src="/s/add.png" />
@@ -159,12 +147,12 @@
           </tr>
         </table>
         <div>
-          <form class="inline" enctype="multipart/form-data" id="update_user" action="/admin/user/update" method="post" onsubmit="return updateUser();">
+          <form class="inline" enctype="multipart/form-data" id="update_user" action="/{{.CurrentSiteKey}}/admin/user/update" method="post" onsubmit="return updateUser();">
             <input type="hidden" name="email" />
             <input type="hidden" name="perm" />
             <input type="submit" value="Update" class="btn btn-primary" />
           </form>
-          <form class="inline" enctype="multipart/form-data" id="delete_user" action="/admin/user/delete" method="post" onsubmit="return deleteUser();">
+          <form class="inline" enctype="multipart/form-data" id="delete_user" action="/{{.CurrentSiteKey}}/admin/user/delete" method="post" onsubmit="return deleteUser();">
             <input type="hidden" name="email" />
             <input type="submit" value="Delete" class="btn btn-primary" />
           </form>

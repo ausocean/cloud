@@ -273,12 +273,6 @@ func main() {
 	app.All("/oauth2callback", oauthCallbackHandler)
 	app.All("/live/:broadcastName", liveHandler)
 	app.All("/admin/site/add", adminHandler)
-	app.All("/admin/site/update", adminHandler)
-	app.All("/admin/site/delete", adminHandler)
-	app.All("/admin/user/add", adminHandler)
-	app.All("/admin/user/update", adminHandler)
-	app.All("/admin/user/delete", adminHandler)
-	app.All("/admin/site", adminHandler)
 	app.All("/admin/broadcast", adminHandler)
 	app.All("/admin/tv-overview", tvOverviewHandler)
 	app.All("/admin/missioncontrol", adminHandler)
@@ -307,6 +301,16 @@ func main() {
 		Get("/set/devices/*", setDevicesHandler).
 		All("/set/crons/edit", editCronsHandler).
 		All("/set/crons/*", setCronsHandler).
+
+		// Admin/Site
+		Post("/admin/site/update", adminHandler).
+		Post("/admin/site/delete", adminHandler).
+		Get("/admin/site", adminSiteHandler).
+
+		// Admin/User.
+		Post("/admin/user/add", adminHandler).
+		Post("/admin/user/update", adminHandler).
+		Post("/admin/user/delete", adminHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -763,7 +767,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "site",
-			URL:   "/admin/site",
+			URL:   prefix + "/admin/site",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
