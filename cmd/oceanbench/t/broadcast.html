@@ -26,7 +26,7 @@
         </li>
         {{- end}}
       </nav-menu>
-      <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}" {{end}} slot="site-menu" custom-handling>
+      <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}" {{end}} slot="site-menu">
         {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
         {{- end}}
@@ -48,7 +48,7 @@
           </div>
         </div>
 
-        <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
+        <form action="/{{.CurrentSiteKey}}/admin/broadcast" enctype="multipart/form-data" method="post">
           <div class="d-flex align-items-center gap-1 mb-1">
             <button class="btn btn-primary btn-sm" onclick="handleReset(event)">Refresh</button>
           </div>

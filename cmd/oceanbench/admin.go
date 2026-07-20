@@ -113,7 +113,7 @@ func adminHandler(c *fiber.Ctx) error {
 	// Require POST method, except for admin landing pages.
 	if c.Method() != "POST" {
 		switch c.Path() {
-		case "/admin/broadcast", "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
+		case "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
 			// Okay.
 		default:
 			return c.Redirect("/", fiber.StatusMethodNotAllowed)
@@ -142,9 +142,6 @@ func adminHandler(c *fiber.Ctx) error {
 
 	case "/:skey/admin/user/delete":
 		return deleteUser(c, p)
-
-	case "/admin/broadcast":
-		return broadcastHandler(c)
 
 	case "/admin/missioncontrol":
 		if !isSuperAdmin(p.Email) {
