@@ -24,13 +24,30 @@ LICENSE
 package main
 
 import (
+	"errors"
+	"log"
+
 	"github.com/ausocean/cloud/gauth"
 	"github.com/gofiber/fiber/v2"
 )
 
 // mediaManagerHandler handles media manager page requests.
-func mediaManagerHandler(c *fiber.Ctx, profile *gauth.Profile) error {
-	data := monitorData{commonData: commonData{Pages: pages(c, "media manager"), Profile: profile}}
+func mediaManagerHandler(c *fiber.Ctx) error {
+	logRequest(c)
+
+	p, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	if !isSuperAdmin(p.Email) {
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+	data := monitorData{commonData: commonData{Pages: pages(c, "media manager"), Profile: p}}
 	writeTemplate(c, "media-manager.html", &data, "")
 	return nil
 }

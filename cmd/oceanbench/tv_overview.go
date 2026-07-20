@@ -1,6 +1,12 @@
 package main
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"errors"
+	"log"
+
+	"github.com/ausocean/cloud/gauth"
+	"github.com/gofiber/fiber/v2"
+)
 
 // tvOverviewHandler handles request to the tv overview page. This page lets the user
 // see an overview of different broadcasts which can be selected and setups saved. The
@@ -8,6 +14,21 @@ import "github.com/gofiber/fiber/v2"
 // is saved in a variable scoped to their username (email before the host, stripped of
 // any fullstops, user.name@ausocean.org -> username).
 func tvOverviewHandler(c *fiber.Ctx) error {
+	logRequest(c)
+
+	p, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	if !isSuperAdmin(p.Email) {
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
 	data := &commonData{
 		// This page is not accessible from the nav-menu.
 		Pages: pages(c, ""),
