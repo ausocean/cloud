@@ -273,8 +273,6 @@ func main() {
 	app.All("/oauth2callback", oauthCallbackHandler)
 	app.All("/live/:broadcastName", liveHandler)
 	app.All("/admin/site/add", adminHandler)
-	app.All("/admin/sandbox/configure", configDevicesHandler)
-	app.All("/admin/sandbox", sandboxHandler)
 	app.All("/admin/utils", adminHandler)
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
@@ -315,6 +313,10 @@ func main() {
 		Get("/admin/tv-overview", tvOverviewHandler).
 		Get("/admin/missioncontrol", missionControlHandler).
 		All("/admin/mediamanager", mediaManagerHandler).
+
+		// Sandbox tools.
+		All("/admin/sandbox/configure", configDevicesHandler).
+		Get("/admin/sandbox", sandboxHandler).
 
 		// Index.
 		All("/*", indexHandler)
@@ -797,7 +799,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "configuration",
-			URL:   "/admin/sandbox",
+			URL:   prefix + "/admin/sandbox",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},

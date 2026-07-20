@@ -33,7 +33,7 @@
       <h1 class="container-md">Configure</h1>
       <div class="border rounded p-4 container-md bg-white">
         {{ if eq (len .Devices) 0 }} No Devices waiting to be configured {{else}}
-        <form action="/admin/sandbox/configure" enctype="multipart/form-data" method="get">
+        <form action="/{{.CurrentSiteKey}}/admin/sandbox/configure" enctype="multipart/form-data" method="get">
           <fieldset>
             <div class="d-flex align-items-center gap-1 mb-1">
               <label class="col-4 text-end">Device:</label>
