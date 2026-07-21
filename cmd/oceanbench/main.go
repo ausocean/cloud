@@ -71,6 +71,7 @@ import (
 	"github.com/ausocean/utils/sliceutils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
+	"github.com/gofiber/template/html/v3"
 	"github.com/joho/godotenv"
 )
 
@@ -226,12 +227,17 @@ func main() {
 	ctx := context.Background()
 	setup(ctx)
 
+	// Setup template rendering.
+	engine := setupTemplating()
+
 	// Build the Fiber application.
-	app := fiber.New()
+	app := fiber.New(fiber.Config{Views: engine})
+
 	encryptCookies(ctx, app)
 
 	// Serve static files from the "s" directory.
 	app.Static("/s", "./s")
+
 	// Except for favicon.ico.
 	app.Get("/favicon.ico", func(c *fiber.Ctx) error {
 		return c.SendFile("./favicon.ico")
@@ -338,6 +344,16 @@ func main() {
 	log.Fatal(app.Listen(fmt.Sprintf("%s:%d", host, port)))
 }
 
+func setupTemplating() *html.Engine {
+	templateDir := "cmd/oceanbench/t"
+	if standalone || os.Getenv("GAE_ENV") == "" {
+		templateDir = "t"
+	}
+	engine := html.New(templateDir, ".html")
+	engine.AddFuncMap(templateFuncs)
+	return engine
+}
+
 // encryptCookies encrypts all cookies in the fiber app with the project's
 // secret key. This must be called before any middleware or handlers that access
 // cookies are setup.
@@ -370,19 +386,6 @@ func setup(ctx context.Context) {
 	}
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
-	}
-
-	templateDir := "cmd/oceanbench/t"
-	if standalone || os.Getenv("GAE_ENV") == "" {
-		templateDir = "t"
-	}
-	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
-	if err != nil {
-		log.Fatalf("error parsing templates: %v", err)
-	}
-	setTemplates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/set/*.html")
-	if err != nil {
-		log.Fatalf("error parsing set templates: %v", err)
 	}
 }
 
@@ -606,7 +609,7 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 
 // writeTemplate writes the given template with the supplied data,
 // populating some common properties.
-func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) {
+func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) error {
 	profile, _ := getProfile(c)
 	v := reflect.Indirect(reflect.ValueOf(data))
 	p := v.FieldByName("Standalone")
@@ -655,18 +658,8 @@ func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) {
 		p.Set(reflect.ValueOf("/logout?redirect=" + c.OriginalURL()))
 	}
 
-	c.Type("html")
-	if strings.HasPrefix(name, "set/") {
-		err := setTemplates.ExecuteTemplate(c, name[4:], data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	} else {
-		err := templates.ExecuteTemplate(c, name, data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	}
+	name, _ = strings.CutSuffix(name, ".html")
+	return c.Render(name, data)
 }
 
 // pages returns a copy of the app's pages, selecting the one that matches selected.
