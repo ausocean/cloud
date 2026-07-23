@@ -10,7 +10,7 @@ import "github.com/gofiber/fiber/v2"
 func tvOverviewHandler(c *fiber.Ctx) error {
 	data := &commonData{
 		// This page is not accessible from the nav-menu.
-		Pages: pages(""),
+		Pages: pages(c, ""),
 	}
 
 	// Write the template with the minimum data, and load the

@@ -137,7 +137,7 @@ func searchHandler(c *fiber.Ctx) error {
 	// searchData struct is used by the template.
 	sd := searchData{
 		commonData: commonData{
-			Pages:      pages("search"),
+			Pages:      pages(c, "search"),
 			Standalone: standalone,
 		},
 		SKey:       skey,

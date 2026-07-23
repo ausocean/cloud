@@ -190,7 +190,7 @@ func uploadHandler(c *fiber.Ctx) error {
 	profile, err := getProfile(c)
 	data := uploadData{
 		commonData: commonData{
-			Pages:   pages("upload"),
+			Pages:   pages(c, "upload"),
 			Profile: profile,
 		},
 		MID: 0,
@@ -338,7 +338,7 @@ func playHandler(c *fiber.Ctx) error {
 
 	data := playData{
 		commonData: commonData{
-			Pages: pages("play"),
+			Pages: pages(c, "play"),
 		},
 		MID: mid,
 	}

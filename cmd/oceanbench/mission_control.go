@@ -33,7 +33,7 @@ import (
 
 // missionControlHandler handles mission control page requests.
 func missionControlHandler(c *fiber.Ctx, profile *gauth.Profile) error {
-	data := monitorData{commonData: commonData{Pages: pages("mission control"), Profile: profile}}
+	data := monitorData{commonData: commonData{Pages: pages(c, "mission control"), Profile: profile}}
 	writeTemplate(c, "mission-control.html", &data, "")
 	return nil
 }

@@ -467,7 +467,7 @@ func indexHandler(c *fiber.Ctx) error {
 
 	profile, err := getProfile(c)
 	data := commonData{
-		Pages:   pages("home"),
+		Pages:   pages(c, "home"),
 		Profile: profile,
 	}
 	if err != nil {
@@ -635,6 +635,24 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 	return perm&user.Perm != 0, nil
 }
 
+// getCurrentSkey returns the current site key. This goes in order of:
+// 1. From the URL.
+// 2. The user's default site key.
+func getCurrentSkey(c *fiber.Ctx, profile *gauth.Profile) (int64, error) {
+	// First try to get from the URL param.
+	var skey int64
+	skFromParam := c.Params(skeyParamKey)
+	skey, err := strconv.ParseInt(skFromParam, 10, 64)
+	if err != nil {
+		log.Printf("unable to get skey from URL param: %v", err)
+		skey, err = getDefaultSkey(c.UserContext(), profile)
+		if err != nil {
+			return -1, fmt.Errorf("unable to get default skey: %v", err)
+		}
+	}
+	return skey, nil
+}
+
 // writeTemplate writes the given template with the supplied data,
 // populating some common properties.
 func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) error {
@@ -691,11 +709,12 @@ func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) erro
 }
 
 // pages returns a copy of the app's pages, selecting the one that matches selected.
-func pages(selected string) []page {
+func pages(c *fiber.Ctx, selected string) []page {
+	prefix := "/" + c.Params(skeyParamKey)
 	pages := []page{
 		{
 			Name: "home",
-			URL:  "/",
+			URL:  prefix + "/",
 			Perm: model.ReadPermission,
 		},
 		{

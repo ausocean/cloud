@@ -102,7 +102,7 @@ func monitorHandler(c *fiber.Ctx) error {
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}}
+	data := monitorData{commonData: commonData{Pages: pages(c, "monitor"), Profile: profile}}
 
 	ctx := c.UserContext()
 

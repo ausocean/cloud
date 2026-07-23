@@ -206,7 +206,7 @@ func broadcastHandler(c *fiber.Ctx) error {
 
 	req := broadcastRequest{
 		commonData: commonData{
-			Pages: pages("broadcast"),
+			Pages: pages(c, "broadcast"),
 		},
 		CurrentBroadcast: BroadcastConfig{
 			UUID:                  c.FormValue("broadcast-uuid"),
