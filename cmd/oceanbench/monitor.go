@@ -106,7 +106,11 @@ func monitorHandler(c *fiber.Ctx) error {
 
 	ctx := c.UserContext()
 
-	skey, _ := requestSiteData(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	// Check if user has write permissions to link to devices page.
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)

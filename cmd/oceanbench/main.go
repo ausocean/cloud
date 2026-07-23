@@ -283,7 +283,6 @@ func main() {
 	app.All("/logout", logoutHandler)
 	app.All("/oauth2callback", oauthCallbackHandler)
 	app.All("/live/:broadcastName", liveHandler)
-	app.All("/monitor", monitorHandler)
 	app.All("/admin/site/add", adminHandler)
 	app.All("/admin/site/update", adminHandler)
 	app.All("/admin/site/delete", adminHandler)
@@ -305,6 +304,7 @@ func main() {
 	// Handle paths with prefixed site keys.
 	app.Group("/:"+skeyParamKey).
 		All("/search", searchHandler).
+		All("/monitor", monitorHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -724,7 +724,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name: "monitor",
-			URL:  "/monitor",
+			URL:  prefix + "/monitor",
 			Perm: model.ReadPermission,
 		},
 		{
