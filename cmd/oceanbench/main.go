@@ -264,8 +264,6 @@ func main() {
 	setupAPIRoutes(app)
 
 	// User requests.
-	app.Post("/play/audiorequest", filterHandler)
-	app.All("/play", playHandler)
 	app.All("/learn/mooring", mooringHandler)
 	app.All("/upload", uploadHandler)
 	app.All("/set/devices/edit/var", editVarHandler)
@@ -305,6 +303,8 @@ func main() {
 	app.Group("/:"+skeyParamKey).
 		All("/search", searchHandler).
 		All("/monitor", monitorHandler).
+		Post("/play/audiorequest", filterHandler).
+		All("/play", playHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -729,7 +729,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name: "play",
-			URL:  "/play",
+			URL:  prefix + "/play",
 			Perm: model.ReadPermission,
 		},
 		{

@@ -40,9 +40,9 @@
       <div class="border rounded p-4 container-md bg-white">
         <div class="d-flex flex-column gap-2">
           <div class="d-flex gap-2">
-            <a class="btn btn-primary" id="mjpeg-tab" href="/play?out=x-motion-jpeg">Video (MJPEG)</a>
-            <a class="btn btn-primary" id="h264-tab" href="/play?out=h264">Video (H264)</a>
-            <a class="btn btn-primary" id="audio-tab" href="/play?out=pcm">Audio</a>
+            <a class="btn btn-primary" id="mjpeg-tab" href="/{{ .CurrentSiteKey }}/play?out=x-motion-jpeg">Video (MJPEG)</a>
+            <a class="btn btn-primary" id="h264-tab" href="/{{ .CurrentSiteKey }}/play?out=h264">Video (H264)</a>
+            <a class="btn btn-primary" id="audio-tab" href="/{{ .CurrentSiteKey }}/play?out=pcm">Audio</a>
           </div>
           <div class="d-flex align-items-center gap-2">
             URL:
