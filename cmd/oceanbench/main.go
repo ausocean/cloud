@@ -83,6 +83,10 @@ const (
 )
 
 const (
+	skeyParamKey = "skey" // Parameter key used for site key in url path.
+)
+
+const (
 	projectID          = "oceanbench"
 	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
 	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
@@ -298,6 +302,11 @@ func main() {
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
 	app.All("/logs", logPageHandler)
+
+	// Handle paths with prefixed site keys.
+	app.Group("/:"+skeyParamKey).
+		All("/*", indexHandler)
+
 	app.All("/*", indexHandler)
 
 	if standalone {
@@ -449,13 +458,12 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 
 // indexHandler handles requests for the home page and unimplemented pages.
 // Signed-in users are presented with a list of their sites.
+//
+// Requests without signed in user are redirected to "/" and rendered.
+// Requests to / are redirected with prefixed default skey
+// Invalid requests are redirected to index with prefixed default skey
 func indexHandler(c *fiber.Ctx) error {
 	logRequest(c)
-
-	if c.Path() != "/" {
-		// Redirect all invalid URLs to the root homepage.
-		return c.Redirect("/", fiber.StatusFound)
-	}
 
 	profile, err := getProfile(c)
 	data := commonData{
@@ -466,8 +474,28 @@ func indexHandler(c *fiber.Ctx) error {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
+		if c.Path() != "/" {
+			// Clear the URL if not the root URL.
+			return c.Redirect("/", fiber.StatusSeeOther)
+		}
 		writeTemplate(c, "index.html", &data, "")
 		return nil
+	}
+
+	skey, err := c.ParamsInt(skeyParamKey)
+	if err != nil {
+		// Get the default skey and redirect.
+		skey, err := getDefaultSkey(c.UserContext(), profile)
+		if err != nil {
+			// This should never happen, and if it does we likely can't recover.
+			log.Panicf("unable to get default skey: %v", err)
+		}
+		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
+	}
+
+	if c.Params("*") != "" {
+		// Redirect to /:skey
+		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
 	}
 
 	writeTemplate(c, "index.html", &data, "")
