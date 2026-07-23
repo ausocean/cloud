@@ -108,7 +108,11 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	data := devicesData{
 		commonData: commonData{
@@ -173,8 +177,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	})
 
 	if err := g.Wait(); err != nil {
-		reportDevicesError(c, data, "site or device list error: %v", err)
-		return nil
+		return reportDevicesError(c, data, "site or device list error: %v", err)
 	}
 
 	if siteChanged {
@@ -186,14 +189,12 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	data.Timezone = site.Timezone
 
 	if msg != "" {
-		reportDevicesError(c, data, msg, args...)
-		return nil
+		return reportDevicesError(c, data, msg, args...)
 	}
 
 	// If no MAC, render the selection page early. Avoid extra calls.
 	if !model.IsMacAddress(data.Mac) {
-		writeTemplate(c, "set/device.html", &data, "")
-		return nil
+		return writeTemplate(c, "set/device.html", &data, "")
 	}
 
 	// Parallelize per-device lookups.
@@ -262,8 +263,7 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	})
 
 	if err := g.Wait(); err != nil {
-		reportDevicesError(c, data, "per-device data error: %v", err)
-		return nil
+		return reportDevicesError(c, data, "per-device data error: %v", err)
 	}
 
 	// Provide uptime and device status information.
@@ -289,16 +289,15 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 	data.Sensors = sensors
 	data.Actuators = actuators
 
-	writeTemplate(c, "set/device.html", &data, msg)
-	return nil
+	return writeTemplate(c, "set/device.html", &data, msg)
 }
 
 // reportDevicesError handles error encountered during writing of the devices page.
 // Errors are firstly logged, and then written to the device.html template.
-func reportDevicesError(c *fiber.Ctx, d devicesData, f string, args ...interface{}) {
+func reportDevicesError(c *fiber.Ctx, d devicesData, f string, args ...interface{}) error {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplate(c, "set/device.html", &d, msg)
+	return writeTemplate(c, "set/device.html", &d, msg)
 }
 
 // editDevicesHandler handles device edit/deletion requests.
@@ -312,7 +311,11 @@ func editDevicesHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	ma := c.FormValue("ma")
 	dn := c.FormValue("dn")
@@ -338,7 +341,7 @@ func editDevicesHandler(c *fiber.Ctx) error {
 	if task == "Delete" {
 		model.DeleteDevice(ctx, settingsStore, mac)
 		model.DeleteVariables(ctx, settingsStore, skey, dev.Hex())
-		return c.Redirect("/set/devices", fiber.StatusFound)
+		return c.Redirect(fmt.Sprintf("/%d/set/devices", skey), fiber.StatusFound)
 	}
 
 	// Update the device.
@@ -419,7 +422,7 @@ func editDevicesHandler(c *fiber.Ctx) error {
 		return writeDevices(c, "%s", err.Error())
 	}
 
-	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
+	return c.Redirect(fmt.Sprintf("/%d/set/devices?ma=%s", skey, ma), fiber.StatusFound)
 }
 
 // calibrateDevicesHandler handles calibration of controller-type
@@ -438,10 +441,7 @@ func editDevicesHandler(c *fiber.Ctx) error {
 // NOTE: All voltages are parsed in Volts.
 func calibrateDevicesHandler(c *fiber.Ctx) error {
 	logRequest(c)
-	if c.Method() != http.MethodPost {
-		log.Println("calibration request must use POST action")
-		return c.Redirect("/set/devices?ma="+c.FormValue("ma"), fiber.StatusSeeOther)
-	}
+
 	ctx := context.Background()
 	p, err := getProfile(c)
 	if err != nil {
@@ -449,6 +449,17 @@ func calibrateDevicesHandler(c *fiber.Ctx) error {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
+	if c.Method() != http.MethodPost {
+		log.Println("calibration request must use POST action")
+		return c.Redirect(fmt.Sprintf("/%d/set/devices?ma=%s", skey, c.FormValue("ma")), fiber.StatusSeeOther)
 	}
 
 	mac := c.FormValue("ma")
@@ -604,6 +615,12 @@ func editSensorHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
 	_ = profile // ToDo: Check for write access.
 
 	ma := c.FormValue("ma")
@@ -634,7 +651,7 @@ func editSensorHandler(c *fiber.Ctx) error {
 		if err != nil {
 			return writeDevices(c, "delete sensor error: %v", err)
 		}
-		return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
+		return c.Redirect(fmt.Sprintf("/%d/set/devices?ma=%s", skey, ma), fiber.StatusFound)
 	}
 
 	if formSensor.Name == "" {
@@ -650,7 +667,7 @@ func editSensorHandler(c *fiber.Ctx) error {
 		return writeDevices(c, "put sensor error: %v", err)
 	}
 
-	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
+	return c.Redirect(fmt.Sprintf("/%d/set/devices?ma=%s", skey, ma), fiber.StatusFound)
 }
 
 // editActuatorHandler handles requests to /set/device/edit/actuator.
@@ -664,6 +681,13 @@ func editActuatorHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
+
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
 	_ = profile // ToDo: Check for write access.
 
 	ma := c.FormValue("ma")
@@ -706,7 +730,7 @@ func editActuatorHandler(c *fiber.Ctx) error {
 		return writeDevices(c, "put actuator error: %v", err)
 	}
 
-	return c.Redirect("/set/devices?ma="+ma, fiber.StatusFound)
+	return c.Redirect(fmt.Sprintf("/%d/set/devices?ma=%s", skey, ma), fiber.StatusFound)
 }
 
 // Cron settings:

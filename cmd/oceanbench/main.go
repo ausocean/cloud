@@ -266,13 +266,6 @@ func main() {
 	// User requests.
 	app.All("/learn/mooring", mooringHandler)
 	app.All("/upload", uploadHandler)
-	app.All("/set/devices/edit/var", editVarHandler)
-	app.All("/set/devices/edit/sensor", editSensorHandler)
-	app.All("/set/devices/edit/actuator", editActuatorHandler)
-	app.All("/set/devices/edit/calibrate", calibrateDevicesHandler)
-	app.All("/set/devices/edit", editDevicesHandler)
-	app.All("/set/devices/vars", setDevicesVars)
-	app.All("/set/devices/*", setDevicesHandler)
 	app.All("/set/crons/edit", editCronsHandler)
 	app.All("/set/crons/*", setCronsHandler)
 	app.All("/get", getHandler)
@@ -305,6 +298,14 @@ func main() {
 		All("/monitor", monitorHandler).
 		Post("/play/audiorequest", filterHandler).
 		All("/play", playHandler).
+		// Settings.
+		All("/set/devices/edit/var", editVarHandler).
+		All("/set/devices/edit/sensor", editSensorHandler).
+		All("/set/devices/edit/actuator", editActuatorHandler).
+		All("/set/devices/edit/calibrate", calibrateDevicesHandler).
+		All("/set/devices/edit", editDevicesHandler).
+		All("/set/devices/vars", setDevicesVars).
+		Get("/set/devices/*", setDevicesHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -744,7 +745,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "devices",
-			URL:   "/set/devices",
+			URL:   prefix + "/set/devices",
 			Level: 1,
 			Perm:  model.WritePermission,
 		},
