@@ -44,9 +44,9 @@
           <span class="td half">Enabled</span>
         </div>
         {{ range $c := .Crons }}
-        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
+        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" skey="{{$.CurrentSiteKey}}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
         {{ end }}
-        <cron-settings class="w-100" new-cron></cron-settings>
+        <cron-settings class="w-100" new-cron skey="{{$.CurrentSiteKey}}"></cron-settings>
       </div>
     </section>
     <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>
