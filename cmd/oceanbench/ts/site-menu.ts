@@ -1,7 +1,11 @@
 import { LitElement, html, css, PropertyValues } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 
 export const SandboxSkey: Number = 3;
+
+const enum siteType {
+  DEFAULT = "default",
+}
 
 @customElement("site-menu")
 class SiteMenu extends LitElement {
@@ -21,6 +25,8 @@ class SiteMenu extends LitElement {
 
   @property({ type: Boolean })
   reloadConfirmed = false;
+
+  @state() skey : number | siteType = siteType.DEFAULT
 
   static styles = css`
     select {
@@ -55,35 +61,18 @@ class SiteMenu extends LitElement {
   }
 
   firstUpdated() {
-    // Handle init logic for tab site selection
-    const urlParams = new URLSearchParams(window.location.search);
-    let siteParams = urlParams.get("site");
+    // The site should be the first segment of the path.
+    let path = window.location.pathname
+    path = path.startsWith("/") ? path.slice(1) : path
+    let site = path.split("/")[0]
 
-    if (siteParams) {
-      sessionStorage.setItem("site", siteParams);
+    if (Number(site) != undefined && Number.isInteger(Number(site))) {
+      this.skey = Number(site);
     } else {
-      let sessionSite = sessionStorage.getItem("site");
-      if (sessionSite) {
-        // Apply the session site by redirecting to include the parameter
-        let currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set("site", sessionSite);
-        window.location.replace(currentUrl.toString());
-        return;
-      }
+      this.skey = siteType.DEFAULT;
     }
 
-    // If no URL or session site is present, set session to the backend fallback.
-    if (!sessionStorage.getItem("site") && this.selectedData) {
-      let s = this.selectedData.split(":");
-      if (s.length > 0 && containsInt(s[0])) {
-        sessionStorage.setItem("site", s[0]);
-      }
-    }
-
-    const activeSessionSite = sessionStorage.getItem("site");
-    if (activeSessionSite) {
-      this.selectedData = activeSessionSite;
-    }
+    this.selectedData = site;
 
     this.loadSites();
   }
@@ -209,16 +198,17 @@ class SiteMenu extends LitElement {
           },
         }),
       );
+      this.skey = Number(selectedKey);
       this.selectedData = selectedKey + ":" + selectedName;
     } else {
-      sessionStorage.setItem("site", selectedKey);
-      let targetUrl = new URL(window.location.href);
+      let targetUrl = window.location.pathname
+      targetUrl = targetUrl.replace(this.skey.toString(), selectedKey)
+
       if (Number(selectedKey) == SandboxSkey) {
-        window.location.assign("/admin/sandbox");
+        window.location.assign(`/${SandboxSkey}/admin/sandbox`);
         return;
       }
-      targetUrl.searchParams.set("site", selectedKey);
-      window.location.assign(targetUrl.toString());
+      window.location.assign(targetUrl);
     }
 
     if (selectedOpt.slot != this.selectedPerm) {

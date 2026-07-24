@@ -33,7 +33,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -43,6 +42,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -91,23 +91,26 @@ type monitorData struct {
 }
 
 // monitorHandler handles monitor requests.
-func monitorHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func monitorHandler(c *fiber.Ctx) error {
+	logRequest(c)
 
-	profile, err := getProfile(w, r)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	data := monitorData{commonData: commonData{Pages: pages("monitor"), Profile: profile}}
+	data := monitorData{commonData: commonData{Pages: pages(c, "monitor"), Profile: profile}}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 
-	skey, _ := requestSiteData(r, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	// Check if user has write permissions to link to devices page.
 	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
@@ -119,8 +122,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		reportMonitorError(w, r, &data, "could not get devices: %v", err)
-		return
+		return reportMonitorError(c, &data, "could not get devices: %v", err)
 	}
 
 	ch := make(chan monitorDevice, len(devices))
@@ -128,8 +130,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		reportMonitorError(w, r, &data, "could not get devices: %v", err)
-		return
+		return reportMonitorError(c, &data, "could not get devices: %v", err)
 	}
 	data.Timezone = site.Timezone
 	data.SiteLat = site.Latitude
@@ -139,7 +140,7 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 	var wg sync.WaitGroup
 	for _, device := range devices {
 		wg.Add(1)
-		go monitorLoadRoutine(device, site.Timezone, &wg, ch, errCh, data, skey, ctx, w, r)
+		go monitorLoadRoutine(c, device, site.Timezone, &wg, ch, errCh, data, skey, ctx)
 	}
 	wg.Wait()
 	close(ch)
@@ -162,7 +163,8 @@ func monitorHandler(w http.ResponseWriter, r *http.Request) {
 		return int(b.LastReportedTimestamp - a.LastReportedTimestamp)
 	})
 	data.Devices = monitorDevices
-	writeTemplate(w, r, "monitor.html", &data, errMsg)
+	writeTemplate(c, "monitor.html", &data, errMsg)
+	return nil
 }
 
 // scalarCount returns the number of scalars received for the first pin of a device
@@ -228,6 +230,7 @@ func throughputsFor(ctx context.Context, device *model.Device, from, to time.Tim
 }
 
 func monitorLoadRoutine(
+	c *fiber.Ctx,
 	dev model.Device,
 	tz float64,
 	wg *sync.WaitGroup,
@@ -236,8 +239,6 @@ func monitorLoadRoutine(
 	data monitorData,
 	skey int64,
 	ctx context.Context,
-	w http.ResponseWriter,
-	r *http.Request,
 ) {
 	var md monitorDevice
 	md.Device = dev
@@ -247,7 +248,8 @@ func monitorLoadRoutine(
 	var err error
 	md.Count, md.MaxCount, err = throughput(ctx, &dev)
 	if err != nil {
-		reportMonitorError(w, r, &data, "could not get throughput: %v", err)
+		reportMonitorError(c, &data, "could not get throughput: %v", err)
+		errCh <- err.Error()
 		return
 	}
 	md.Throughput = int(100.0 * (float64(md.Count) / float64(md.MaxCount)))
@@ -258,7 +260,8 @@ func monitorLoadRoutine(
 	case errors.Is(err, datastore.ErrNoSuchEntity):
 		md.Address = "None"
 	case err != nil:
-		reportMonitorError(w, r, &data, "could not get address variable: %v", err)
+		reportMonitorError(c, &data, "could not get address variable: %v", err)
+		errCh <- err.Error()
 		return
 	default:
 		md.Address = v.Value
@@ -270,7 +273,8 @@ func monitorLoadRoutine(
 	case errors.Is(err, datastore.ErrNoSuchEntity):
 		md.Sending = "black"
 	case err != nil:
-		reportMonitorError(w, r, &data, "could not get uptime variable: %v", err)
+		reportMonitorError(c, &data, "could not get uptime variable: %v", err)
+		errCh <- err.Error()
 		return
 	case time.Since(v.Updated) < time.Duration(2*int(dev.MonitorPeriod))*time.Second:
 		md.Sending = "green"
@@ -281,13 +285,15 @@ func monitorLoadRoutine(
 
 	md.Uptime, err = secondsToUptime(v)
 	if err != nil {
-		reportMonitorError(w, r, &data, "failed to parse uptime: %v", err)
+		reportMonitorError(c, &data, "failed to parse uptime: %v", err)
+		errCh <- err.Error()
 		return
 	}
 
 	sensors, err := model.GetSensorsV2(ctx, settingsStore, dev.Mac)
 	if err != nil {
-		reportMonitorError(w, r, &data, "could not get sensors: %v", err)
+		reportMonitorError(c, &data, "could not get sensors: %v", err)
+		errCh <- err.Error()
 		return
 	}
 
@@ -297,7 +303,8 @@ func monitorLoadRoutine(
 		if err == datastore.ErrNoSuchEntity {
 			continue
 		} else if err != nil {
-			reportMonitorError(w, r, &data, "could not get latest scalar %d: %v", id, err)
+			reportMonitorError(c, &data, "could not get latest scalar %d: %v", id, err)
+			errCh <- err.Error()
 			return
 		}
 		value, err := sensor.Transform(scalar.Value)
@@ -345,8 +352,9 @@ func secondsToUptime(v *model.Variable) (uptime string, err error) {
 	return uptime, nil
 }
 
-func reportMonitorError(w http.ResponseWriter, r *http.Request, d *monitorData, f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args...)
-	log.Print(msg)
-	writeTemplate(w, r, "monitor.html", d, msg)
+func reportMonitorError(c *fiber.Ctx, d *monitorData, f string, args ...interface{}) error {
+	err := fmt.Errorf(f, args...)
+	log.Print(err)
+	writeTemplate(c, "monitor.html", d, err.Error())
+	return err
 }

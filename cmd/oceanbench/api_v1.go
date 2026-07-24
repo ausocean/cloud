@@ -40,7 +40,6 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
 // profileKey is the Locals key used to pass a *gauth.Profile through Fiber middleware.
@@ -56,26 +55,21 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/user", getV1UserSitesHandler)
 	v1.Get("/media", getMediaKeysHandler)
 	v1.Delete("/media", deleteV1MediaHandler)
-	v1.Get("/broadcasts/", getV1BroadcastIDHandler)
-	v1.Get("/broadcasts/:uuid", getV1BroadcastHandler)
 	v1.Get("/logs/:mac", getV1LogsByDevice)
 	v1.Put("/log/:mac", putV1LogByDevice)
+
+	// Endpoints with site scope.
+	v1.Group("/:"+skeyParamKey).
+		Get("/broadcasts/", getV1BroadcastIDHandler).
+		Get("/broadcasts/:uuid", getV1BroadcastHandler)
+
 }
 
 // withProfileJSON is Fiber middleware that authenticates the request and stores
 // the *gauth.Profile in c.Locals(profileKey). If authentication fails it writes
 // a JSON error response and aborts the chain.
 func withProfileJSON(c *fiber.Ctx) error {
-	// Build a *http.Request from the Fiber/fasthttp context so we can reuse the
-	// existing getProfile helper which relies on net/http cookies.
-	var r http.Request
-	if err := fasthttpadaptor.ConvertRequest(c.Context(), &r, true); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not read request"})
-	}
-
-	// A noop ResponseWriter is sufficient here: getProfile only reads from the
-	// request (cookies), it does not write to w.
-	p, err := getProfile(noopResponseWriter{}, &r)
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -434,22 +428,27 @@ func parsePins(inputs string) []string {
 	return pins
 }
 
-// getV1BroadcastHandler handles GET /api/v1/broadcasts/:uuid
+// getV1BroadcastHandler handles GET /api/v1/:skey/broadcasts/:uuid
 // Returns the broadcast configuration matching the provided UUID within the user's selected site.
 func getV1BroadcastHandler(c *fiber.Ctx) error {
-	p := c.Locals(profileKey).(*gauth.Profile)
-
 	uuid := c.Params("uuid")
 	if uuid == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "uuid parameter is required"})
 	}
 
-	var skey int64
-	if siteStr := c.Query("site"); siteStr != "" {
-		skey, _ = strconv.ParseInt(siteStr, 10, 64)
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no site key in request"})
 	}
-	if skey == 0 {
-		skey, _ = profileData(p)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
+	if err != nil || skey == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid site key in request"})
+	}
+
+	ctx := c.UserContext()
+	p := c.Locals(profileKey).(*gauth.Profile)
+	if !isAdmin(ctx, skey, p.Email) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "insufficient permission, requires admin permission"})
 	}
 
 	if skey == 0 {
@@ -470,16 +469,22 @@ func getV1BroadcastHandler(c *fiber.Ctx) error {
 }
 
 func getV1BroadcastIDHandler(c *fiber.Ctx) error {
-	p := c.Locals(profileKey).(*gauth.Profile)
-	var skey int64
-	if siteStr := c.Query("site"); siteStr != "" {
-		skey, _ = strconv.ParseInt(siteStr, 10, 64)
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no site key in request"})
 	}
-	if skey == 0 {
-		skey, _ = profileData(p)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
+	if err != nil || skey == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid site key in request"})
 	}
 
-	keys, err := model.GetBroadcastKeysBySite(c.Context(), settingsStore, skey)
+	ctx := c.UserContext()
+	p := c.Locals(profileKey).(*gauth.Profile)
+	if !isAdmin(ctx, skey, p.Email) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "insufficient permission, requires admin permission"})
+	}
+
+	keys, err := model.GetBroadcastKeysBySite(ctx, settingsStore, skey)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("could not get broadcast keys: %v", err)})
 	}

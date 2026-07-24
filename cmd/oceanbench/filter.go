@@ -35,7 +35,6 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
-	"net/http"
 	"path"
 	"strconv"
 	"strings"
@@ -71,23 +70,23 @@ func filterHandler(c *fiber.Ctx) error {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		return reportFilterErrorFiber(c, "unable to parse multipart form: %v", err)
+		return reportFilterError(c, "unable to parse multipart form: %v", err)
 	}
 
 	file, err := form.File["audio-file"][0].Open()
 	if err != nil {
-		return reportFilterErrorFiber(c, "unable to open file: %v", err)
+		return reportFilterError(c, "unable to open file: %v", err)
 	}
 
 	audio, err := io.ReadAll(file)
 	if err != nil {
-		return reportFilterErrorFiber(c, "unable to read file: %v", err)
+		return reportFilterError(c, "unable to read file: %v", err)
 	}
 
 	// Convert all parameters to a usable format.
 	parameters, err := convParamTypes(form)
 	if err != nil {
-		return reportFilterErrorFiber(c, "could not convert paramaters to required type: %v", err)
+		return reportFilterError(c, "could not convert paramaters to required type: %v", err)
 	}
 
 	// Decode the input audio for the right type.
@@ -99,7 +98,7 @@ func filterHandler(c *fiber.Ctx) error {
 
 		// If the encoding type isn't pcm, report error.
 		if wavFMT != 1 {
-			return reportFilterErrorFiber(c, "unsupported wav encoding type")
+			return reportFilterError(c, "unsupported wav encoding type")
 		}
 
 		parameters.Channels = uint(binary.LittleEndian.Uint16(audio[22:24]))
@@ -120,7 +119,7 @@ func filterHandler(c *fiber.Ctx) error {
 		dec := adpcm.NewDecoder(decoded)
 		_, err = dec.Write(audio)
 		if err != nil {
-			return reportFilterErrorFiber(c, "could not decode adpcm file")
+			return reportFilterError(c, "could not decode adpcm file")
 		}
 
 		// Copy decoded audio back into audio.
@@ -129,7 +128,7 @@ func filterHandler(c *fiber.Ctx) error {
 	case "raw", "pcm":
 		// Do nothing.
 	default:
-		return reportFilterErrorFiber(c, "unknown/unsupported file type")
+		return reportFilterError(c, "unknown/unsupported file type")
 	}
 
 	// Create a PCM buffer.
@@ -153,7 +152,7 @@ func filterHandler(c *fiber.Ctx) error {
 	case "None":
 		_, err = c.Write(buff.Data)
 		if err != nil {
-			return reportFilterErrorFiber(c, "unable to write to response: %v", err)
+			return reportFilterError(c, "unable to write to response: %v", err)
 		}
 		log.Println("Returned unfiltered audio.")
 		return nil
@@ -162,20 +161,20 @@ func filterHandler(c *fiber.Ctx) error {
 		return nil
 	}
 	if err != nil {
-		return reportFilterErrorFiber(c, "could not generate %s filter: %v", parameters.FilterType, err)
+		return reportFilterError(c, "could not generate %s filter: %v", parameters.FilterType, err)
 	}
 	log.Printf("Generated %s filter.", parameters.FilterType)
 
 	// Apply the filter to the audio.
 	output, err := filter.Apply(buff)
 	if err != nil {
-		return reportFilterErrorFiber(c, "unable to apply audio filter: %v", err)
+		return reportFilterError(c, "unable to apply audio filter: %v", err)
 	}
 
 	// Write the response.
 	_, err = c.Write(output)
 	if err != nil {
-		return reportFilterErrorFiber(c, "unable to write to response: %v", err)
+		return reportFilterError(c, "unable to write to response: %v", err)
 	}
 
 	return nil
@@ -225,19 +224,9 @@ func convParamTypes(form *multipart.Form) (*Parameters, error) {
 	return result, nil
 }
 
-// reportFilterError writes a response error, specifying the error which occurred, which can be used in an
+// reportFilterError c *fiber.Ctx, which can be used in an
 // alert to tell the user why the request failed.
-func reportFilterError(w http.ResponseWriter, r *http.Request, f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args...)
-	log.Print(msg)
-	w.Header().Add("msg", f)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write(nil)
-}
-
-// reportFilterErrorFiber c *fiber.Ctx, which can be used in an
-// alert to tell the user why the request failed.
-func reportFilterErrorFiber(c *fiber.Ctx, f string, args ...interface{}) error {
+func reportFilterError(c *fiber.Ctx, f string, args ...interface{}) error {
 	msg := fmt.Sprintf(f, args...)
 	log.Print(msg)
 

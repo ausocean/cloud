@@ -37,13 +37,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // M3U tokens. Tokens ending with a colon are followed by values.
@@ -73,19 +73,20 @@ var (
 //
 //	https://developer.apple.com/documentation/http_live_streaming/example_playlists_for_http_live_streaming/video_on_demand_playlist_construction.
 //	https://developer.apple.com/library/archive/technotes/tn2288/_index.html#//apple_ref/doc/uid/DTS40012238-CH1-TNTAG2
-func writePlaylist(w http.ResponseWriter, r *http.Request, mid int64, ts []int64, fd int64) {
-	ctx := r.Context()
+func writePlaylist(c *fiber.Ctx, mid int64, ts []int64, fd int64) error {
+	ctx := c.UserContext()
 
 	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, ts)
 	if err != nil {
 		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
 	if len(keys) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		writeError(w, errors.New("no data"))
-		return
+		c.Status(fiber.StatusNotFound)
+		err := errors.New("no data")
+		writeError(c, err)
+		return err
 	}
 	_, from, _ := datastore.SplitIDKey(keys[0].ID)
 	_, to, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
@@ -108,11 +109,11 @@ func writePlaylist(w http.ResponseWriter, r *http.Request, mid int64, ts []int64
 	}
 	output += m3uEnd + "\n"
 
-	h := w.Header()
-	h.Add("Content-Disposition", "attachment; filename=\""+m3uFilename+"\"")
-	h.Add("Access-Control-Allow-Origin", "*")
-	h.Add("Content-Type", "application/vnd.apple.mpegurl") // preferable to "application/x-mpegURL"?
-	fmt.Fprint(w, output)
+	c.Set("Content-Disposition", "attachment; filename=\""+m3uFilename+"\"")
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Content-Type", "application/vnd.apple.mpegurl") // preferable to "application/x-mpegURL"?
+	_, err = fmt.Fprint(c, output)
+	return err
 }
 
 // writeLivePlaylist writes playlists for live streaming returning pd
@@ -121,8 +122,8 @@ func writePlaylist(w http.ResponseWriter, r *http.Request, mid int64, ts []int64
 // to be continuous and therefore discontinuities are not checked. The
 // fragment duration should not be changed once the stream has
 // started.
-func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd int64) {
-	ctx := r.Context()
+func writeLivePlaylist(c *fiber.Ctx, mid int64, pd, fd int64) error {
+	ctx := c.UserContext()
 
 	// Ensure playlist duration is a multiple of fragment duration.
 	if pd%fd != 0 {
@@ -137,8 +138,8 @@ func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd
 	keys, err := model.GetMtsMediaKeys(ctx, mediaStore, mid, nil, []int64{from, datastore.EpochEnd})
 	if err != nil {
 		log.Printf("model.GetMtsMediaKeys returned error: %v", err.Error())
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
 
 	// If we have no data, either the requested MID is not
@@ -153,22 +154,26 @@ func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd
 			stale = true
 		}
 		liveStreamMutex.Unlock()
-		w.WriteHeader(http.StatusNotFound)
+		c.Status(fiber.StatusNotFound)
 		if stale {
-			writeError(w, errors.New("live stream stopped"))
+			err = errors.New("live stream stopped")
+			writeError(c, err)
+			return err
 		} else {
-			writeError(w, errors.New("no live data"))
+			err = errors.New("no live data")
+			writeError(c, err)
+			return err
 		}
-		return
 	}
 
 	// Buffer at least fd seconds of data.
 	_, first, _ := datastore.SplitIDKey(keys[0].ID)
 	_, last, _ := datastore.SplitIDKey(keys[len(keys)-1].ID)
 	if last-first < fd {
-		w.WriteHeader(http.StatusNotFound)
-		writeError(w, errors.New("buffering"))
-		return
+		c.Status(fiber.StatusNotFound)
+		err = errors.New("buffering")
+		writeError(c, err)
+		return err
 	}
 
 	// Compute the media sequence count, and update stream times.
@@ -206,9 +211,9 @@ func writeLivePlaylist(w http.ResponseWriter, r *http.Request, mid int64, pd, fd
 		output += url + "&ts=" + strconv.FormatInt(ts, 10) + "," + strconv.FormatInt(fd, 10) + "\n"
 	}
 
-	h := w.Header()
-	h.Add("Content-Disposition", "attachment; filename=\""+m3uFilename+"\"")
-	h.Add("Access-Control-Allow-Origin", "*")
-	h.Add("Content-Type", "application/vnd.apple.mpegurl") // preferable to "application/x-mpegURL"?
-	fmt.Fprint(w, output)
+	c.Set("Content-Disposition", "attachment; filename=\""+m3uFilename+"\"")
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Set("Content-Type", "application/vnd.apple.mpegurl") // preferable to "application/x-mpegURL"?
+	_, err = fmt.Fprint(c, output)
+	return err
 }

@@ -18,15 +18,15 @@
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
-    <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
-          <a {{if .URL}}href="{{.URL}}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
+          <a {{if .URL}}href="{{.URL}}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
         </li>
         {{- end}}
       </nav-menu>
-      <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}" {{end}} slot="site-menu" custom-handling>
+      <site-menu id="sitemenu" {{if .Profile}}selected-data="{{.Profile.Data}}" {{end}} slot="site-menu">
         {{range .Users -}}
         <option style="display: none" slot="{{.PermissionText}}" value="{{.Skey}}"></option>
         {{- end}}
@@ -48,7 +48,7 @@
           </div>
         </div>
 
-        <form action="/admin/broadcast" enctype="multipart/form-data" method="post">
+        <form action="/{{.CurrentSiteKey}}/admin/broadcast" enctype="multipart/form-data" method="post">
           <div class="d-flex align-items-center gap-1 mb-1">
             <button class="btn btn-primary btn-sm" onclick="handleReset(event)">Refresh</button>
           </div>

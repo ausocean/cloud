@@ -13,6 +13,8 @@ class HeaderGroup extends LitElement {
   auth;
   @property({ type: String })
   logoutURL;
+  @property({ type: Number })
+  skey;
 
   static styles = css`
     :host {
@@ -68,6 +70,7 @@ class HeaderGroup extends LitElement {
     this.version = "0";
     this.auth = false;
     this.logoutURL = "/logout?redirect=/";
+    this.skey = 0
   }
 
   override render() {
@@ -75,7 +78,7 @@ class HeaderGroup extends LitElement {
       ? html`
           <slot name="nav-menu"></slot>
           <div id="top-bar">
-            <a href="/"><h1 id="title">CloudBlue</h1></a>
+            <a href="/${this.skey}"><h1 id="title">CloudBlue</h1></a>
             <slot
               @permission-change=${this._onPermissionChange}
               id="site-menu"
@@ -86,7 +89,7 @@ class HeaderGroup extends LitElement {
         `
       : html`
           <div id="top-bar">
-            <a href="/"><h1 id="title">CloudBlue</h1></a>
+            <a href="/${this.skey}"><h1 id="title">CloudBlue</h1></a>
           </div>
         `;
   }

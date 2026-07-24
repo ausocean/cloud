@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -180,18 +179,18 @@ type uploadData struct {
 
 // uploadHandler handles MTS data uploading, which requires write
 // permission.
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func uploadHandler(c *fiber.Ctx) error {
+	logRequest(c)
 
 	var isAJAX bool
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+	if c.Get("X-Requested-With") == "XMLHttpRequest" {
 		isAJAX = true
 	}
 
-	profile, err := getProfile(w, r)
+	profile, err := getProfile(c)
 	data := uploadData{
 		commonData: commonData{
-			Pages:   pages("upload"),
+			Pages:   pages(c, "upload"),
 			Profile: profile,
 		},
 		MID: 0,
@@ -200,41 +199,43 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplate(w, r, "index.html", &data, "")
-		return
+		writeTemplate(c, "index.html", &data, "")
+		return nil
 	}
 
-	n, err := upload(w, r)
+	n, err := upload(c)
 	switch err {
 	case nil:
 		if isAJAX {
-			fmt.Fprint(w, "OK")
-			return
+			fmt.Fprint(c, "OK")
+			return nil
 		}
-		data.MID, _ = strconv.ParseInt(r.FormValue("id"), 10, 64) // Guaranteed to succeed since nil error.
+		data.MID, _ = strconv.ParseInt(c.FormValue("id"), 10, 64) // Guaranteed to succeed since nil error.
 		if n == 0 {
-			writeTemplate(w, r, "upload.html", &data, "")
+			writeTemplate(c, "upload.html", &data, "")
 		} else {
-			writeTemplate(w, r, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
+			writeTemplate(c, "upload.html", &data, fmt.Sprintf("Uploaded %d bytes", n))
 		}
+		return nil
 
 	case errUserAuthRequired:
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
+		return c.Redirect("/", fiber.StatusUnauthorized)
 
 	default:
 		log.Printf("upload failed: %v", err.Error())
 		if isAJAX {
-			writeHttpError(w, http.StatusBadRequest, err.Error())
-			return
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("upload failed: %v", err)})
 		}
-		writeTemplate(w, r, "upload.html", &data, err.Error())
+		writeTemplate(c, "upload.html", &data, err.Error())
+		return nil
 	}
 }
 
 // upload implements the uploadHandler logic, returning the number of bytes uploaded or an error otherwise.
-func upload(w http.ResponseWriter, r *http.Request) (int, error) {
-	ctx := r.Context()
-	p, err := getProfile(w, r)
+func upload(c *fiber.Ctx) (int, error) {
+	ctx := c.UserContext()
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
@@ -242,7 +243,7 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, errUserAuthRequired
 	}
 
-	id := r.FormValue("id")
+	id := c.FormValue("id")
 	var mid int64
 	if id != "" {
 		mid, err = strconv.ParseInt(id, 10, 64)
@@ -250,15 +251,15 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 			return 0, errInvalidMID
 		}
 	}
-	if r.Method == "GET" {
+	if c.Method() == "GET" {
 		return 0, nil
 	}
 
 	// geohash is optional
-	gh := r.FormValue("gh")
+	gh := c.FormValue("gh")
 
 	// ts is optional
-	v := r.FormValue("ts")
+	v := c.FormValue("ts")
 	if v == "" {
 		v = strconv.FormatInt(time.Now().UTC().Unix(), 10)
 	}
@@ -276,9 +277,13 @@ func upload(w http.ResponseWriter, r *http.Request) (int, error) {
 		return 0, errPermissionDenied
 	}
 
-	f, fh, err := r.FormFile("file")
+	fh, err := c.FormFile("file")
 	if err != nil {
 		return 0, errMissingFile
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return 0, errInvalidBody
 	}
 	log.Printf("uploading %s with %d bytes", fh.Filename, fh.Size)
 
@@ -312,11 +317,11 @@ type playData struct {
 // render the player, and must have read permissions for the media
 // they wish to play.
 func playHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
+	logRequest(c)
 
-	profile, _ := getProfileFiber(c)
+	profile, _ := getProfile(c)
 	if profile == nil {
-		return c.Redirect("/", http.StatusUnauthorized)
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
 	id := c.Query("id")
@@ -333,12 +338,12 @@ func playHandler(c *fiber.Ctx) error {
 
 	data := playData{
 		commonData: commonData{
-			Pages: pages("play"),
+			Pages: pages(c, "play"),
 		},
 		MID: mid,
 	}
 
-	writeTemplateFiber(c, "play.html", &data, msg)
+	writeTemplate(c, "play.html", &data, msg)
 
 	return nil
 }
@@ -349,29 +354,34 @@ func playHandler(c *fiber.Ctx) error {
 //	live:  output a playlist for live HLS streaming.
 //	media: extract and output MTS payload
 //	ts:    output MTS as is (default)
-func getMedia(w http.ResponseWriter, r *http.Request, mid int64, ts []int64, ky []uint64) (content []byte, mimeType string, err error) {
-	ctx := r.Context()
-	q := r.URL.Query()
+func getMedia(c *fiber.Ctx, mid int64, ts []int64, ky []uint64) (content []byte, mimeType string, err error) {
+	ctx := c.UserContext()
 
 	// Get optional fragment duration and (live) playlist duration.
-	d := q.Get("fd")
+	d := c.Query("fd")
 	fd, err := strconv.ParseInt(d, 10, 6)
 	if err != nil {
 		fd = hlsFragDuration
 	}
-	d = q.Get("pd")
+	d = c.Query("pd")
 	pd, err := strconv.ParseInt(d, 10, 64)
 	if err != nil {
 		pd = hlsLiveDuration
 	}
 
-	out := q.Get("out")
+	out := c.Query("out")
 	switch out {
 	case "m3u":
-		writePlaylist(w, r, mid, ts, fd)
+		err = writePlaylist(c, mid, ts, fd)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to write playlist: %v", err)
+		}
 
 	case "live":
-		writeLivePlaylist(w, r, mid, pd, fd)
+		err = writeLivePlaylist(c, mid, pd, fd)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to write live playlist: %v", err)
+		}
 
 	case "ts", "media":
 		fallthrough
@@ -511,18 +521,7 @@ func joinMedia(clips []model.MtsMedia) []byte {
 }
 
 // writeData writes MTS data using the supplied MIME type.
-func writeData(w http.ResponseWriter, data []byte, mimeType, filename string) {
-	h := w.Header()
-	h.Add("Access-Control-Allow-Origin", "*")
-	h.Add("Content-Type", mimeType)
-	if filename != "" {
-		h.Add("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	}
-	fmt.Fprint(w, string(data))
-}
-
-// writeDataFiber writes MTS data using the supplied MIME type.
-func writeDataFiber(c *fiber.Ctx, data []byte, mimeType, filename string) {
+func writeData(c *fiber.Ctx, data []byte, mimeType, filename string) {
 	c.Set("Access-Control-Allow-Origin", "*")
 	c.Set("Content-Type", mimeType)
 	if filename != "" {

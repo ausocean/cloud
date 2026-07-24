@@ -57,7 +57,6 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"net/http"
 	"os"
 	"reflect"
 	rtdebug "runtime/debug"
@@ -70,8 +69,9 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/sliceutils"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
+	"github.com/gofiber/template/html/v3"
 	"github.com/joho/godotenv"
 )
 
@@ -80,6 +80,10 @@ const (
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
+)
+
+const (
+	skeyParamKey = "skey" // Parameter key used for site key in url path.
 )
 
 const (
@@ -142,8 +146,9 @@ var (
 )
 
 var (
-	errInvalidBody = errors.New("invalid body")
-	errInvalidJSON = errors.New("invalid JSON")
+	errInvalidBody   = errors.New("invalid body")
+	errInvalidJSON   = errors.New("invalid JSON")
+	errInvalidFormat = errors.New("invalid format")
 )
 
 var (
@@ -226,13 +231,21 @@ func main() {
 	ctx := context.Background()
 	setup(ctx)
 
+	// Setup template rendering.
+	engine := setupTemplating()
+
 	// Build the Fiber application.
-	app := fiber.New()
+	app := fiber.New(fiber.Config{Views: engine})
+
+	encryptCookies(ctx, app)
 
 	// Serve static files from the "s" directory.
 	app.Static("/s", "./s")
+
 	// Except for favicon.ico.
-	app.Get("/favicon.ico", adaptor.HTTPHandlerFunc(faviconHandler))
+	app.Get("/favicon.ico", func(c *fiber.Ctx) error {
+		return c.SendFile("./favicon.ico")
+	})
 
 	// Get shared cronSecret.
 	var err error
@@ -247,51 +260,73 @@ func main() {
 		return nil
 	})
 
-	// User requests.
-	// TODO: convert these handlers to fiber handlers instead of just adapting them.
-	// New handlers should be fiber handlers.
-	app.All("/search", searchHandler)
-	app.Post("/play/audiorequest", filterHandler)
-	app.All("/play", playHandler)
-	app.All("/learn/mooring", adaptor.HTTPHandlerFunc(mooringHandler))
-	app.All("/upload", adaptor.HTTPHandlerFunc(uploadHandler))
-	app.All("/set/devices/edit/var", adaptor.HTTPHandlerFunc(editVarHandler))
-	app.All("/set/devices/edit/sensor", adaptor.HTTPHandlerFunc(editSensorHandler))
-	app.All("/set/devices/edit/actuator", adaptor.HTTPHandlerFunc(editActuatorHandler))
-	app.All("/set/devices/edit/calibrate", adaptor.HTTPHandlerFunc(calibrateDevicesHandler))
-	app.All("/set/devices/edit", adaptor.HTTPHandlerFunc(editDevicesHandler))
-	app.All("/set/devices/vars", adaptor.HTTPHandlerFunc(setDevicesVars))
-	app.All("/set/devices/*", adaptor.HTTPHandlerFunc(setDevicesHandler))
-	app.All("/set/crons/edit", adaptor.HTTPHandlerFunc(editCronsHandler))
-	app.All("/set/crons/*", adaptor.HTTPHandlerFunc(setCronsHandler))
-	app.All("/get", adaptor.HTTPHandlerFunc(getHandler))
-	app.All("/test/*", adaptor.HTTPHandlerFunc(testHandler))
-	app.All("/login", adaptor.HTTPHandlerFunc(loginHandler))
-	app.All("/logout", adaptor.HTTPHandlerFunc(logoutHandler))
-	app.All("/oauth2callback", adaptor.HTTPHandlerFunc(oauthCallbackHandler))
-	app.All("/live/*", adaptor.HTTPHandlerFunc(liveHandler))
-	app.All("/monitor", adaptor.HTTPHandlerFunc(monitorHandler))
-	app.All("/admin/site/add", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/site/update", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/site/delete", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/user/add", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/user/update", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/user/delete", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/site", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/broadcast", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/tv-overview", adaptor.HTTPHandlerFunc(tvOverviewHandler))
-	app.All("/admin/missioncontrol", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/mediamanager", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/admin/sandbox/configure", adaptor.HTTPHandlerFunc(configDevicesHandler))
-	app.All("/admin/sandbox", adaptor.HTTPHandlerFunc(sandboxHandler))
-	app.All("/admin/utils", adaptor.HTTPHandlerFunc(adminHandler))
-	app.All("/data/*", adaptor.HTTPHandlerFunc(dataHandler))
-	app.All("/throughputs", adaptor.HTTPHandlerFunc(throughputsHandler))
-	app.All("/logs", adaptor.HTTPHandlerFunc(logPageHandler))
-	app.All("/", adaptor.HTTPHandlerFunc(indexHandler))
-
 	// Setup routes for the API, ie. /api requests.
 	setupAPIRoutes(app)
+
+	// User requests.
+	app.All("/learn/mooring", mooringHandler)
+	app.All("/upload", uploadHandler)
+	app.All("/get", getHandler)
+	app.All("/test/*", testHandler)
+	app.All("/login", loginHandler)
+	app.All("/logout", logoutHandler)
+	app.All("/oauth2callback", oauthCallbackHandler)
+	app.All("/live/:broadcastName", liveHandler)
+	app.All("/admin/site/add", adminHandler)
+	app.All("/data/*", dataHandler)
+	app.All("/throughputs", throughputsHandler)
+	app.All("/logs", logPageHandler)
+
+	// Handle paths with prefixed site keys.
+	app.Group("/:"+skeyParamKey).
+		All("/search", searchHandler).
+		All("/monitor", monitorHandler).
+		Post("/play/audiorequest", filterHandler).
+		All("/play", playHandler).
+
+		// Settings.
+		All("/set/devices/edit/var", editVarHandler).
+		All("/set/devices/edit/sensor", editSensorHandler).
+		All("/set/devices/edit/actuator", editActuatorHandler).
+		All("/set/devices/edit/calibrate", calibrateDevicesHandler).
+		All("/set/devices/edit", editDevicesHandler).
+		All("/set/devices/vars", setDevicesVars).
+		Get("/set/devices/*", setDevicesHandler).
+		All("/set/crons/edit", editCronsHandler).
+		All("/set/crons/*", setCronsHandler).
+
+		// Admin/Site
+		Post("/admin/site/update", adminHandler).
+		Post("/admin/site/delete", adminHandler).
+		Get("/admin/site", adminSiteHandler).
+
+		// Admin/User.
+		Post("/admin/user/add", adminHandler).
+		Post("/admin/user/update", adminHandler).
+		Post("/admin/user/delete", adminHandler).
+
+		// Admin/Utils.
+		All("/admin/utils", adminHandler).
+
+		// Admin/Broadcast.
+		All("/admin/broadcast", broadcastHandler).
+
+		// Superadmin tools.
+		Get("/admin/tv-overview", tvOverviewHandler).
+		Get("/admin/missioncontrol", missionControlHandler).
+		All("/admin/mediamanager", mediaManagerHandler).
+
+		// Sandbox tools.
+		All("/admin/sandbox/configure", configDevicesHandler).
+		Get("/admin/sandbox", sandboxHandler).
+
+		// Device/Site Logs.
+		All("/logs", logPageHandler).
+
+		// Index.
+		All("/*", indexHandler)
+
+	app.All("/*", indexHandler)
 
 	if standalone {
 		// Location and GPS only apply in standalone mode.
@@ -319,7 +354,7 @@ func main() {
 	} else {
 		log.Printf("Initializing OAuth2")
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-		auth.Init(backend.NewNetHandler(nil, nil, nil))
+		auth.Init(backend.NewFiberHandler(nil))
 
 		// If we are running in app engine mode locally, we want to request data
 		// from the local instance.
@@ -335,6 +370,31 @@ func main() {
 	log.Printf("Sending cron requests to %s", cronURL)
 	log.Printf("Sending TV requests to %s", tvURL)
 	log.Fatal(app.Listen(fmt.Sprintf("%s:%d", host, port)))
+}
+
+func setupTemplating() *html.Engine {
+	templateDir := "cmd/oceanbench/t"
+	if standalone || os.Getenv("GAE_ENV") == "" {
+		templateDir = "t"
+	}
+	engine := html.New(templateDir, ".html")
+	engine.AddFuncMap(templateFuncs)
+	return engine
+}
+
+// encryptCookies encrypts all cookies in the fiber app with the project's
+// secret key. This must be called before any middleware or handlers that access
+// cookies are setup.
+//
+// All errors are considered fatal.
+func encryptCookies(ctx context.Context, app *fiber.App) {
+	key, err := gauth.GetSecret(ctx, projectID, "sessionKey")
+	if err != nil {
+		log.Fatalf("unable to get sessionKey secret: %v", err)
+	}
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: key[0:32],
+	}))
 }
 
 // setup executes per-instance one-time warmup and is used to
@@ -354,19 +414,6 @@ func setup(ctx context.Context) {
 	}
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
-	}
-
-	templateDir := "cmd/oceanbench/t"
-	if standalone || os.Getenv("GAE_ENV") == "" {
-		templateDir = "t"
-	}
-	templates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/*.html")
-	if err != nil {
-		log.Fatalf("error parsing templates: %v", err)
-	}
-	setTemplates, err = template.New("").Funcs(templateFuncs).ParseGlob(templateDir + "/set/*.html")
-	if err != nil {
-		log.Fatalf("error parsing set templates: %v", err)
 	}
 }
 
@@ -428,92 +475,99 @@ func setupLocal(ctx context.Context, store datastore.Store) error {
 	return err
 }
 
-// faviconHandler serves favicon.ico.
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "favicon.ico")
-}
-
 // indexHandler handles requests for the home page and unimplemented pages.
 // Signed-in users are presented with a list of their sites.
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+//
+// Requests without signed in user are redirected to "/" and rendered.
+// Requests to / are redirected with prefixed default skey
+// Invalid requests are redirected to index with prefixed default skey
+func indexHandler(c *fiber.Ctx) error {
+	logRequest(c)
 
-	if r.URL.Path != "/" {
-		// Redirect all invalid URLs to the root homepage.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
-	profile, err := getProfile(w, r)
+	profile, err := getProfile(c)
 	data := commonData{
-		Pages:   pages("home"),
+		Pages:   pages(c, "home"),
 		Profile: profile,
 	}
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeTemplate(w, r, "index.html", &data, "")
-		return
+		if c.Path() != "/" {
+			// Clear the URL if not the root URL.
+			return c.Redirect("/", fiber.StatusSeeOther)
+		}
+		writeTemplate(c, "index.html", &data, "")
+		return nil
 	}
 
-	writeTemplate(w, r, "index.html", &data, "")
-}
+	skey, err := c.ParamsInt(skeyParamKey)
+	if err != nil {
+		// Get the default skey and redirect.
+		skey, err := getDefaultSkey(c.UserContext(), profile)
+		if err != nil {
+			// This should never happen, and if it does we likely can't recover.
+			log.Panicf("unable to get default skey: %v", err)
+		}
+		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
+	}
 
-// warmupHandler handles warmup requests. It is a no-op that simply ensures that the intance is loaded.
-func warmupHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	w.Write([]byte{})
+	if c.Params("*") != "" {
+		// Redirect to /:skey
+		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
+	}
+
+	writeTemplate(c, "index.html", &data, "")
+	return nil
 }
 
 // getHandler handles media and text requests, depending on the pin type.
 // Requires read permission for the requested media, otherwise permission is denied.
 // The user need not be logged in to access public sites.
 // When no output is specified, media data is downloaded to the client.
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func getHandler(c *fiber.Ctx) error {
+	logRequest(c)
 
-	p, _ := getProfile(w, r) // Ignore errors, since users need not be logged in.
+	p, _ := getProfile(c) // Ignore errors, since users need not be logged in.
 
-	q := r.URL.Query()
-	id := q.Get("id")
+	id := c.Query("id")
 	mid, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		writeError(w, errInvalidMID)
-		return
+		writeError(c, errInvalidMID)
+		return err
 	}
 
-	t := q.Get("ts")
+	t := c.Query("ts")
 	var ts []int64
 	if t != "" {
 		ts, err = splitTimestamps(t, false)
 		if err != nil {
-			writeError(w, errInvalidTimestamp)
-			return
+			writeError(c, errInvalidTimestamp)
+			return err
 		}
 	}
 
-	k := q.Get("ky")
+	k := c.Query("ky")
 	var ky []uint64
 	if k != "" {
 		ky, err = splitUints(k)
 		if err != nil {
-			writeError(w, errInvalidKey)
-			return
+			writeError(c, errInvalidKey)
+			return err
 		}
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	setup(ctx)
 
 	ok, err := hasPermission(ctx, p, mid, model.ReadPermission)
 	if err != nil {
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
 	if !ok {
-		writeError(w, errPermissionDenied)
-		return
+		writeError(c, errPermissionDenied)
+		return err
 	}
 
 	var content []byte
@@ -522,10 +576,10 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	_, pin := model.FromMID(mid)
 	switch pin[0] {
 	case 'V', 'S':
-		content, mime, err = getMedia(w, r, mid, ts, ky)
+		content, mime, err = getMedia(c, mid, ts, ky)
 		if err != nil {
-			writeError(w, fmt.Errorf("could not get media: %w", err))
-			return
+			writeError(c, fmt.Errorf("could not get media: %w", err))
+			return err
 		}
 
 		if mime == "video/mp2t" {
@@ -542,10 +596,10 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		name = split[0] + "." + split[0]
 
 	case 'T':
-		content, mime, err = getText(r, mid, ts, ky)
+		content, mime, err = getText(c, mid, ts, ky)
 		if err != nil {
-			writeError(w, fmt.Errorf("could not get text: %w", err))
-			return
+			writeError(c, fmt.Errorf("could not get text: %w", err))
+			return err
 		}
 
 		if mime == "application/json" {
@@ -556,10 +610,13 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		name = "data.txt"
 
 	default:
-		writeError(w, fmt.Errorf("unknown pin type: %v", pin[0]))
+		err := fmt.Errorf("unknown pin type: %v", pin[0])
+		writeError(c, err)
+		return err
 	}
 
-	writeData(w, content, mime, name)
+	writeData(c, content, mime, name)
+	return nil
 }
 
 // hasPermission returns true if the user has the requested media
@@ -597,74 +654,28 @@ func hasPermission(ctx context.Context, p *gauth.Profile, mid, perm int64) (bool
 	return perm&user.Perm != 0, nil
 }
 
-// writeTemplate writes the given template with the supplied data,
-// populating some common properties.
-func writeTemplate(w http.ResponseWriter, r *http.Request, name string, data interface{}, msg string) {
-	profile, _ := getProfile(w, r)
-	v := reflect.Indirect(reflect.ValueOf(data))
-	p := v.FieldByName("Standalone")
-	if p.IsValid() {
-		p.SetBool(standalone)
-	}
-	p = v.FieldByName("Debug")
-	if p.IsValid() {
-		p.SetBool(debug)
-	}
-	p = v.FieldByName("Version")
-	if p.IsValid() {
-		p.SetString(version)
-	}
-	p = v.FieldByName("CommitHash")
-	if p.IsValid() {
-		p.SetString(commitHash)
-	}
-	p = v.FieldByName("Msg")
-	if p.IsValid() {
-		p.SetString(msg)
-	}
-	p = v.FieldByName("Profile")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf(profile))
-	}
-	skey, _ := requestSiteData(r, profile)
-	p = v.FieldByName("CurrentSiteKey")
-	if p.IsValid() {
-		p.SetInt(skey)
-	}
-	p = v.FieldByName("SuperAdmin")
-	if p.IsValid() {
-		if profile == nil {
-			p.SetBool(false)
-		} else {
-			p.SetBool(isSuperAdmin(profile.Email))
-		}
-	}
-	p = v.FieldByName("LoginURL")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf("/login?redirect=" + r.URL.RequestURI()))
-	}
-	p = v.FieldByName("LogoutURL")
-	if p.IsValid() {
-		p.Set(reflect.ValueOf("/logout?redirect=" + r.URL.RequestURI()))
-	}
-
-	if strings.HasPrefix(name, "set/") {
-		err := setTemplates.ExecuteTemplate(w, name[4:], data)
+// getCurrentSkey returns the current site key. This goes in order of:
+// 1. From the URL.
+// 2. The user's default site key.
+func getCurrentSkey(c *fiber.Ctx, profile *gauth.Profile) (int64, error) {
+	// First try to get from the URL param.
+	var skey int64
+	skFromParam := c.Params(skeyParamKey)
+	skey, err := strconv.ParseInt(skFromParam, 10, 64)
+	if err != nil {
+		log.Printf("unable to get skey from URL param: %v", err)
+		skey, err = getDefaultSkey(c.UserContext(), profile)
 		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	} else {
-		err := templates.ExecuteTemplate(w, name, data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
+			return -1, fmt.Errorf("unable to get default skey: %v", err)
 		}
 	}
+	return skey, nil
 }
 
-// writeTemplateFiber writes the given template with the supplied data,
+// writeTemplate writes the given template with the supplied data,
 // populating some common properties.
-func writeTemplateFiber(c *fiber.Ctx, name string, data interface{}, msg string) {
-	profile, _ := getProfileFiber(c)
+func writeTemplate(c *fiber.Ctx, name string, data interface{}, msg string) error {
+	profile, _ := getProfile(c)
 	v := reflect.Indirect(reflect.ValueOf(data))
 	p := v.FieldByName("Standalone")
 	if p.IsValid() {
@@ -690,7 +701,7 @@ func writeTemplateFiber(c *fiber.Ctx, name string, data interface{}, msg string)
 	if p.IsValid() {
 		p.Set(reflect.ValueOf(profile))
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, _ := getCurrentSkey(c, profile)
 	p = v.FieldByName("CurrentSiteKey")
 	if p.IsValid() {
 		p.SetInt(skey)
@@ -712,41 +723,32 @@ func writeTemplateFiber(c *fiber.Ctx, name string, data interface{}, msg string)
 		p.Set(reflect.ValueOf("/logout?redirect=" + c.OriginalURL()))
 	}
 
-	c.Type("html")
-	if strings.HasPrefix(name, "set/") {
-		err := setTemplates.ExecuteTemplate(c, name[4:], data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	} else {
-		err := templates.ExecuteTemplate(c, name, data)
-		if err != nil {
-			log.Fatalf("ExecuteTemplate failed on %s: %v", name, err)
-		}
-	}
+	name, _ = strings.CutSuffix(name, ".html")
+	return c.Render(name, data)
 }
 
 // pages returns a copy of the app's pages, selecting the one that matches selected.
-func pages(selected string) []page {
+func pages(c *fiber.Ctx, selected string) []page {
+	prefix := "/" + c.Params(skeyParamKey)
 	pages := []page{
 		{
 			Name: "home",
-			URL:  "/",
+			URL:  prefix + "/",
 			Perm: model.ReadPermission,
 		},
 		{
 			Name: "search",
-			URL:  "/search",
+			URL:  prefix + "/search",
 			Perm: model.ReadPermission,
 		},
 		{
 			Name: "monitor",
-			URL:  "/monitor",
+			URL:  prefix + "/monitor",
 			Perm: model.ReadPermission,
 		},
 		{
 			Name: "play",
-			URL:  "/play",
+			URL:  prefix + "/play",
 			Perm: model.ReadPermission,
 		},
 		{
@@ -761,13 +763,13 @@ func pages(selected string) []page {
 		},
 		{
 			Name:  "devices",
-			URL:   "/set/devices",
+			URL:   prefix + "/set/devices",
 			Level: 1,
 			Perm:  model.WritePermission,
 		},
 		{
 			Name:  "crons",
-			URL:   "/set/crons",
+			URL:   prefix + "/set/crons",
 			Level: 1,
 			Perm:  model.WritePermission,
 		},
@@ -778,43 +780,43 @@ func pages(selected string) []page {
 		},
 		{
 			Name:  "site",
-			URL:   "/admin/site",
+			URL:   prefix + "/admin/site",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "broadcast",
-			URL:   "/admin/broadcast",
+			URL:   prefix + "/admin/broadcast",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "mission control",
-			URL:   "/admin/missioncontrol",
+			URL:   prefix + "/admin/missioncontrol",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "media manager",
-			URL:   "/admin/mediamanager",
+			URL:   prefix + "/admin/mediamanager",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "configuration",
-			URL:   "/admin/sandbox",
+			URL:   prefix + "/admin/sandbox",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "utilities",
-			URL:   "/admin/utils",
+			URL:   prefix + "/admin/utils",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "logs",
-			URL:   "/logs",
+			URL:   prefix + "/logs",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
@@ -864,14 +866,14 @@ func configJSON(dev *model.Device, vs int64, dk string) (string, error) {
 //	/test/operation/operand
 //
 // Users need not be signed in.
-func testHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-	ctx := r.Context()
+func testHandler(c *fiber.Ctx) error {
+	logRequest(c)
+	ctx := c.UserContext()
 
-	req := strings.Split(r.URL.Path, "/")
+	req := strings.Split(c.Path(), "/")
 	if len(req) < 5 {
-		writeHttpError(w, http.StatusBadRequest, "invalid length of url path")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Errorf("invalid length of url path")})
 	}
 
 	switch req[2] {
@@ -882,57 +884,31 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 			case "1":
 				err := model.PutDevice(ctx, settingsStore, &model.Device{Skey: 1, Mac: 1, Dkey: 10000001, Name: "TestDevice", Inputs: "V0", Enabled: true})
 				if err != nil {
-					writeHttpErrorf(w, http.StatusInternalServerError, "could not put devices: %v", err)
-					return
+					c.Status(fiber.StatusInternalServerError)
+					return c.JSON(fiber.Map{"error": fmt.Errorf("could not put devices: %v", err)})
 				}
-				fmt.Fprint(w, "OK")
-				return
+				_, err = fmt.Fprint(c, "OK")
+				return err
 			}
 		}
 	}
 
-	writeHttpError(w, http.StatusBadRequest, "invalid url path, does not exist")
+	c.Status(fiber.StatusBadRequest)
+	return c.JSON(fiber.Map{"error": fmt.Errorf("invalid url path, does not exist")})
 }
 
 // logRequest logs a request if in debug mode and standalone mode.
 // It does nothing in App Engine mode as App Engine logs requests
 // automatically.
-func logRequest(r *http.Request) {
-	if !(debug || standalone) {
-		return
-	}
-	if r.URL.RawQuery == "" {
-		log.Println(r.URL.Path)
-		return
-	}
-	log.Println(r.URL.Path + "?" + r.URL.RawQuery)
-}
-
-// logRequestFiber logs a request if in debug mode and standalone mode.
-// It does nothing in App Engine mode as App Engine logs requests
-// automatically.
-func logRequestFiber(c *fiber.Ctx) {
+func logRequest(c *fiber.Ctx) {
 	if !(debug || standalone) {
 		return
 	}
 	log.Println(c.OriginalURL())
 }
 
-// writeError writes an error in JSON format.
-func writeError(w http.ResponseWriter, err error) {
-	w.Header().Add("Content-Type", "application/json")
-	err2 := json.NewEncoder(w).Encode(map[string]string{"er": err.Error()})
-	if err2 != nil {
-		log.Printf("failed to write error (%v): %v", err, err2)
-		return
-	}
-	if debug {
-		log.Println("Wrote error: " + err.Error())
-	}
-}
-
-// writeErrorFiber c JSON format.
-func writeErrorFiber(c *fiber.Ctx, err error) {
+// writeError c JSON format.
+func writeError(c *fiber.Ctx, err error) {
 	err2 := c.JSON(fiber.Map{"er": err.Error()})
 	if err2 != nil {
 		log.Printf("failed to write error (%v): %v", err, err2)
@@ -941,14 +917,4 @@ func writeErrorFiber(c *fiber.Ctx, err error) {
 	if debug {
 		log.Println("Wrote error: " + err.Error())
 	}
-}
-
-// writeHttpError writes an HTTP error response with the given status code and plain message.
-func writeHttpError(w http.ResponseWriter, code int, msg string) {
-	http.Error(w, fmt.Sprintf("%s: %s", http.StatusText(code), msg), code)
-}
-
-// writeHttpErrorf writes an HTTP error response with the given status code and a formatted message.
-func writeHttpErrorf(w http.ResponseWriter, code int, format string, args ...interface{}) {
-	http.Error(w, fmt.Sprintf("%s: ", http.StatusText(code))+fmt.Sprintf(format, args...), code)
 }

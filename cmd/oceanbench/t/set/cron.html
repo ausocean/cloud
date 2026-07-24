@@ -13,11 +13,11 @@
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
-    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
         <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
-          <a {{ if .URL }}href="{{ .URL }}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
         {{- end }}
       </nav-menu>
@@ -44,9 +44,9 @@
           <span class="td half">Enabled</span>
         </div>
         {{ range $c := .Crons }}
-        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
+        <cron-settings class="w-100" id="{{.ID}}" time="{{ .FormatTime $.Timezone }}" skey="{{$.CurrentSiteKey}}" action="{{.Action}}" value="{{.Data}}" {{if .Enabled}}enabled{{end}} var="{{.Var}}"></cron-settings>
         {{ end }}
-        <cron-settings class="w-100" new-cron></cron-settings>
+        <cron-settings class="w-100" new-cron skey="{{$.CurrentSiteKey}}"></cron-settings>
       </div>
     </section>
     <site-footer version="{{ .Version }}" commit="{{ .CommitHash }}" {{ if .SuperAdmin }}superadmin{{ end }}></site-footer>

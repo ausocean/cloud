@@ -14,11 +14,11 @@
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
-    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
         <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
-          <a {{ if .URL }}href="{{ .URL }}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
         {{- end }}
       </nav-menu>
@@ -41,7 +41,7 @@
           <span value="{{ .Device.MAC }}" {{ if eq .Device.MAC $.Ma }}selected{{ end }}>
             <span class="monitor-title">
               {{ if $.WritePerm }}
-              <a href="/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>
+              <a href="/{{ $.CurrentSiteKey }}/set/devices/?ma={{ .Device.MAC }}">{{ .Device.Name }}</a>
               {{ else }} {{ .Device.Name }} {{ end }}
             </span>
             ({{ .Device.MAC }})
@@ -64,7 +64,7 @@
           <hr />
           <span>
             <div class="d-flex align-items-start">
-              <a href="/search?ma={{ $mac }}&pn={{ .Pin }}"><i class="material-icons">search</i></a>
+              <a href="/{{ $.CurrentSiteKey }}/search?ma={{ $mac }}&pn={{ .Pin }}"><i class="material-icons">search</i></a>
               <span class="monitor-title">{{ .Name }}</span>
             </div>
             <br />

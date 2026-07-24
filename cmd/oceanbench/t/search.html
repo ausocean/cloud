@@ -262,22 +262,15 @@
           results.classList.add("flex-column")
         }
       }
-      function submitFormWithSiteParam(el) {
-        let form = el.closest('form');
-        if (form) {
-          form.action = window.location.href;
-          form.submit();
-        }
-      }
     </script>
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body onload="init()">
-    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
         <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
-          <a {{ if .URL }}href="{{ .URL }}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
         {{- end }}
       </nav-menu>
@@ -293,14 +286,14 @@
       <br />
       {{ end }}
       <h1 class="container-md">Search</h1>
-      <form class="border rounded p-4 container-md bg-white" action="/search" enctype="multipart/form-data" method="post" id="search" onsubmit="event.preventDefault();">
+      <form class="border rounded p-4 container-md bg-white" action="/{{.CurrentSiteKey}}/search" enctype="multipart/form-data" method="post" id="search" onsubmit="event.preventDefault();">
         <input type="hidden" name="search" value="false" />
         <input type="hidden" name="export" value="false" />
         <fieldset>
           <legend>Input source</legend>
           <div class="d-flex align-items-center gap-2">
               <label style="width: 60px;">Device:</label>
-              <select class="form-select form-select-sm w-100" name="ma" onchange="submitFormWithSiteParam(this);">
+              <select class="form-select form-select-sm w-100" name="ma" onchange="this.form.submit();">
                 <option value="" selected>- Select device -</option>
                 {{ range .Devices }}
                 <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
@@ -310,7 +303,7 @@
             {{ if .Device }}
             <div class="d-flex align-items-center gap-2">
               <label style="width: 60px;">Pin:</label>
-              <select class="form-select form-select-sm" name="pn" onchange="submitFormWithSiteParam(this);">
+              <select class="form-select form-select-sm" name="pn" onchange="this.form.submit();">
                 <option value="" selected>- Select pin -</option>
                 {{ range .Device.InputList }}
                 <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
@@ -368,7 +361,7 @@
           {{- else if eq $pn "T0" -}}
           <div class="d-flex align-items-center">
             <label>Log level:</label>
-            <select class="form-select form-select-sm w-25" name="lv" onchange="submitFormWithSiteParam(this)">
+            <select class="form-select form-select-sm w-25" name="lv" onchange="this.form.submit();">
               {{$all := "all"}} {{$info := "info"}} {{$warning := "warning"}} {{$error := "error"}} {{$fatal := "fatal"}}
               <option value="all" {{if eq .Lv $all}}selected{{- end}}>All logs</option>
               <option value="info" {{if eq .Lv $info}}selected{{- end}}>Info level or above</option>
@@ -383,7 +376,7 @@
           <div class="d-flex flex-column">
             <div class="d-flex align-items-center mb-2">
               <label>Resolution:</label>
-              <input name="resolution" type="input" onchange="submitFormWithSiteParam(this);" value="{{ if .Resolution }}{{ .Resolution }}{{ else }}60{{ end }}" />
+              <input name="resolution" type="input" onchange="this.form.submit();" value="{{ if .Resolution }}{{ .Resolution }}{{ else }}60{{ end }}" />
               pts/hour
               <br />
             </div>
