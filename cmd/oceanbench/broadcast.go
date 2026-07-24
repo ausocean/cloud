@@ -202,7 +202,16 @@ func broadcastHandler(c *fiber.Ctx) error {
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	sKey, _ := requestSiteData(c, profile)
+	sKey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
+	ctx := c.UserContext()
+	if !isAdmin(ctx, sKey, profile.Email) {
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
 
 	req := broadcastRequest{
 		commonData: commonData{
@@ -267,8 +276,6 @@ func broadcastHandler(c *fiber.Ctx) error {
 			return nil
 		}
 	}
-
-	ctx := c.UserContext()
 
 	cfg := &req.CurrentBroadcast
 

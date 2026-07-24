@@ -273,7 +273,6 @@ func main() {
 	app.All("/oauth2callback", oauthCallbackHandler)
 	app.All("/live/:broadcastName", liveHandler)
 	app.All("/admin/site/add", adminHandler)
-	app.All("/admin/broadcast", adminHandler)
 	app.All("/admin/tv-overview", tvOverviewHandler)
 	app.All("/admin/missioncontrol", adminHandler)
 	app.All("/admin/mediamanager", adminHandler)
@@ -311,6 +310,9 @@ func main() {
 		Post("/admin/user/add", adminHandler).
 		Post("/admin/user/update", adminHandler).
 		Post("/admin/user/delete", adminHandler).
+
+		// Admin/Broadcast.
+		All("/admin/broadcast", broadcastHandler).
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -773,7 +775,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "broadcast",
-			URL:   "/admin/broadcast",
+			URL:   prefix + "/admin/broadcast",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
