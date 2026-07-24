@@ -273,9 +273,6 @@ func main() {
 	app.All("/oauth2callback", oauthCallbackHandler)
 	app.All("/live/:broadcastName", liveHandler)
 	app.All("/admin/site/add", adminHandler)
-	app.All("/admin/tv-overview", tvOverviewHandler)
-	app.All("/admin/missioncontrol", adminHandler)
-	app.All("/admin/mediamanager", adminHandler)
 	app.All("/admin/sandbox/configure", configDevicesHandler)
 	app.All("/admin/sandbox", sandboxHandler)
 	app.All("/admin/utils", adminHandler)
@@ -313,6 +310,13 @@ func main() {
 
 		// Admin/Broadcast.
 		All("/admin/broadcast", broadcastHandler).
+
+		// Superadmin tools.
+		Get("/admin/tv-overview", tvOverviewHandler).
+		Get("/admin/missioncontrol", missionControlHandler).
+		All("/admin/mediamanager", mediaManagerHandler).
+
+		// Index.
 		All("/*", indexHandler)
 
 	app.All("/*", indexHandler)
@@ -781,13 +785,13 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "mission control",
-			URL:   "/admin/missioncontrol",
+			URL:   prefix + "/admin/missioncontrol",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
 		{
 			Name:  "media manager",
-			URL:   "/admin/mediamanager",
+			URL:   prefix + "/admin/mediamanager",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},

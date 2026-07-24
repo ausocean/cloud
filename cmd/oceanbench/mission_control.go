@@ -27,13 +27,31 @@ LICENSE
 package main
 
 import (
+	"errors"
+	"log"
+
 	"github.com/ausocean/cloud/gauth"
 	"github.com/gofiber/fiber/v2"
 )
 
 // missionControlHandler handles mission control page requests.
-func missionControlHandler(c *fiber.Ctx, profile *gauth.Profile) error {
-	data := monitorData{commonData: commonData{Pages: pages(c, "mission control"), Profile: profile}}
+func missionControlHandler(c *fiber.Ctx) error {
+	logRequest(c)
+
+	p, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	if !isSuperAdmin(p.Email) {
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	data := monitorData{commonData: commonData{Pages: pages(c, "mission control"), Profile: p}}
 	writeTemplate(c, "mission-control.html", &data, "")
 	return nil
 }
