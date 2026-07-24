@@ -205,7 +205,7 @@ class SiteMenu extends LitElement {
       targetUrl = targetUrl.replace(this.skey.toString(), selectedKey)
 
       if (Number(selectedKey) == SandboxSkey) {
-        window.location.assign("/admin/sandbox");
+        window.location.assign(`/${SandboxSkey}/admin/sandbox`);
         return;
       }
       window.location.assign(targetUrl);
