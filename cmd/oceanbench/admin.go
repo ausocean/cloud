@@ -87,7 +87,7 @@ func adminHandler(c *fiber.Ctx) error {
 	setup(ctx)
 
 	// Adding a new site requires the user to be a super admin.
-	if c.Path() == "/admin/site/add" {
+	if c.Route().Path == "/admin/site/add" {
 		if !isSuperAdmin(p.Email) {
 			return c.Redirect("/", fiber.StatusUnauthorized)
 		}
@@ -100,17 +100,10 @@ func adminHandler(c *fiber.Ctx) error {
 
 		switch c.Method() {
 		case "GET":
-			writeTemplate(c, "register.html", &data, "")
-			return nil
+			return writeTemplate(c, "register.html", &data, "")
 
 		case "POST":
-			err = addSite(c, p)
-			if err != nil {
-				writeTemplate(c, "register.html", &data, err.Error())
-				return err
-			} else {
-				return c.Redirect("/admin", fiber.StatusFound)
-			}
+			return addSite(c, p, &data)
 
 		default:
 			return c.Redirect("/", fiber.StatusMethodNotAllowed)
@@ -120,7 +113,7 @@ func adminHandler(c *fiber.Ctx) error {
 	// Require POST method, except for admin landing pages.
 	if c.Method() != "POST" {
 		switch c.Path() {
-		case "/admin/site", "/admin/broadcast", "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
+		case "/admin/broadcast", "/admin/missioncontrol", "/admin/mediamanager", "/admin/utils":
 			// Okay.
 		default:
 			return c.Redirect("/", fiber.StatusMethodNotAllowed)
@@ -128,26 +121,27 @@ func adminHandler(c *fiber.Ctx) error {
 	}
 
 	// The following tasks all require admin privilege.
-	skey, _ := requestSiteData(c, p)
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 	if !isAdmin(ctx, skey, p.Email) {
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	switch c.Path() {
-	case "/admin/site/update":
-		err = updateSite(c, p)
+	switch c.Route().Path {
+	case "/:skey/admin/site/update":
+		return updateSite(c, p)
 
-	case "/admin/site/delete":
-		err = deleteSite(c, p)
-		if err == nil {
-			return c.Redirect("/", fiber.StatusFound)
-		}
+	case "/:skey/admin/site/delete":
+		return deleteSite(c, p)
 
-	case "/admin/user/add", "/admin/user/update":
-		err = updateUser(c, p)
+	case "/:skey/admin/user/add", "/:skey/admin/user/update":
+		return updateUser(c, p)
 
-	case "/admin/user/delete":
-		err = deleteUser(c, p)
+	case "/:skey/admin/user/delete":
+		return deleteUser(c, p)
 
 	case "/admin/broadcast":
 		return broadcastHandler(c)
@@ -167,26 +161,38 @@ func adminHandler(c *fiber.Ctx) error {
 	case "/admin/utils":
 		return utilsHandler(c, p)
 
-	case "/admin/site":
-		err = nil // Just render the admin page.
-
 	default:
 		err = errors.New("invalid request: " + c.Path())
 	}
 
-	writeAdmin(c, p, err)
-	return nil
+	return writeAdmin(c, p, err)
+}
+
+// adminSiteHandler handles requests to the /admin/site page, and renders the page.
+func adminSiteHandler(c *fiber.Ctx) error {
+	logRequest(c)
+
+	p, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	return writeAdmin(c, p, nil)
 }
 
 // addSite creates a new site and its first associated admin user.
 // Sites are created as private sites initially.
-func addSite(c *fiber.Ctx, p *gauth.Profile) error {
+func addSite(c *fiber.Ctx, p *gauth.Profile, data *adminData) error {
 	ctx := c.UserContext()
 
 	// Create a new site, with just a name.
 	sn := c.FormValue("sn")
 	if sn == "" {
-		return errors.New("empty site name")
+		return writeTemplate(c, "register.html", data, "empty site name")
 	}
 
 	var skey int64
@@ -199,7 +205,7 @@ func addSite(c *fiber.Ctx, p *gauth.Profile) error {
 			break
 		}
 		if err != datastore.ErrEntityExists {
-			return fmt.Errorf("cannot create site: %w", err)
+			return writeTemplate(c, "register.html", data, fmt.Sprintf("cannot create site: %v", err))
 		}
 	}
 
@@ -207,10 +213,10 @@ func addSite(c *fiber.Ctx, p *gauth.Profile) error {
 	user := model.User{Skey: skey, Email: p.Email, Perm: model.ReadPermission | model.WritePermission | model.AdminPermission, Created: time.Now()}
 	err := model.PutUser(ctx, settingsStore, &user)
 	if err != nil {
-		return fmt.Errorf("cannot create user: %w", err)
+		return writeTemplate(c, "register.html", data, fmt.Sprintf("cannot create user: %v", err))
 	}
 
-	return putProfileData(c, strconv.FormatInt(skey, 10)+":"+sn)
+	return c.Redirect(fmt.Sprintf("/%d/admin/site", skey), fiber.StatusSeeOther)
 }
 
 // location represents a latitude, longitude, altitude tuple.
@@ -296,26 +302,30 @@ func parseLocation(s string) (location, error) {
 // vn: version
 // er: error (results in a client-side netsender.ServerError)
 func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteData(c, p)
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 	name := c.FormValue("sn")
 	if name == "" {
-		return errors.New("empty site name")
+		return writeAdmin(c, p, fmt.Errorf("empty site name"))
 	}
 	desc := c.FormValue("sd")
 	org := c.FormValue("org")
 	tz, err := strconv.ParseFloat(c.FormValue("tz"), 64)
 	if err != nil {
-		return fmt.Errorf("invalid timezone: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("invalid timezone: %w", err))
 	}
 	ll, err := parseLocation(c.FormValue("ll"))
 	if err != nil {
-		return fmt.Errorf("invalid location: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("invalid location: %w", err))
 	}
 	ops := c.FormValue("ops")
 	yt := c.FormValue("yt")
 	np, err := strconv.ParseInt(c.FormValue("np"), 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid notify period: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("invalid notify period: %w", err))
 	}
 	pb := c.FormValue("pb") != ""
 	cf := c.FormValue("cf") != ""
@@ -324,7 +334,7 @@ func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
 	ctx := c.UserContext()
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		return fmt.Errorf("cannot get site: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot get site: %w", err))
 	}
 
 	site.Skey = skey // Immutable!
@@ -342,80 +352,88 @@ func updateSite(c *fiber.Ctx, p *gauth.Profile) error {
 	site.Enabled = en
 	err = model.PutSite(ctx, settingsStore, site)
 	if err != nil {
-		return fmt.Errorf("cannot put site: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot put site: %w", err))
 	}
 
-	return nil
+	// Redirect to base path on success.
+	return c.Redirect(fmt.Sprintf("/%d/admin/site", skey))
 }
 
 // deleteSite deletes the current site and all associated users.
 func deleteSite(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteData(c, p)
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 	ctx := c.UserContext()
 
-	err := model.DeleteSite(ctx, settingsStore, skey)
+	err = model.DeleteSite(ctx, settingsStore, skey)
 	if err != nil {
-		return fmt.Errorf("cannot delete site: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot delete site: %w", err))
 	}
 
 	users, err := model.GetUsersBySite(ctx, settingsStore, skey)
 	if err != nil {
-		return fmt.Errorf("cannot get users: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot get users: %w", err))
 	}
 
 	for _, user := range users {
 		err = model.DeleteUser(ctx, settingsStore, skey, user.Email)
 		if err != nil {
-			return fmt.Errorf("cannot delete user: %w", err)
+			return writeAdmin(c, p, fmt.Errorf("cannot delete user: %w", err))
 		}
 	}
 
-	putProfileData(c, "") // Deselect the site.
-
-	return nil
+	return c.Redirect("/", fiber.StatusFound)
 }
 
 // updateUser creates or updates a site user.
 func updateUser(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteData(c, p)
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	email := c.FormValue("email")
 	perm, err := strconv.ParseInt(c.FormValue("perm"), 10, 64)
 	if err != nil {
-		return fmt.Errorf("cannot parse permission: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot parse permission: %w", err))
 	}
 	user := model.User{Skey: skey, Email: email, Perm: perm, Created: time.Now()}
 	err = model.PutUser(c.UserContext(), settingsStore, &user)
 	if err != nil {
-		return fmt.Errorf("cannot put user: %w", err)
+		return writeAdmin(c, p, fmt.Errorf("cannot put user: %w", err))
 	}
 
-	return nil
+	return c.Redirect(fmt.Sprintf("/%d/admin/Site", skey), fiber.StatusSeeOther)
 }
 
 // deleteUser deletes a site user.
 func deleteUser(c *fiber.Ctx, p *gauth.Profile) error {
-	skey, _ := requestSiteData(c, p)
-
-	email := c.FormValue("email")
-	err := model.DeleteUser(c.UserContext(), settingsStore, skey, email)
+	skey, err := getCurrentSkey(c, p)
 	if err != nil {
-		return fmt.Errorf("cannot delete user: %w", err)
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
 	}
 
-	return nil
+	email := c.FormValue("email")
+	err = model.DeleteUser(c.UserContext(), settingsStore, skey, email)
+	if err != nil {
+		return writeAdmin(c, p, fmt.Errorf("cannot delete user: %w", err))
+	}
+
+	return c.Redirect(fmt.Sprintf("/%d/admin/site", skey), fiber.StatusSeeOther)
 }
 
 // writeAdmin writes the admin page.
-func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
-	skey, _ := requestSiteData(c, p)
-
+func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) error {
 	data := adminData{
 		commonData: commonData{
 			Pages:   pages(c, "site"),
 			Profile: p,
 		},
-		Skey: skey,
 		Roles: []role{
 			{
 				Name: "none",
@@ -437,21 +455,30 @@ func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) {
 	}
 	var msg string
 	if err != nil {
+		data.Site = &model.Site{} // Prevent nil pointer dereference.
 		msg = err.Error()
+		return writeTemplate(c, "admin.html", &data, msg)
 	}
 
 	ctx := c.UserContext()
 
+	skey, err := getCurrentSkey(c, p)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 	data.Site, err = model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
 		log.Printf("GetSite error: %v", err)
+		return writeTemplate(c, "admin.html", &data, err.Error())
 	}
 	data.SiteUsers, err = model.GetUsersBySite(ctx, settingsStore, skey)
 	if err != nil {
 		log.Printf("GetUsersBySite error: %v", err)
+		return writeTemplate(c, "admin.html", &data, err.Error())
 	}
 
-	writeTemplate(c, "admin.html", &data, msg)
+	return writeTemplate(c, "admin.html", &data, "")
 }
 
 // utilsHandler handles admin utils requests.
