@@ -42,7 +42,7 @@
       <div class="border rounded p-4 container-md bg-white">
         <span class="bold">Device Management</span>
         <hr />
-        <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data" action="/admin/utils" method="post">
+        <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/admin/utils" method="post">
           <div class="d-flex w-50">
             <input name="ma" value="{{ .Ma }}" placeholder="00:00:00:00:00:00" class="w-50" />
             <p class="flex-grow-1 text-center">&rarr;</p>
@@ -52,7 +52,7 @@
           <input type="hidden" name="task" value="find" />
         </form>
 
-        <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data" action="/admin/utils" method="post">
+        <form class="d-flex align-items-center justify-content-between mb-1" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/admin/utils" method="post">
           <div class="d-flex w-50">
             <select name="ma" class="w-50">
               <option value="">- Select device -</option>

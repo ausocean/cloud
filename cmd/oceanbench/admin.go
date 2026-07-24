@@ -112,8 +112,8 @@ func adminHandler(c *fiber.Ctx) error {
 
 	// Require POST method, except for admin landing pages.
 	if c.Method() != "POST" {
-		switch c.Path() {
-		case "/admin/utils":
+		switch c.Route().Path {
+		case "/:skey/admin/utils":
 			// Okay.
 		default:
 			return c.Redirect("/", fiber.StatusMethodNotAllowed)
@@ -143,7 +143,7 @@ func adminHandler(c *fiber.Ctx) error {
 	case "/:skey/admin/user/delete":
 		return deleteUser(c, p)
 
-	case "/admin/utils":
+	case "/:skey/admin/utils":
 		return utilsHandler(c, p)
 
 	default:
