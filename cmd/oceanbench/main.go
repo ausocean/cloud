@@ -320,6 +320,9 @@ func main() {
 		All("/admin/sandbox/configure", configDevicesHandler).
 		Get("/admin/sandbox", sandboxHandler).
 
+		// Device/Site Logs.
+		All("/logs", logPageHandler).
+
 		// Index.
 		All("/*", indexHandler)
 
@@ -813,7 +816,7 @@ func pages(c *fiber.Ctx, selected string) []page {
 		},
 		{
 			Name:  "logs",
-			URL:   "/logs",
+			URL:   prefix + "/logs",
 			Level: 1,
 			Perm:  model.AdminPermission,
 		},
