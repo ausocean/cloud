@@ -26,14 +26,17 @@ LICENSE
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/ausocean/cloud/backend"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
+	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -41,61 +44,55 @@ import (
 var standaloneData string
 
 // loginHandler handles user login requests.
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func loginHandler(c *fiber.Ctx) error {
+	logRequest(c)
 	if standalone {
-		return
+		return nil
 	}
 
-	err := auth.LoginHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	err := auth.LoginHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
+	return nil
 }
 
 // logoutHandler handles user logout requests.
-func logoutHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func logoutHandler(c *fiber.Ctx) error {
+	logRequest(c)
 	if standalone {
-		return
+		return nil
 	}
 
-	err := auth.LogoutHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	err := auth.LogoutHandler(backend.NewFiberHandler(c))
 	if err != nil {
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
+	return nil
 }
 
 // oauthCallbackHandler implements the OAuth2 callback that completes the authentication process.
-func oauthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func oauthCallbackHandler(c *fiber.Ctx) error {
+	logRequest(c)
 	if standalone {
-		return
+		return nil
 	}
-	_, err := auth.CallbackHandler(backend.NewNetHandler(w, r, auth.NetStore))
+	_, err := auth.CallbackHandler(backend.NewFiberHandler(c))
 	log.Println("errors is:", errors.Is(err, &gauth.ErrOauth2RedirectError{}))
 	if errors.Is(err, &gauth.ErrOauth2RedirectError{}) {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
+		return c.Redirect("/", fiber.StatusFound)
 	} else if err != nil {
 		log.Println("got error:", err)
-		writeError(w, err)
-		return
+		writeError(c, err)
+		return err
 	}
+	return nil
 }
 
 // getProfile returns the profile for the logged-in user.
-func getProfile(w http.ResponseWriter, r *http.Request) (*gauth.Profile, error) {
-	if standalone {
-		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
-	}
-	return auth.GetProfile(backend.NewNetHandler(w, r, auth.NetStore))
-}
-
-// getProfileFiber returns the profile for the logged-in user.
-func getProfileFiber(c *fiber.Ctx) (*gauth.Profile, error) {
+func getProfile(c *fiber.Ctx) (*gauth.Profile, error) {
 	if standalone {
 		return &gauth.Profile{Email: localEmail, Data: standaloneData}, nil
 	}
@@ -103,12 +100,12 @@ func getProfileFiber(c *fiber.Ctx) (*gauth.Profile, error) {
 }
 
 // putProfileData puts profile data.
-func putProfileData(w http.ResponseWriter, r *http.Request, val string) error {
+func putProfileData(c *fiber.Ctx, val string) error {
 	if standalone {
 		standaloneData = val
 		return nil
 	}
-	return auth.PutData(backend.NewNetHandler(w, r, auth.NetStore), val)
+	return auth.PutData(backend.NewFiberHandler(c), val)
 }
 
 // profileData extracts site key and name from the given profile.
@@ -130,21 +127,49 @@ func profileData(profile *gauth.Profile) (int64, string) {
 	return key, p[1]
 }
 
-// requestSiteData gets the site key from the request URL if present,
-// otherwise falls back to the user's profile data.
-func requestSiteData(r *http.Request, profile *gauth.Profile) (int64, string) {
-	if siteStr := r.URL.Query().Get("site"); siteStr != "" {
-		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
-			// A valid site key is in the URL.
-			return siteKey, ""
-		}
+// getDefaultSkey returns the default site key associated with a user's email. This
+// is stored in a variable scoped to the users email with '@' and '.' replaced with '_'.
+//
+// If no default site key yet exists, one will be automatically assigned based on the
+// user's current sites.
+//
+// A site key of `-1` will be returned on an error.
+// TODO: Make this configurable.
+func getDefaultSkey(ctx context.Context, profile *gauth.Profile) (int64, error) {
+	if profile == nil {
+		return -1, errors.New("no profile supplied")
 	}
-	return profileData(profile)
+	scope := strings.ReplaceAll(profile.Email, "@", "_")
+	scope = strings.ReplaceAll(scope, ".", "_")
+	name := scope + ".defaultSkey"
+	v, err := model.GetVariable(ctx, settingsStore, -1, name)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		// Choose a default site from the user's current sites.
+		users, err := model.GetUsers(ctx, settingsStore, profile.Email)
+		if err != nil {
+			return -1, fmt.Errorf("failed to get users for email (%s): %v", profile.Email, err)
+		}
+		err = model.PutVariable(ctx, settingsStore, -1, name, fmt.Sprintf("%d", users[0].Skey))
+		if err != nil {
+			// This isn't considered an error, as the caller is still returned the default site,
+			// but we log it anyway as this likely indicates a systemic issue.
+			log.Printf("failed to put default site: %v", err)
+		}
+		return users[0].Skey, nil
+	} else if err != nil {
+		return -1, fmt.Errorf("unable to get default skey var: %v", err)
+	}
+
+	skey, err := strconv.ParseInt(v.Value, 10, 64)
+	if err != nil {
+		return -1, fmt.Errorf("unable to parse skey from default skey var (%s): %v", v.Value, err)
+	}
+	return skey, nil
 }
 
-// requestSiteDataFiber gets the site key from the request URL if present,
+// requestSiteData gets the site key from the request URL if present,
 // otherwise falls back to the user's profile data.
-func requestSiteDataFiber(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
+func requestSiteData(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
 	if siteStr := c.Query("site"); siteStr != "" {
 		if siteKey, err := strconv.ParseInt(siteStr, 10, 64); err == nil {
 			// A valid site key is in the URL.

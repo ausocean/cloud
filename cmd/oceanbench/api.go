@@ -28,6 +28,7 @@ LICENSE
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,7 +36,6 @@ import (
 	"io"
 	"log"
 	"math/rand"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +44,6 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/utils/nmea"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -69,7 +68,6 @@ type minimalSite struct {
 // Example routes:
 //
 //	/api/get/site/*id            → Get site by key
-//	/api/get/devices/site        → Get devices for the current profile's site
 //	/api/get/profile/data        → Get current user's profile data
 //	/api/set/site/*data          → Set profile site data
 //
@@ -79,29 +77,27 @@ func setupAPIRoutes(app *fiber.App) {
 	// Create /api group; wrapAPI middleware is applied to every route in the group.
 	api := app.Group("/api", wrapAPI)
 
-	// TODO: convert these handlers to fiber handlers instead of just adapting them.
-	// New handlers should be fiber handlers.
-	api.Get("/get/site/*", adaptor.HTTPHandlerFunc(getSiteHandler))
-	api.Get("/get/devices/site", adaptor.HTTPHandlerFunc(getDevicesForSiteHandler))
-	api.Get("/get/sites/all", adaptor.HTTPHandlerFunc(getAllSitesHandler))
-	api.Get("/get/sites/public", adaptor.HTTPHandlerFunc(getPublicSitesHandler))
-	api.Get("/get/sites/user", adaptor.HTTPHandlerFunc(getUserSitesHandler))
-	api.Get("/get/profile/data", adaptor.HTTPHandlerFunc(getProfileDataHandler))
-	api.Get("/get/profile/tv-overview-config", adaptor.HTTPHandlerFunc(getProfileTVConfigHandler))
-	api.Get("/get/broadcast/config", adaptor.HTTPHandlerFunc(getBroadcastConfigHandler))
-	api.Get("/get/vars/site", adaptor.HTTPHandlerFunc(getVarsForSiteHandler))
-	api.Get("/get/sensor/data/*", adaptor.HTTPHandlerFunc(getSensorDataHandler))
-	api.Get("/get/gpstrail/*", adaptor.HTTPHandlerFunc(getGPSTrailHandler))
+	api.Get("/get/site/*", getSiteHandler)
+	api.Get("/get/:skey/devices/site", getDevicesForSiteHandler)
+	api.Get("/get/sites/all", getAllSitesHandler)
+	api.Get("/get/sites/public", getPublicSitesHandler)
+	api.Get("/get/sites/user", getUserSitesHandler)
+	api.Get("/get/profile/data", getProfileDataHandler)
+	api.Get("/get/profile/tv-overview-config", getProfileTVConfigHandler)
+	api.Get("/get/broadcast/config", getBroadcastConfigHandler)
+	api.Get("/get/:skey/vars/site", getVarsForSiteHandler)
+	api.Get("/get/sensor/data/*", getSensorDataHandler)
+	api.Get("/get/gpstrail/*", getGPSTrailHandler)
 
-	api.All("/set/site/*", adaptor.HTTPHandlerFunc(setSiteHandler))
-	api.All("/set/log/*", adaptor.HTTPHandlerFunc(setLogHandler))
+	api.All("/set/site/*", setSiteHandler)
+	api.All("/set/log/*", setLogHandler)
 
-	api.All("/test/upload/*", adaptor.HTTPHandlerFunc(testUploadHandler))
-	api.All("/test/download/*", adaptor.HTTPHandlerFunc(testDownloadHandler))
+	api.All("/test/upload/*", testUploadHandler)
+	api.All("/test/download/*", testDownloadHandler)
 
 	// TODO: change these to the form /api/get/scalar and /api/set/scalar.
-	api.All("/scalar/put/*", adaptor.HTTPHandlerFunc(scalarPutHandler))
-	api.All("/scalar/get/*", adaptor.HTTPHandlerFunc(scalarGetHandler))
+	api.All("/scalar/put/*", scalarPutHandler)
+	api.All("/scalar/get/*", scalarGetHandler)
 
 	setupAPIV1Routes(api)
 }
@@ -118,86 +114,88 @@ func wrapAPI(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func getSiteHandler(w http.ResponseWriter, r *http.Request) {
+func getSiteHandler(c *fiber.Ctx) error {
 	// Require authentication.
-	if requireProfile(w, r) == nil {
-		return
+	if requireProfile(c) == nil {
+		return nil
 	}
 
 	// Get site key from URL path.
-	val, err := getPathValue(r, 4)
+	val, err := getPathValue(c, 4)
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": err.Error()})
 	}
 
 	skey, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "could not parse site key: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not parse site key: %v", err)})
 	}
 
-	site, err := model.GetSite(r.Context(), settingsStore, skey)
+	site, err := model.GetSite(c.UserContext(), settingsStore, skey)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not get site with site key: %d: %v", skey, err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not get site with site key: %d: %v", skey, err)})
 	}
 
 	enc := site.Encode()
-	fmt.Fprint(w, string(enc))
+	_, err = fmt.Fprint(c, string(enc))
+	return err
 }
 
-func getDevicesForSiteHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getDevicesForSiteHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
-	parts := strings.Split(p.Data, ":")
-	if len(parts) != 2 {
-		writeHttpError(w, http.StatusBadRequest, "no site data in profile")
-		return
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "request must contain skey"})
 	}
-	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get current skey: %v", err)})
 	}
 
-	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
+	user, err := model.GetUser(c.UserContext(), settingsStore, skey, p.Email)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get user: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get user: %v", err)})
 	}
 	if user.Perm&model.ReadPermission == 0 {
-		writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{"error": "profile does not have read permissions"})
 	}
 
-	devices, err := model.GetDevicesBySite(r.Context(), settingsStore, skey)
+	devices, err := model.GetDevicesBySite(c.UserContext(), settingsStore, skey)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get devices by site: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get devices by site: %v", err)})
 	}
 
 	data, err := json.Marshal(devices)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal devices: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to marshal devices: %v", err)})
 	}
-	w.Write(data)
+	_, err = c.Write(data)
+	return err
 }
 
-func getAllSitesHandler(w http.ResponseWriter, r *http.Request) {
+func getAllSitesHandler(c *fiber.Ctx) error {
 	// Require authentication.
-	if requireProfile(w, r) == nil {
-		return
+	if requireProfile(c) == nil {
+		return nil
 	}
 
-	sites, err := model.GetAllSites(r.Context(), settingsStore)
+	sites, err := model.GetAllSites(c.UserContext(), settingsStore)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not get all sites: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not get all sites: %v", err)})
 	}
 
 	var s []string
@@ -206,19 +204,20 @@ func getAllSitesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output := "{" + strings.Join(s, ",") + "}"
-	fmt.Fprint(w, output)
+	_, err = c.WriteString(output)
+	return err
 }
 
-func getPublicSitesHandler(w http.ResponseWriter, r *http.Request) {
+func getPublicSitesHandler(c *fiber.Ctx) error {
 	// Require authentication.
-	if requireProfile(w, r) == nil {
-		return
+	if requireProfile(c) == nil {
+		return nil
 	}
 
-	sites, err := model.GetAllSites(r.Context(), settingsStore)
+	sites, err := model.GetAllSites(c.UserContext(), settingsStore)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not get public sites: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not get public sites: %v", err)})
 	}
 
 	var s []string
@@ -229,19 +228,20 @@ func getPublicSitesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output := "{" + strings.Join(s, ",") + "}"
-	fmt.Fprint(w, output)
+	_, err = c.WriteString(output)
+	return err
 }
 
-func getUserSitesHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getUserSitesHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
-	users, sites, err := model.GetUserSites(r.Context(), settingsStore, p.Email)
+	users, sites, err := model.GetUserSites(c.UserContext(), settingsStore, p.Email)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get sites for user: %v. err: %v", p.Email, err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get sites for user: %v. err: %v", p.Email, err)})
 	}
 
 	// Build permission map.
@@ -259,65 +259,62 @@ func getUserSitesHandler(w http.ResponseWriter, r *http.Request) {
 			Public: site.Public,
 		})
 	}
-
-	data, err := json.Marshal(userSites)
-	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to marshal user sites")
-		return
-	}
-	w.Write(data)
+	return c.JSON(userSites)
 }
 
-func getProfileDataHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getProfileDataHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
-	fmt.Fprint(w, p.Data)
+	_, err := c.WriteString(p.Data)
+	return err
 }
 
-func getProfileTVConfigHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getProfileTVConfigHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
 	// The request must be for a superadmin.
 	if !isSuperAdmin(p.Email) {
-		writeHttpError(w, http.StatusUnauthorized, "only available to superadmins")
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{"error": "only available to superadmins"})
 	}
 
 	// The variable scope of the config is the username of the email
 	// with fullstops replaced.
 	scope := strings.ReplaceAll(strings.Split(p.Email, "@")[0], ".", "")
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	existingCfg := true
 	configVar, err := model.GetVariable(ctx, settingsStore, 0, scope+".tvOverviewConfig")
 	if errors.Is(err, datastore.ErrNoSuchEntity) {
 		// The user doesn't yet have a configuration, so we will need to make a new one.
 		existingCfg = false
 	} else if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to get config")
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": "unable to get config"})
 	}
 
 	if !existingCfg {
 		log.Println("no existing tv overview config found, creating blank config")
 		err = model.PutVariable(ctx, settingsStore, 0, scope+".tvOverviewConfig", "{}")
 		if err != nil {
-			writeHttpError(w, http.StatusInternalServerError, "unable to put blank config")
+			c.Status(fiber.StatusInternalServerError)
+			return c.JSON(fiber.Map{"error": "unable to put blank config"})
 		}
 		configVar = &model.Variable{Name: scope + ".tvOverviewConfig", Value: "{}"}
 	}
 
-	_, err = w.Write([]byte(configVar.Value))
+	_, err = c.WriteString(configVar.Value)
 	if err != nil {
-		writeHttpError(w, http.StatusInternalServerError, "unable to write config to response")
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": "unable to write config to response"})
 	}
+	return nil
 }
 
 // getBroadcastConfigHandler handles requests to get the broadcast config for a given broadcast.
@@ -330,75 +327,76 @@ func getProfileTVConfigHandler(w http.ResponseWriter, r *http.Request) {
 // With the following query parameters:
 //
 //	id: uuid of the broadcast to get
-func getBroadcastConfigHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getBroadcastConfigHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
-	id := r.FormValue("id")
+	id := c.FormValue("id")
 	if id == "" {
-		writeHttpError(w, http.StatusBadRequest, "api/get/broadcast/config got empty id query parameter")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "api/get/broadcast/config got empty id query parameter"})
 	}
 	if err := uuid.Validate(id); err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "invalid id: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid id: %v", err)})
 	}
 
-	ctx := r.Context()
+	ctx := c.UserContext()
 	broadcastVar, err := model.GetBroadcastVarByUUID(ctx, settingsStore, id)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get broadcast with UUID (%s): %v", id, err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get broadcast with UUID (%s): %v", id, err)})
 	}
 
 	// Check that the user has admin privileges to the site the broadcast lives on.
 	if !isAdmin(ctx, broadcastVar.Skey, p.Email) {
-		writeHttpError(w, http.StatusUnauthorized, "user does not have admin privileges")
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{"error": "user does not have admin privileges"})
 	}
 
-	_, err = w.Write([]byte(broadcastVar.Value))
+	_, err = c.Write([]byte(broadcastVar.Value))
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to write broadcast config to response: %v", err)
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to write broadcast config to response: %v", err)})
 	}
+	return nil
 }
 
-func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func getVarsForSiteHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
-	// Get site key from profile data.
-	parts := strings.Split(p.Data, ":")
-	if len(parts) != 2 {
-		writeHttpError(w, http.StatusUnauthorized, "no site data in profile")
-		return
+	skParam := c.Params(skeyParamKey)
+	if skParam == "" {
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "request must contain skey"})
 	}
-	skey, err := strconv.ParseInt(parts[0], 10, 64)
+	skey, err := strconv.ParseInt(skParam, 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "invalid site key in profile data: %s", p.Data)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get current skey: %v", err)})
 	}
 
 	// Check for read permission.
-	user, err := model.GetUser(r.Context(), settingsStore, skey, p.Email)
+	user, err := model.GetUser(c.UserContext(), settingsStore, skey, p.Email)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get user: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get user: %v", err)})
 	}
 	if user.Perm&model.ReadPermission == 0 {
-		writeHttpError(w, http.StatusUnauthorized, "profile does not have read permissions")
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{"error": "profile does not have read permissions"})
 	}
 
 	// Get variables for the site.
-	siteVars, err := model.GetVariablesBySite(r.Context(), settingsStore, skey, "")
+	siteVars, err := model.GetVariablesBySite(c.UserContext(), settingsStore, skey, "")
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get variables by site: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get variables by site: %v", err)})
 	}
 
 	// Filter to only include device-specific variables (not global or hidden).
@@ -416,12 +414,7 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data, err := json.Marshal(filtered)
-	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal variables: %v", err)
-		return
-	}
-	w.Write(data)
+	return c.JSON(filtered)
 }
 
 // getSensorDataHandler handles requests to get data for a given sensor. The API transforms
@@ -441,37 +434,37 @@ func getVarsForSiteHandler(w http.ResponseWriter, r *http.Request) {
 // This currently does not require authentication, and so requests are limited to 10 minute
 // periods. If the requested period is more than 10 minutes, the finish time will be changed
 // to be only 10 minutes after the start time.
-func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
-	mac := model.MacEncode(r.FormValue("ma"))
+func getSensorDataHandler(c *fiber.Ctx) error {
+	mac := model.MacEncode(c.FormValue("ma"))
 	if mac == 0 {
-		writeHttpErrorf(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", r.FormValue("ma"))
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", c.FormValue("ma"))})
 	}
 
-	pin := r.FormValue("pn")
+	pin := c.FormValue("pn")
 
 	ctx := context.Background()
 	sensor, err := model.GetSensorV2(ctx, settingsStore, mac, pin)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get sensor: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get sensor: %v", err)})
 	}
 
-	start, err := strconv.ParseInt(r.FormValue("start"), 10, 64)
+	start, err := strconv.ParseInt(c.FormValue("start"), 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to parse start time as unix timestamp: %v", err)})
 	}
 
-	finish, err := strconv.ParseInt(r.FormValue("finish"), 10, 64)
+	finish, err := strconv.ParseInt(c.FormValue("finish"), 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to parse finish time as unix timestamp: %v", err)})
 	}
 
 	if start > finish {
-		writeHttpError(w, http.StatusBadRequest, "start time must be before finish time")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "start time must be before finish time"})
 	}
 
 	// For now we will limit requests to 10 minutes at a time.
@@ -485,7 +478,8 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the data for the sensor.
 	scalars, err := model.GetScalars(ctx, mediaStore, model.ToSID(model.MacDecode(mac), pin), []int64{start, finish})
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get scalars for sensor: %v", err)
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get scalars for sensor: %v", err)})
 	}
 
 	type timedValue struct {
@@ -497,62 +491,57 @@ func getSensorDataHandler(w http.ResponseWriter, r *http.Request) {
 	for _, s := range scalars {
 		transformed, err := sensor.Transform(s.Value)
 		if err != nil {
-			writeHttpErrorf(w, http.StatusInternalServerError, "error whilst transforming scalar value: %v", err)
-			return
+			c.Status(fiber.StatusInternalServerError)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("error whilst transforming scalar value: %v", err)})
 		}
 		output = append(output, timedValue{Value: transformed, Timestamp: s.Timestamp})
 	}
 
 	// Allow scripts to access this data.
 	// TODO: restrict based on needs and authentication.
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Set("Access-Control-Allow-Origin", "*")
 
-	data, err := json.Marshal(output)
-	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to marshal response data to json: %v", err)
-		return
-	}
-	w.Write(data)
+	return c.JSON(output)
 }
 
 // getGPSTrailHandler returns recent GPS points for a device/pin from Text storage (raw NMEA).
 // Endpoint: GET /api/get/gpstrail/?ma=<MAC>&pn=<pin>&start=<unix>&finish=<unix>
-func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
+func getGPSTrailHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
-	macStr := r.FormValue("ma")
+	macStr := c.FormValue("ma")
 	mac := model.MacEncode(macStr)
 	if mac == 0 {
-		writeHttpErrorf(w, http.StatusBadRequest, "invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", macStr)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid MAC supplied, wanted in form XX:XX:XX:XX:XX:XX, got: %s", macStr)})
 	}
 
 	// Parse pin (default T1).
-	pin := r.FormValue("pn")
+	pin := c.FormValue("pn")
 	if pin == "" {
 		pin = "T1"
 	}
 
 	var startTS, finishTS int64
-	if sv := r.FormValue("start"); sv != "" {
+	if sv := c.FormValue("start"); sv != "" {
 		v, err := strconv.ParseInt(sv, 10, 64)
 		if err != nil {
-			writeHttpErrorf(w, http.StatusBadRequest, "unable to parse start time as unix timestamp: %v", err)
-			return
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to parse start time as unix timestamp: %v", err)})
 		}
 		startTS = v
 	}
-	if fv := r.FormValue("finish"); fv != "" {
+	if fv := c.FormValue("finish"); fv != "" {
 		v, err := strconv.ParseInt(fv, 10, 64)
 		if err != nil {
-			writeHttpErrorf(w, http.StatusBadRequest, "unable to parse finish time as unix timestamp: %v", err)
-			return
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to parse finish time as unix timestamp: %v", err)})
 		}
 		finishTS = v
 	}
 	if startTS != 0 && finishTS != 0 && startTS > finishTS {
-		writeHttpError(w, http.StatusBadRequest, "start time must be before finish time")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "start time must be before finish time"})
 	}
 
 	// Build MID and fetch texts.
@@ -560,8 +549,8 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 
 	texts, err := model.GetText(ctx, mediaStore, mid, []int64{startTS, finishTS})
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to get text for gps: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to get text for gps: %v", err)})
 	}
 
 	type gpsOut struct {
@@ -598,14 +587,8 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 		Points: points,
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(resp); err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "unable to encode response: %v", err)
-		return
-	}
+	c.Set("Access-Control-Allow-Origin", "*")
+	return c.JSON(resp)
 }
 
 // setSiteHandler handles API requests to update the user's current site selection.
@@ -620,66 +603,70 @@ func getGPSTrailHandler(w http.ResponseWriter, r *http.Request) {
 //
 // This stores the selected site information (key and name) in the user's profile data.
 // The value is passed unchanged to putProfileData, which performs the actual update.
-func setSiteHandler(w http.ResponseWriter, r *http.Request) {
-	p := requireProfile(w, r)
+func setSiteHandler(c *fiber.Ctx) error {
+	p := requireProfile(c)
 	if p == nil {
-		return
+		return nil
 	}
 
 	// Get site data from path.
-	val, err := getPathValue(r, 4) // /api/set/site/<sitekey>:<sitename>
+	val, err := getPathValue(c, 4) // /api/set/site/<sitekey>:<sitename>
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Validate format: <sitekey>:<sitename>
 	parts := strings.SplitN(val, ":", 2)
 	if len(parts) != 2 {
-		writeHttpError(w, http.StatusBadRequest, "invalid site data, wanted: <sitekey>:<sitename>")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "invalid site data, wanted: <sitekey>:<sitename>"})
 	}
 
 	// Validate site key.
 	if _, err := strconv.ParseInt(parts[0], 10, 64); err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not parse site key from /api/set/site/<sitekey>:<sitename> : %v", err)})
 	}
 
 	// Update profile.
-	if err := putProfileData(w, r, val); err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not update profile data with site data: %v", err)
-		return
+	if err := putProfileData(c, val); err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not update profile data with site data: %v", err)})
 	}
 
-	fmt.Fprint(w, "OK")
+	_, err = c.WriteString("OK")
+	return err
 }
 
 // testUploadHandler handles test upload requests.
 // Reads exactly <value> bytes from the request body and responds "OK".
 // Used for testing upload throughput or validation.
-func testUploadHandler(w http.ResponseWriter, r *http.Request) {
+func testUploadHandler(c *fiber.Ctx) error {
 	// Get byte count from path.
-	val, err := getPathValue(r, 4) // /api/test/upload/<value>
+	val, err := getPathValue(c, 4) // /api/test/upload/<value>
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": err.Error()})
 	}
 
 	n, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "could not parse value from /api/test/upload/<value>: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not parse value from /api/test/upload/<value>: %v", err)})
 	}
 
 	body := make([]byte, n)
-	_, err = io.ReadFull(r.Body, body)
+	buf := bytes.NewBuffer(c.Body())
+	_, err = io.ReadFull(buf, body)
 	if err != nil {
-		writeError(w, errInvalidBody)
-		return
+		c.Status(fiber.StatusBadRequest)
+		writeError(c, errInvalidBody)
+		return nil
 	}
 
-	fmt.Fprint(w, "OK")
+	_, err = c.WriteString("OK")
+	return err
 }
 
 // testDownloadHandler handles test download requests.
@@ -690,38 +677,37 @@ func testUploadHandler(w http.ResponseWriter, r *http.Request) {
 //
 // Responds with <n> bytes of random data, optionally sent in chunks of size <chunk>.
 // Used for testing download speed and behavior.
-func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	req := strings.Split(r.URL.Path, "/")
+func testDownloadHandler(c *fiber.Ctx) error {
+	req := strings.Split(c.Path(), "/")
 	if len(req) < 5 {
-		writeHttpError(w, http.StatusBadRequest, "invalid length of url path")
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": "invalid length of url path"})
 	}
 
 	n, err := strconv.ParseInt(req[4], 10, 64)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusBadRequest, "could not parse value from /api/test/download/<n>: %v", err)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not parse value from /api/test/download/<n>: %v", err)})
 	}
 
 	chunk := n // Default: whole payload in one write
 	if len(req) == 6 {
 		chunk, err = strconv.ParseInt(req[5], 10, 64)
 		if err != nil {
-			writeHttpErrorf(w, http.StatusBadRequest, "could not parse chunk size from url: %v", err)
-			return
+			c.Status(fiber.StatusBadRequest)
+			return c.JSON(fiber.Map{"error": fmt.Sprintf("could not parse chunk size from url: %v", err)})
 		}
 	}
 
 	body := make([]byte, n)
 	_, err = rand.Read(body)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not generate random data: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not generate random data: %v", err)})
 	}
 
-	h := w.Header()
-	h.Add("Content-Type", "application/octet-stream")
-	h.Add("Content-Disposition", "attachment; filename=\""+req[4]+"\"")
+	c.Set("Content-Type", "application/octet-stream")
+	c.Set("Content-Disposition", "attachment; filename=\""+req[4]+"\"")
 
 	var i int64
 	for i = 0; i < n; i += chunk {
@@ -729,8 +715,10 @@ func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		if end > n {
 			end = n
 		}
-		w.Write(body[i:end])
+		c.Write(body[i:end])
 	}
+
+	return nil
 }
 
 // scalarPutHandler handles scalar data ingestion.
@@ -740,32 +728,33 @@ func testDownloadHandler(w http.ResponseWriter, r *http.Request) {
 //	/api/scalar/put/<id>,<timestamp>,<value>
 //
 // Parses and stores a single scalar. No authentication required.
-func scalarPutHandler(w http.ResponseWriter, r *http.Request) {
-	val, err := getPathValue(r, 4) // /api/scalar/put/<id>,<timestamp>,<value>
+func scalarPutHandler(c *fiber.Ctx) error {
+	val, err := getPathValue(c, 4) // /api/scalar/put/<id>,<timestamp>,<value>
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": err.Error()})
 	}
 
 	args, err := splitNumbers(val)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "invalid arg: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid arg: %v", err)})
 	}
 	if len(args) != 3 {
-		writeHttpError(w, http.StatusInternalServerError, "invalid number of args")
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": "invalid number of args"})
 	}
 
-	err = model.PutScalar(r.Context(), mediaStore, &model.Scalar{
+	err = model.PutScalar(c.UserContext(), mediaStore, &model.Scalar{
 		ID:        args[0],
 		Timestamp: args[1],
 		Value:     float64(args[2]),
 	})
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not put scalar: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not put scalar: %v", err)})
 	}
+	return nil
 }
 
 // scalarGetHandler handles scalar data retrieval.
@@ -776,35 +765,36 @@ func scalarPutHandler(w http.ResponseWriter, r *http.Request) {
 //
 // Returns a JSON-encoded array of scalars for the given ID and time range.
 // No authentication required.
-func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
-	val, err := getPathValue(r, 4) // /api/scalar/get/<id>,<start>,<end>
+func scalarGetHandler(c *fiber.Ctx) error {
+	val, err := getPathValue(c, 4) // /api/scalar/get/<id>,<start>,<end>
 	if err != nil {
-		writeHttpError(w, http.StatusBadRequest, err.Error())
-		return
+		c.Status(fiber.StatusBadRequest)
+		return c.JSON(fiber.Map{"error": err.Error()})
 	}
 
 	args, err := splitNumbers(val)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "invalid arg: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("invalid arg: %v", err)})
 	}
 	if len(args) != 3 {
-		writeHttpError(w, http.StatusInternalServerError, "invalid number of args")
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": "invalid number of args"})
 	}
 
-	scalars, err := model.GetScalars(r.Context(), mediaStore, args[0], []int64{args[1], args[2]})
+	scalars, err := model.GetScalars(c.UserContext(), mediaStore, args[0], []int64{args[1], args[2]})
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "could not get scalar: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("could not get scalar: %v", err)})
 	}
 
 	data, err := json.Marshal(scalars)
 	if err != nil {
-		writeHttpErrorf(w, http.StatusInternalServerError, "error marshaling scalars: %v", err)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{"error": fmt.Sprintf("error marshaling scalars: %v", err)})
 	}
-	w.Write(data)
+	_, err = c.Write(data)
+	return err
 }
 
 // getPathValue extracts a segment from the URL path at the given zero-based index.
@@ -819,20 +809,20 @@ func scalarGetHandler(w http.ResponseWriter, r *http.Request) {
 // Therefore, index 4 corresponds to "123".
 //
 // Returns an error if the path does not have enough parts, or if the extracted part is empty.
-func getPathValue(r *http.Request, index int) (string, error) {
-	parts := strings.Split(r.URL.Path, "/")
+func getPathValue(c *fiber.Ctx, index int) (string, error) {
+	parts := strings.Split(c.Path(), "/")
 
 	if index < 0 {
 		return "", fmt.Errorf("invalid index %d: must be non-negative", index)
 	}
 
 	if len(parts) <= index {
-		return "", fmt.Errorf("invalid URL path %q: expected at least %d segments, got %d", r.URL.Path, index+1, len(parts))
+		return "", fmt.Errorf("invalid URL path %q: expected at least %d segments, got %d", c.Path(), index+1, len(parts))
 	}
 
 	val := parts[index]
 	if val == "" {
-		return "", fmt.Errorf("empty path value at index %d in URL %q", index, r.URL.Path)
+		return "", fmt.Errorf("empty path value at index %d in URL %q", index, c.Path())
 	}
 
 	return val, nil
@@ -840,13 +830,14 @@ func getPathValue(r *http.Request, index int) (string, error) {
 
 // requireProfile ensures the request is from an authenticated user.
 // It returns the profile or writes an error and returns nil if auth fails.
-func requireProfile(w http.ResponseWriter, r *http.Request) *gauth.Profile {
-	p, err := getProfile(w, r)
+func requireProfile(c *fiber.Ctx) *gauth.Profile {
+	p, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		writeHttpErrorf(w, http.StatusUnauthorized, "user could not be authenticated: %v", err)
+		c.Status(fiber.StatusUnauthorized)
+		c.JSON(fiber.Map{"error": fmt.Errorf("user could not be authenticated: %v", err)})
 		return nil
 	}
 	return p

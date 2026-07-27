@@ -36,10 +36,6 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("report-sensor").checked = true;
   }
 
-  document
-    .getElementById("header")
-    .addEventListener("site-change", handleSiteChange);
-
   // Read the cookie for the advanced settings.
   let cookies = document.cookie.split(";", 5);
   for (c of cookies) {
@@ -118,21 +114,6 @@ function getSelectedValue(selectElement) {
 
 function macToID(mac) {
   return mac.toLowerCase().replaceAll(":", "");
-}
-
-function handleSiteChange(event) {
-  let siteKey = event.detail["newSite"].split(":")[0];
-
-  // Make a request to change site.
-  let xhr = new XMLHttpRequest();
-  xhr.open("GET", "/api/set/site/" + event.detail["newSite"]);
-  xhr.onreadystatechange = () => {
-    if (xhr.readyState == XMLHttpRequest.DONE && xhr.responseText == "OK") {
-      sessionStorage.setItem("site", siteKey);
-      location.assign("/admin/broadcast?site=" + siteKey); // This will empty the form.
-    }
-  };
-  xhr.send();
 }
 
 function checkAll(form) {
@@ -433,11 +414,8 @@ function populateForm(data) {
 async function fetchBroadcast(uuid) {
   if (!uuid) return null;
   try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const site = urlParams.get("site");
-    const url = site
-      ? `/api/v1/broadcasts/${uuid}?site=${site}`
-      : `/api/v1/broadcasts/${uuid}`;
+    const skey = window.location.pathname.split("/")[1]
+    const url =  `/api/v1/${skey}/broadcasts/${uuid}`
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -452,9 +430,8 @@ async function fetchBroadcast(uuid) {
 }
 
 async function fetchBroadcastIDs() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const site = urlParams.get('site');
-  const url = site ? `/api/v1/broadcasts?site=${site}` : `/api/v1/broadcasts`;
+  const skey = window.location.pathname.split("/")[1]
+  const url = `/api/v1/${skey}/broadcasts`
 
   try {
     const resp = await fetch(url);

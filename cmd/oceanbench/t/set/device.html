@@ -125,7 +125,10 @@
       }
 
       async function init() {
-        await loadVars();
+        // Get skey from first url segment.
+        const path = window.location.pathname;
+        const skey = path.split("/")[1]
+        await loadVars(skey);
 
         for (let k in varTypes) {
           let v = varTypes[k];
@@ -177,7 +180,7 @@
       }
 
       function deleteSensor(mac, pin) {
-        window.location = '/set/devices/edit/sensor?ma=' + mac + '&pin=' + pin + '&delete=true';
+        window.location = '/{{.CurrentSiteKey}}/set/devices/edit/sensor?ma=' + mac + '&pin=' + pin + '&delete=true';
       }
 
       function submitSensor(field) {
@@ -185,7 +188,7 @@
       }
 
       function deleteActuator(mac, pin) {
-        window.location = '/set/devices/edit/actuator?ma=' + mac + '&pin=' + pin + '&delete=true';
+        window.location = '/{{.CurrentSiteKey}}/set/devices/edit/actuator?ma=' + mac + '&pin=' + pin + '&delete=true';
       }
 
       function submitActuator(field) {
@@ -197,7 +200,7 @@
           checked ? opt.style.display = "flex" : opt.style.display = "none";
         }
 
-        document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/set/devices";
+        document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/{{.CurrentSiteKey}}/set/devices";
       }
     </script>
     <script type="module" src="/s/lit/site-footer.js"></script>
@@ -212,11 +215,11 @@
       </datalist>
     </div>
 
-    <header-group id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{.Version}}" {{if .Profile}}auth="true" {{end}}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{range .Pages -}}
         <li data-perm="{{.Perm}}" class="indent-{{ .Level }}">
-          <a {{if .URL}}href="{{.URL}}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
+          <a {{if .URL}}href="{{.URL}}" {{end}}{{if .Selected}} class="selected" {{end}}>{{.Name}}</a>
         </li>
         {{- end}}
       </nav-menu>
@@ -234,7 +237,7 @@
             <button class="btn btn-close" popovertarget="calibration-popover" popovertargetaction="hide"></button>
           </div>
           <hr />
-          <form class="d-flex flex-column gap-2" method="post" action="/set/devices/edit/calibrate">
+          <form class="d-flex flex-column gap-2" method="post" action="/{{.CurrentSiteKey}}/set/devices/edit/calibrate">
             <input name="ma" hidden value="{{.Device.MAC}}" />
             <div class="row d-flex gx-1 text-center">
               <div class="col-3 text-end pt-2"></div>
@@ -292,7 +295,7 @@
       {{end}}
       <h1 class="container-md">Devices</h1>
       <div class="border rounded p-4 container-md bg-white">
-        <form action="/set/devices/" enctype="multipart/form-data" method="get">
+        <form action="/{{.CurrentSiteKey}}/set/devices/" enctype="multipart/form-data" method="get">
           <fieldset class="row d-flex gx-1 align-items-center">
             <label class="col-sm-2 col-md-3 col-1 text-end pt-1">Select Device:</label>
             <div class="col-sm-10 col-md-6 col-12">
@@ -306,7 +309,7 @@
           </fieldset>
         </form>
         {{with .Device}}
-        <form action="/set/devices/edit" enctype="multipart/form-data" method="post">
+        <form action="/{{$.CurrentSiteKey}}/set/devices/edit" enctype="multipart/form-data" method="post">
           <fieldset>
             <div class="d-flex justify-content-between h-auto pt-5">
               <h2>Configuration</h2>
@@ -483,7 +486,7 @@
             <tbody>
               {{$dev := $.Device}} {{$data := $}} {{range $sensor := .Sensors}}
               <tr>
-                <form class="row gx-1 d-flex align-items-center" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+                <form class="row gx-1 d-flex align-items-center" id="{{ .Name }}" enctype="multipart/form-data" action="/{{$.CurrentSiteKey}}/set/devices/edit/sensor" method="post" novalidate>
                   <td><img class="mt-2" src="/s/delete.png" onclick="deleteSensor('{{$dev.MAC}}','{{ $sensor.Pin }}');" /></td>
                   <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $sensor.Name }}" onchange="submitSensor(this)" /></td>
                   <td class="col-1"><input class="form-control form-control-sm" type="text" name="pin" value="{{ $sensor.Pin }}" readonly /></td>
@@ -516,7 +519,7 @@
               </tr>
               {{end}}
               <tr>
-                <form class="row gx-1 d-flex align-items-center" id="new-sensor" enctype="multipart/form-data" action="/set/devices/edit/sensor" method="post" novalidate>
+                <form class="row gx-1 d-flex align-items-center" id="new-sensor" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/set/devices/edit/sensor" method="post" novalidate>
                   <td><input class="mt-2" type="image" src="/s/add.png" /></td>
                   <td><input class="form-control form-control-sm" type="text" name="name" /></td>
                   <td>
@@ -576,7 +579,7 @@
               <tbody>
                 {{$dev := $.Device}} {{$data := $}} {{range $act := .Actuators}}
                 <tr>
-                  <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+                  <form class="tr" id="{{ .Name }}" enctype="multipart/form-data" action="/{{$.CurrentSiteKey}}/set/devices/edit/actuator" method="post" novalidate>
                     <td><img class="mt-2" src="/s/delete.png" onclick="deleteActuator('{{$dev.MAC}}','{{ $act.Pin }}');" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="name" value="{{ $act.Name }}" onchange="submitActuator(this)" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="var" value="{{ $act.Var}}" onchange="submitActuator(this)" /></td>
@@ -587,7 +590,7 @@
                 </tr>
                 {{end}}
                 <tr>
-                  <form class="tr" id="new-actuator" enctype="multipart/form-data" action="/set/devices/edit/actuator" method="post" novalidate>
+                  <form class="tr" id="new-actuator" enctype="multipart/form-data" action="/{{.CurrentSiteKey}}/set/devices/edit/actuator" method="post" novalidate>
                     <td><input class="mt-2" type="image" src="/s/add.png" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="name" class="width-302" /></td>
                     <td><input class="form-control form-control-sm" type="text" name="var" class="width-302" /></td>

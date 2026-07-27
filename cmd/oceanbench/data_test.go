@@ -42,6 +42,7 @@ import (
 
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -240,24 +241,23 @@ func TestFetchScalars(t *testing.T) {
 
 	t.Log("creating request to /data endpoint")
 	q := fmt.Sprintf("/data/%d?ma=%s&pn=%s&ds=%d&df=%d&do=csv&tz=0", siteKey, mac, pin, datastore.EpochStart, datastore.EpochStart+minutesInDay*60)
-	req, err := http.NewRequest("GET", q, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	req := httptest.NewRequest("GET", q, nil)
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(dataHandler)
+	app := fiber.New()
+
+	app.Get("/data/*", dataHandler)
 
 	t.Log("invoking handler")
-	handler.ServeHTTP(rr, req)
+	resp, err := app.Test(req, -1)
 
-	status := rr.Code
+	status := resp.StatusCode
 	if status != http.StatusOK {
 		t.Errorf("dataHandler returned wrong status code: got %v want %v", status, http.StatusOK)
+		t.Logf("response: %s", resp.Body)
 	}
 
 	t.Log("parsing response CSV")
-	reader := csv.NewReader(rr.Body)
+	reader := csv.NewReader(resp.Body)
 	data, err := reader.ReadAll()
 	if err != nil {
 		t.Errorf("error parsing CSV: %v", err)

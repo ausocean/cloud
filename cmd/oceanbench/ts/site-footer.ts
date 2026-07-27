@@ -48,7 +48,7 @@ export class SiteFooter extends TailwindElement() {
             ? html`
                 <div class="mt-4">
                   <a
-                    href="/admin/tv-overview"
+                    href="/default/admin/tv-overview"
                     class="inline-flex items-center px-3 py-1 bg-neutral-200 hover:bg-neutral-300 rounded text-xs font-medium transition-colors text-neutral-700 hover:text-neutral-900 no-underline"
                   >
                     TV Overview

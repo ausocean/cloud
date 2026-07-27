@@ -20,11 +20,11 @@
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
   <body>
-    <header-group id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
+    <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
         <li data-perm="{{ .Perm }}" class="indent-{{ .Level }}">
-          <a {{ if .URL }}href="{{ .URL }}{{ if $.CurrentSiteKey }}?site={{ $.CurrentSiteKey }}{{ end }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
+          <a {{ if .URL }}href="{{ .URL }}" {{ end }}{{ if .Selected }}class="selected" {{ end }}>{{ .Name }}</a>
         </li>
         {{- end }}
       </nav-menu>
@@ -40,9 +40,9 @@
       <div class="border rounded p-4 container-md bg-white">
         <div class="d-flex flex-column gap-2">
           <div class="d-flex gap-2">
-            <a class="btn btn-primary" id="mjpeg-tab" href="/play?out=x-motion-jpeg">Video (MJPEG)</a>
-            <a class="btn btn-primary" id="h264-tab" href="/play?out=h264">Video (H264)</a>
-            <a class="btn btn-primary" id="audio-tab" href="/play?out=pcm">Audio</a>
+            <a class="btn btn-primary" id="mjpeg-tab" href="/{{ .CurrentSiteKey }}/play?out=x-motion-jpeg">Video (MJPEG)</a>
+            <a class="btn btn-primary" id="h264-tab" href="/{{ .CurrentSiteKey }}/play?out=h264">Video (H264)</a>
+            <a class="btn btn-primary" id="audio-tab" href="/{{ .CurrentSiteKey }}/play?out=pcm">Audio</a>
           </div>
           <div class="d-flex align-items-center gap-2">
             URL:

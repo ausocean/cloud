@@ -41,6 +41,7 @@ export class CronSettings extends LitElement {
   @property({ type: String, attribute: "value" }) Value = "";
   @property({ type: Boolean, attribute: "enabled" }) Enabled = false;
   @property({ type: Boolean, attribute: "new-cron" }) newCron = false;
+  @property({ type: Number }) skey = 0;
 
   @state() buttonText = "Save";
   @state() dropdownOption = "";
@@ -75,7 +76,7 @@ export class CronSettings extends LitElement {
   }
 
   getVars() {
-    fetch("/api/get/vars/site")
+    fetch(`/api/get/${this.skey}/vars/site`)
       .then(async (resp) => {
         if (resp.ok) {
           return resp.json();
@@ -92,7 +93,7 @@ export class CronSettings extends LitElement {
   }
 
   getDevices() {
-    fetch("/api/get/devices/site")
+    fetch(`/api/get/${this.skey}/devices/site`)
       .then(async (resp) => {
         if (resp.ok) {
           return resp.json();
@@ -156,7 +157,7 @@ export class CronSettings extends LitElement {
       this.newCron = false;
     }
 
-    fetch("/set/crons/edit", { method: "POST", body: formData })
+    fetch(`/${this.skey}/set/crons/edit`, { method: "POST", body: formData })
       .then((resp) => {
         if (resp.ok) {
           this.buttonText = "Saved!";

@@ -1,12 +1,15 @@
 package main
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
 
 func TestGetPathValue(t *testing.T) {
+	app := fiber.New()
+
 	tests := []struct {
 		path      string
 		index     int
@@ -37,9 +40,13 @@ func TestGetPathValue(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		// Create fiber ctx with correct path.
+		fctx := &fasthttp.RequestCtx{}
+		fctx.Request.URI().SetPath(tt.path)
+		c := app.AcquireCtx(fctx)
+		defer app.ReleaseCtx(c)
 
-		val, err := getPathValue(req, tt.index)
+		val, err := getPathValue(c, tt.index)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("getPathValue(%q, %d) expected error, got nil.", tt.path, tt.index)
