@@ -176,7 +176,7 @@ func (s *hardwareRestarting) handleHardwareShutdownFailedEvent(e event.HardwareS
 }
 
 func (s *hardwareRestarting) cameraIsReporting() bool {
-	up, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.CameraMac))
+	up, err := s.hardware.IsUp(s.broadcastContext.newHWContext(), model.MacDecode(s.cfg.CameraMac))
 	if err != nil {
 		s.bus.Publish(event.InvalidConfiguration{fmt.Errorf("could not get camera reporting status: %w", err)})
 		return false

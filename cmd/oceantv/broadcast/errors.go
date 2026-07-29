@@ -22,7 +22,22 @@ LICENSE
 
 package broadcast
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // WarnSkipShutdown is a pseudo-error which represents that shutdown was skipped.
 var WarnSkipShutdown = errors.New("shutdown set to skip")
+
+// ErrBroadcastNotFound.
+type ErrBroadcastNotFound struct{ Name string }
+
+func (e ErrBroadcastNotFound) Error() string {
+	return fmt.Sprintf("broadcast with name %s doesn't exist", e.Name)
+}
+
+func (e ErrBroadcastNotFound) Is(target error) bool {
+	_, ok := target.(ErrBroadcastNotFound)
+	return ok
+}

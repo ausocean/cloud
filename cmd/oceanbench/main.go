@@ -320,7 +320,14 @@ func main() {
 		log.Printf("Initializing OAuth2")
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
 		auth.Init(backend.NewNetHandler(nil, nil, nil))
-		host = "" // Host is determined by App Engine.
+
+		// If we are running in app engine mode locally, we want to request data
+		// from the local instance.
+		if os.Getenv("GAE_ENV") == "" {
+			dataHost = "http://" + host + ":" + strconv.Itoa(port)
+		} else {
+			host = "" // Host is determined by App Engine.
+		}
 	}
 
 	cronScheduler = proxyScheduler{url: cronURL}

@@ -8,6 +8,8 @@ import (
 	"bou.ke/monkey"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -73,9 +75,9 @@ func TestBroadcastCanBeReused(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newDummyStore()
 			logFunc := func(msg string, args ...interface{}) { t.Logf(msg+"\n", args) }
-			m := newOceanBroadcastManager(tt.svc, tt.cfg, store, logFunc)
+			m := manager.NewOceanBroadcast(tt.svc, tt.cfg, store, logFunc, setVar, broadcastByName)
 
-			b := m.broadcastCanBeReused(m.cfg, m.svc)
+			b := m.BroadcastCanBeReused()
 
 			if b != tt.expectedReuse {
 				t.Errorf("broadcastCanBeReused() test failed for %s: expected %v, got %v", tt.name, tt.expectedReuse, b)
@@ -130,7 +132,7 @@ func TestCreateBroadcast(t *testing.T) {
 
 			svc := newDummyService()
 
-			limiter := &OceanTokenBucketLimiter{
+			limiter := &ratelimit.OceanTokenBucketLimiter{
 				ID:             "test-limiter",
 				Tokens:         10,
 				MaxTokens:      10,
@@ -139,7 +141,7 @@ func TestCreateBroadcast(t *testing.T) {
 			}
 
 			store := newDummyStore(WithTokenBucketLimiter(limiter))
-			bm := newOceanBroadcastManager(svc, cfg, store, t.Logf)
+			bm := manager.NewOceanBroadcast(svc, cfg, store, t.Logf, setVar, broadcastByName)
 
 			sys, err := newBroadcastSystem(
 				ctx,

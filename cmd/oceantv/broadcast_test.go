@@ -35,45 +35,29 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
+	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 )
 
-// TestRemoveDate tests the removeDate helper function.
-func TestRemoveDate(t *testing.T) {
-	tests := []struct {
-		in   string
-		want string
-	}{
-		{in: "A Broadcast 23/04/15", want: "A Broadcast "},
-		{in: "A Broadcast 04/23/15", want: "A Broadcast "},
-		{in: "ABroadcast04/23/15", want: "ABroadcast"},
-		{in: "ABroadcast04/23/15AStream", want: "ABroadcastAStream"},
-	}
-
-	for i, test := range tests {
-		got := removeDate(test.in)
-		if got != test.want {
-			t.Errorf("did not get expected result for test no. %d \ngot: %s \nwant: %s", i, got, test.want)
-		}
-	}
-}
-
 // dummyManager is a dummy implementation of the broadcastManager interface.
 type dummyManager struct {
 	cfg                                                                *Cfg
 	startDone                                                          chan struct{}
 	saved, started, stopped, healthHandled, statusHandled, chatHandled bool
-	Limiter                                                            RateLimiter
+	Limiter                                                            ratelimit.RateLimiter
 	t                                                                  *testing.T
 	broadcastUnhealthy                                                 bool
 }
 
 type dummyManagerOption func(interface{}) error
 
-func withRateLimiter(l RateLimiter) dummyManagerOption {
+func withRateLimiter(l ratelimit.RateLimiter) dummyManagerOption {
 	return func(i interface{}) error {
 		if s, ok := i.(*dummyManager); ok {
 			s.Limiter = l
@@ -110,7 +94,7 @@ func (d *dummyManager) CreateBroadcast(
 	svc Svc,
 ) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
-		return ErrRequestLimitExceeded
+		return yt.ErrRequestLimitExceeded
 	}
 	return nil
 }
@@ -149,7 +133,7 @@ func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	}
 	return nil
 }
-func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call BroadcastCallback) error {
+func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call manager.BroadcastCallback) error {
 	d.statusHandled = true
 	return nil
 }
@@ -178,7 +162,7 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 // dummyStore is a dummy implementation of the datastore.Store interface.
 // It basically does nothing and is used to test the broadcast functions.
 type dummyStore struct {
-	tokenBucketLimiter *OceanTokenBucketLimiter
+	tokenBucketLimiter *ratelimit.OceanTokenBucketLimiter
 }
 
 type dummyStoreOption func(*dummyStore)
@@ -193,7 +177,7 @@ func newDummyStore(options ...dummyStoreOption) *dummyStore {
 }
 
 // WithTokenBucketLimiter is an option function for setting the token bucket limiter in the dummyStore.
-func WithTokenBucketLimiter(limiter *OceanTokenBucketLimiter) dummyStoreOption {
+func WithTokenBucketLimiter(limiter *ratelimit.OceanTokenBucketLimiter) dummyStoreOption {
 	return func(ds *dummyStore) {
 		ds.tokenBucketLimiter = limiter
 	}
@@ -264,8 +248,8 @@ func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
-	opts ...BroadcastOption,
-) (ServerResponse, yt.IDs, string, error) {
+	opts ...yt.BroadcastOption,
+) (yt.ServerResponse, yt.IDs, string, error) {
 	return nil, yt.IDs{}, "", nil
 }
 
@@ -292,7 +276,7 @@ type dummyForwardingService struct{}
 
 func newDummyForwardingService() *dummyForwardingService                                  { return &dummyForwardingService{} }
 func (v *dummyForwardingService) Stream(cfg *Cfg) error                                   { return nil }
-func (v *dummyForwardingService) Slate(cfg *Cfg, opts ...SlateOption) error               { return nil }
+func (v *dummyForwardingService) Slate(cfg *Cfg, opts ...forwarding.SlateOption) error    { return nil }
 func (v *dummyForwardingService) UploadSlate(cfg *Cfg, name string, file io.Reader) error { return nil }
 
 type request struct {
@@ -383,17 +367,17 @@ func newDummyHardwareManager(options ...func(*dummyHardwareManager)) *dummyHardw
 	}
 	return m
 }
-func (h *dummyHardwareManager) voltage(ctx *broadcastContext) (float64, error) {
+func (h *dummyHardwareManager) Voltage(ctx *hardware.Context) (float64, error) {
 	// This is assuming we call this function every tick.
 	h.volts += h.chargeRate
 	return h.volts, nil
 }
-func (h *dummyHardwareManager) alarmVoltage(ctx *broadcastContext) (float64, error) {
+func (h *dummyHardwareManager) AlarmVoltage(ctx *hardware.Context) (float64, error) {
 	return h.alarmVolts, nil
 }
-func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, error) {
+func (h *dummyHardwareManager) IsUp(ctx *hardware.Context, mac string) (bool, error) {
 	if mac == h.controllerMAC {
-		ctx.log("checking controller status, volts: %v, alarmVolts: %v, hardwareHealthy: %v", h.volts, h.alarmVolts, h.hardwareHealthy)
+		ctx.Log("checking controller status, volts: %v, alarmVolts: %v, hardwareHealthy: %v", h.volts, h.alarmVolts, h.hardwareHealthy)
 		if h.volts < h.alarmVolts {
 			return false, nil
 		}
@@ -407,7 +391,7 @@ func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, er
 		if !h.hardwareHealthy {
 			return false, nil
 		}
-		ctx.log("checking camera status: %v", h.latestRequest)
+		ctx.Log("checking camera status: %v", h.latestRequest)
 		if h.latestRequest.kind != "" && time.Now().Sub(h.latestRequest.Time) > 1*time.Minute {
 			switch h.latestRequest.kind {
 			case "start":
@@ -425,34 +409,34 @@ func (h *dummyHardwareManager) isUp(ctx *broadcastContext, mac string) (bool, er
 	return false, fmt.Errorf("could not get device: %w", datastore.ErrNoSuchEntity)
 }
 
-func (h *dummyHardwareManager) start(ctx *broadcastContext) {
-	ctx.log("starting hardware")
+func (h *dummyHardwareManager) Start(ctx *hardware.Context) {
+	ctx.Log("starting hardware")
 	h.startCalled = true
 	// Can't start if we're already shutting down.
 	if h.latestRequest.kind != "shutdown" {
 		h.latestRequest = request{"start", time.Now()}
 	}
 }
-func (h *dummyHardwareManager) shutdown(ctx *broadcastContext) {
-	ctx.log("shutting down hardware")
+func (h *dummyHardwareManager) Shutdown(ctx *hardware.Context) {
+	ctx.Log("shutting down hardware")
 	h.shutdownCalled = true
-	if ctx.cfg.ShutdownActions == "" {
-		ctx.bus.Publish(event.HardwareShutdownFailed{})
+	if ctx.Cfg.ShutdownActions == "" {
+		ctx.Bus.Publish(event.HardwareShutdownFailed{})
 		return
 	}
 	h.latestRequest = request{"shutdown", time.Now()}
 }
-func (h *dummyHardwareManager) stop(ctx *broadcastContext) {
-	ctx.log("stopping hardware")
+func (h *dummyHardwareManager) Stop(ctx *hardware.Context) {
+	ctx.Log("stopping hardware")
 	h.stopCalled = true
 	h.latestRequest = request{"stop", time.Now()}
 }
-func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event)) {
+func (h *dummyHardwareManager) PublishEventIfStatus(ctx *hardware.Context, e event.Event, status bool, mac int64, store Store, log func(format string, args ...interface{}), publish func(e event.Event)) {
 	if h.checkMAC && mac == 0 {
 		publish(event.InvalidConfiguration{errors.New("camera mac is empty")})
 		return
 	}
-	up, err := h.isUp(ctx, model.MacDecode(mac))
+	up, err := h.IsUp(ctx, model.MacDecode(mac))
 	if err != nil {
 		publish(event.InvalidConfiguration{fmt.Errorf("could not get device: %w", err)})
 		return
@@ -464,9 +448,9 @@ func (h *dummyHardwareManager) publishEventIfStatus(ctx *broadcastContext, e eve
 		publish(e)
 	}
 }
-func (h *dummyHardwareManager) error(ctx *broadcastContext) (error, error) {
+func (h *dummyHardwareManager) Error(ctx *hardware.Context) (error, error) {
 	if h.volts > h.alarmVolts {
-		return None, nil
+		return hardware.None, nil
 	}
 	return h.hwErr, nil
 }

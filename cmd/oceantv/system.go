@@ -9,6 +9,9 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
@@ -26,7 +29,7 @@ type broadcastSystem struct {
 
 type broadcastSystemOption func(*broadcastSystem) error
 
-func withBroadcastManager(bm BroadcastManager) broadcastSystemOption {
+func withBroadcastManager(bm manager.Broadcast) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.man = bm
 		return nil
@@ -40,14 +43,14 @@ func withBroadcastService(bs Svc) broadcastSystemOption {
 	}
 }
 
-func withForwardingService(fs ForwardingService) broadcastSystemOption {
+func withForwardingService(fs forwarding.Service) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.fwd = fs
 		return nil
 	}
 }
 
-func withHardwareManager(hm hardwareManager) broadcastSystemOption {
+func withHardwareManager(hm hardware.Manager) broadcastSystemOption {
 	return func(bs *broadcastSystem) error {
 		bs.ctx.hardware = hm
 		return nil
@@ -115,11 +118,11 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
 	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := newYouTubeBroadcastService(tokenURI, log)
+	svc := yt.NewYouTubeBroadcastService(tokenURI, log)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the YouTube broadcast service.
-	man := newOceanBroadcastManager(svc, cfg, store, log)
+	man := manager.NewOceanBroadcast(svc, cfg, store, log, setVar, broadcastByName)
 
 	// This will get called in the case that events are published to
 	// the event bus but our context is cancelled. This might happen if a routine
@@ -140,7 +143,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	bus := event.NewBasicEventBus(ctx, storeEventsAfterCtx, log)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, NewVidforwardService(log), bus, &revidCameraClient{}, logOutput, nil}
+	broadcastContext := &broadcastContext{cfg, man, store, svc, forwarding.NewVidforwardService(log, broadcastByName), bus, &hardware.RevidCameraClient{}, logOutput, nil}
 
 	// Subscribe event handler that notifies on events that implement errorEvent.
 	bus.Subscribe(func(e event.Event) error {

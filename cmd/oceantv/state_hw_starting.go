@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/model"
 )
 
@@ -32,12 +33,12 @@ func (s *hardwareStarting) enter() {
 	s.LastEntered = time.Now()
 	// A MAC of 0 indicates it is invalid or unset, proceed with starting the camera.
 	if s.cfg.ControllerMAC == 0 {
-		s.hardware.start(s.broadcastContext)
+		s.hardware.Start(s.broadcastContext.newHWContext())
 		return
 	}
 
 	// The first check for any known hardware error states.
-	hwErr, err := s.hardware.error(s.broadcastContext)
+	hwErr, err := s.hardware.Error(s.broadcastContext.newHWContext())
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware error state: %w", err)
 		s.log(errWrapped.Error())
@@ -49,11 +50,11 @@ func (s *hardwareStarting) enter() {
 	}
 
 	switch {
-	case errors.Is(hwErr, LowVoltageAlarm):
+	case errors.Is(hwErr, hardware.LowVoltageAlarm):
 		s.log("controller voltage is low, waiting for recovery before starting")
 		s.bus.Publish(event.LowVoltage{})
 		return
-	case errors.Is(hwErr, None):
+	case errors.Is(hwErr, hardware.None):
 		// Continue other checks, this is good.
 	case hwErr != nil:
 		errWrapped := fmt.Errorf("unhandled controller hardware error: %w", hwErr)
@@ -65,7 +66,7 @@ func (s *hardwareStarting) enter() {
 		// we have a controller that doesn't have the latest firmware.
 	}
 
-	voltage, err := s.hardware.voltage(s.broadcastContext)
+	voltage, err := s.hardware.Voltage(s.broadcastContext.newHWContext())
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get hardware voltage: %w", err)
 		s.log(errWrapped.Error())
@@ -73,7 +74,7 @@ func (s *hardwareStarting) enter() {
 		return
 	}
 
-	alarmVoltage, err := s.hardware.alarmVoltage(s.broadcastContext)
+	alarmVoltage, err := s.hardware.AlarmVoltage(s.broadcastContext.newHWContext())
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get alarm voltage: %w", err)
 		s.log(errWrapped.Error())
@@ -81,7 +82,7 @@ func (s *hardwareStarting) enter() {
 		return
 	}
 
-	controllerIsOn, err := s.hardware.isUp(s.broadcastContext, model.MacDecode(s.cfg.ControllerMAC))
+	controllerIsOn, err := s.hardware.IsUp(s.broadcastContext.newHWContext(), model.MacDecode(s.cfg.ControllerMAC))
 	if err != nil {
 		errWrapped := fmt.Errorf("could not get controller status: %w", err)
 		s.log(errWrapped.Error())
@@ -117,7 +118,7 @@ func (s *hardwareStarting) enter() {
 
 	// Controller is reporting and we're above streaming voltage, let's power
 	// on the hardware.
-	s.hardware.start(s.broadcastContext)
+	s.hardware.Start(s.broadcastContext.newHWContext())
 }
 
 func (s *hardwareStarting) exit() {}

@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
@@ -44,13 +43,6 @@ func try(err error, msg string, log func(string, ...interface{})) bool {
 		return false
 	}
 	return true
-}
-
-// removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.
-func removeDate(s string) string {
-	const dateRegex = "[0-3][0-9]/[0-3][0-9]/(?:[0-9][0-9])?[0-9][0-9]"
-	r := regexp.MustCompile(dateRegex)
-	return r.ReplaceAllString(s, "")
 }
 
 // setActionVars sets vars based on the provided string of "actions" in acts,
@@ -109,17 +101,6 @@ func broadcastByName(sKey int64, name string) (*Cfg, error) {
 	return cfg, nil
 }
 
-type ErrBroadcastNotFound struct{ name string }
-
-func (e ErrBroadcastNotFound) Error() string {
-	return fmt.Sprintf("broadcast with name %s doesn't exist", e.name)
-}
-
-func (e ErrBroadcastNotFound) Is(target error) bool {
-	_, ok := target.(ErrBroadcastNotFound)
-	return ok
-}
-
 // broadcastFromVars searches a slice of broadcast variables for a broadcast
 // config with the provided name and returns if found, otherwise an error is
 // returned.
@@ -134,7 +115,7 @@ func broadcastFromVars(broadcasts []model.Variable, name string) (*Cfg, error) {
 			return &cfg, nil
 		}
 	}
-	return nil, ErrBroadcastNotFound{name}
+	return nil, broadcast.ErrBroadcastNotFound{name}
 }
 
 var logConfigs = false

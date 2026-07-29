@@ -56,6 +56,12 @@ The following flags are available when running the `oceanbench` binary, particul
 | `--cronurl` | string | | URL for the cron service. |
 | `--tvurl` | string | | URL for the TV service. |
 
+### Configuration files
+
+Configuration files can also be used instead of manually specifying command-line flags. There are currently two configuration files, `.env` used to directly replace command line flags, and `.air.toml`
+used to configure the hot reload tool `air`. There are example configurations for both files included, with the suffix `.example`. By copying these files and removing the suffix, the program will
+run with the specified config.
+
 ## Development
 
 ### Tailwind CSS

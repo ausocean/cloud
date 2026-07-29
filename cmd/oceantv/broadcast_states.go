@@ -12,18 +12,22 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
+	"github.com/ausocean/cloud/cmd/oceantv/hardware"
+	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 )
 
 type broadcastContext struct {
 	cfg      *Cfg
-	man      BroadcastManager
+	man      manager.Broadcast
 	store    Store
 	svc      Svc
-	fwd      ForwardingService
+	fwd      forwarding.Service
 	bus      event.EventBus
-	hardware hardwareManager
+	hardware hardware.Manager
 
 	// When nil, defaults to log.Println. Useful to plug in test implementation.
 	logOutput func(v ...any)
@@ -91,6 +95,10 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 	if err != nil {
 		ctx.log("could not send health notifier: %v", err)
 	}
+}
+
+func (ctx *broadcastContext) newHWContext() *hardware.Context {
+	return hardware.NewContext(ctx.store, ctx.cfg, ctx.bus, ctx.logOutput)
 }
 
 type state interface {
@@ -391,7 +399,7 @@ func updateBroadcastBasedOnState(state state, cfg *Cfg) {
 }
 
 func broadcastCfgToState(ctx *broadcastContext) state {
-	isSecondary := strings.Contains(ctx.cfg.Name, secondaryBroadcastPostfix)
+	isSecondary := strings.Contains(ctx.cfg.Name, broadcast.SecondaryPostfix)
 	var (
 		vid               = ctx.cfg.UsingVidforward
 		active            = ctx.cfg.Active
@@ -468,7 +476,7 @@ func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *Cfg, onCreati
 		ctx.store,
 		ctx.svc,
 	)
-	if errors.Is(err, ErrRequestLimitExceeded) {
+	if errors.Is(err, yt.ErrRequestLimitExceeded) {
 		onFailureClosure(ctx, cfg, true)(fmt.Errorf("could not create broadcast: %w", err))
 		return
 	}

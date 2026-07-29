@@ -27,10 +27,8 @@ LICENSE
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,6 +37,7 @@ import (
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -52,7 +51,7 @@ type (
 	Store = datastore.Store
 	Key   = datastore.Key
 	Ety   = datastore.Entity
-	Svc   = BroadcastService
+	Svc   = yt.BroadcastService
 )
 
 const (
@@ -75,13 +74,10 @@ const (
 
 // Datastore broadcast and live scopes.
 const (
-	liveScope                 = "Live"                                // Scope under which live stream URLs are stored.
 	defaultMessage            = "Welcome to the AusOcean livestream!" // Default message to be sent to the YouTube live chat.
 	tempPin                   = "X60"                                 // Standard temperature pin value.
 	scalar                    = 0.1                                   // Scalar for temperature conversions from int to float.
 	absZero                   = -273.15                               // Offset for temperature conversions from int to float.
-	rtmpDestinationAddress    = "rtmp://a.rtmp.youtube.com/live2/"    // Base address for RTMP destination (RTMP key is appended).
-	secondaryBroadcastPostfix = "(Secondary)"                         // Post fix used on end of secondary broadcast names.
 	longTermBroadcastDuration = 1                                     // The duration of the long term broadcast in years.
 )
 
@@ -259,105 +255,12 @@ func performChecks(ctx Ctx, cfg *Cfg, store Store, eventHooks []eventHook, state
 	)
 }
 
-type BroadcastCallback func(Ctx, *Cfg, Store, Svc) error
-
 type ErrInvalidEndTime struct {
 	start, end time.Time
 }
 
 func (e ErrInvalidEndTime) Error() string {
 	return fmt.Sprintf("end time (%v) is invalid relative to start time (%v)", e.end, e.start)
-}
-
-// saveLinkFunc provides a closure for saving a broadcast link with a given key.
-func saveLinkFunc() func(string, string) error {
-	return func(key, link string) error {
-		key = removeDate(key)
-		return model.PutVariable(context.Background(), store, -1, liveScope+"."+key, link)
-	}
-}
-
-// extStart uses the OnActions in the provided broadcast config to perform
-// external streaming hardware startup. In addition, the RTMP key is obtained
-// from the broadcast's associated stream object and used to set the devices
-// RTMPKey variable.
-func extStart(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.OnActions == "" {
-		return nil
-	}
-
-	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + rtmpDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables required to start stream: %w", err)
-	}
-
-	return nil
-}
-
-// errNoShutdownActions represents no shutdown actions being registered for the broadcast.
-var errNoShutdownActions = errors.New("no shutdown actions provided")
-
-// SkipAction is the placeholder used to represent that the action step should be skipped.
-const SkipAction = "skip"
-
-func extShutdown(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.ShutdownActions == SkipAction {
-		return broadcast.WarnSkipShutdown
-	}
-	if cfg.ShutdownActions == "" {
-		return errNoShutdownActions
-	}
-
-	err := setActionVars(ctx, cfg.SKey, cfg.ShutdownActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
-}
-
-// extStop uses the OffActions in the provided broadcast config to perform
-// external streaming hardware shutdown.
-func extStop(ctx Ctx, cfg *Cfg, log func(string, ...interface{})) error {
-	if cfg.OffActions == "" {
-		return nil
-	}
-
-	err := setActionVars(ctx, cfg.SKey, cfg.OffActions, store, log)
-	if err != nil {
-		return fmt.Errorf("could not set device variables to end stream: %w", err)
-	}
-
-	return nil
-}
-
-func performRequestWithRetries(dest string, data any, maxRetries int, log func(string, ...interface{})) error {
-	var retries int
-retry:
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		return fmt.Errorf("could not encode data struct: %w", err)
-	}
-
-	client := &http.Client{Timeout: 20 * time.Second}
-	httpReq, err := http.NewRequest(http.MethodPut, dest, &buf)
-	if err != nil {
-		return fmt.Errorf("could not create new http request: %w", err)
-	}
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		log("could not do http request, but retrying: %v", err)
-		if retries <= maxRetries {
-			retries++
-			goto retry
-		}
-		return fmt.Errorf("could not do http request: %w, resp: %v", err, resp)
-	}
-
-	return nil
 }
 
 // liveHandler handles requests to /live/<broadcast name>. This redirects to the
@@ -369,7 +272,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 	setup(ctx)
 
 	key := strings.ReplaceAll(r.URL.Path, r.URL.Host+"/live/", "")
-	v, err := model.GetVariable(ctx, store, -1, liveScope+"."+key)
+	v, err := model.GetVariable(ctx, store, -1, broadcast.LiveScope+"."+key)
 	if err != nil {
 		fmt.Fprintf(w, "livestream %s does not exist", key)
 		return
