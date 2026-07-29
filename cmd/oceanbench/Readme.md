@@ -17,11 +17,8 @@ Before you begin, ensure you have **git**, **go**, and **npm** installed. For lo
     npm install
     ```
 
-3.  **Install Air and Setup Configuration (Once-off)**
+3.  **Setup Configuration (Once-off)**
     ```bash
-    # Install Air for live-reloading Go
-    go install github.com/air-verse/air@latest
-    
     # Copy the example Air configuration
     cp .air.toml.example .air.toml
     ```

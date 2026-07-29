@@ -3,7 +3,7 @@
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
-    "dev": "concurrently \"npm run build:watch\" \"air\"",
+    "dev": "concurrently \"npm run build:watch\" \"go tool air\"",
     "format": "prettier --write \"**/*.{html,js,ts}\"",
     "serve": "es-dev-server --node-resolve --watch",
     "deploy": "../../scripts/deploy.sh -b oceanbench",
