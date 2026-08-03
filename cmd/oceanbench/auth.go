@@ -127,9 +127,15 @@ func profileData(profile *gauth.Profile) (int64, string) {
 	return key, p[1]
 }
 
-// getDefaultSkey returns the default site key associated with a user's email. This
-// is stored in a variable scoped to the users email with '@' and '.' replaced with '_'.
-//
+// defaultSkeyVarName returns the structured name for the default skey
+// variable. This is scoped to the users email with '@' and '.' replaced with '_'.
+func defaultSkeyVarName(email string) string {
+	scope := strings.ReplaceAll(email, "@", "_")
+	scope = strings.ReplaceAll(scope, ".", "_")
+	return scope + ".defaultSkey"
+}
+
+// getDefaultSkey returns the default site key associated with a user's email.
 // If no default site key yet exists, one will be automatically assigned based on the
 // user's current sites.
 //
@@ -139,17 +145,14 @@ func getDefaultSkey(ctx context.Context, profile *gauth.Profile) (int64, error) 
 	if profile == nil {
 		return -1, errors.New("no profile supplied")
 	}
-	scope := strings.ReplaceAll(profile.Email, "@", "_")
-	scope = strings.ReplaceAll(scope, ".", "_")
-	name := scope + ".defaultSkey"
-	v, err := model.GetVariable(ctx, settingsStore, -1, name)
+	v, err := model.GetVariable(ctx, settingsStore, -1, defaultSkeyVarName(profile.Email))
 	if errors.Is(err, datastore.ErrNoSuchEntity) {
 		// Choose a default site from the user's current sites.
 		users, err := model.GetUsers(ctx, settingsStore, profile.Email)
 		if err != nil {
 			return -1, fmt.Errorf("failed to get users for email (%s): %v", profile.Email, err)
 		}
-		err = model.PutVariable(ctx, settingsStore, -1, name, fmt.Sprintf("%d", users[0].Skey))
+		err = setDefaultSkey(ctx, profile, users[0].Skey)
 		if err != nil {
 			// This isn't considered an error, as the caller is still returned the default site,
 			// but we log it anyway as this likely indicates a systemic issue.
@@ -165,6 +168,11 @@ func getDefaultSkey(ctx context.Context, profile *gauth.Profile) (int64, error) 
 		return -1, fmt.Errorf("unable to parse skey from default skey var (%s): %v", v.Value, err)
 	}
 	return skey, nil
+}
+
+// setDefaultSkey updates the default skey variable for the user.
+func setDefaultSkey(ctx context.Context, p *gauth.Profile, skey int64) error {
+	return model.PutVariable(ctx, settingsStore, -1, defaultSkeyVarName(p.Email), fmt.Sprintf("%d", skey))
 }
 
 // requestSiteData gets the site key from the request URL if present,

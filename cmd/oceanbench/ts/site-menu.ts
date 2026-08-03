@@ -1,5 +1,6 @@
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
+import { TailwindElement } from "./shared/tailwind.element";
 
 export const SandboxSkey: Number = 3;
 
@@ -8,7 +9,7 @@ const enum siteType {
 }
 
 @customElement("site-menu")
-class SiteMenu extends LitElement {
+class SiteMenu extends TailwindElement() {
   private _clickListener?: (e: MouseEvent) => void;
 
   @property({ type: String, attribute: "selected-data" })
@@ -26,18 +27,8 @@ class SiteMenu extends LitElement {
   @property({ type: Boolean })
   reloadConfirmed = false;
 
-  @state() skey : number | siteType = siteType.DEFAULT
-
-  static styles = css`
-    select {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      width: 424px;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-  `;
+  @state() skey: number | siteType = siteType.DEFAULT;
+  @state() defaultSkey: number | siteType = siteType.DEFAULT;
 
   constructor() {
     super();
@@ -47,24 +38,29 @@ class SiteMenu extends LitElement {
 
   override render() {
     return html`
-      <select id="select" @change=${this.handleSiteChange}>
+      <div class="rounded-full py-2 px-4 text-slate-900 bg-slate-100">
+      <button @click="${this.setDefaultSite}">${this.defaultSkey == this.skey ? "★" : "☆"}</button>
+      <select id="select" @change=${this.handleSiteChange} class="box-border w-106">
         <option id="loading">
-          ${this.selectedData && this.selectedData.includes(":")
-            ? this.selectedData.split(":")[1]
-            : "Loading Sites..."}
+          ${
+            this.selectedData && this.selectedData.includes(":")
+              ? this.selectedData.split(":")[1]
+              : "Loading Sites..."
+          }
         </option>
         <optgroup style="display: none" id="read" label="Read"></optgroup>
         <optgroup style="display: none" id="write" label="Write"></optgroup>
         <optgroup style="display: none" id="admin" label="Admin"></optgroup>
       </select>
+      </div>
     `;
   }
 
   firstUpdated() {
     // The site should be the first segment of the path.
-    let path = window.location.pathname
-    path = path.startsWith("/") ? path.slice(1) : path
-    let site = path.split("/")[0]
+    let path = window.location.pathname;
+    path = path.startsWith("/") ? path.slice(1) : path;
+    let site = path.split("/")[0];
 
     if (Number(site) != undefined && Number.isInteger(Number(site))) {
       this.skey = Number(site);
@@ -75,6 +71,7 @@ class SiteMenu extends LitElement {
     this.selectedData = site;
 
     this.loadSites();
+    this.getDefaultSite();
   }
 
   async loadSites() {
@@ -179,6 +176,36 @@ class SiteMenu extends LitElement {
     r.send();
   }
 
+  setDefaultSite() {
+    try {
+      fetch("/api/v1/site/default", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          skey: this.skey,
+        }),
+      });
+      this.defaultSkey = this.skey
+    } catch (e) {
+      console.error("failed to set default site:", e)
+    }
+  }
+
+  async getDefaultSite() {
+    try {
+      let resp = await fetch("/api/v1/site/default", {
+        method: "GET",
+      });
+      let { skey } = await resp.json()
+      this.defaultSkey = skey;
+      console.log(this.defaultSkey)
+    } catch (e) {
+      console.error("failed to get default site:", e)
+    }
+  }
+
   handleSiteChange(event: Event) {
     const target = event.target as HTMLSelectElement;
     const selectedOpt = target.options[target.selectedIndex];
@@ -201,8 +228,8 @@ class SiteMenu extends LitElement {
       this.skey = Number(selectedKey);
       this.selectedData = selectedKey + ":" + selectedName;
     } else {
-      let targetUrl = window.location.pathname
-      targetUrl = targetUrl.replace(this.skey.toString(), selectedKey)
+      let targetUrl = window.location.pathname;
+      targetUrl = targetUrl.replace(this.skey.toString(), selectedKey);
 
       if (Number(selectedKey) == SandboxSkey) {
         window.location.assign(`/${SandboxSkey}/admin/sandbox`);
