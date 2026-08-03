@@ -38,9 +38,9 @@ class SiteMenu extends TailwindElement() {
 
   override render() {
     return html`
-      <div class="rounded-full py-2 px-4 text-slate-900 bg-slate-100">
-      <button @click="${this.setDefaultSite}">${this.defaultSkey == this.skey ? "★" : "☆"}</button>
-      <select id="select" @change=${this.handleSiteChange} class="box-border w-106">
+      <div class="rounded-full py-2 px-4 text-slate-900 bg-slate-100 max-w-lg w-full box-border flex items-center gap-2">
+      <button @click="${this.setDefaultSite}" class="shrink-0">${this.defaultSkey == this.skey ? "★" : "☆"}</button>
+      <select id="select" @change=${this.handleSiteChange} class="box-border flex-1 truncate min-w-0 max-w-lg w-full">
         <option id="loading">
           ${
             this.selectedData && this.selectedData.includes(":")
