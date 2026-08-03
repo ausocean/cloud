@@ -110,16 +110,6 @@ func adminHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	// Require POST method, except for admin landing pages.
-	if c.Method() != "POST" {
-		switch c.Route().Path {
-		case "/:skey/admin/utils":
-			// Okay.
-		default:
-			return c.Redirect("/", fiber.StatusMethodNotAllowed)
-		}
-	}
-
 	// The following tasks all require admin privilege.
 	skey, err := getCurrentSkey(c, p)
 	if err != nil {
@@ -469,7 +459,7 @@ func writeAdmin(c *fiber.Ctx, p *gauth.Profile, err error) error {
 // utilsHandler handles admin utils requests.
 func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 	ctx := c.UserContext()
-	skey, _ := requestSiteData(c, p)
+	skey, _ := getCurrentSkey(c, p)
 
 	var msg string
 	devices, err := model.GetDevicesBySite(ctx, settingsStore, skey)

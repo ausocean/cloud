@@ -17,7 +17,7 @@
     </script>
     <script type="module" src="/s/lit/site-footer.js"></script>
   </head>
-  <body onload="history.pushState({}, '', '/admin/utils')">
+  <body>
     <header-group skey="{{ .CurrentSiteKey }}" id="header" class="header" version="{{ .Version }}" {{ if .Profile }}auth="true" {{ end }}>
       <nav-menu id="nav-menu" slot="nav-menu">
         {{ range .Pages -}}
