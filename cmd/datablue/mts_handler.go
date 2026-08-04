@@ -148,6 +148,127 @@ func mtsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, string(jsn))
 }
 
+// mtsHandlerV2 receives audio/video data from devices in the form of
+// JSON blobs containing metadata, with the video stored in a storage bucket.
+// The JSON blob follows the same format as MTSMediaV2 but the MID, Geohash, and
+// Timestamp are ignored (they will be set by the server).
+// The response is in JSON format. For a normal response, the response mirrors the request
+// query params and their values, plus a timestamp (and minus the
+// device key which is never revealed to clients). For errors, the
+// response includes the "er" param. Server-side errors are also
+// logged. Where we receive multiple pin params, POST data represents
+// concatenated metadata blobs and the pin value indicates the size of each
+// blob. It is therefore possible to send multiple audio/video blobs in the same request.
+// The supplied MAC address (ma) must correspond to a valid
+// ausocean device and the supplied device key (dk) must to match
+// the device's. The pin type (pn) must be either V(ideo) or S(ound).
+func mtsHandlerV2(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+	ctx := r.Context()
+
+	q := r.URL.Query()
+	macAddr := q.Get("ma")
+	dk := q.Get("dk")
+
+	// Is this request for a valid device?
+	setup(ctx)
+	dev, err := model.CheckDevice(ctx, settingsStore, macAddr, dk)
+	if err != nil {
+		writeDeviceError(w, dev, err)
+		return
+	}
+
+	geoHash := q.Get("gh")
+
+	t := q.Get("ts")
+	var timestamp int64
+	if t != "" {
+		timestamp, err = strconv.ParseInt(t, 10, 64)
+		if err != nil {
+			writeError(w, err)
+		}
+	}
+	if timestamp == 0 {
+		timestamp = time.Now().Unix()
+	}
+
+	resp := make(map[string]interface{})
+	resp["ma"] = macAddr
+
+	var found bool
+	for _, pin := range dev.InputList() {
+		if !isMtsPin(pin) {
+			continue
+		}
+		v := q.Get(pin)
+		if v == "" {
+			continue
+		}
+		found = true
+		sz, err := strconv.Atoi(v)
+		if err != nil || sz <= 0 {
+			resp["er"] = errInvalidValue.Error()
+			break
+		}
+		resp[pin] = sz
+		clip := make([]byte, sz)
+		n, err := io.ReadFull(r.Body, clip)
+		if err != nil {
+			log.Printf("could not read body: %v", err)
+			break
+		}
+		if n != sz {
+			log.Printf("invalid size: n = %d, sz=%d", n, sz)
+			resp["er"] = errInvalidSize.Error()
+			break
+		}
+
+		var mtsMedia model.MtsMediaV2
+		err = json.Unmarshal(clip, &mtsMedia)
+		if err != nil {
+			log.Printf("could not unmarshal clip: %v", err)
+			resp["er"] = fmt.Sprintf("could not unmarshal clip: %v", err)
+			break
+		}
+
+		mtsMedia.MID = model.ToMID(macAddr, pin)
+		mtsMedia.Geohash = geoHash
+		mtsMedia.Timestamp = timestamp
+		_, err = model.CreateMtsMediaV2(ctx, mediaStore, mtsMedia)
+		if err != nil {
+			log.Printf("could not write MTS media: %v", err)
+			resp["er"] = fmt.Sprintf("could not write MTS media: %v", err)
+			break
+		}
+	}
+
+	if !found {
+		log.Printf("/v2/mts called without MTS data")
+	}
+
+	err = r.Body.Close()
+	if err != nil {
+		log.Printf("could not close body: %v", err)
+		// Don't bother to inform the client.
+	}
+
+	// Insert timestamp
+	resp["ts"] = timestamp
+
+	// Insert device location, if any
+	if dev.Latitude != 0 && dev.Longitude != 0 {
+		resp["ll"] = fmt.Sprintf("%0.5f,%0.5f", dev.Latitude, dev.Longitude)
+	}
+
+	// Return response to client as JSON
+	jsn, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("could not marshal JSON: %v", err)
+		return
+	}
+	fmt.Fprint(w, string(jsn))
+}
+
 // writeMtsMedia splits MTS data on PSI boundaries (~1 second for
 // video) then writes them using the supplied write function. Clips
 // should start with PSI (PAT and then PMT); anything prior is ignored.

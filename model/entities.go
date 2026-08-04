@@ -41,6 +41,7 @@ func RegisterEntities() {
 	datastore.RegisterEntity(typeDevice, func() datastore.Entity { return new(Device) })
 	datastore.RegisterEntity(typeMedia, func() datastore.Entity { return new(Media) })
 	datastore.RegisterEntity(typeMtsMedia, func() datastore.Entity { return new(MtsMedia) })
+	datastore.RegisterEntity(typeMtsMediaV2, func() datastore.Entity { return new(MtsMediaV2) })
 	datastore.RegisterEntity(typeScalar, func() datastore.Entity { return new(Scalar) })
 	datastore.RegisterEntity(typeSensor, func() datastore.Entity { return new(Sensor) })
 	datastore.RegisterEntity(typeSensorV2, func() datastore.Entity { return new(SensorV2) })
