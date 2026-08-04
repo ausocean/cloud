@@ -28,6 +28,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -35,6 +36,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // setLogHandler creates a new log for the given device MAC and sitekey. The request parameters are:
@@ -42,48 +44,48 @@ import (
 //	sk: site key
 //	ma: device MAC address (encoded as int64)
 //	ld: log data.
-func setLogHandler(w http.ResponseWriter, r *http.Request) {
+func setLogHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Validate the user is logged in.
-	profile, err := getProfile(w, r)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		c.Status(http.StatusUnauthorized)
+		return nil
 	}
 
 	// Parse the fields to be put into the log.
-	skStr := r.FormValue("sk")
-	maStr := r.FormValue("ma")
-	ld := r.FormValue("lg")
+	skStr := c.FormValue("sk")
+	maStr := c.FormValue("ma")
+	ld := c.FormValue("lg")
 
 	// Convert the site key and device MAC to int64.
 	sk, err := strconv.ParseInt(skStr, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse site key: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return err
 	}
 	ma, err := strconv.ParseInt(maStr, 10, 64)
 	if err != nil {
 		log.Printf("failed to parse device MAC: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		c.Status(fiber.StatusBadRequest)
+		return err
 	}
 
 	// Check the user has at least admin permissions for the site they are trying to create a log for.
 	user, err := model.GetUser(ctx, settingsStore, sk, profile.Email)
 	if errors.Is(err, datastore.ErrNoSuchEntity) || (err == nil && user.Perm&model.AdminPermission == 0) {
 		log.Println("user does not have admin permissions")
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		c.Status(fiber.StatusUnauthorized)
+		return err
 	} else if err != nil {
 		log.Printf("failed to get permission for user: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return err
 	}
 
 	// Put the new Log into the datastore.
@@ -92,42 +94,56 @@ func setLogHandler(w http.ResponseWriter, r *http.Request) {
 	// Return any errors from putting the log.
 	if err != nil {
 		log.Printf("failed to put Log: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		c.Status(fiber.StatusInternalServerError)
+		return err
 	}
 
 	// Redirect to the log page.
-	http.Redirect(w, r, "/logs", http.StatusSeeOther)
+	return c.Redirect("/logs", fiber.StatusSeeOther)
 }
 
 // logPageHandler handles requests for the log page.
-func logPageHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
-
-	if r.URL.Path != "/logs" {
-		// Redirect all invalid URLs to the root homepage.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
+func logPageHandler(c *fiber.Ctx) error {
+	logRequest(c)
+	profile, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	profile, err := getProfile(w, r)
-	skey, _ := requestSiteData(r, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
+
+	// Ensure user has write permission for the site.
+	ctx := c.UserContext()
+	user, err := model.GetUser(ctx, settingsStore, skey, profile.Email)
+	if errors.Is(err, datastore.ErrNoSuchEntity) || user.Perm&model.WritePermission == 0 {
+		log.Println("user does not have write permissions")
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	} else if err != nil {
+		log.Printf("failed to get permission for user: %v", err)
+		return c.Redirect("/", fiber.StatusInternalServerError)
+	}
+
+	expectedPath := fmt.Sprintf("/%d/logs", skey)
+	if c.Path() != expectedPath {
+		// Redirect all invalid URLs to the base URL.
+		return c.Redirect(expectedPath, fiber.StatusFound)
+	}
+
 	data := adminData{
 		commonData: commonData{
-			Pages:   pages("logs"),
+			Pages:   pages(c, "logs"),
 			Profile: profile,
 		},
 		Skey: skey,
 	}
-	if err != nil {
-		if err != gauth.TokenNotFound {
-			log.Printf("authentication error: %v", err)
-			http.Redirect(w, r, "/", http.StatusUnauthorized)
-			return
-		}
-		writeTemplate(w, r, "log.html", &data, "")
-		return
-	}
 
-	writeTemplate(w, r, "log.html", &data, "")
+	return writeTemplate(c, "log.html", &data, "")
 }

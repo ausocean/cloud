@@ -33,6 +33,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/system"
+	"github.com/gofiber/fiber/v2"
 )
 
 type sandboxData struct {
@@ -42,40 +43,44 @@ type sandboxData struct {
 	commonData
 }
 
-func sandboxHandler(w http.ResponseWriter, r *http.Request) {
-	profile, err := getProfile(w, r)
+func sandboxHandler(c *fiber.Ctx) error {
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteData(r, profile)
+
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	data := sandboxData{
 		commonData: commonData{
-			Pages:   pages("home"),
+			Pages:   pages(c, "home"),
 			Profile: profile,
 		},
 	}
 
 	if skey != model.SandboxSkey {
-		writeTemplate(w, r, "sandbox.html", &data, "Must be on Sandbox Site.")
-		return
+		writeTemplate(c, "sandbox.html", &data, "Must be on Sandbox Site.")
+		return nil
 	}
 
-	ctx := context.Background()
+	ctx := c.UserContext()
 	data.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplate(w, r, "sandbox.html", &data, "could not get devices by site")
-		return
+		writeTemplate(c, "sandbox.html", &data, "could not get devices by site")
+		return err
 	}
 
-	ma := r.FormValue("ma")
+	ma := c.FormValue("ma")
 	if !model.IsMacAddress(ma) && ma != "" {
-		writeTemplate(w, r, "sandbox.html", &data, "invalid mac address")
-		return
+		writeTemplate(c, "sandbox.html", &data, "invalid mac address")
+		return nil
 	}
 
 	for _, d := range data.Devices {
@@ -85,8 +90,8 @@ func sandboxHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeTemplate(w, r, "sandbox.html", &data, "")
-	return
+	writeTemplate(c, "sandbox.html", &data, "")
+	return nil
 }
 
 // configDevicesHandler handles configuration of new devices.
@@ -99,36 +104,33 @@ func sandboxHandler(w http.ResponseWriter, r *http.Request) {
 //	wi = comma seperated WiFi name and password (optional)
 //	ll = comma seperated latitude and longitude (optional)
 //	sk = target site key for the new device
-func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
-	logRequest(r)
+func configDevicesHandler(c *fiber.Ctx) error {
+	logRequest(c)
 	ctx := context.Background()
-	profile, err := getProfile(w, r)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
-		http.Redirect(w, r, "/", http.StatusUnauthorized)
-		return
+		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
 
-	if r.Method == http.MethodGet {
-		writeConfigure(w, r, profile)
-		return
+	if c.Method() == http.MethodGet {
+		return writeConfigure(c, profile)
 	}
 
 	// Parse the form values.
-	dn := r.FormValue("dn")
-	ma := r.FormValue("ma")
-	dt := r.FormValue("dt")
-	wifi := r.FormValue("wi")
-	ll := r.FormValue("ll")
-	sk := r.FormValue("sk")
-	r.ParseForm()
+	dn := c.FormValue("dn")
+	ma := c.FormValue("ma")
+	dt := c.FormValue("dt")
+	wifi := c.FormValue("wi")
+	ll := c.FormValue("ll")
+	sk := c.FormValue("sk")
 
 	dev, err := model.GetDevice(ctx, settingsStore, model.MacEncode(ma))
 	if err != nil {
-		writeError(w, fmt.Errorf("unable to get device by mac: %w", err))
-		return
+		writeError(c, fmt.Errorf("unable to get device by mac: %w", err))
+		return err
 	}
 
 	// Parse location.
@@ -136,13 +138,13 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	if len(strings.Split(ll, ",")) == 2 {
 		lat, err = strconv.ParseFloat(strings.Split(ll, ",")[0], 64)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to parse lat float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
-			return
+			writeError(c, fmt.Errorf("unable to parse lat float64 from: %s, err: %w", strings.Split(ll, ",")[0], err))
+			return err
 		}
 		long, err = strconv.ParseFloat(strings.Split(ll, ",")[1], 64)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to parse long float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
-			return
+			writeError(c, fmt.Errorf("unable to parse long float64 from: %s, err: %w", strings.Split(ll, ",")[1], err))
+			return err
 		}
 	}
 
@@ -154,8 +156,8 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !model.IsMacAddress(ma) {
-		writeError(w, model.ErrInvalidMACAddress)
-		return
+		writeError(c, model.ErrInvalidMACAddress)
+		return model.ErrInvalidMACAddress
 	}
 
 	var isValidType bool
@@ -166,13 +168,13 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !isValidType {
-		writeError(w, model.ErrInvalidDevType)
-		return
+		writeError(c, model.ErrInvalidDevType)
+		return model.ErrInvalidDevType
 	}
 	skey, err := strconv.ParseInt(sk, 10, 64)
 	if err != nil {
-		writeError(w, fmt.Errorf("could not parse site key: %w", err))
-		return
+		writeError(c, fmt.Errorf("could not parse site key: %w", err))
+		return err
 	}
 
 	// Create the device.
@@ -185,45 +187,45 @@ func configDevicesHandler(w http.ResponseWriter, r *http.Request) {
 			system.WithLocation(lat, long),
 		)
 		if err != nil {
-			writeError(w, err)
-			return
+			writeError(c, err)
+			return err
 		}
 
 		err = system.PutRigSystem(ctx, settingsStore, sys)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to put rig system: %w", err))
-			return
+			writeError(c, fmt.Errorf("unable to put rig system: %w", err))
+			return err
 		}
 	case model.DevTypeCamera:
 		camSys, err := system.NewCamera(skey, dev.Dkey, dn, ma, system.WithCameraDefaults())
 		if err != nil {
-			writeError(w, err)
-			return
+			writeError(c, err)
+			return err
 		}
 
 		err = system.PutCameraSystem(ctx, settingsStore, camSys)
 		if err != nil {
-			writeError(w, fmt.Errorf("unable to put camera system: %w", err))
-			return
+			writeError(c, fmt.Errorf("unable to put camera system: %w", err))
+			return err
 		}
 
 	default:
-		writeError(w, errNotImplemented)
-		return
+		writeError(c, errNotImplemented)
+		return errNotImplemented
 	}
 	site, err := model.GetSite(ctx, settingsStore, int64(skey))
 	if err != nil {
-		writeError(w, fmt.Errorf("failed to get site: %v", err))
-		return
+		writeError(c, fmt.Errorf("failed to get site: %v", err))
+		return err
 	}
 	profile.Data = fmt.Sprintf("%d:%s", skey, site.Name)
-	err = putProfileData(w, r, profile.Data)
+	err = putProfileData(c, profile.Data)
 	if err != nil {
-		writeError(w, fmt.Errorf("failed to put profile data: %w", err))
-		return
+		writeError(c, fmt.Errorf("failed to put profile data: %w", err))
+		return err
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/set/devices?ma=%s", ma), http.StatusSeeOther)
+	return c.Redirect(fmt.Sprintf("/set/devices?ma=%s", ma), fiber.StatusSeeOther)
 }
 
 type configureData struct {
@@ -233,29 +235,28 @@ type configureData struct {
 	commonData
 }
 
-func writeConfigure(w http.ResponseWriter, r *http.Request, profile *gauth.Profile) {
+func writeConfigure(c *fiber.Ctx, profile *gauth.Profile) error {
 	data := configureData{
 		commonData: commonData{
-			Pages: pages("devices"),
+			Pages: pages(c, "devices"),
 		}}
-	ctx := r.Context()
+	ctx := c.UserContext()
 	var err error
 
 	data.Sites, err = model.GetAllSites(ctx, settingsStore)
 	if err != nil {
-		writeTemplate(w, r, "configure.html", &data, fmt.Sprintf("could not get all sites: %v", err.Error()))
-		return
+		writeTemplate(c, "configure.html", &data, fmt.Sprintf("could not get all sites: %v", err.Error()))
+		return err
 	}
 
 	// Parse form values.
-	data.MAC = r.FormValue("ma")
+	data.MAC = c.FormValue("ma")
 	if data.MAC == "" {
 		// TODO: Allow creation of new device from Sandbox page.
-		http.Redirect(w, r, "/admin/sandbox", http.StatusFound)
-		return
+		return c.Redirect("/fiber/sandbox", fiber.StatusFound)
 	}
 	data.DevTypes = devTypes
-	r.ParseForm()
 
-	writeTemplate(w, r, "configure.html", &data, "")
+	writeTemplate(c, "configure.html", &data, "")
+	return nil
 }

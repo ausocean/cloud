@@ -17,14 +17,20 @@ Before you begin, ensure you have **git**, **go**, and **npm** installed. For lo
     npm install
     ```
 
-3.  **Run a Local Development Instance**
+3.  **Setup Configuration (Once-off)**
+    ```bash
+    # Copy the example Air configuration
+    cp .air.toml.example .air.toml
+    ```
+
+4.  **Run a Local Development Instance**
     The easiest way to develop locally and test changes quickly is using the `dev` script, which launches Air for backend (go) changes, and watching Vite builds together.
     ```bash
     npm run dev
     ```
-    Once started, open your browser and navigate to `http://localhost:8090`.
+    Once you see the `running...` message in the output, open your browser and navigate to `http://localhost:8090`.
 
-4.  **Alternative without Air: Build the Project Manually**
+5.  **Alternative without Air: Build the Project Manually**
     ```bash
     # 1. Compile TypeScript/Lit components and Tailwind CSS via Vite
     npm run build

@@ -124,20 +124,24 @@ type searchData struct {
 //
 // ToDo: log users performing searches.
 func searchHandler(c *fiber.Ctx) error {
-	logRequestFiber(c)
-	profile, err := getProfileFiber(c)
+	logRequest(c)
+	profile, err := getProfile(c)
 	if err != nil {
 		if err != gauth.TokenNotFound {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
 	}
-	skey, _ := requestSiteDataFiber(c, profile)
+	skey, err := getCurrentSkey(c, profile)
+	if err != nil {
+		log.Printf("unable to get current skey, redirecting: %v", err)
+		return c.Redirect("/", fiber.StatusSeeOther)
+	}
 
 	// searchData struct is used by the template.
 	sd := searchData{
 		commonData: commonData{
-			Pages:      pages("search"),
+			Pages:      pages(c, "search"),
 			Standalone: standalone,
 		},
 		SKey:       skey,
@@ -163,13 +167,13 @@ func searchHandler(c *fiber.Ctx) error {
 
 	site, err := model.GetSite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("site %d not found", skey))
+		writeTemplate(c, searchTemplate, &sd, fmt.Sprintf("site %d not found", skey))
 		return err
 	}
 	if !site.Public {
 		_, err = model.GetUser(ctx, settingsStore, skey, profile.Email)
 		if err != nil {
-			writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("site %d is private", skey))
+			writeTemplate(c, searchTemplate, &sd, fmt.Sprintf("site %d is private", skey))
 			return nil
 		}
 	}
@@ -180,11 +184,11 @@ func searchHandler(c *fiber.Ctx) error {
 	// Compute default values.
 	sd.Devices, err = model.GetDevicesBySite(ctx, settingsStore, skey)
 	if err != nil {
-		writeTemplateFiber(c, searchTemplate, &sd, "Datastore error: "+err.Error())
+		writeTemplate(c, searchTemplate, &sd, "Datastore error: "+err.Error())
 		return nil
 	}
 	if len(sd.Devices) == 0 {
-		writeTemplateFiber(c, searchTemplate, &sd, "No Devices to Search")
+		writeTemplate(c, searchTemplate, &sd, "No Devices to Search")
 		return nil
 	}
 
@@ -192,25 +196,25 @@ func searchHandler(c *fiber.Ctx) error {
 	if sd.Ma != "" {
 		sd.Device, err = model.GetDevice(ctx, settingsStore, model.MacEncode(sd.Ma))
 		if err != nil {
-			writeTemplateFiber(c, searchTemplate, &sd, "Device not found")
+			writeTemplate(c, searchTemplate, &sd, "Device not found")
 			return nil
 		}
 		if sd.Pn == "" && len(sd.Device.Inputs) >= 2 {
 			sd.Pn = sd.Device.Inputs[0:2]
 		}
 		if sd.Pn == "" {
-			writeTemplateFiber(c, searchTemplate, &sd, "Cannot search devices without inputs")
+			writeTemplate(c, searchTemplate, &sd, "Cannot search devices without inputs")
 			return nil
 		}
 
 	} else {
-		writeTemplateFiber(c, searchTemplate, &sd, "")
+		writeTemplate(c, searchTemplate, &sd, "")
 		return nil
 	}
 
 	sensors, err := model.GetSensorsV2(ctx, settingsStore, sd.Device.Mac)
 	if err != nil {
-		writeErrorFiber(c, fmt.Errorf("unable to get sensors for device with MAC: %s, err: %w", sd.Device.MAC(), err))
+		writeError(c, fmt.Errorf("unable to get sensors for device with MAC: %s, err: %w", sd.Device.MAC(), err))
 		return nil
 	}
 	for _, s := range sensors {
@@ -221,7 +225,7 @@ func searchHandler(c *fiber.Ctx) error {
 	sd.Period = calcPeriod(sd.St, sd.Ft)
 
 	if sd.Pn == "throughput" {
-		writeTemplateFiber(c, searchTemplate, &sd, "")
+		writeTemplate(c, searchTemplate, &sd, "")
 		return nil
 	}
 
@@ -235,31 +239,31 @@ func searchHandler(c *fiber.Ctx) error {
 		mid := model.ToMID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(mid))
 		if !sd.Searching {
-			writeTemplateFiber(c, searchTemplate, &sd, "")
+			writeTemplate(c, searchTemplate, &sd, "")
 			return nil
 		}
 		err = searchMedia(&sd, ctx, mid)
 		if err != nil {
-			writeTemplateFiber(c, searchTemplate, &sd, fmt.Sprintf("could not search media: %v", err))
+			writeTemplate(c, searchTemplate, &sd, fmt.Sprintf("could not search media: %v", err))
 			return nil
 		}
-		writeTemplateFiber(c, searchTemplate, &sd, "")
+		writeTemplate(c, searchTemplate, &sd, "")
 
 	case 'A', 'D', 'X':
 		sid := model.ToSID(sd.Ma, sd.Pn)
 		sd.Id = strconv.Itoa(int(sid))
 		if !sd.Exporting {
-			writeTemplateFiber(c, searchTemplate, &sd, "")
+			writeTemplate(c, searchTemplate, &sd, "")
 			return nil
 		}
 		err := export(c, &sd)
 		if err != nil {
 			errStr := fmt.Sprintf("could not export data for period %s to %s, error: %v", sd.St, sd.Ft, err)
-			writeTemplateFiber(c, searchTemplate, &sd, errStr)
+			writeTemplate(c, searchTemplate, &sd, errStr)
 		}
 
 	default:
-		writeTemplateFiber(c, searchTemplate, &sd, "Unset pin type")
+		writeTemplate(c, searchTemplate, &sd, "Unset pin type")
 		return nil
 	}
 	return nil
@@ -347,7 +351,7 @@ func export(c *fiber.Ctx, sd *searchData) error {
 		return fmt.Errorf("could not retrieve data: %w", err)
 	}
 
-	writeDataFiber(c, csvData, "test/csv", sd.Ma+"-"+sd.Pn+"-"+s+"-"+f+".csv")
+	writeData(c, csvData, "test/csv", sd.Ma+"-"+sd.Pn+"-"+s+"-"+f+".csv")
 	sd.Exporting = false
 	return nil
 }

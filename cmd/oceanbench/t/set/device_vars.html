@@ -10,7 +10,7 @@
 </div>
 
 {{range .Vars}}
-<form class="row align-items-center gx-1 m-auto var-form" id="var_{{ .Basename }}" style="max-width: 500px" enctype="multipart/form-data" action="/set/devices/edit/var" method="get" novalidate>
+<form class="row align-items-center gx-1 m-auto var-form" id="var_{{ .Basename }}" style="max-width: 500px" enctype="multipart/form-data" action="/{{$.CurrentSiteKey}}/set/devices/edit/var" method="get" novalidate>
   <div class="col-auto">
     <img style="width: 16px; height: 16px" src="/s/delete.png" onclick="deleteVar(event, '{{$.Device.MAC}}','{{ .Basename }}');" />
   </div>
@@ -25,7 +25,7 @@
 </form>
 {{end}}
 
-<form class="row gx-1 align-items-center m-auto" style="max-width: 500px" id="_newvar" enctype="multipart/form-data" action="/set/devices/edit/var" method="get" onsubmit="checkVar(event);" novalidate>
+<form class="row gx-1 align-items-center m-auto" style="max-width: 500px" id="_newvar" enctype="multipart/form-data" action="/{{$.CurrentSiteKey}}/set/devices/edit/var" method="get" onsubmit="checkVar(event);" novalidate>
   <div class="col-auto">
     <input type="image" src="/s/add.png" />
   </div>

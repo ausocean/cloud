@@ -32,20 +32,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ausocean/cloud/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // reportError writes an error message to the logs and template.
-func reportError(w http.ResponseWriter, r *http.Request, d broadcastRequest, f string, args ...interface{}) {
+func reportError(c *fiber.Ctx, d broadcastRequest, f string, args ...interface{}) {
 	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
-	writeTemplate(w, r, "broadcast.html", &d, msg)
+	writeTemplate(c, "broadcast.html", &d, msg)
 }
 
 // removeDate removes a date from within a string that matches dd/mm/yyyy or mm/dd/yyyy.

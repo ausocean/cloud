@@ -32,11 +32,12 @@ import (
 
 	rv_config "github.com/ausocean/av/revid/config"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast_host"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
-	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/youtube"
 	"github.com/ausocean/utils/nmea"
 	"github.com/google/uuid"
 )
@@ -46,7 +47,7 @@ const locationID = "Australia/Adelaide" // TODO: Use site location (remove dupli
 // OceanBroadcast is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcast struct {
-	svc   yt.BroadcastService
+	svc   broadcast_host.BroadcastHost
 	log   func(string, ...interface{})
 	cfg   *broadcast.Config
 	store datastore.Store
@@ -59,7 +60,7 @@ type OceanBroadcast struct {
 // NewOceanBroadcast creates a new OceanBroadcastManager.
 // svc may be nil, but any methods that require it will panic.
 func NewOceanBroadcast(
-	svc yt.BroadcastService,
+	svc broadcast_host.BroadcastHost,
 	cfg *broadcast.Config,
 	store datastore.Store,
 	log func(string, ...interface{}),
@@ -78,7 +79,7 @@ func NewOceanBroadcast(
 func (m *OceanBroadcast) CreateBroadcast(
 	cfg *broadcast.Config,
 	store datastore.Store,
-	svc yt.BroadcastService,
+	svc broadcast_host.BroadcastHost,
 ) error {
 	// Only create a new broadcast if a valid one doesn't already exist.
 	if m.BroadcastCanBeReused() {
@@ -126,7 +127,7 @@ func (m *OceanBroadcast) CreateBroadcast(
 		cfg.Resolution,
 		timeCreated,
 		cfg.End,
-		yt.WithRateLimiter(limiter),
+		broadcast_host.WithRateLimiter(limiter),
 	)
 	if err != nil {
 		return fmt.Errorf("could not create broadcast: %w, resp: %v", err, resp)
@@ -150,7 +151,7 @@ func (m *OceanBroadcast) StartBroadcast(
 	ctx context.Context,
 	cfg *broadcast.Config,
 	store datastore.Store,
-	svc yt.BroadcastService,
+	svc broadcast_host.BroadcastHost,
 	extStart func() error,
 	onSuccess func(),
 	onFailure func(error),
@@ -183,7 +184,7 @@ func (m *OceanBroadcast) StartBroadcast(
 
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
-func (m *OceanBroadcast) StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService) error {
+func (m *OceanBroadcast) StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost) error {
 	m.log("stopping broadcast")
 
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
@@ -191,7 +192,7 @@ func (m *OceanBroadcast) StopBroadcast(ctx context.Context, cfg *broadcast.Confi
 		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
 
-	if status != yt.StatusComplete && status != "" {
+	if status != youtube.StatusComplete && status != "" {
 		err := svc.CompleteBroadcast(ctx, cfg.BID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
@@ -275,11 +276,11 @@ func (m *OceanBroadcast) Save(ctx context.Context, update func(_cfg *broadcast.C
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
-func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService, noBroadcastCallBack BroadcastCallback) error {
+func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost, noBroadcastCallBack BroadcastCallback) error {
 	m.log("handling status check")
 	status, err := svc.BroadcastStatus(ctx, cfg.BID)
 	if err != nil {
-		if !errors.Is(err, yt.ErrNoBroadcastItems) {
+		if !errors.Is(err, youtube.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
 		}
 
@@ -290,7 +291,7 @@ func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config
 		}
 	}
 
-	if status != yt.StatusComplete && status != yt.StatusRevoked {
+	if status != youtube.StatusComplete && status != youtube.StatusRevoked {
 		return nil
 	}
 
@@ -486,7 +487,7 @@ func (m *OceanBroadcast) BroadcastCanBeReused() bool {
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return m.cfg.BID != "" && m.cfg.SID != "" && status != "" && status != yt.StatusRevoked && status != yt.StatusComplete
+	return m.cfg.BID != "" && m.cfg.SID != "" && status != "" && status != youtube.StatusRevoked && status != youtube.StatusComplete
 }
 
 // saveLinkFunc provides a closure for saving a broadcast link with a given key.

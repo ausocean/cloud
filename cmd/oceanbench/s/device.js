@@ -1,12 +1,15 @@
+var skey = -1
+
 // loadVars loads the variable element.
-async function loadVars() {
+async function loadVars(sk) {
+  skey = sk;
   let varElement = document.getElementById("var-element");
 
   // Get the MAC of the device to fetch vars for.
   const params = new URLSearchParams(window.location.search);
   const ma = params.get("ma");
 
-  const url = new URL("/set/devices/vars", window.location.origin);
+  const url = new URL(`/${skey}/set/devices/vars`, window.location.origin);
   if (ma) {
     url.searchParams.set("ma", ma);
   }
@@ -24,7 +27,7 @@ async function updateVars(event, deleteVar) {
   const params = new URLSearchParams(window.location.search);
   const ma = params.get("ma");
 
-  const url = new URL("/set/devices/edit/var", window.location.origin);
+  const url = new URL(`/${skey}/set/devices/edit/var`, window.location.origin);
   if (ma) {
     url.searchParams.set("ma", ma);
   }

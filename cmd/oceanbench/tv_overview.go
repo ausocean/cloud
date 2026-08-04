@@ -1,7 +1,11 @@
 package main
 
 import (
-	"net/http"
+	"errors"
+	"log"
+
+	"github.com/ausocean/cloud/gauth"
+	"github.com/gofiber/fiber/v2"
 )
 
 // tvOverviewHandler handles request to the tv overview page. This page lets the user
@@ -9,13 +13,29 @@ import (
 // user must be a superadmin to access this feature, and their personal configuration
 // is saved in a variable scoped to their username (email before the host, stripped of
 // any fullstops, user.name@ausocean.org -> username).
-func tvOverviewHandler(w http.ResponseWriter, r *http.Request) {
+func tvOverviewHandler(c *fiber.Ctx) error {
+	logRequest(c)
+
+	p, err := getProfile(c)
+	switch {
+	case err != nil && !errors.Is(err, gauth.TokenNotFound):
+		log.Printf("authentication error: %v", err)
+		fallthrough
+	case err != nil:
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
+	if !isSuperAdmin(p.Email) {
+		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+
 	data := &commonData{
 		// This page is not accessible from the nav-menu.
-		Pages: pages(""),
+		Pages: pages(c, ""),
 	}
 
 	// Write the template with the minimum data, and load the
 	// rest of the data asynchronously through the lit element.
-	writeTemplate(w, r, "tv-overview.html", data, "")
+	writeTemplate(c, "tv-overview.html", data, "")
+	return nil
 }
