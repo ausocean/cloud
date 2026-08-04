@@ -96,6 +96,7 @@ func main() {
 	http.HandleFunc("/act", actHandler)
 	http.HandleFunc("/vars", varsHandler)
 	http.HandleFunc("/mts", mtsHandler)
+	http.HandleFunc("/v2/mts", mtsHandlerV2)
 	http.HandleFunc("/recv", mtsHandler) // For backwards compatibility.
 	http.HandleFunc("/api", apiHandler)
 	http.HandleFunc("/api/", apiHandler)
