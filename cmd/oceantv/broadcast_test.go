@@ -34,15 +34,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast_host"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
-	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
+	"github.com/ausocean/cloud/youtube"
 )
 
 // dummyManager is a dummy implementation of the broadcastManager interface.
@@ -94,7 +95,7 @@ func (d *dummyManager) CreateBroadcast(
 	svc Svc,
 ) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
-		return yt.ErrRequestLimitExceeded
+		return broadcast_host.ErrRequestLimitExceeded
 	}
 	return nil
 }
@@ -248,9 +249,9 @@ func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
-	opts ...yt.BroadcastOption,
-) (yt.ServerResponse, yt.IDs, string, error) {
-	return nil, yt.IDs{}, "", nil
+	opts ...broadcast_host.BroadcastOption,
+) (broadcast_host.ServerResponse, youtube.IDs, string, error) {
+	return nil, youtube.IDs{}, "", nil
 }
 
 func (d *dummyService) StartBroadcast(

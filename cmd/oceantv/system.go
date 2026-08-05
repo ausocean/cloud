@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast_host"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
 	"github.com/ausocean/cloud/cmd/oceantv/forwarding"
 	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
-	"github.com/ausocean/cloud/cmd/oceantv/yt"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
+	"github.com/ausocean/cloud/youtube"
 )
 
 // broadcastSystem represents a video broadcasting control system.
@@ -118,7 +119,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
 	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := yt.NewYouTubeBroadcastService(tokenURI, log)
+	svc := broadcast_host.NewYouTubeBroadcastHost(tokenURI, log)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the YouTube broadcast service.
@@ -206,7 +207,7 @@ func (bs *broadcastSystem) tick() error {
 			if err != nil {
 				bs.log("could not get broadcast status: %v", err)
 			} else {
-				if status == yt.StatusLive {
+				if status == youtube.StatusLive {
 					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
 						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)

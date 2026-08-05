@@ -26,26 +26,26 @@ import (
 	"context"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
-	"github.com/ausocean/cloud/cmd/oceantv/yt"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast_host"
 	"github.com/ausocean/cloud/datastore"
 )
 
-type BroadcastCallback func(context.Context, *broadcast.Config, datastore.Store, yt.BroadcastService) error
+type BroadcastCallback func(context.Context, *broadcast.Config, datastore.Store, broadcast_host.BroadcastHost) error
 
 // Broadcast is an interface for managing broadcasts.
 type Broadcast interface {
-	CreateBroadcast(cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService) error
+	CreateBroadcast(cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost) error
 
-	StartBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService, extStart func() error,
+	StartBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost, extStart func() error,
 		onSuccess func(),
 		onFailure func(error))
-	StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService) error
+	StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost) error
 	Save(ctx context.Context, update func(*broadcast.Config)) error
 
 	// HandleStatus checks the status of a broadcast and would perform any
 	// necessary actions based on this status. For example, if the broadcast
 	// status is complete or revoked, it might stop the broadcast.
-	HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc yt.BroadcastService, noBroadcastCallBack BroadcastCallback) error
+	HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcast_host.BroadcastHost, noBroadcastCallBack BroadcastCallback) error
 
 	// HandleChatMessage prepares and sends chat messages to the broadcast
 	// service's chat session. This might contain information such as
