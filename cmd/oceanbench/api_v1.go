@@ -53,6 +53,8 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/sites/all", getV1AllSitesHandler)
 	v1.Get("/sites/public", getV1PublicSitesHandler)
 	v1.Get("/sites/user", getV1UserSitesHandler)
+	v1.Get("/site/default", getV1DefaultSiteHandler)
+	v1.Put("/site/default", putV1DefaultSiteHandler)
 	v1.Get("/media", getMediaKeysHandler)
 	v1.Delete("/media", deleteV1MediaHandler)
 	v1.Get("/logs/:mac", getV1LogsByDevice)
@@ -163,6 +165,32 @@ func getV1UserSitesHandler(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(out)
+}
+
+func getV1DefaultSiteHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
+	s, err := getDefaultSkey(c.UserContext(), p)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get default site for user: %v, err: %v", p.Email, err)})
+	}
+	return c.JSON(fiber.Map{"skey": s})
+}
+
+func putV1DefaultSiteHandler(c *fiber.Ctx) error {
+	p := c.Locals(profileKey).(*gauth.Profile)
+	r := struct {
+		Skey int64 `json:"skey"`
+	}{}
+	err := c.BodyParser(&r)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": fmt.Sprintf("unable to parse request: %v", err)})
+	}
+
+	err = setDefaultSkey(c.UserContext(), p, r.Skey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to set default skey: %v", err)})
+	}
+	return c.JSON(fiber.Map{"status": "OK"})
 }
 
 // getMediaKeysHandler handles GET /api/v1/media.
