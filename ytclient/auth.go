@@ -27,7 +27,7 @@ LICENSE
   in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package yt
+package ytclient
 
 import (
 	"context"
