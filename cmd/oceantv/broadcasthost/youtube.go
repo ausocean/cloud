@@ -20,7 +20,7 @@ LICENSE
   in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package yt
+package broadcasthost
 
 import (
 	"context"
@@ -30,46 +30,10 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
+	"github.com/ausocean/cloud/ytclient"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/youtube/v3"
+	yt "google.golang.org/api/youtube/v3"
 )
-
-// ServerResponse is an interface for a server response.
-type ServerResponse interface {
-	fmt.Stringer
-	StatusCode() int
-	HTTPHeader() http.Header
-}
-
-// BroadcastOption is an option to pass when creating a new broadcast service.
-type BroadcastOption func(interface{}) error
-
-// BroadcastService is an interface for a broadcast service where video
-// can be streamed to and then viewed by users.
-type BroadcastService interface {
-	CreateBroadcast(
-		ctx context.Context,
-		broadcastName, description, streamName, privacy, resolution string,
-		start, end time.Time,
-		opts ...BroadcastOption,
-	) (ServerResponse, IDs, string, error)
-
-	StartBroadcast(
-		name, bID, sID string,
-		saveLink func(key, link string) error,
-		extStart, extStop func() error,
-		notify func(msg string) error,
-		onLiveActions func() error,
-	) error
-
-	BroadcastStatus(ctx context.Context, id string) (string, error)
-	BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error)
-	BroadcastHealth(ctx context.Context, sid string) (string, error)
-	RTMPKey(ctx context.Context, streamName string) (string, error)
-	CompleteBroadcast(ctx context.Context, id string) error
-	PostChatMessage(cID, msg string) error
-	SetBroadcastPrivacy(ctx context.Context, id, privacy string) error
-}
 
 // YouTubeResponse implements the ServerResponse interface for YouTube.
 // This is a wrapper for the googleapi.ServerResponse type.
@@ -79,26 +43,26 @@ func (y YouTubeResponse) String() string          { return fmt.Sprintf("%v", goo
 func (y YouTubeResponse) StatusCode() int         { return googleapi.ServerResponse(y).HTTPStatusCode }
 func (y YouTubeResponse) HTTPHeader() http.Header { return googleapi.ServerResponse(y).Header }
 
-// YouTubeBroadcastService is a BroadcastService implementation for YouTube.
-type YouTubeBroadcastService struct {
+// YouTube is a BroadcastHost implementation for YouTube.
+type YouTube struct {
 	limiter  ratelimit.RateLimiter
 	log      func(string, ...interface{})
 	tokenURI string
 }
 
-func NewYouTubeBroadcastService(tokenURI string, log func(string, ...interface{})) *YouTubeBroadcastService {
-	return &YouTubeBroadcastService{log: log, tokenURI: tokenURI}
+func NewYouTube(tokenURI string, log func(string, ...interface{})) *YouTube {
+	return &YouTube{log: log, tokenURI: tokenURI}
 }
 
-// WithRateLimiter is a BroadcastOption that sets the rate limiter for a
-// YouTubeBroadcastService.
-func WithRateLimiter(limiter ratelimit.RateLimiter) BroadcastOption {
-	return func(i interface{}) error {
-		if s, ok := i.(*YouTubeBroadcastService); ok {
+// WithRateLimiter is a Option that sets the rate limiter for a
+// YouTube.
+func WithRateLimiter(limiter ratelimit.RateLimiter) Option {
+	return func(h BroadcastHost) error {
+		if s, ok := h.(*YouTube); ok {
 			s.limiter = limiter
 			return nil
 		}
-		return errors.New("this option is not for YouTubeBroadcastService")
+		return errors.New("this option is only for YouTube")
 	}
 }
 
@@ -108,34 +72,34 @@ var ErrRequestLimitExceeded = errors.New("request limit exceeded")
 
 // CreateBroadcast creates a broadcast with the given parameters using the
 // YouTube API.
-func (s *YouTubeBroadcastService) CreateBroadcast(
+func (s *YouTube) CreateBroadcast(
 	ctx context.Context,
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
-	opts ...BroadcastOption,
-) (ServerResponse, IDs, string, error) {
+	opts ...Option,
+) (Response, ytclient.IDs, string, error) {
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
-			return nil, IDs{}, "", fmt.Errorf("could not apply option: %w", err)
+			return nil, ytclient.IDs{}, "", fmt.Errorf("could not apply option: %w", err)
 		}
 	}
 
 	if s.limiter != nil {
 		if !s.limiter.RequestOK() {
-			return nil, IDs{}, "", ErrRequestLimitExceeded
+			return nil, ytclient.IDs{}, "", ErrRequestLimitExceeded
 		}
 	}
 
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
-		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not get service: %w", err)
+		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not get service: %w", err)
 	}
 
 	const (
 		typ       = "rtmp"
 		framerate = "30fps"
 	)
-	resp, ids, err := BroadcastStream(
+	resp, ids, err := ytclient.BroadcastStream(
 		svc,
 		broadcastName,
 		description,
@@ -149,12 +113,12 @@ func (s *YouTubeBroadcastService) CreateBroadcast(
 		s.log,
 	)
 	if err != nil {
-		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not broadcast stream: %w response: %v", err, resp)
+		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not broadcast stream: %w response: %v", err, resp)
 	}
 
-	key, err := RTMPKey(svc, streamName)
+	key, err := ytclient.RTMPKey(svc, streamName)
 	if err != nil {
-		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not get stream RTMP key: %w", err)
+		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not get stream RTMP key: %w", err)
 	}
 
 	return YouTubeResponse(resp), ids, key, nil
@@ -164,14 +128,14 @@ func (s *YouTubeBroadcastService) CreateBroadcast(
 // live status using the YouTube API. We can provide functions to be called
 // before and after the broadcast is started, as well as a function to be
 // called when the broadcast is live.
-func (s *YouTubeBroadcastService) StartBroadcast(
+func (s *YouTube) StartBroadcast(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
 	extStart, extStop func() error,
 	notify func(msg string) error,
 	onLiveActions func() error,
 ) error {
-	return Start(
+	return ytclient.Start(
 		name,
 		bID,
 		sID,
@@ -187,13 +151,13 @@ func (s *YouTubeBroadcastService) StartBroadcast(
 
 // BroadcastStatus gets the status of the broadcast identification id using the
 // YouTube API.
-func (s *YouTubeBroadcastService) BroadcastStatus(ctx context.Context, id string) (string, error) {
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+func (s *YouTube) BroadcastStatus(ctx context.Context, id string) (string, error) {
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("get service error: %w", err)
 	}
-	status, err := GetBroadcastStatus(svc, id)
-	if err != nil && !errors.Is(err, ErrNoBroadcastItems) {
+	status, err := ytclient.GetBroadcastStatus(svc, id)
+	if err != nil && !errors.Is(err, ytclient.ErrNoBroadcastItems) {
 		return "", fmt.Errorf("get broadcast status error: %w", err)
 	}
 	return status, nil
@@ -211,13 +175,13 @@ func (s *YouTubeBroadcastService) BroadcastStatus(ctx context.Context, id string
 //
 // Similarly, we don't consider configuration issues to be problematic,
 // unless they are of error severity. This may also need to be revisited.
-func (s *YouTubeBroadcastService) BroadcastHealth(ctx context.Context, sid string) (string, error) {
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+func (s *YouTube) BroadcastHealth(ctx context.Context, sid string) (string, error) {
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("could not get youtube service: %w", err)
 	}
 
-	health, err := GetHealthStatus(svc, sid)
+	health, err := ytclient.GetHealthStatus(svc, sid)
 	if err != nil {
 		return "", fmt.Errorf("could not get health status: %w", err)
 	}
@@ -246,13 +210,13 @@ func (s *YouTubeBroadcastService) BroadcastHealth(ctx context.Context, sid strin
 }
 
 // BroadcastScheduledStartTime returns the scheduled start time of a broadcast.
-func (s *YouTubeBroadcastService) BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error) {
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+func (s *YouTube) BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error) {
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("get service error: %w", err)
 	}
-	start, err := GetBroadcastScheduledStart(svc, id)
-	if err != nil && !errors.Is(err, ErrNoBroadcastItems) {
+	start, err := ytclient.GetBroadcastScheduledStart(svc, id)
+	if err != nil && !errors.Is(err, ytclient.ErrNoBroadcastItems) {
 		return time.Time{}, fmt.Errorf("get broadcast status error: %w", err)
 	}
 	startTime, err := time.Parse(time.RFC3339, start)
@@ -264,12 +228,12 @@ func (s *YouTubeBroadcastService) BroadcastScheduledStartTime(ctx context.Contex
 
 // CompleteBroadcast transitions a broadcast with identification id to complete
 // status using the YouTube API.
-func (s *YouTubeBroadcastService) CompleteBroadcast(ctx context.Context, id string) error {
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+func (s *YouTube) CompleteBroadcast(ctx context.Context, id string) error {
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return fmt.Errorf("get service error: %w", err)
 	}
-	err = CompleteBroadcast(svc, id, s.log)
+	err = ytclient.CompleteBroadcast(svc, id, s.log)
 	if err != nil {
 		return fmt.Errorf("complete broadcast error: %w", err)
 	}
@@ -278,12 +242,12 @@ func (s *YouTubeBroadcastService) CompleteBroadcast(ctx context.Context, id stri
 
 // RTMPKey gets the broadcast RTMP key for the provided stream name using the
 // YouTube API.
-func (s *YouTubeBroadcastService) RTMPKey(ctx context.Context, streamName string) (string, error) {
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+func (s *YouTube) RTMPKey(ctx context.Context, streamName string) (string, error) {
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("get service error: %w", err)
 	}
-	key, err := RTMPKey(svc, streamName)
+	key, err := ytclient.RTMPKey(svc, streamName)
 	if err != nil {
 		return "", fmt.Errorf("get RTMP key error: %w", err)
 	}
@@ -292,8 +256,8 @@ func (s *YouTubeBroadcastService) RTMPKey(ctx context.Context, streamName string
 
 // PostChatMessage posts a chat message with the provided message and token URI
 // to the chat identification cID using the YouTube API.
-func (s *YouTubeBroadcastService) PostChatMessage(cID, msg string) error {
-	return PostChatMessage(cID, s.tokenURI, msg)
+func (s *YouTube) PostChatMessage(cID, msg string) error {
+	return ytclient.PostChatMessage(cID, msg, s.tokenURI)
 }
 
 // SetBroadcastPrivacy sets the broadcast privacy of the broadcast with
@@ -301,16 +265,16 @@ func (s *YouTubeBroadcastService) PostChatMessage(cID, msg string) error {
 // The privacy can be one of "public", "unlisted", or "private".
 // This can be called before, during or after the
 // The broadcast and resulting video share ID and privacy settings.
-func (s *YouTubeBroadcastService) SetBroadcastPrivacy(ctx context.Context, id, privacy string) error {
-	video := &youtube.Video{
+func (s *YouTube) SetBroadcastPrivacy(ctx context.Context, id, privacy string) error {
+	video := &yt.Video{
 		Id: id,
-		Status: &youtube.VideoStatus{
+		Status: &yt.VideoStatus{
 			PrivacyStatus: privacy,
 			Embeddable:    true, // This must be set, otherwise it defaults to not embeddable.
 		},
 	}
 
-	svc, err := GetService(ctx, youtube.YoutubeScope, s.tokenURI)
+	svc, err := ytclient.GetService(ctx, yt.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return fmt.Errorf("could not get youtube service: %w", err)
 	}
