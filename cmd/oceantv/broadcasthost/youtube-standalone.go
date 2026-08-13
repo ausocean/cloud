@@ -27,9 +27,9 @@ LICENSE
   in gpl.txt. If not, see <http://www.gnu.org/licenses/>.
 */
 
-// package yt provides functionality for setting up a YouTube livestream
+// package broadcasthost provides functionality for setting up a YouTube livestream
 // service and broadcast scheduling.
-package yt
+package broadcasthost
 
 import (
 	"log"
