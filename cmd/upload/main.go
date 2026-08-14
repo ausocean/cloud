@@ -38,7 +38,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ausocean/cloud/youtube"
+	"github.com/ausocean/cloud/ytclient"
 )
 
 func main() {
@@ -52,15 +52,15 @@ func main() {
 	}
 
 	// Example usage
-	_, err = youtube.UploadVideo(
+	_, err = ytclient.UploadVideo(
 		context.Background(),
 		reader,
 		"", // Default to the AusOcean account.
-		youtube.WithTitle("Test upload "+time.Now().Format("2006-01-02 15:04:05")),
-		youtube.WithDescription("This is a test upload"),
-		youtube.WithCategory("28"), // Science & Technology
-		youtube.WithPrivacy("unlisted"),
-		youtube.WithTags([]string{"test", "upload"}),
+		ytclient.WithTitle("Test upload "+time.Now().Format("2006-01-02 15:04:05")),
+		ytclient.WithDescription("This is a test upload"),
+		ytclient.WithCategory("28"), // Science & Technology
+		ytclient.WithPrivacy("unlisted"),
+		ytclient.WithTags([]string{"test", "upload"}),
 	)
 	if err != nil {
 		log.Fatalf("Failed to upload video: %v", err)
