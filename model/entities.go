@@ -36,6 +36,7 @@ import (
 func RegisterEntities() {
 	datastore.RegisterEntity(typeActuator, func() datastore.Entity { return new(Actuator) })
 	datastore.RegisterEntity(typeActuatorV2, func() datastore.Entity { return new(ActuatorV2) })
+	datastore.RegisterEntity(typeBroadcast, func() datastore.Entity { return new(Broadcast) })
 	datastore.RegisterEntity(typeCredential, func() datastore.Entity { return new(Credential) })
 	datastore.RegisterEntity(typeCron, func() datastore.Entity { return new(Cron) })
 	datastore.RegisterEntity(typeDevice, func() datastore.Entity { return new(Device) })
