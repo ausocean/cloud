@@ -508,7 +508,7 @@ func utilsHandler(c *fiber.Ctx, p *gauth.Profile) error {
 // utilsTaskHandler handles an admin utils task
 func utilsTaskHandler(c *fiber.Ctx, p *gauth.Profile, data *utilsData) error {
 	ctx := c.UserContext()
-	skey, _ := requestSiteData(c, p)
+	skey, _ := getCurrentSkey(c, p)
 
 	task := c.FormValue("task")
 
