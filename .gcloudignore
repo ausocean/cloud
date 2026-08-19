@@ -1,6 +1,7 @@
 .git/
 .github/
 .env
+.jj
 
 # datablue
 cmd/datablue/.git
