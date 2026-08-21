@@ -20,7 +20,7 @@ func TestBroadcastCanBeReused(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		svc           Svc
+		svc           Hst
 		cfg           *Cfg
 		expectedReuse bool
 	}{
@@ -150,7 +150,7 @@ func TestCreateBroadcast(t *testing.T) {
 				logRecorder.log,
 				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(bm),
-				withBroadcastService(svc),
+				withBroadcastHost(svc),
 				withForwardingService(newDummyForwardingService()),
 				withHardwareManager(newDummyHardwareManager(withMACSanitisation())),
 				withNotifier(newMockNotifier()),
