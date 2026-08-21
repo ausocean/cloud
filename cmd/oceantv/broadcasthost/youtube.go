@@ -131,19 +131,14 @@ func (s *YouTube) CreateBroadcast(
 func (s *YouTube) StartBroadcast(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
-	extStart, extStop func() error,
 	notify func(msg string) error,
-	onLiveActions func() error,
 ) error {
 	return ytclient.Start(
 		name,
 		bID,
 		sID,
 		saveLink,
-		extStart,
-		extStop,
 		notify,
-		onLiveActions,
 		s.tokenURI,
 		s.log,
 	)
@@ -240,9 +235,9 @@ func (s *YouTube) CompleteBroadcast(ctx context.Context, id string) error {
 	return nil
 }
 
-// RTMPKey gets the broadcast RTMP key for the provided stream name using the
+// AuthKey gets the broadcast RTMP key for the provided stream name using the
 // YouTube API.
-func (s *YouTube) RTMPKey(ctx context.Context, streamName string) (string, error) {
+func (s *YouTube) AuthKey(ctx context.Context, streamName string) (string, error) {
 	svc, err := ytclient.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
 		return "", fmt.Errorf("get service error: %w", err)
@@ -252,6 +247,10 @@ func (s *YouTube) RTMPKey(ctx context.Context, streamName string) (string, error
 		return "", fmt.Errorf("get RTMP key error: %w", err)
 	}
 	return key, nil
+}
+
+func (s *YouTube) DestinationURL() string {
+	return "rtmp://a.rtmp.youtube.com/live2/"
 }
 
 // PostChatMessage posts a chat message with the provided message and token URI
