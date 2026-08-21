@@ -24,6 +24,8 @@ package notifier
 
 import (
 	"errors"
+	"fmt"
+	"log"
 
 	"github.com/ausocean/cloud/notify"
 )
@@ -31,3 +33,14 @@ import (
 var N notify.Notifier
 
 var errNoGlobalNotifier = errors.New("global notifier is nil")
+
+// LogAndNotify is intended for use by background processes when an error must be
+// indicated, such as within the goLive routine, which monitors and controls
+// a broadcast.
+func LogAndNotify(notify func(msg string) error, msg string, args ...interface{}) {
+	log.Printf(msg, args...)
+	err := notify(fmt.Sprintf(msg, args...))
+	if err != nil {
+		log.Printf("could not send notification: %v", err)
+	}
+}
