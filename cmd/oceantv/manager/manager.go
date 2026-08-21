@@ -34,28 +34,28 @@ type BroadcastCallback func(context.Context, *broadcast.Config, datastore.Store,
 
 // Broadcast is an interface for managing broadcasts.
 type Broadcast interface {
-	CreateBroadcast(cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host) error
+	CreateBroadcast(ctx context.Context) error
 
-	StartBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host, extStart func() error,
+	StartBroadcast(ctx context.Context, extStart func() error,
 		onSuccess func(),
 		onFailure func(error))
-	StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host) error
+	StopBroadcast(ctx context.Context) error
 	Save(ctx context.Context, update func(*broadcast.Config)) error
 
 	// HandleStatus checks the status of a broadcast and would perform any
 	// necessary actions based on this status. For example, if the broadcast
 	// status is complete or revoked, it might stop the broadcast.
-	HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host, noBroadcastCallBack BroadcastCallback) error
+	HandleStatus(ctx context.Context, noBroadcastCallBack BroadcastCallback) error
 
 	// HandleChatMessage prepares and sends chat messages to the broadcast
 	// service's chat session. This might contain information such as
 	// auxillary sensor data.
-	HandleChatMessage(ctx context.Context, cfg *broadcast.Config) error
+	HandleChatMessage(ctx context.Context) error
 
 	// HandleHealth interprets the health of a broadcast and would perform any
 	// necessary actions based on this health. For example, if the health is
 	// bad, it might restart the broadcast.
-	HandleHealth(ctx context.Context, cfg *broadcast.Config, store datastore.Store, goodHealthCallback func(), badHealthCallback func(string)) error
+	HandleHealth(ctx context.Context, goodHealthCallback func(), badHealthCallback func(string)) error
 
-	SetupSecondary(ctx context.Context, cfg *broadcast.Config, store datastore.Store) error
+	SetupSecondary(ctx context.Context) error
 }
