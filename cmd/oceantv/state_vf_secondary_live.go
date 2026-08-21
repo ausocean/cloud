@@ -40,7 +40,7 @@ func newVidforwardSecondaryLive(ctx *broadcastContext) *vidforwardSecondaryLive 
 }
 
 func (s *vidforwardSecondaryLive) exit() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	err := s.man.StopBroadcast(context.Background())
 	if err != nil {
 		s.log("could not stop broadcast on exit: %v", err)
 		return

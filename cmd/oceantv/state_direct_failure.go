@@ -53,7 +53,7 @@ func (s *directFailure) enter() {
 	}
 	s.logAndNotify(notifyKind, "%s", notifyMsg)
 
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	err := s.man.StopBroadcast(context.Background())
 	if err != nil {
 		s.log("could not stop broadcast on entry: %v", err)
 	} else {
