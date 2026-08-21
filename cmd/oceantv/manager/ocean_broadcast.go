@@ -170,10 +170,8 @@ func (m *OceanBroadcast) StartBroadcast(
 			cfg.BID,
 			cfg.SID,
 			saveLinkFunc(store),
-			func() error { return nil }, // This is now handled by the hardware state machine.
-			func() error { return nil }, // This is now handled by the hardware state machine.
 			opsHealthNotifyFunc(ctx, cfg),
-			func() error { return nil }) // This is now handled by the hardware state machine.
+		)
 		if err != nil {
 			onFailure(fmt.Errorf("could not start broadcast: %w", err))
 			return
