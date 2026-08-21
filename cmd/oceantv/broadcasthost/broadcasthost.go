@@ -54,15 +54,14 @@ type Host interface {
 	StartBroadcast(
 		name, bID, sID string,
 		saveLink func(key, link string) error,
-		extStart, extStop func() error,
 		notify func(msg string) error,
-		onLiveActions func() error,
 	) error
 
 	BroadcastStatus(ctx context.Context, id string) (string, error)
 	BroadcastScheduledStartTime(ctx context.Context, id string) (time.Time, error)
 	BroadcastHealth(ctx context.Context, sid string) (string, error)
-	RTMPKey(ctx context.Context, streamName string) (string, error)
+	AuthKey(ctx context.Context, streamName string) (string, error)
+	DestinationURL() string
 	CompleteBroadcast(ctx context.Context, id string) error
 	PostChatMessage(cID, msg string) error
 	SetBroadcastPrivacy(ctx context.Context, id, privacy string) error

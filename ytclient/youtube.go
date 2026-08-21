@@ -37,13 +37,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/gauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -56,7 +56,9 @@ import (
 const (
 	StatusComplete = "complete"
 	StatusRevoked  = "revoked"
+	StatusTesting  = "testing"
 	StatusLive     = "live"
+	StatusReady    = "ready"
 )
 
 // Misc constants.
@@ -228,9 +230,7 @@ func PostChatMessage(cID, msg, tokenURI string) error {
 func Start(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
-	extStart, extStop func() error,
 	notify func(msg string) error,
-	onLiveActions func() error,
 	tokenURI string,
 	log func(string, ...interface{}),
 ) error {
@@ -245,27 +245,11 @@ func Start(
 	if saveLink != nil {
 		err := saveLink(strings.ReplaceAll(name, " ", ""), "https://www.youtube.com/watch?v="+bID)
 		if err != nil {
-			logAndNotify(notify, "broadcast: %s, ID: %s, could not save livestream link: %v", name, bID, err)
+			notifier.LogAndNotify(notify, "broadcast: %s, ID: %s, could not save livestream link: %v", name, bID, err)
 		}
 	}
 
-	err = onLiveActions()
-	if err != nil {
-		return fmt.Errorf("broadcast: %s, ID: %s, could not perform on live actions: %v", name, bID, err)
-	}
-
 	return nil
-}
-
-// logAndNotify is intended for use by background processes when an error must be
-// indicated, such as within the goLive routine, which monitors and controls
-// a broadcast.
-func logAndNotify(notify func(msg string) error, msg string, args ...interface{}) {
-	log.Printf(msg, args...)
-	err := notify(fmt.Sprintf(msg, args...))
-	if err != nil {
-		log.Printf("could not send notification: %v", err)
-	}
 }
 
 // doStatusActions performs a series of status waits and status transitions
@@ -285,12 +269,12 @@ func doStatusActions(bID, sID, tokenURI string, log func(string, ...interface{})
 		timeout    time.Duration
 		svc        interface{} // Acceptable types are *youtube.LiveBroadcastsService and *youtube.LiveStreamsService.
 	}{
-		{waitStatus, "ready", bID, 1 * time.Minute, bSvc},
-		{waitStatus, "active", sID, 3 * time.Minute, sSvc},
-		{robustTransition, "testing", bID, 0, bSvc},
-		{waitStatus, "testing", bID, 1 * time.Minute, bSvc},
-		{transition, "live", bID, 0, bSvc},
-		{waitStatus, "live", bID, 1 * time.Minute, bSvc},
+		{waitStatus, StatusReady, bID, 1 * time.Minute, bSvc},
+		{waitStatus, StatusLive, sID, 3 * time.Minute, sSvc},
+		{robustTransition, StatusTesting, bID, 0, bSvc},
+		{waitStatus, StatusTesting, bID, 1 * time.Minute, bSvc},
+		{transition, StatusLive, bID, 0, bSvc},
+		{waitStatus, StatusLive, bID, 1 * time.Minute, bSvc},
 	}
 
 	for i, v := range statusActions {
