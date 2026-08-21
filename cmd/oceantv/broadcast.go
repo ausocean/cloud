@@ -51,7 +51,7 @@ type (
 	Store = datastore.Store
 	Key   = datastore.Key
 	Ety   = datastore.Entity
-	Svc   = broadcasthost.Host
+	Hst   = broadcasthost.Host
 )
 
 const (
