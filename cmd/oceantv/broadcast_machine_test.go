@@ -1205,7 +1205,7 @@ func TestBroadcastStart(t *testing.T) {
 
 	bCtx := &broadcastContext{
 		store:     &dummyStore{},
-		svc:       &dummyService{},
+		hst:       &dummyService{},
 		logOutput: t.Log,
 		notifier:  newMockNotifier(),
 	}
@@ -1457,7 +1457,7 @@ func TestHandleCameraConfiguration(t *testing.T) {
 				logRecorder.log,
 				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(newDummyManager(t, cfg)),
-				withBroadcastService(newDummyService()),
+				withBroadcastHost(newDummyService()),
 				withForwardingService(newDummyForwardingService()),
 				withHardwareManager(newDummyHardwareManager(withMACSanitisation())),
 				withNotifier(newMockNotifier()),
@@ -1862,7 +1862,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 				logRecorder.log,
 				withEventBus(newMockEventBus(func(msg string, args ...interface{}) { broadcast.LogForBroadcast(cfg, logRecorder.log, msg, args...) })),
 				withBroadcastManager(tt.newBroadcastMan(t, cfg)),
-				withBroadcastService(newDummyService()),
+				withBroadcastHost(newDummyService()),
 				withForwardingService(newDummyForwardingService()),
 				withHardwareManager(tt.hardwareMan),
 				withNotifier(newMockNotifier()),

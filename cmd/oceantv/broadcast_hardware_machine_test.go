@@ -350,9 +350,9 @@ func (h hardwareSystem) withBroadcastManager(bm manager.Broadcast) hardwareSyste
 	}
 }
 
-func (h hardwareSystem) withBroadcastService(bs Svc) hardwareSystemOption {
+func (h hardwareSystem) withBroadcastHost(bh Hst) hardwareSystemOption {
 	return func(b *hardwareSystem) error {
-		b.ctx.svc = bs
+		b.ctx.hst = bh
 		return nil
 	}
 }

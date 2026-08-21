@@ -37,7 +37,7 @@ type directIdle struct {
 func newDirectIdle(ctx *broadcastContext) *directIdle { return &directIdle{broadcastContext: ctx} }
 
 func (s *directIdle) enter() {
-	err := s.man.StopBroadcast(context.Background(), s.cfg, s.store, s.svc)
+	err := s.man.StopBroadcast(context.Background())
 	if err != nil {
 		s.log("could not stop broadcast on entry: %v", err)
 	} else {
