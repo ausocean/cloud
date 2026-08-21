@@ -89,11 +89,7 @@ func newDummyManager(t *testing.T, cfg *Cfg, options ...dummyManagerOption) *dum
 	return man
 }
 
-func (d *dummyManager) CreateBroadcast(
-	cfg *Cfg,
-	store Store,
-	svc Svc,
-) error {
+func (d *dummyManager) CreateBroadcast(ctx Ctx) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
 		return broadcasthost.ErrRequestLimitExceeded
 	}
@@ -102,9 +98,6 @@ func (d *dummyManager) CreateBroadcast(
 
 func (d *dummyManager) StartBroadcast(
 	ctx Ctx,
-	cfg *Cfg,
-	store Store,
-	svc Svc,
 	extStart func() error,
 	onSuccess func(),
 	onFailure func(error),
@@ -123,7 +116,7 @@ func (d *dummyManager) StartBroadcast(
 	}()
 	d.started = true
 }
-func (d *dummyManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) error {
+func (d *dummyManager) StopBroadcast(ctx Ctx) error {
 	d.stopped = true
 	return nil
 }
@@ -134,15 +127,15 @@ func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	}
 	return nil
 }
-func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call manager.BroadcastCallback) error {
+func (d *dummyManager) HandleStatus(ctx Ctx, call manager.BroadcastCallback) error {
 	d.statusHandled = true
 	return nil
 }
-func (d *dummyManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
+func (d *dummyManager) HandleChatMessage(ctx Ctx) error {
 	d.chatHandled = true
 	return nil
 }
-func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error {
+func (d *dummyManager) HandleHealth(ctx Ctx, goodHealthCallback func(), badHealthCallback func(string)) error {
 	d.healthHandled = true
 	if d.broadcastUnhealthy {
 		badHealthCallback("poor ingestion rate")
@@ -151,7 +144,7 @@ func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCa
 	}
 	return nil
 }
-func (d *dummyManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error { return nil }
+func (d *dummyManager) SetupSecondary(ctx Ctx) error { return nil }
 
 func (d *dummyManager) logf(format string, args ...interface{}) {
 	if d.t == nil {
