@@ -47,7 +47,7 @@ const locationID = "Australia/Adelaide" // TODO: Use site location (remove dupli
 // OceanBroadcast is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcast struct {
-	svc   broadcasthost.Host
+	hst   broadcasthost.Host
 	log   func(string, ...interface{})
 	cfg   *broadcast.Config
 	store datastore.Store
@@ -73,22 +73,18 @@ func NewOceanBroadcast(
 	) error,
 	broadcastByName func(sKey int64, name string) (*broadcast.Config, error),
 ) *OceanBroadcast {
-	return &OceanBroadcast{svc: svc, cfg: cfg, store: store, log: log}
+	return &OceanBroadcast{hst: svc, cfg: cfg, store: store, log: log, setVar: setVar, broadcastByName: broadcastByName}
 }
 
-func (m *OceanBroadcast) CreateBroadcast(
-	cfg *broadcast.Config,
-	store datastore.Store,
-	svc broadcasthost.Host,
-) error {
+func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 	// Only create a new broadcast if a valid one doesn't already exist.
 	if m.BroadcastCanBeReused() {
-		m.log("broadcast already exists with broadcastID: %s, streamID: %s", cfg.BID, cfg.SID)
+		m.log("broadcast already exists with broadcastID: %s, streamID: %s", m.cfg.BID, m.cfg.SID)
 		err := m.Save(nil, func(_cfg *broadcast.Config) {
-			_cfg.BID = cfg.BID
-			_cfg.SID = cfg.SID
-			_cfg.CID = cfg.CID
-			_cfg.RTMPKey = cfg.RTMPKey
+			_cfg.BID = m.cfg.BID
+			_cfg.SID = m.cfg.SID
+			_cfg.CID = m.cfg.CID
+			_cfg.RTMPKey = m.cfg.RTMPKey
 		})
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
@@ -112,21 +108,21 @@ func (m *OceanBroadcast) CreateBroadcast(
 		limiterRefillRate = 2.0 // per hour
 		limiterID         = "ocean_token_bucket"
 	)
-	limiter, err := ratelimit.GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, store)
+	limiter, err := ratelimit.GetOceanTokenBucketLimiter(limiterMaxTokens, limiterRefillRate, limiterID, m.store)
 	if err != nil {
 		return fmt.Errorf("could not get token bucket limiter: %w", err)
 	}
 
 	timeCreated := time.Now().Add(1 * time.Minute)
-	resp, ids, rtmpKey, err := svc.CreateBroadcast(
+	resp, ids, rtmpKey, err := m.hst.CreateBroadcast(
 		context.Background(),
-		cfg.Name+" "+dateStr,
-		cfg.Description,
-		cfg.StreamName,
-		cfg.LivePrivacy,
-		cfg.Resolution,
+		m.cfg.Name+" "+dateStr,
+		m.cfg.Description,
+		m.cfg.StreamName,
+		m.cfg.LivePrivacy,
+		m.cfg.Resolution,
 		timeCreated,
-		cfg.End,
+		m.cfg.End,
 		broadcasthost.WithRateLimiter(limiter),
 	)
 	if err != nil {
@@ -149,9 +145,6 @@ func (m *OceanBroadcast) CreateBroadcast(
 // external hardware (cameras) and services.
 func (m *OceanBroadcast) StartBroadcast(
 	ctx context.Context,
-	cfg *broadcast.Config,
-	store datastore.Store,
-	svc broadcasthost.Host,
 	extStart func() error,
 	onSuccess func(),
 	onFailure func(error),
@@ -165,15 +158,13 @@ func (m *OceanBroadcast) StartBroadcast(
 	}
 
 	go func() {
-		err := svc.StartBroadcast(
-			cfg.Name,
-			cfg.BID,
-			cfg.SID,
-			saveLinkFunc(store),
-			func() error { return nil }, // This is now handled by the hardware state machine.
-			func() error { return nil }, // This is now handled by the hardware state machine.
-			opsHealthNotifyFunc(ctx, cfg),
-			func() error { return nil }) // This is now handled by the hardware state machine.
+		err := m.hst.StartBroadcast(
+			m.cfg.Name,
+			m.cfg.BID,
+			m.cfg.SID,
+			saveLinkFunc(m.store),
+			opsHealthNotifyFunc(ctx, m.cfg),
+		)
 		if err != nil {
 			onFailure(fmt.Errorf("could not start broadcast: %w", err))
 			return
@@ -184,16 +175,16 @@ func (m *OceanBroadcast) StartBroadcast(
 
 // StopBroadcast stops a broadcast using the youtube live streaming API.
 // It uses AusOcean methods for saving and stopping external hardware.
-func (m *OceanBroadcast) StopBroadcast(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host) error {
+func (m *OceanBroadcast) StopBroadcast(ctx context.Context) error {
 	m.log("stopping broadcast")
 
-	status, err := svc.BroadcastStatus(ctx, cfg.BID)
+	status, err := m.hst.BroadcastStatus(ctx, m.cfg.BID)
 	if err != nil {
 		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
 
 	if status != ytclient.StatusComplete && status != "" {
-		err := svc.CompleteBroadcast(ctx, cfg.BID)
+		err := m.hst.CompleteBroadcast(ctx, m.cfg.BID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
 		}
@@ -206,7 +197,7 @@ func (m *OceanBroadcast) StopBroadcast(ctx context.Context, cfg *broadcast.Confi
 
 	// Change privacy to post live privacy.
 	// This will also set the privacy of the video after the broadcast has ended.
-	err = svc.SetBroadcastPrivacy(ctx, cfg.BID, cfg.PostLivePrivacy)
+	err = m.hst.SetBroadcastPrivacy(ctx, m.cfg.BID, m.cfg.PostLivePrivacy)
 	if err != nil {
 		return fmt.Errorf("could not update broadcast privacy: %w", err)
 	}
@@ -276,16 +267,16 @@ func (m *OceanBroadcast) Save(ctx context.Context, update func(_cfg *broadcast.C
 
 // HandleStatus checks the status of a broadcast and stops it if it has
 // complete or revoked status.
-func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config, store datastore.Store, svc broadcasthost.Host, noBroadcastCallBack BroadcastCallback) error {
+func (m *OceanBroadcast) HandleStatus(ctx context.Context, noBroadcastCallBack BroadcastCallback) error {
 	m.log("handling status check")
-	status, err := svc.BroadcastStatus(ctx, cfg.BID)
+	status, err := m.hst.BroadcastStatus(ctx, m.cfg.BID)
 	if err != nil {
 		if !errors.Is(err, ytclient.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
 		}
 
 		m.log("no broadcast items with this configuration listed")
-		err := noBroadcastCallBack(ctx, cfg, store, svc)
+		err := noBroadcastCallBack(ctx, m.cfg, m.store, m.hst)
 		if err != nil {
 			return fmt.Errorf("could not call no broadcast callback: %w", err)
 		}
@@ -296,7 +287,7 @@ func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config
 	}
 
 	m.log("status is complete or revoked")
-	err = noBroadcastCallBack(ctx, cfg, store, svc)
+	err = noBroadcastCallBack(ctx, m.cfg, m.store, m.hst)
 	if err != nil {
 		return fmt.Errorf("could not call no broadcast callback: %w", err)
 	}
@@ -308,8 +299,8 @@ func (m *OceanBroadcast) HandleStatus(ctx context.Context, cfg *broadcast.Config
 // relevant site and posts the message to the broadcast chat. This works by
 // searching the site for any registered ESP devices and looking at the latest
 // signal values on sensors which have been marked true to send a message.
-func (m *OceanBroadcast) HandleChatMessage(ctx context.Context, cfg *broadcast.Config) error {
-	if !cfg.SendMsg {
+func (m *OceanBroadcast) HandleChatMessage(ctx context.Context) error {
+	if !m.cfg.SendMsg {
 		m.log("ignoring sensors")
 		return nil
 	}
@@ -317,7 +308,7 @@ func (m *OceanBroadcast) HandleChatMessage(ctx context.Context, cfg *broadcast.C
 	m.log("building message")
 	var msg string
 
-	for _, sensor := range cfg.SensorList {
+	for _, sensor := range m.cfg.SensorList {
 		if !sensor.SendMsg {
 			continue
 		}
@@ -357,7 +348,7 @@ func (m *OceanBroadcast) HandleChatMessage(ctx context.Context, cfg *broadcast.C
 		return nil
 	}
 
-	err := m.svc.PostChatMessage(cfg.CID, msg)
+	err := m.hst.PostChatMessage(m.cfg.CID, msg)
 	if err != nil {
 		return fmt.Errorf("broadcast chat message post error: %w", err)
 	}
@@ -366,53 +357,53 @@ func (m *OceanBroadcast) HandleChatMessage(ctx context.Context, cfg *broadcast.C
 
 // HandleHealth interprets the health of a broadcast and calls the provided callbacks in response to the health.
 // For tolerance to temporary issues, we only call the badHealthCallback if the health is bad for more than 4 checks.
-func (m *OceanBroadcast) HandleHealth(ctx context.Context, cfg *broadcast.Config, store datastore.Store, goodHealthCallback func(), badHealthCallback func(string)) error {
+func (m *OceanBroadcast) HandleHealth(ctx context.Context, goodHealthCallback func(), badHealthCallback func(string)) error {
 	m.log("handling health check")
-	issue, err := m.svc.BroadcastHealth(ctx, cfg.SID)
+	issue, err := m.hst.BroadcastHealth(ctx, m.cfg.SID)
 	if err != nil {
 		return fmt.Errorf("could not check for stream issues: %w", err)
 	}
 
 	if issue == "" {
-		cfg.Issues = 0
+		m.cfg.Issues = 0
 		goodHealthCallback()
 		return nil
 	}
 	m.log("issue found: %s", issue)
 
-	cfg.Issues++
+	m.cfg.Issues++
 	const maxHealthIssues = 4
-	if cfg.Issues > maxHealthIssues {
+	if m.cfg.Issues > maxHealthIssues {
 		badHealthCallback(issue)
-		cfg.Issues = 0
+		m.cfg.Issues = 0
 	}
 
-	return m.Save(nil, func(_cfg *broadcast.Config) { _cfg.Issues = cfg.Issues; *cfg = *_cfg })
+	return m.Save(nil, func(_cfg *broadcast.Config) { _cfg.Issues = m.cfg.Issues })
 }
 
-func (m *OceanBroadcast) SetupSecondary(ctx context.Context, cfg *broadcast.Config, store datastore.Store) error {
-	m.log("setting up vidforward broadcasting for %v", cfg.Name)
+func (m *OceanBroadcast) SetupSecondary(ctx context.Context) error {
+	m.log("setting up vidforward broadcasting for %v", m.cfg.Name)
 
 	// Sanity check. This should only be invoked for the primary broadcast only so make sure
 	// the name does not contain the secondary broadcast postfix.
-	if strings.Contains(cfg.Name, broadcast.SecondaryPostfix) {
+	if strings.Contains(m.cfg.Name, broadcast.SecondaryPostfix) {
 		panic("setupVidforwardBroadcasting should only be invoked for the primary broadcast")
 	}
 
 	// Let's first set up the device.
 	// Set the HTTPAddress variable to send to the vidforward service.
 	// Set the Outputs variable to HTTP so that we're using MPEG-TS over HTTP.
-	mac := fmt.Sprintf("%012x", cfg.CameraMac)
-	err := m.setVar(ctx, store, mac+"."+rv_config.KeyHTTPAddress, cfg.VidforwardHost, cfg.SKey, m.log)
+	mac := fmt.Sprintf("%012x", m.cfg.CameraMac)
+	err := m.setVar(ctx, m.store, mac+"."+rv_config.KeyHTTPAddress, m.cfg.VidforwardHost, m.cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the HTTPAddress variable for the camera: %w", err)
 	}
-	err = m.setVar(ctx, store, mac+"."+rv_config.KeyOutputs, "HTTP", cfg.SKey, m.log)
+	err = m.setVar(ctx, m.store, mac+"."+rv_config.KeyOutputs, "HTTP", m.cfg.SKey, m.log)
 	if err != nil {
 		return fmt.Errorf("could not set the camera output to http: %w", err)
 	}
 	// Check if secondary broadcast already exists.
-	secondaryName := cfg.Name + broadcast.SecondaryPostfix
+	secondaryName := m.cfg.Name + broadcast.SecondaryPostfix
 
 	populateFields := func(_cfg *broadcast.Config) {
 		// The secondary broadcast will for the most part copy the long term broadcast
@@ -424,21 +415,21 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context, cfg *broadcast.Conf
 		_cfg.OnActions = ""               // We don't need it to have any control of the camera hardware.
 		_cfg.OffActions = ""              // Ditto.
 		_cfg.SendMsg = true               // It would be handy to have sensors stored in the store broadcasts too.
-		_cfg.Start = cfg.Start
-		_cfg.End = cfg.End
-		_cfg.Resolution = cfg.Resolution
+		_cfg.Start = m.cfg.Start
+		_cfg.End = m.cfg.End
+		_cfg.Resolution = m.cfg.Resolution
 		_cfg.Enabled = true
 	}
 
-	secondary, err := m.broadcastByName(cfg.SKey, secondaryName)
+	secondary, err := m.broadcastByName(m.cfg.SKey, secondaryName)
 	switch {
 	// Broadcast not found, so we need to create it.
 	case errors.Is(err, broadcast.ErrBroadcastNotFound{}):
-		secondaryCfg := *cfg
+		secondaryCfg := *m.cfg
 		populateFields(&secondaryCfg)
 
 		// Create a temporary OceanBroadcastManager for the secondary broadcast and create it (no update func required).
-		err = NewOceanBroadcast(nil, &secondaryCfg, store, m.log, m.setVar, m.broadcastByName).Save(ctx, nil)
+		err = NewOceanBroadcast(nil, &secondaryCfg, m.store, m.log, m.setVar, m.broadcastByName).Save(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
 		}
@@ -448,7 +439,7 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context, cfg *broadcast.Conf
 	// Broadcast found so we need to update it with a transaction.
 	default:
 		// Create a temporary OceanBroadcastManager for the secondary broadcast and update it.
-		err = NewOceanBroadcast(nil, secondary, store, m.log, m.setVar, m.broadcastByName).Save(ctx, populateFields)
+		err = NewOceanBroadcast(nil, secondary, m.store, m.log, m.setVar, m.broadcastByName).Save(ctx, populateFields)
 		if err != nil {
 			return fmt.Errorf("could not update secondary broadcast: %w", err)
 		}
@@ -469,7 +460,7 @@ func opsHealthNotifyFunc(ctx context.Context, cfg *broadcast.Config) func(string
 // is, if it has been revoked or completed, and if its IDs have been set.
 func (m *OceanBroadcast) BroadcastCanBeReused() bool {
 	// Check if the broadcast was created today. Don't reuse an old broadcast.
-	startTime, err := m.svc.BroadcastScheduledStartTime(context.Background(), m.cfg.BID)
+	startTime, err := m.hst.BroadcastScheduledStartTime(context.Background(), m.cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast start time: %v", err)
 		return false
@@ -481,13 +472,13 @@ func (m *OceanBroadcast) BroadcastCanBeReused() bool {
 		return false
 	}
 
-	status, err := m.svc.BroadcastStatus(context.Background(), m.cfg.BID)
+	status, err := m.hst.BroadcastStatus(context.Background(), m.cfg.BID)
 	if err != nil {
 		m.log("could not get today's broadcast status: %v", err)
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return m.cfg.BID != "" && m.cfg.SID != "" && status != "" && status != ytclient.StatusRevoked && status != ytclient.StatusComplete
+	return m.cfg.BID != "" && status != "" && status != ytclient.StatusRevoked && status != ytclient.StatusComplete
 }
 
 // saveLinkFunc provides a closure for saving a broadcast link with a given key.

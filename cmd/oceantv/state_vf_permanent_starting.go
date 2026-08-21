@@ -49,7 +49,7 @@ func (s *vidforwardPermanentStarting) enter() {
 	cfg := *s.cfg
 	cfg.End = cfg.End.AddDate(1, 0, 0)
 
-	if !try(s.man.SetupSecondary(context.Background(), s.cfg, s.store), "could not setup secondary broadcast", s.log) {
+	if !try(s.man.SetupSecondary(context.Background()), "could not setup secondary broadcast", s.log) {
 		s.bus.Publish(event.StartFailed{})
 		return
 	}

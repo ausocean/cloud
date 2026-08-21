@@ -89,11 +89,7 @@ func newDummyManager(t *testing.T, cfg *Cfg, options ...dummyManagerOption) *dum
 	return man
 }
 
-func (d *dummyManager) CreateBroadcast(
-	cfg *Cfg,
-	store Store,
-	svc Svc,
-) error {
+func (d *dummyManager) CreateBroadcast(ctx Ctx) error {
 	if d.Limiter != nil && !d.Limiter.RequestOK() {
 		return broadcasthost.ErrRequestLimitExceeded
 	}
@@ -102,9 +98,6 @@ func (d *dummyManager) CreateBroadcast(
 
 func (d *dummyManager) StartBroadcast(
 	ctx Ctx,
-	cfg *Cfg,
-	store Store,
-	svc Svc,
 	extStart func() error,
 	onSuccess func(),
 	onFailure func(error),
@@ -123,7 +116,7 @@ func (d *dummyManager) StartBroadcast(
 	}()
 	d.started = true
 }
-func (d *dummyManager) StopBroadcast(ctx Ctx, cfg *Cfg, store Store, svc Svc) error {
+func (d *dummyManager) StopBroadcast(ctx Ctx) error {
 	d.stopped = true
 	return nil
 }
@@ -134,15 +127,15 @@ func (d *dummyManager) Save(ctx Ctx, update func(*Cfg)) error {
 	}
 	return nil
 }
-func (d *dummyManager) HandleStatus(ctx Ctx, cfg *Cfg, store Store, svc Svc, call manager.BroadcastCallback) error {
+func (d *dummyManager) HandleStatus(ctx Ctx, call manager.BroadcastCallback) error {
 	d.statusHandled = true
 	return nil
 }
-func (d *dummyManager) HandleChatMessage(ctx Ctx, cfg *Cfg) error {
+func (d *dummyManager) HandleChatMessage(ctx Ctx) error {
 	d.chatHandled = true
 	return nil
 }
-func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCallback func(), badHealthCallback func(string)) error {
+func (d *dummyManager) HandleHealth(ctx Ctx, goodHealthCallback func(), badHealthCallback func(string)) error {
 	d.healthHandled = true
 	if d.broadcastUnhealthy {
 		badHealthCallback("poor ingestion rate")
@@ -151,7 +144,7 @@ func (d *dummyManager) HandleHealth(ctx Ctx, cfg *Cfg, store Store, goodHealthCa
 	}
 	return nil
 }
-func (d *dummyManager) SetupSecondary(ctx Ctx, cfg *Cfg, store Store) error { return nil }
+func (d *dummyManager) SetupSecondary(ctx Ctx) error { return nil }
 
 func (d *dummyManager) logf(format string, args ...interface{}) {
 	if d.t == nil {
@@ -257,9 +250,7 @@ func (d *dummyService) CreateBroadcast(
 func (d *dummyService) StartBroadcast(
 	name, bID, sID string,
 	saveLink func(key, link string) error,
-	extStart, extStop func() error,
 	notify func(msg string) error,
-	onLiveActions func() error,
 ) error {
 	return nil
 }
@@ -268,7 +259,8 @@ func (d *dummyService) BroadcastScheduledStartTime(ctx Ctx, id string) (time.Tim
 	return d.start, nil
 }
 func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error)    { return "", nil }
-func (d *dummyService) RTMPKey(ctx Ctx, streamName string) (string, error)    { return "", nil }
+func (d *dummyService) AuthKey(ctx Ctx, streamName string) (string, error)    { return "", nil }
+func (d *dummyService) DestinationURL() string                                { return "" }
 func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error            { return nil }
 func (d *dummyService) PostChatMessage(id, msg string) error                  { return nil }
 func (d *dummyService) SetBroadcastPrivacy(ctx Ctx, id, privacy string) error { return nil }
@@ -509,7 +501,7 @@ func (m *mockNotifier) Recipients(skey int64, k notify.Kind) ([]string, time.Dur
 func standardMockBroadcastContext(t *testing.T, hardwareHealthy bool) *broadcastContext {
 	return &broadcastContext{
 		store:     &dummyStore{},
-		svc:       &dummyService{},
+		hst:       &dummyService{},
 		hardware:  &dummyHardwareManager{hardwareHealthy: hardwareHealthy},
 		notifier:  newMockNotifier(),
 		logOutput: t.Log,

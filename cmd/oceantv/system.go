@@ -37,9 +37,9 @@ func withBroadcastManager(bm manager.Broadcast) broadcastSystemOption {
 	}
 }
 
-func withBroadcastService(bs Svc) broadcastSystemOption {
+func withBroadcastHost(bh Hst) broadcastSystemOption {
 	return func(b *broadcastSystem) error {
-		b.ctx.svc = bs
+		b.ctx.hst = bh
 		return nil
 	}
 }
@@ -203,12 +203,12 @@ func (bs *broadcastSystem) tick() error {
 
 		// If there's a broadcast ID, set to complete if live and then clear it.
 		if bs.ctx.cfg.BID != "" {
-			status, err := bs.ctx.svc.BroadcastStatus(context.Background(), bs.ctx.cfg.BID)
+			status, err := bs.ctx.hst.BroadcastStatus(context.Background(), bs.ctx.cfg.BID)
 			if err != nil {
 				bs.log("could not get broadcast status: %v", err)
 			} else {
 				if status == ytclient.StatusLive {
-					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
+					err = bs.ctx.hst.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
 						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)
 					}

@@ -24,7 +24,7 @@ type broadcastContext struct {
 	cfg      *Cfg
 	man      manager.Broadcast
 	store    Store
-	svc      Svc
+	hst      Hst
 	fwd      forwarding.Service
 	bus      event.EventBus
 	hardware hardware.Manager
@@ -121,10 +121,7 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 	case event.StatusCheckDue:
 		err := sm.ctx.man.HandleStatus(
 			context.Background(),
-			sm.ctx.cfg,
-			sm.ctx.store,
-			sm.ctx.svc,
-			func(Ctx, *Cfg, Store, Svc) error {
+			func(Ctx, *Cfg, Store, Hst) error {
 				sm.ctx.bus.Publish(event.Finish{})
 				return nil
 			},
@@ -135,8 +132,6 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 	case event.HealthCheckDue:
 		err := sm.ctx.man.HandleHealth(
 			context.Background(),
-			sm.ctx.cfg,
-			sm.ctx.store,
 			func() { sm.ctx.bus.Publish(event.GoodHealth{}) },
 			func(issue string) {
 				sm.ctx.bus.Publish(event.BadHealth{})
@@ -147,7 +142,7 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 			sm.logAndNotifySoftware("could not handle health check: %v", err)
 		}
 	case event.ChatMessageDue:
-		sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
+		sm.ctx.man.HandleChatMessage(context.Background())
 	}
 }
 
@@ -471,11 +466,7 @@ func broadcastCfgToState(ctx *broadcastContext) state {
 }
 
 func createBroadcastAndRequestHardware(ctx *broadcastContext, cfg *Cfg, onCreation func() error) {
-	err := ctx.man.CreateBroadcast(
-		cfg,
-		ctx.store,
-		ctx.svc,
-	)
+	err := ctx.man.CreateBroadcast(context.Background())
 	if errors.Is(err, broadcasthost.ErrRequestLimitExceeded) {
 		onFailureClosure(ctx, cfg, true)(fmt.Errorf("could not create broadcast: %w", err))
 		return
@@ -505,9 +496,6 @@ func startBroadcast(ctx *broadcastContext, cfg *Cfg) {
 
 	ctx.man.StartBroadcast(
 		context.Background(),
-		cfg,
-		ctx.store,
-		ctx.svc,
 		nil,
 		onSuccess,
 		onFailureClosure(ctx, cfg, false),
