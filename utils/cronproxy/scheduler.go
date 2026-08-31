@@ -1,6 +1,7 @@
 /*
 DESCRIPTION
-  Ocean Bench cron handling.
+  Cron Proxy Scheduler to easily forward requests onto a cron service, such
+  as OceanCron.
 
 AUTHORS
   Dan Kortschak <dan@ausocean.org>
@@ -8,7 +9,7 @@ AUTHORS
   Alan Noble <alan@ausocean.org>
 
 LICENSE
-  Copyright (C) 2021-2024 the Australian Ocean Lab (AusOcean)
+  Copyright (C) 2021-2026 the Australian Ocean Lab (AusOcean)
 
   This file is part of Ocean Bench. Ocean Bench is free software: you can
   redistribute it and/or modify it under the terms of the GNU
@@ -26,7 +27,7 @@ LICENSE
   <http://www.gnu.org/licenses/>.
 */
 
-package main
+package cronproxy
 
 import (
 	"errors"
@@ -38,9 +39,9 @@ import (
 	"github.com/ausocean/cloud/model"
 )
 
-// proxyScheduler is a cron client that forwards requests to a cron service, such as Ocean Cron.
-type proxyScheduler struct {
-	url string
+// Scheduler is a cron client that forwards requests to a cron service, such as Ocean Cron.
+type Scheduler struct {
+	URL string
 }
 
 // Set simply forwards a cron schedule request to a service running a
@@ -48,7 +49,8 @@ type proxyScheduler struct {
 // datastore operations _before_ this calling this method, otherwise
 // changes will not be visible to the remote service.
 // TODO: Sign requests using JWT.
-func (ps *proxyScheduler) Set(cron *model.Cron) error {
+// TODO: Update logging to be consistent with calling service.
+func (ps *Scheduler) Set(cron *model.Cron) error {
 	log.Printf("setting cron: %v", cron.ID)
 
 	// Create a new HTTP client.
@@ -61,7 +63,7 @@ func (ps *proxyScheduler) Set(cron *model.Cron) error {
 	} else {
 		op = "unset"
 	}
-	url := ps.url + "/cron/" + op + "/" + strconv.Itoa(int(cron.Skey)) + "/" + cron.ID
+	url := ps.URL + "/cron/" + op + "/" + strconv.Itoa(int(cron.Skey)) + "/" + cron.ID
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("error creating cron request: %w", err)
