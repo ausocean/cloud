@@ -68,6 +68,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/utils/cronproxy"
 	"github.com/ausocean/utils/sliceutils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
@@ -152,7 +153,7 @@ var (
 )
 
 var (
-	cronScheduler proxyScheduler
+	cronScheduler cronproxy.Scheduler
 	cronSecret    []byte
 	commitHash    string
 )
@@ -365,7 +366,7 @@ func main() {
 		}
 	}
 
-	cronScheduler = proxyScheduler{url: cronURL}
+	cronScheduler = cronproxy.Scheduler{URL: cronURL}
 	log.Printf("Listening on %s:%d", host, port)
 	log.Printf("Sending cron requests to %s", cronURL)
 	log.Printf("Sending TV requests to %s", tvURL)
