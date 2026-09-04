@@ -62,17 +62,18 @@ const (
 )
 
 var (
-	setupMutex    sync.Mutex
-	store         *composite.Store
-	debug         bool
-	standalone    bool
-	cronSecret    []byte
-	tvSecret      []byte
-	storePath     string
-	aotvURL       = AusOceanTVServiceURL
-	cronURL       = OceanCronServiceURL
-	commitHash    string
-	cronScheduler cronproxy.Scheduler
+	setupMutex     sync.Mutex
+	store          *composite.Store
+	cronScheduler  cronproxy.Scheduler
+	debug          bool
+	standalone     bool
+	cronSecret     []byte
+	tvSecret       []byte
+	mailJetSecrets map[string]string
+	storePath      string
+	aotvURL        = AusOceanTVServiceURL
+	cronURL        = OceanCronServiceURL
+	commitHash     string
 )
 
 func init() {
@@ -170,6 +171,7 @@ func main() {
 	mux.HandleFunc("/_ah/warmup", warmupHandler)
 	mux.HandleFunc("/broadcast/", broadcastHandler)
 	mux.HandleFunc("/checkbroadcasts", otv.checkBroadcastsHandler)
+	mux.HandleFunc("/sendnotifications", otv.sendNotifications)
 	mux.HandleFunc("/", indexHandler)
 
 	log.Printf("Listening on %s:%d", host, port)
@@ -261,14 +263,14 @@ func setup(ctx Ctx) {
 		log.Printf("could not get tvSecret: %v", err)
 	}
 
-	secrets, err := gauth.GetSecrets(ctx, projectID, nil)
+	mailJetSecrets, err = gauth.GetSecrets(ctx, projectID, nil)
 	if err != nil {
 		log.Fatalf("could not get secrets: %v", err)
 	}
 
 	notifier.N, err = notify.NewMailjetNotifier(
-		notify.WithSecrets(secrets),
 		notify.WithRecipientLookup(tvRecipients(store)),
+		notify.WithSecrets(mailJetSecrets),
 		notify.WithStore(notify.NewStore(store)),
 	)
 	if err != nil {
