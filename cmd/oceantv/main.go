@@ -42,6 +42,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
+	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -222,7 +223,7 @@ func errNoGlobalNotifierHandler(secrets map[string]string) utils.RecoveryHandler
 		if errors.Is(err, errNoGlobalNotifier) {
 			notifier.N, err = notify.NewMailjetNotifier(
 				notify.WithSecrets(secrets),
-				notify.WithRecipientLookup(tvRecipients),
+				notify.WithRecipientLookup(tvRecipients(store)),
 				notify.WithStore(notify.NewStore(store)),
 			)
 			if err != nil {
@@ -285,7 +286,7 @@ func setup(ctx Ctx) {
 
 	notifier.N, err = notify.NewMailjetNotifier(
 		notify.WithSecrets(secrets),
-		notify.WithRecipientLookup(tvRecipients),
+		notify.WithRecipientLookup(tvRecipients(store)),
 		notify.WithStore(notify.NewStore(store)),
 	)
 	if err != nil {
@@ -297,27 +298,29 @@ func setup(ctx Ctx) {
 
 // tvRecipients looks up the email addresses and notification period
 // for the given site,
-func tvRecipients(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
-	ctx := context.Background()
-	site, err := model.GetSite(ctx, store, skey)
-	if err != nil {
-		return nil, 0, fmt.Errorf("error getting site: %w", err)
-	}
-	if site.OpsEmail == "" {
-		log.Printf("OpsEmail not defined for site %s", site.Name)
-	}
-	recipients := []string{site.OpsEmail}
-	switch kind {
-	case notifier.KindHardware, notifier.KindNetwork, notifier.KindConfiguration:
-		if site.YouTubeEmail == "" {
-			log.Printf("YouTubeEmail not defined for site %s", site.Name)
-			break
+func tvRecipients(store datastore.Store) notify.Lookup {
+	return func(skey int64, kind notify.Kind) ([]string, time.Duration, error) {
+		ctx := context.Background()
+		site, err := model.GetSite(ctx, store, skey)
+		if err != nil {
+			return nil, 0, fmt.Errorf("error getting site: %w", err)
 		}
-		recipients = append(recipients, site.YouTubeEmail)
-	default:
-		// Skip YouTubeEmail notifications for other kinds.
+		if site.OpsEmail == "" {
+			log.Printf("OpsEmail not defined for site %s", site.Name)
+		}
+		recipients := []string{site.OpsEmail}
+		switch kind {
+		case notifier.KindHardware, notifier.KindNetwork, notifier.KindConfiguration:
+			if site.YouTubeEmail == "" {
+				log.Printf("YouTubeEmail not defined for site %s", site.Name)
+				break
+			}
+			recipients = append(recipients, site.YouTubeEmail)
+		default:
+			// Skip YouTubeEmail notifications for other kinds.
+		}
+		return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 	}
-	return recipients, time.Duration(site.NotifyPeriod) * time.Hour, nil
 }
 
 // broadcastHandler handles broadcast save requests from broadcast clients.
