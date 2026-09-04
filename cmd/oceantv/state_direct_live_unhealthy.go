@@ -85,7 +85,7 @@ func (s *directLiveUnhealthy) fix() {
 	if s.Attempts >= maxAttempts {
 		e = event.FixFailure{fmt.Errorf("failed to fix broadcast (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)}
 	} else {
-		s.logAndNotify(notifier.KindHardware, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
+		s.logAndNotify(notifier.KindHardware, notifier.UrgencyPushDay, "attempting to fix broadcast by hardware restart request (attempts: %d, max attempts: %d)", s.Attempts, maxAttempts)
 		s.Attempts++
 		e = event.HardwareResetRequest{}
 	}

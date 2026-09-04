@@ -154,7 +154,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 		errEvent := e.(event.Error)
 
-		broadcastContext.logAndNotify(errEvent.Kind(), "error event: %s", errEvent.Error())
+		broadcastContext.logAndNotify(errEvent.Kind(), notifier.UrgencyPushDay, "error event: %s", errEvent.Error())
 		return nil
 	})
 
@@ -210,7 +210,7 @@ func (bs *broadcastSystem) tick() error {
 				if status == ytclient.StatusLive {
 					err = bs.ctx.svc.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
-						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)
+						bs.ctx.logAndNotify(notifier.KindService, notifier.UrgencyPushNow, "could not complete broadcast, please check this manually: %v", err)
 					}
 				}
 			}

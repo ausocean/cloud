@@ -61,16 +61,17 @@ const (
 )
 
 var (
-	setupMutex sync.Mutex
-	store      *composite.Store
-	debug      bool
-	standalone bool
-	cronSecret []byte
-	tvSecret   []byte
-	storePath  string
-	aotvURL    = AusOceanTVServiceURL
-	commitHash string
-	cronScheduler  cronproxy.Scheduler
+	setupMutex    sync.Mutex
+	store         *composite.Store
+	debug         bool
+	standalone    bool
+	cronSecret    []byte
+	tvSecret      []byte
+	storePath     string
+	aotvURL       = AusOceanTVServiceURL
+	cronURL       = OceanCronServiceURL
+	commitHash    string
+	cronScheduler cronproxy.Scheduler
 )
 
 func init() {

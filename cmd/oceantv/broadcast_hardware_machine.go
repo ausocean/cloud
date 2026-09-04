@@ -145,7 +145,9 @@ func (sm *hardwareStateMachine) handleTimeEvent(t event.Time) {
 			try(
 				sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.RequiredStreamingVoltage = defaultRequiredStreamingVoltage }),
 				"could not save default required streaming voltage to config",
-				func(msg string, args ...interface{}) { sm.ctx.logAndNotify(notifier.KindSoftware, msg, args...) },
+				func(msg string, args ...interface{}) {
+					sm.ctx.logAndNotify(notifier.KindSoftware, notifier.UrgencyPushDay, msg, args...)
+				},
 			)
 		}
 

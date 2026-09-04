@@ -53,15 +53,15 @@ func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStat
 		sm.transition(newVidforwardPermanentVoltageRecoverySlate(sm.ctx))
 	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
+		sm.logAndNotifyConfigurationNow("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
-			sm.logAndNotifySoftware,
+			sm.logAndNotifySoftwareDay,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.HardwareStartFailed:
-		sm.logAndNotify(notifier.KindHardware, "hardware failure event in transition from slate to live, moving to failure slate state")
+		sm.logAndNotify(notifier.KindHardware, notifier.UrgencyPushNow, "hardware failure event in transition from slate to live, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case event.GoodHealth:
 		if s.isHardwareStarted() {
@@ -69,7 +69,7 @@ func (s *vidforwardPermanentTransitionSlateToLive) handleEvent(sm *broadcastStat
 		}
 	case event.Time:
 		if s.timedOut(e_.Time) {
-			sm.ctx.logAndNotify(notifier.KindGeneric, "transition from slate to live timed out, transitioning to failure slate state")
+			sm.ctx.logAndNotify(notifier.KindGeneric, notifier.UrgencyPushNow, "transition from slate to live timed out, transitioning to failure slate state")
 			sm.transition(newVidforwardPermanentFailure(sm.ctx))
 		}
 		sm.publishHealthStatusOrChatEvents(e_)

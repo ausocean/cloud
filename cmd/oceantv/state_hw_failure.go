@@ -51,7 +51,7 @@ func (s *hardwareFailure) enter() {
 		}
 		notifyMsg = fmt.Sprintf("entering hardware failure state due to: %v", s.err)
 	}
-	s.logAndNotify(notifyKind, "%s", notifyMsg)
+	s.logAndNotify(notifyKind, notifier.UrgencyPushNow, "%s", notifyMsg)
 }
 
 func (s *hardwareFailure) exit() {}

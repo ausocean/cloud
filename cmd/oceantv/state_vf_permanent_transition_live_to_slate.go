@@ -52,11 +52,11 @@ func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStat
 	switch e_ := e.(type) {
 	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
+		sm.logAndNotifyConfigurationNow("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
-			sm.logAndNotifySoftware,
+			sm.logAndNotifySoftwareDay,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.GoodHealth:
@@ -66,7 +66,7 @@ func (s *vidforwardPermanentTransitionLiveToSlate) handleEvent(sm *broadcastStat
 	case event.Time:
 		withTimeout := sm.currentState.(stateWithTimeout)
 		if withTimeout.timedOut(e_.Time) {
-			sm.logAndNotify(notifier.KindForwarder, "transition from live to slate timed out, staying in live state, check forwarding service")
+			sm.logAndNotify(notifier.KindForwarder, notifier.UrgencyPushDay, "transition from live to slate timed out, staying in live state, check forwarding service")
 			sm.transition(newVidforwardPermanentLive())
 		}
 		sm.publishHealthEvent(e_)

@@ -188,7 +188,7 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 			},
 		)
 		if err != nil {
-			sm.logAndNotifySoftware("could not handle health check: %v", err)
+			sm.logAndNotifySoftwareDay("could not handle health check: %v", err)
 		}
 	case event.HealthCheckDue:
 		err := sm.ctx.man.HandleHealth(
@@ -198,11 +198,11 @@ func (b *stateFields) handleGlobalEvents(sm *broadcastStateMachine, e event.Even
 			func() { sm.ctx.bus.Publish(event.GoodHealth{}) },
 			func(issue string) {
 				sm.ctx.bus.Publish(event.BadHealth{})
-				sm.ctx.logAndNotify(notifier.KindNetwork, "poor stream health, status: %s", issue)
+				sm.ctx.logAndNotify(notifier.KindNetwork, notifier.UrgencyPushDay, "poor stream health, status: %s", issue)
 			},
 		)
 		if err != nil {
-			sm.logAndNotifySoftware("could not handle health check: %v", err)
+			sm.logAndNotifySoftwareDay("could not handle health check: %v", err)
 		}
 	case event.ChatMessageDue:
 		sm.ctx.man.HandleChatMessage(context.Background(), sm.ctx.cfg)
