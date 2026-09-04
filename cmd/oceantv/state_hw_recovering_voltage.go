@@ -39,7 +39,9 @@ func sanatisedVoltageRecoveryTimeout(ctx *broadcastContext) int {
 		try(
 			ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.VoltageRecoveryTimeout = defaultRechargeTimeoutHours }),
 			"could not save default recharge timeout hours to config",
-			func(msg string, args ...interface{}) { ctx.logAndNotify(notifier.KindSoftware, msg, args...) },
+			func(msg string, args ...interface{}) {
+				ctx.logAndNotify(notifier.KindSoftware, notifier.UrgencyPushDay, msg, args...)
+			},
 		)
 	}
 	return ctx.cfg.VoltageRecoveryTimeout

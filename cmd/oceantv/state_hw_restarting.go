@@ -151,7 +151,7 @@ func (s *hardwareRestarting) handleTimeEvent(t event.Time) {
 	default:
 		// This is unexpected and probably means we haven't saved a substate properly.
 		// So perform a notify log and default to a sensible state.
-		s.logAndNotify(notifier.KindSoftware, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.Substate)
+		s.logAndNotify(notifier.KindSoftware, notifier.UrgencyPushDay, "unexpected substate in hardwareRestarting: %v, re-entering state to initialise substate", s.Substate)
 		s.enter()
 	}
 }

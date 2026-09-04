@@ -51,7 +51,7 @@ func (s *directFailure) enter() {
 		}
 		notifyMsg = fmt.Sprintf("entering direct broadcast failure state due to: %v", s.err)
 	}
-	s.logAndNotify(notifyKind, "%s", notifyMsg)
+	s.logAndNotify(notifyKind, notifier.UrgencyPushNow, "%s", notifyMsg)
 
 	err := s.man.StopBroadcast(context.Background())
 	if err != nil {
