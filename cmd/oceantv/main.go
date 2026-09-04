@@ -46,12 +46,14 @@ import (
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 	"github.com/ausocean/cloud/utils"
+	"github.com/ausocean/cloud/utils/cronproxy"
 )
 
 const (
 	projectID             = "oceantv"
 	version               = "v0.14.1"
 	projectURL            = "https://tv.cloudblue.org"
+	OceanCronServiceURL   = "https://cron.cloudblue.org"
 	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
 	locationID            = "Australia/Adelaide" // TODO: Use site location.
@@ -70,7 +72,9 @@ var (
 	cloudflareSecretKey string
 	storePath           string
 	aotvURL             = AusOceanTVServiceURL
+	cronURL             = OceanCronServiceURL
 	commitHash          string
+	cronScheduler       cronproxy.Scheduler
 )
 
 func init() {
@@ -108,6 +112,7 @@ func main() {
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.StringVar(&aotvURL, "aotvurl", AusOceanTVServiceURL, "AusOceanTV Service URL")
+	flag.StringVar(&cronURL, "cronurl", OceanCronServiceURL, "Cron service URL")
 	flag.Parse()
 
 	// Perform one-time setup or bail.
@@ -286,6 +291,8 @@ func setup(ctx Ctx) {
 	if err != nil {
 		log.Fatalf("could not set up email notifier: %v", err)
 	}
+
+	cronScheduler = cronproxy.Scheduler{URL: cronURL}
 }
 
 // tvRecipients looks up the email addresses and notification period

@@ -17,6 +17,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
 )
 
@@ -46,7 +47,10 @@ func (ctx *broadcastContext) log(msg string, args ...interface{}) {
 
 var errNoGlobalNotifier = errors.New("global notifier is nil")
 
-func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...interface{}) {
+// logAndNotify logs the formatted message, and prepares an appropriate notifcation dependent on the urgency. Notifications
+// should only be set to notify immediately if they require immediate action from the recipient. This typically is only for
+// fatal errors that have caused a broadcast to go into failure mode or similar.
+func (ctx *broadcastContext) logAndNotify(kind notify.Kind, urgency notifier.Urgency, msg string, args ...interface{}) {
 	ctx.log(msg, args...)
 
 	formattedMsg := fmt.Sprintf(msg, args...)
@@ -91,10 +95,64 @@ func (ctx *broadcastContext) logAndNotify(kind notify.Kind, msg string, args ...
 		}
 		ctx.notifier = notifier.N
 	}
-	err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
-	if err != nil {
-		ctx.log("could not send health notifier: %v", err)
+
+	switch urgency {
+	case notifier.UrgencyPushNow:
+		err := ctx.notifier.Send(context.Background(), ctx.cfg.SKey, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
+		if err != nil {
+			ctx.log("could not send health notifier: %v", err)
+		}
+	case notifier.UrgencyPushDay:
+		err := saveDailyNotification(ctx, kind, broadcast.FmtForBroadcastLog(ctx.cfg, msg, args...))
+		if err != nil {
+			ctx.log("unable to save notification for daily log: %v", err)
+		}
+
+		err = createDailyCallbackCron(ctx)
+		if err != nil {
+			ctx.log("unable to create daily callback cron: %v", err)
+			return
+		}
 	}
+}
+
+// saveDailyNotification saves a notification to be sent later.
+func saveDailyNotification(ctx *broadcastContext, kind notify.Kind, msg string) error {
+	lookup := tvRecipients(ctx.store)
+	recipients, _, err := lookup(ctx.cfg.SKey, kind)
+	if err != nil {
+		return fmt.Errorf("unable to get recipients for site (%d): %w", ctx.cfg.SKey, err)
+	}
+
+	n := &model.Notification{
+		Service: projectID,
+		Emails:  recipients,
+		Kind:    string(kind),
+		Msg:     msg,
+	}
+	err = model.PutNotification(context.Background(), ctx.store, n)
+	if err != nil {
+		return fmt.Errorf("unable to put notification: %w", err)
+	}
+	return nil
+}
+
+// createDailyCallbackCron registers a callback cron for daily notifications.
+func createDailyCallbackCron(ctx *broadcastContext) error {
+	// Create a callback cron to send daily notifications.
+	const globalSiteScope = -1
+	cr := &model.Cron{Skey: globalSiteScope, ID: "oceantv-daily-notifier", TOD: notifier.TimeDaily, Action: "rpc", Var: projectURL + "/sendnotifications", Enabled: true}
+	err := model.PutCron(context.Background(), ctx.store, cr)
+	if err != nil {
+		return fmt.Errorf("failed to put cron in datastore: %v", err)
+	}
+
+	err = cronScheduler.Set(cr)
+	if err != nil {
+		return fmt.Errorf("failed to schedule cron: %v", err)
+	}
+
+	return nil
 }
 
 func (ctx *broadcastContext) newHWContext() *hardware.Context {
