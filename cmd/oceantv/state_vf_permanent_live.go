@@ -39,15 +39,15 @@ func (s *vidforwardPermanentLive) handleEvent(sm *broadcastStateMachine, e event
 	switch e_ := e.(type) {
 	case event.InvalidConfiguration:
 		// TODO: rather than disabling transition to a failure state.
-		sm.logAndNotifyConfiguration("got invalid configuration event, disabling broadcast: %v", e_.Error())
+		sm.logAndNotifyConfigurationNow("got invalid configuration event, disabling broadcast: %v", e_.Error())
 		try(
 			sm.ctx.man.Save(nil, func(_cfg *Cfg) { _cfg.Enabled = false }),
 			"could not disable broadcast after invalid configuration",
-			sm.logAndNotifySoftware,
+			sm.logAndNotifySoftwareDay,
 		)
 		sm.transition(newVidforwardPermanentIdle(sm.ctx))
 	case event.HardwareStartFailed:
-		sm.logAndNotify(notifier.KindHardware, "hardware failure event in permanent live state, moving to failure slate state")
+		sm.logAndNotify(notifier.KindHardware, notifier.UrgencyPushNow, "hardware failure event in permanent live state, moving to failure slate state")
 		sm.transition(newVidforwardPermanentFailure(sm.ctx))
 	case event.BadHealth:
 		sm.transition(newVidforwardPermanentLiveUnhealthy(sm.ctx))

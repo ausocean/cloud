@@ -128,7 +128,7 @@ func (sm *broadcastStateMachine) transition(newState state) {
 	if !try(
 		sm.ctx.man.Save(nil, func(_cfg *Cfg) { updateBroadcastBasedOnState(newState, _cfg) }),
 		"could not update config for transition",
-		sm.logAndNotifySoftware,
+		sm.logAndNotifySoftwareDay,
 	) {
 		return
 	}
@@ -147,14 +147,22 @@ func (sm *broadcastStateMachine) log(msg string, args ...interface{}) {
 	sm.ctx.log("(broadcast sm) "+msg, args...)
 }
 
-func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(k, "(broadcast sm) "+msg, args...)
+func (sm *broadcastStateMachine) logAndNotify(k notify.Kind, urgency notifier.Urgency, msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(k, urgency, "(broadcast sm) "+msg, args...)
 }
 
-func (sm *broadcastStateMachine) logAndNotifySoftware(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(notifier.KindSoftware, msg, args...)
+func (sm *broadcastStateMachine) logAndNotifySoftwareDay(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(notifier.KindSoftware, notifier.UrgencyPushDay, msg, args...)
 }
 
-func (sm *broadcastStateMachine) logAndNotifyConfiguration(msg string, args ...interface{}) {
-	sm.ctx.logAndNotify(notifier.KindConfiguration, msg, args...)
+func (sm *broadcastStateMachine) logAndNotifySoftwareNow(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(notifier.KindSoftware, notifier.UrgencyPushNow, msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotifyConfigurationDay(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(notifier.KindConfiguration, notifier.UrgencyPushDay, msg, args...)
+}
+
+func (sm *broadcastStateMachine) logAndNotifyConfigurationNow(msg string, args ...interface{}) {
+	sm.ctx.logAndNotify(notifier.KindConfiguration, notifier.UrgencyPushNow, msg, args...)
 }
