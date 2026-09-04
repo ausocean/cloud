@@ -32,4 +32,14 @@ const (
 	KindSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
 	KindConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
 	KindService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
+// Urgency represents how urgently a notification should be sent.
+type Urgency string
+
+const (
+	UrgencyPushNow Urgency = "urgency-push-now" // Notifications which require immediate action and should be sent as a push notification now.
+	UrgencyPushDay Urgency = "urgency-push-day" // Noficications which do not require immediate action and should be sent in a combined push notification once a day.
+)
+
+const (
+	TimeDaily = "0 9 * * *" // cronspec for a 9am cron.
 )
