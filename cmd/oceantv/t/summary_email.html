@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.4; max-width: 600px; margin: 0 auto; padding: 16px;">
+
+  <h2 style="font-size: 18px; margin: 0 0 8px 0;">Daily Error Summary - {{.Date}}</h2>
+  <p style="margin: 0 0 16px 0;">You have <strong>{{.TotalCount}}</strong> pending notifications.</p>
+
+  {{range $service, $items := .ByService}}
+  <div style="border-top: 1px solid #e0e0e0; padding-top: 12px; margin-top: 16px;">
+    <strong>{{$service}} ({{len $items}})</strong>
+
+    {{range $items}}
+    <div style="margin-top: 8px; font-size: 13px;">
+      <span><strong>[{{.Kind}}]</strong> {{.CreatedAt.Format "15:04:05 UTC"}}</span>
+      <p style="margin: 2px 0 0 0; font-family: monospace; color: #222222;">{{.Msg}}</p>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+</body>
+</html>
