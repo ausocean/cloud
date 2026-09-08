@@ -28,6 +28,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
+	"github.com/ausocean/cloud/datastore"
+	"github.com/ausocean/cloud/storage"
 	"github.com/ausocean/cloud/ytclient"
 )
 
@@ -44,6 +47,8 @@ type Option func(Host) error
 // Host is an interface for a broadcast host that the camera will stream to.
 // For example, YouTube and OceanMedia.
 type Host interface {
+	registry.Named
+	registry.Newable
 	CreateBroadcast(
 		ctx context.Context,
 		broadcastName, description, streamName, privacy, resolution string,
@@ -62,7 +67,19 @@ type Host interface {
 	BroadcastHealth(ctx context.Context, sid string) (string, error)
 	AuthKey(ctx context.Context, streamName string) (string, error)
 	DestinationURL() string
+	Protocol() string
 	CompleteBroadcast(ctx context.Context, id string) error
 	PostChatMessage(cID, msg string) error
 	SetBroadcastPrivacy(ctx context.Context, id, privacy string) error
+}
+
+// Params are the parameters that are passed to the broadcast host when initializing it via the registry.
+// This is needed so that we can use the registry to initialize the broadcast host without
+// using specific parameters for each host.
+type Params struct {
+	Log             func(string, ...interface{})
+	Store           datastore.Store
+	BroadcastCfgID  string
+	StorageProvider *storage.Provider
+	TokenURI        string
 }
