@@ -37,7 +37,6 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
-	"github.com/ausocean/cloud/ytclient"
 	"github.com/ausocean/utils/nmea"
 	"github.com/google/uuid"
 )
@@ -85,6 +84,8 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 			_cfg.SID = m.cfg.SID
 			_cfg.CID = m.cfg.CID
 			_cfg.RTMPKey = m.cfg.RTMPKey
+			_cfg.AuthKey = m.cfg.AuthKey
+			_cfg.StorageConfig = m.cfg.StorageConfig
 		})
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
@@ -114,7 +115,7 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 	}
 
 	timeCreated := time.Now().Add(1 * time.Minute)
-	resp, ids, rtmpKey, err := m.hst.CreateBroadcast(
+	resp, ids, authKey, err := m.hst.CreateBroadcast(
 		context.Background(),
 		m.cfg.Name+" "+dateStr,
 		m.cfg.Description,
@@ -132,7 +133,16 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 		_cfg.BID = ids.BID
 		_cfg.SID = ids.SID
 		_cfg.CID = ids.CID
-		_cfg.RTMPKey = rtmpKey
+		if m.cfg.BroadcastHost == "oceanmedia" {
+			_cfg.StorageConfig = &broadcast.StorageConfig{
+				Bucket:   m.cfg.StorageConfig.Bucket,
+				Prefix:   ids.BID + "/",
+				Provider: m.cfg.StorageConfig.Provider,
+			}
+			_cfg.AuthKey = authKey
+		} else {
+			_cfg.RTMPKey = authKey
+		}
 	})
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)
@@ -183,7 +193,7 @@ func (m *OceanBroadcast) StopBroadcast(ctx context.Context) error {
 		return fmt.Errorf("could not get broadcast status: %w", err)
 	}
 
-	if status != ytclient.StatusComplete && status != "" {
+	if status != broadcasthost.StatusComplete && status != "" {
 		err := m.hst.CompleteBroadcast(ctx, m.cfg.BID)
 		if err != nil {
 			return fmt.Errorf("could not complete broadcast: %w", err)
@@ -271,7 +281,7 @@ func (m *OceanBroadcast) HandleStatus(ctx context.Context, noBroadcastCallBack B
 	m.log("handling status check")
 	status, err := m.hst.BroadcastStatus(ctx, m.cfg.BID)
 	if err != nil {
-		if !errors.Is(err, ytclient.ErrNoBroadcastItems) {
+		if !errors.Is(err, broadcasthost.ErrNoBroadcastItems) {
 			return fmt.Errorf("could not get broadcast status: %w", err)
 		}
 
@@ -282,7 +292,7 @@ func (m *OceanBroadcast) HandleStatus(ctx context.Context, noBroadcastCallBack B
 		}
 	}
 
-	if status != ytclient.StatusComplete && status != ytclient.StatusRevoked {
+	if status != broadcasthost.StatusComplete && status != broadcasthost.StatusRevoked {
 		return nil
 	}
 
@@ -478,7 +488,7 @@ func (m *OceanBroadcast) BroadcastCanBeReused() bool {
 		return false
 	}
 	m.log("today's broadcast has status: %s", status)
-	return m.cfg.BID != "" && status != "" && status != ytclient.StatusRevoked && status != ytclient.StatusComplete
+	return m.cfg.BID != "" && status != "" && status != broadcasthost.StatusRevoked && status != broadcasthost.StatusComplete
 }
 
 // saveLinkFunc provides a closure for saving a broadcast link with a given key.
