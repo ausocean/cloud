@@ -14,9 +14,10 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/notify"
+	"github.com/ausocean/cloud/storage"
 	"github.com/ausocean/cloud/utils"
-	"github.com/ausocean/cloud/ytclient"
 )
 
 // broadcastSystem represents a video broadcasting control system.
@@ -102,6 +103,23 @@ func withStateHandlers(h ...func(state)) broadcastSystemOption {
 	}
 }
 
+func newStorageProvider(cfg *Cfg) (storage.Provider, error) {
+	// Only provide a storage provider for oceanmedia broadcasts.
+	if cfg.BroadcastHost != "oceanmedia" {
+		return nil, nil
+	}
+	if cfg.StorageConfig == nil {
+		return nil, fmt.Errorf("storage config is nil")
+	}
+	switch cfg.StorageConfig.Provider {
+	case "cloudflare":
+		cf := storage.NewCloudflare(cloudflareAccountID, cloudflareAccessKey, cloudflareSecretKey, cfg.StorageConfig.Bucket)
+		return cf, nil
+	default:
+		return nil, fmt.Errorf("unknown storage provider: %s", cfg.StorageConfig.Provider)
+	}
+}
+
 // newBroadcastSystem creates a new broadcast system.
 // Default implementations for the various components are used, but can be overridden
 // by passing options to this function.
@@ -117,13 +135,32 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 		broadcast.LogForBroadcast(cfg, logOutput, msg, args...)
 	}
 
-	// Create the youtube broadcast service. This will deal with the YouTube API bindings.
+	// Create the broadcast host (e.g. YouTube, OceanMedia etc) this will be
+	// responsible for the host specific logic.
+	storageProvider, err := newStorageProvider(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("could not create storage provider: %w", err)
+	}
 	tokenURI := utils.TokenURIFromAccount(cfg.Account)
-	svc := broadcasthost.NewYouTube(tokenURI, log)
+	params := broadcasthost.Params{
+		Log:             log,
+		Store:           store,
+		BroadcastCfgID:  cfg.UUID,
+		StorageProvider: &storageProvider,
+		TokenURI:        tokenURI,
+	}
+	hst, err := registry.Get(cfg.BroadcastHost, params)
+	if err != nil {
+		return nil, fmt.Errorf("could not get broadcast host: %w", err)
+	}
+	broadcastHost, ok := hst.(broadcasthost.Host)
+	if !ok {
+		return nil, fmt.Errorf("could not cast broadcast host to broadcasthost.Host")
+	}
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
-	// hardware and the YouTube broadcast service.
-	man := manager.NewOceanBroadcast(svc, cfg, store, log, setVar, broadcastByName)
+	// hardware and the broadcast host.
+	man := manager.NewOceanBroadcast(broadcastHost, cfg, store, log, setVar, broadcastByName)
 
 	// This will get called in the case that events are published to
 	// the event bus but our context is cancelled. This might happen if a routine
@@ -144,7 +181,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	bus := event.NewBasicEventBus(ctx, storeEventsAfterCtx, log)
 
 	// This context will be used by the state machines for access to our bits and bobs.
-	broadcastContext := &broadcastContext{cfg, man, store, svc, forwarding.NewVidforwardService(log, broadcastByName), bus, &hardware.RevidCameraClient{}, logOutput, nil}
+	broadcastContext := &broadcastContext{cfg, man, store, broadcastHost, forwarding.NewVidforwardService(log, broadcastByName), bus, &hardware.RevidCameraClient{SetActionVars: setActionVars}, logOutput, nil}
 
 	// Subscribe event handler that notifies on events that implement errorEvent.
 	bus.Subscribe(func(e event.Event) error {
@@ -207,7 +244,7 @@ func (bs *broadcastSystem) tick() error {
 			if err != nil {
 				bs.log("could not get broadcast status: %v", err)
 			} else {
-				if status == ytclient.StatusLive {
+				if status == broadcasthost.StatusLive {
 					err = bs.ctx.hst.CompleteBroadcast(context.Background(), bs.ctx.cfg.BID)
 					if err != nil {
 						bs.ctx.logAndNotify(notifier.KindService, "could not complete broadcast, please check this manually: %v", err)

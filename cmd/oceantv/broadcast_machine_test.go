@@ -1945,5 +1945,6 @@ func prepopulatedConfig() *Cfg {
 	return &Cfg{
 		ShutdownActions: "shutdown",
 		CameraMac:       2,
+		BroadcastHost:   "dummy",
 	}
 }
