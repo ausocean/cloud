@@ -85,6 +85,8 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 			_cfg.SID = m.cfg.SID
 			_cfg.CID = m.cfg.CID
 			_cfg.RTMPKey = m.cfg.RTMPKey
+			_cfg.AuthKey = m.cfg.AuthKey
+			_cfg.StorageConfig = m.cfg.StorageConfig
 		})
 		if err != nil {
 			return fmt.Errorf("could not save broadcast config: %w", err)
@@ -114,7 +116,7 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 	}
 
 	timeCreated := time.Now().Add(1 * time.Minute)
-	resp, ids, rtmpKey, err := m.hst.CreateBroadcast(
+	resp, ids, authKey, err := m.hst.CreateBroadcast(
 		context.Background(),
 		m.cfg.Name+" "+dateStr,
 		m.cfg.Description,
@@ -132,7 +134,16 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 		_cfg.BID = ids.BID
 		_cfg.SID = ids.SID
 		_cfg.CID = ids.CID
-		_cfg.RTMPKey = rtmpKey
+		if m.cfg.BroadcastHost == "oceanmedia" {
+			_cfg.StorageConfig = &broadcast.StorageConfig{
+				Bucket:   m.cfg.StorageConfig.Bucket,
+				Prefix:   ids.BID + "/",
+				Provider: m.cfg.StorageConfig.Provider,
+			}
+			_cfg.AuthKey = authKey
+		} else {
+			_cfg.RTMPKey = authKey
+		}
 	})
 	if err != nil {
 		return fmt.Errorf("could not update config with transaction: %w", err)

@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/ytclient"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/youtube/v3"
@@ -52,6 +53,23 @@ type YouTube struct {
 
 func NewYouTube(tokenURI string, log func(string, ...interface{})) *YouTube {
 	return &YouTube{log: log, tokenURI: tokenURI}
+}
+
+func (y YouTube) Name() string {
+	return "youtube"
+}
+
+func (y YouTube) New(args ...any) (any, error) {
+	// If no arguments are provided, return an empty YouTube
+	// so that we can still get the protocol.
+	if len(args) == 0 {
+		return YouTube{}, nil
+	}
+	p, ok := args[0].(Params)
+	if !ok {
+		return nil, errors.New("expected broadcasthost.Params")
+	}
+	return &YouTube{log: p.Log, tokenURI: p.TokenURI}, nil
 }
 
 // WithRateLimiter is a Option that sets the rate limiter for a
@@ -253,6 +271,10 @@ func (s *YouTube) DestinationURL() string {
 	return "rtmp://a.rtmp.youtube.com/live2/"
 }
 
+func (s *YouTube) Protocol() string {
+	return "RTMP"
+}
+
 // PostChatMessage posts a chat message with the provided message and token URI
 // to the chat identification cID using the YouTube API.
 func (s *YouTube) PostChatMessage(cID, msg string) error {
@@ -284,4 +306,8 @@ func (s *YouTube) SetBroadcastPrivacy(ctx context.Context, id, privacy string) e
 		return fmt.Errorf("could not update video: %w, resp: %v", err, resp)
 	}
 	return nil
+}
+
+func init() {
+	registry.Register(&YouTube{})
 }

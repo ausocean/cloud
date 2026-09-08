@@ -40,6 +40,7 @@ import (
 	"github.com/ausocean/cloud/cmd/oceantv/hardware"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/notify"
@@ -238,6 +239,14 @@ func WithStart(start time.Time) dummyServiceOption {
 	}
 }
 
+func (d dummyService) New(args ...any) (any, error) {
+	return &dummyService{}, nil
+}
+
+func (d dummyService) Name() string {
+	return "dummy"
+}
+
 func (d *dummyService) CreateBroadcast(
 	ctx Ctx,
 	broadcastName, description, streamName, privacy, resolution string,
@@ -261,9 +270,13 @@ func (d *dummyService) BroadcastScheduledStartTime(ctx Ctx, id string) (time.Tim
 func (d *dummyService) BroadcastHealth(ctx Ctx, id string) (string, error)    { return "", nil }
 func (d *dummyService) AuthKey(ctx Ctx, streamName string) (string, error)    { return "", nil }
 func (d *dummyService) DestinationURL() string                                { return "" }
+func (d *dummyService) Protocol() string                                      { return "" }
 func (d *dummyService) CompleteBroadcast(ctx Ctx, id string) error            { return nil }
 func (d *dummyService) PostChatMessage(id, msg string) error                  { return nil }
 func (d *dummyService) SetBroadcastPrivacy(ctx Ctx, id, privacy string) error { return nil }
+func init() {
+	registry.Register(&dummyService{})
+}
 
 type dummyForwardingService struct{}
 
