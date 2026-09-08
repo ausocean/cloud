@@ -59,15 +59,18 @@ const (
 )
 
 var (
-	setupMutex sync.Mutex
-	store      *composite.Store
-	debug      bool
-	standalone bool
-	cronSecret []byte
-	tvSecret   []byte
-	storePath  string
-	aotvURL    = AusOceanTVServiceURL
-	commitHash string
+	setupMutex          sync.Mutex
+	store               *composite.Store
+	debug               bool
+	standalone          bool
+	cronSecret          []byte
+	tvSecret            []byte
+	cloudflareAccountID string
+	cloudflareAccessKey string
+	cloudflareSecretKey string
+	storePath           string
+	aotvURL             = AusOceanTVServiceURL
+	commitHash          string
 )
 
 func init() {
@@ -123,6 +126,21 @@ func main() {
 	privateKey, ok := secrets["mailjetPrivateKey"]
 	if !ok {
 		log.Fatalf("could not get mailjetPrivateKey, can't send panic recovery notification")
+	}
+
+	cloudflareAccountID, ok = secrets["cloudflareAccountID"]
+	if !ok {
+		log.Fatalf("could not get cloudflareAccountID, can't use cloudflare storage")
+	}
+
+	cloudflareAccessKey, ok = secrets["cloudflareAccessKey"]
+	if !ok {
+		log.Fatalf("could not get cloudflareAccessKey, can't use cloudflare storage")
+	}
+
+	cloudflareSecretKey, ok = secrets["cloudflareSecretKey"]
+	if !ok {
+		log.Fatalf("could not get cloudflareSecretKey, can't use cloudflare storage")
 	}
 
 	const (

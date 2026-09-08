@@ -29,7 +29,9 @@ import (
 	"strconv"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcasthost"
 	"github.com/ausocean/cloud/cmd/oceantv/event"
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/model"
 )
@@ -196,7 +198,22 @@ func extStart(
 	}
 
 	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + broadcast.RTMPDestinationAddress + cfg.RTMPKey
-	err := setActionVars(ctx, cfg.SKey, onActions, store, log)
+	onActions += "," + cfg.AuthKeyVar + "=" + cfg.AuthKey
+	onActions += "," + cfg.StorageConfigVar + "=" + cfg.StorageConfig.JSON()
+
+	// Get the camera output protocol from the broadcast host. This allows the
+	// host to specify the correct protocol for the camera output.
+	host, err := registry.Get(cfg.BroadcastHost)
+	if err != nil {
+		return fmt.Errorf("could not get broadcast host: %w", err)
+	}
+	broadcastHost, ok := host.(broadcasthost.Host)
+	if !ok {
+		return fmt.Errorf("could not cast broadcast host: %w", err)
+	}
+	onActions += "," + cfg.CameraOutputVar + "=" + broadcastHost.Protocol()
+
+	err = setActionVars(ctx, cfg.SKey, onActions, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
 	}

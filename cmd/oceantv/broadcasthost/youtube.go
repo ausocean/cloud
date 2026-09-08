@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/ratelimit"
+	"github.com/ausocean/cloud/cmd/oceantv/registry"
 	"github.com/ausocean/cloud/ytclient"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/youtube/v3"
@@ -52,6 +53,25 @@ type YouTube struct {
 
 func NewYouTube(tokenURI string, log func(string, ...interface{})) *YouTube {
 	return &YouTube{log: log, tokenURI: tokenURI}
+}
+
+// Name returns the name of the YouTube broadcast host.
+func (y YouTube) Name() string {
+	return "youtube"
+}
+
+// New creates a new YouTube broadcast host.
+func (y YouTube) New(args ...any) (any, error) {
+	// If no arguments are provided, return an empty YouTube
+	// so that we can still get the protocol.
+	if len(args) == 0 {
+		return YouTube{}, nil
+	}
+	p, ok := args[0].(Params)
+	if !ok {
+		return nil, errors.New("expected broadcasthost.Params")
+	}
+	return &YouTube{log: p.Log, tokenURI: p.TokenURI}, nil
 }
 
 // WithRateLimiter is a Option that sets the rate limiter for a
@@ -77,22 +97,22 @@ func (s *YouTube) CreateBroadcast(
 	broadcastName, description, streamName, privacy, resolution string,
 	start, end time.Time,
 	opts ...Option,
-) (Response, ytclient.IDs, string, error) {
+) (Response, IDs, string, error) {
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
-			return nil, ytclient.IDs{}, "", fmt.Errorf("could not apply option: %w", err)
+			return nil, IDs{}, "", fmt.Errorf("could not apply option: %w", err)
 		}
 	}
 
 	if s.limiter != nil {
 		if !s.limiter.RequestOK() {
-			return nil, ytclient.IDs{}, "", ErrRequestLimitExceeded
+			return nil, IDs{}, "", ErrRequestLimitExceeded
 		}
 	}
 
 	svc, err := ytclient.GetService(ctx, youtube.YoutubeScope, s.tokenURI)
 	if err != nil {
-		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not get service: %w", err)
+		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not get service: %w", err)
 	}
 
 	const (
@@ -113,15 +133,15 @@ func (s *YouTube) CreateBroadcast(
 		s.log,
 	)
 	if err != nil {
-		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not broadcast stream: %w response: %v", err, resp)
+		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not broadcast stream: %w response: %v", err, resp)
 	}
 
 	key, err := ytclient.RTMPKey(svc, streamName)
 	if err != nil {
-		return YouTubeResponse{}, ytclient.IDs{}, "", fmt.Errorf("could not get stream RTMP key: %w", err)
+		return YouTubeResponse{}, IDs{}, "", fmt.Errorf("could not get stream RTMP key: %w", err)
 	}
 
-	return YouTubeResponse(resp), ids, key, nil
+	return YouTubeResponse(resp), IDs{BID: ids.BID, SID: ids.SID, CID: ids.CID}, key, nil
 }
 
 // StartBroadcast transitions a broadcast with provided name, bID, and sID to
@@ -152,7 +172,10 @@ func (s *YouTube) BroadcastStatus(ctx context.Context, id string) (string, error
 		return "", fmt.Errorf("get service error: %w", err)
 	}
 	status, err := ytclient.GetBroadcastStatus(svc, id)
-	if err != nil && !errors.Is(err, ytclient.ErrNoBroadcastItems) {
+	if errors.Is(err, ytclient.ErrNoBroadcastItems) {
+		return "", ErrNoBroadcastItems
+	}
+	if err != nil {
 		return "", fmt.Errorf("get broadcast status error: %w", err)
 	}
 	return status, nil
@@ -211,7 +234,10 @@ func (s *YouTube) BroadcastScheduledStartTime(ctx context.Context, id string) (t
 		return time.Time{}, fmt.Errorf("get service error: %w", err)
 	}
 	start, err := ytclient.GetBroadcastScheduledStart(svc, id)
-	if err != nil && !errors.Is(err, ytclient.ErrNoBroadcastItems) {
+	if errors.Is(err, ytclient.ErrNoBroadcastItems) {
+		return time.Time{}, ErrNoBroadcastItems
+	}
+	if err != nil {
 		return time.Time{}, fmt.Errorf("get broadcast status error: %w", err)
 	}
 	startTime, err := time.Parse(time.RFC3339, start)
@@ -253,6 +279,10 @@ func (s *YouTube) DestinationURL() string {
 	return "rtmp://a.rtmp.youtube.com/live2/"
 }
 
+func (s *YouTube) Protocol() string {
+	return "RTMP"
+}
+
 // PostChatMessage posts a chat message with the provided message and token URI
 // to the chat identification cID using the YouTube API.
 func (s *YouTube) PostChatMessage(cID, msg string) error {
@@ -284,4 +314,8 @@ func (s *YouTube) SetBroadcastPrivacy(ctx context.Context, id, privacy string) e
 		return fmt.Errorf("could not update video: %w, resp: %v", err, resp)
 	}
 	return nil
+}
+
+func init() {
+	registry.Register(&YouTube{})
 }
