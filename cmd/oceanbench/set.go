@@ -92,7 +92,7 @@ type devicesData struct {
 }
 
 // writeDevices writes the devices page.
-// If the query includes sk=auto and a MAC address (ma) param is specified,
+// If the skey is given as "auto" and a MAC address (ma) param is specified,
 // the parent site is automatically selected.
 // If msg is not-empty it means the previous call generated an error message.
 // The following system variables are used:
@@ -107,6 +107,22 @@ func writeDevices(c *fiber.Ctx, msg string, args ...interface{}) error {
 			log.Printf("authentication error: %v", err)
 		}
 		return c.Redirect("/", fiber.StatusUnauthorized)
+	}
+	if c.Params(skeyParamKey) == "auto" {
+		mac := c.FormValue("ma")
+		if mac == "" {
+			log.Println("auto site key must include ma query parameter")
+			return c.Redirect("/", fiber.StatusSeeOther)
+		}
+
+		dev, err := model.GetDevice(c.UserContext(), settingsStore, model.MacEncode(mac))
+		if err != nil {
+			log.Printf("unable to get device for auto site key: %v", err)
+			return c.Redirect("/", fiber.StatusSeeOther)
+		}
+
+		targetURL := strings.Replace(c.OriginalURL(), "/auto/", fmt.Sprintf("/%d/", dev.Skey), 1)
+		return c.Redirect(targetURL, fiber.StatusFound)
 	}
 	skey, err := getCurrentSkey(c, profile)
 	if err != nil {
