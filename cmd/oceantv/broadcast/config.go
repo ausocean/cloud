@@ -230,6 +230,7 @@ type StorageConfig struct {
 	Bucket   string // The destination bucket.
 	Prefix   string // The prefix (directory) to save the segements to.
 	Provider string // The storage provider (e.g. "cloudflare").
+	Endpoint string // The endpoint of the storage service.
 }
 
 func (s StorageConfig) JSON() string {

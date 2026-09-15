@@ -62,4 +62,5 @@ export type StorageConfig = {
   Bucket: string; // The destination bucket.
   Prefix: string; // The prefix (directory) to save the segments to.
   Provider: string; // The storage provider (e.g. "cloudflare").
+  Endpoint: string; // The endpoint of the storage service.
 };

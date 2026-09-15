@@ -138,6 +138,7 @@ func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
 				Bucket:   m.cfg.StorageConfig.Bucket,
 				Prefix:   ids.BID + "/",
 				Provider: m.cfg.StorageConfig.Provider,
+				Endpoint: m.hst.DestinationURL(),
 			}
 			_cfg.AuthKey = authKey
 		} else {
