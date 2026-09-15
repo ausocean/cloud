@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
 )
@@ -91,7 +92,7 @@ func timeToCronSpec(timeStr string) (string, error) {
 
 // broadcastByName gets the broadcast configuration with the provided name from
 // the datastore. An error is returned if there's no match or for other issues.
-func broadcastByName(sKey int64, name string) (*BroadcastConfig, error) {
+func broadcastByName(sKey int64, name string) (*broadcast.Config, error) {
 	// Load config information for any prior broadcasts that have been saved.
 	vars, err := model.GetVariablesBySite(context.Background(), settingsStore, sKey, broadcastScope)
 	if err != nil {
@@ -118,10 +119,10 @@ func (e ErrBroadcastNotFound) Is(target error) bool {
 // broadcastFromVars searches a slice of broadcast variables for a broadcast
 // config with the provided uuid and returns if found, otherwise an error is
 // returned.
-func broadcastFromVars(broadcasts []model.Variable, uuid string) (*BroadcastConfig, error) {
+func broadcastFromVars(broadcasts []model.Variable, uuid string) (*broadcast.Config, error) {
 	for _, v := range broadcasts {
 		if uuid == v.Name || uuid == strings.TrimPrefix(v.Name, broadcastScope+".") {
-			var cfg BroadcastConfig
+			var cfg broadcast.Config
 			err := json.Unmarshal([]byte(v.Value), &cfg)
 			if err != nil {
 				return nil, fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
@@ -267,7 +268,7 @@ func trimDescriptionChars(desc string) string {
 	return desc
 }
 
-func trimDescriptionFromConfig(cfg *BroadcastConfig) string {
+func trimDescriptionFromConfig(cfg *broadcast.Config) string {
 	trimmedConfig := *cfg
 	cfg.Description = trimDescriptionChars(trimmedConfig.Description)
 	trimmedData, err := json.Marshal(trimmedConfig)
@@ -279,7 +280,7 @@ func trimDescriptionFromConfig(cfg *BroadcastConfig) string {
 
 var logConfigs = false
 
-func provideConfig(cfg *BroadcastConfig) string {
+func provideConfig(cfg *broadcast.Config) string {
 	if logConfigs {
 		return fmt.Sprintf("%v", trimDescriptionFromConfig(cfg))
 	}

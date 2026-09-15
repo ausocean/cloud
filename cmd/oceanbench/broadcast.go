@@ -40,6 +40,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -54,7 +55,6 @@ import (
 type Action int
 
 type (
-	Cfg   = BroadcastConfig
 	Ctx   = context.Context
 	Store = datastore.Store
 	Key   = datastore.Key
@@ -95,14 +95,14 @@ const (
 
 // broadcastRequest is used by the broadcastHandler to hold broadcast information.
 type broadcastRequest struct {
-	BroadcastVars      []model.Variable   // Holds prior saved broadcast configs.
-	ParsedBroadcasts   []*BroadcastConfig // Holds broadcast configs, in the struct, parsed from the JSON in the BroadcastVars.
-	CurrentBroadcast   BroadcastConfig    // Holds configuration data for broadcast config in form.
-	Cameras            []model.Device     // Slice of all the cameras on the site.
-	Controllers        []model.Device     // Slice of all the controllers on the site.
-	Settings           Settings           // A struct containing options for some settings that have limited options.
-	Action             string             // Holds value of any button pressed.
-	ListingSecondaries bool               // Are we listing secondary broadcasts?
+	BroadcastVars      []model.Variable    // Holds prior saved broadcast configs.
+	ParsedBroadcasts   []*broadcast.Config // Holds broadcast configs, in the struct, parsed from the JSON in the BroadcastVars.
+	CurrentBroadcast   broadcast.Config    // Holds configuration data for broadcast config in form.
+	Cameras            []model.Device      // Slice of all the cameras on the site.
+	Controllers        []model.Device      // Slice of all the controllers on the site.
+	Settings           Settings            // A struct containing options for some settings that have limited options.
+	Action             string              // Holds value of any button pressed.
+	ListingSecondaries bool                // Are we listing secondary broadcasts?
 	Site               *model.Site
 	commonData
 }
@@ -111,86 +111,6 @@ type broadcastRequest struct {
 type Settings struct {
 	Resolution []string
 	Privacy    []string
-}
-
-// BroadcastConfig holds configuration data for a YouTube broadcast.
-type BroadcastConfig struct {
-	UUID                     string        // The immutable unique key of the broadcast.
-	SKey                     int64         // The key of the site this broadcast belongs to.
-	Name                     string        // The name of the broadcast.
-	BID                      string        // Broadcast identification.
-	SID                      string        // Stream ID for any currently associated stream.
-	CID                      string        // ID of associated chat.
-	StreamName               string        // The name of the stream we'll bind to the broadcast.
-	Description              string        // The broadcast description shown below viewing window.
-	LivePrivacy              string        // Privacy of the broadcast while live i.e. public, private or unlisted.
-	PostLivePrivacy          string        // Privacy of the broadcast after it has ended i.e. public, private or unlisted.
-	Resolution               string        // Resolution of the stream e.g. 1080p.
-	StartTimestamp           string        // Start time of the broadcast in unix format.
-	Start                    time.Time     // Start time in native go format for easy operations.
-	EndTimestamp             string        // End time of the broadcast in unix format.
-	End                      time.Time     // End time in native go format for easy operations.
-	VidforwardHost           string        // Host address of vidforward service.
-	CameraMac                int64         // Camera hardware's MAC address.
-	ControllerMAC            int64         // Controller hardware's MAC adress (controller used to power camera).
-	OnActions                string        // A series of actions to be used for power up of camera hardware.
-	ShutdownActions          string        // A series of actions to be used for shutdown of camera hardware.
-	OffActions               string        // A series of actions to be used for power down of camera hardware.
-	RTMPVar                  string        // The variable name that holds the RTMP URL and key.
-	Active                   bool          // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
-	Slate                    bool          // This is true if the broadcast is currently in slate mode i.e. no camera.
-	Issues                   int           // The number of successive stream issues currently experienced. Reset when good health seen.
-	SendMsg                  bool          // True if sensor data will be sent to the YouTube live chat.
-	SensorList               []SensorEntry // List of sensors which can be reported to the YouTube live chat.
-	RTMPKey                  string        // The RTMP key corresponding to the newly created broadcast.
-	UsingVidforward          bool          // Indicates if we're using vidforward i.e. doing long term broadcast.
-	CheckingHealth           bool          // Are we performing health checks for the broadcast? Having this false is useful for dodgy testing streams.
-	AttemptingToStart        bool          // Indicates if we're currently attempting to start the broadcast.
-	Enabled                  bool          // Is the broadcast enabled? If not, it will not be started.
-	Events                   []string      // Holds names of events that are yet to be handled.
-	Unhealthy                bool          // True if the broadcast is unhealthy.
-	BroadcastState           string        // Holds the current state of the broadcast.
-	HardwareState            string        // Holds the current state of the hardware.
-	StartFailures            int           // The number of times the broadcast has failed to start.
-	Transitioning            bool          // If the broadcast is transition from live to slate, or vice versa.
-	StateData                []byte        // States will be marshalled and their data stored here.
-	HardwareStateData        []byte        // Hardware states will be marshalled and their data stored here.
-	Account                  string        // The YouTube account email that this broadcast is associated with.
-	InFailure                bool          // True if the broadcast is in a failure state.
-	BatteryVoltagePin        string        // The pin that the battery voltage is read from.
-	RecoveringVoltage        bool          // True if the broadcast is currently recovering voltage.
-	RequiredStreamingVoltage float64       // The required battery voltage for the camera to stream.
-	VoltageRecoveryTimeout   int           // Max allowable hours for voltage recovery before failure.
-	RegisterOpenFish         bool          // True if the video should be registered with openfish for annotation.
-	OpenFishCaptureSource    string        // The capture source to register the stream to.
-	NotifySuppressRules      string        // Suppression rules for notifications.
-}
-
-func (b *BroadcastConfig) PrettyHardwareStateData() string {
-	return string(b.HardwareStateData)
-}
-
-// SensorEntry contains the information for each sensor.
-type SensorEntry struct {
-	SendMsg   bool
-	Sensor    model.SensorV2
-	Name      string
-	DeviceMac int64
-}
-
-// parseStartEnd takes the start and end time unix strings from the broadcast
-// and provides these as time.Time.
-func (c *BroadcastConfig) parseStartEnd() error {
-	sInt, err := strconv.ParseInt(c.StartTimestamp, 10, 64)
-	if err != nil {
-		return fmt.Errorf("could not parse unix start time: %w", err)
-	}
-	eInt, err := strconv.ParseInt(c.EndTimestamp, 10, 64)
-	if err != nil {
-		return fmt.Errorf("could not parse unix end time: %w", err)
-	}
-	c.Start, c.End = time.Unix(sInt, 0), time.Unix(eInt, 0)
-	return nil
 }
 
 // broadcastHandler handles modification to broadcast configurations.
@@ -217,7 +137,7 @@ func broadcastHandler(c *fiber.Ctx) error {
 		commonData: commonData{
 			Pages: pages(c, "broadcast"),
 		},
-		CurrentBroadcast: BroadcastConfig{
+		CurrentBroadcast: broadcast.Config{
 			UUID:                  c.FormValue("broadcast-uuid"),
 			SKey:                  sKey,
 			Name:                  c.FormValue("broadcast-name"),
@@ -231,6 +151,11 @@ func broadcastHandler(c *fiber.Ctx) error {
 			EndTimestamp:          c.FormValue("end-timestamp"),
 			RTMPVar:               c.FormValue("rtmp-key-var"),
 			RTMPKey:               c.FormValue("rtmp-key"),
+			AuthKeyVar:            c.FormValue("auth-key-var"),
+			StorageConfigVar:      c.FormValue("storage-config-var"),
+			CameraOutputVar:       c.FormValue("camera-output-var"),
+			AuthKey:               c.FormValue("auth-key"),
+			BroadcastHost:         c.FormValue("broadcast-host"),
 			VidforwardHost:        c.FormValue("vidforward-host"),
 			CameraMac:             model.MacEncode(c.FormValue("camera-mac")),
 			ControllerMAC:         model.MacEncode(c.FormValue("controller-mac")),
@@ -253,6 +178,19 @@ func broadcastHandler(c *fiber.Ctx) error {
 			Resolution: []string{"1080p"},
 			Privacy:    []string{"unlisted", "private", "public"},
 		},
+	}
+
+	// Only set the storage config if any of its fields have been provided,
+	// otherwise leave it nil so that it is omitted when marshalled.
+	provider := c.FormValue("storage-provider")
+	bucket := c.FormValue("storage-bucket")
+	prefix := c.FormValue("storage-prefix")
+	if provider != "" || bucket != "" || prefix != "" {
+		req.CurrentBroadcast.StorageConfig = &broadcast.StorageConfig{
+			Bucket:   bucket,
+			Prefix:   prefix,
+			Provider: provider,
+		}
 	}
 
 	streamVoltage := c.FormValue("required-streaming-voltage")
@@ -282,7 +220,7 @@ func broadcastHandler(c *fiber.Ctx) error {
 	// This is how we populate the time.Time representations of the start and end
 	// times.
 	if cfg.StartTimestamp != "" {
-		err = cfg.parseStartEnd()
+		err = cfg.ParseStartEnd()
 		if err != nil {
 			reportError(c, req, "could not parse start and end times: %v", err)
 			return nil
@@ -299,7 +237,7 @@ func broadcastHandler(c *fiber.Ctx) error {
 	}
 
 	for _, v := range req.BroadcastVars {
-		cfg := &BroadcastConfig{}
+		cfg := &broadcast.Config{}
 		err := json.Unmarshal([]byte(v.Value), cfg)
 		if err != nil {
 			reportError(c, req, "could not unmarshal broadcast variables: %v", err)
@@ -513,7 +451,7 @@ func stringToAction(s string, req broadcastRequest) Action {
 
 // saveBroadcast sends a request to save a broadcast to the broadcast manager service (oceantv).
 // TODO: Add JWT signing.
-func saveBroadcast(ctx context.Context, cfg *Cfg) error {
+func saveBroadcast(ctx context.Context, cfg *broadcast.Config) error {
 	if cfg.UUID == "" {
 		// The config is new, and should be assigned a UUID.
 		cfg.UUID = uuid.NewString()
@@ -523,7 +461,7 @@ func saveBroadcast(ctx context.Context, cfg *Cfg) error {
 
 	data, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
+		return fmt.Errorf("error marshalling broadcast config: %w", err)
 	}
 
 	const saveMethod = "/broadcast/save"
@@ -551,10 +489,10 @@ func saveBroadcast(ctx context.Context, cfg *Cfg) error {
 
 // resetState sends a request to reset the state of a broadcast to the broadcast manager service (oceantv).
 // TODO: Add JWT signing.
-func resetState(ctx context.Context, cfg *Cfg) error {
+func resetState(ctx context.Context, cfg *broadcast.Config) error {
 	data, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("error marshalling BroadcastConfig: %w", err)
+		return fmt.Errorf("error marshalling broadcast config: %w", err)
 	}
 
 	const resetStateEndpoint = "/broadcast/reset-state"
@@ -596,14 +534,14 @@ func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore
 		return fmt.Errorf("could not get broadcast variables: %v", err)
 	}
 
-	req.CurrentBroadcast = BroadcastConfig{}
+	req.CurrentBroadcast = broadcast.Config{}
 	return nil
 }
 
 // getExistingAccount will return the current associated account of the broadcast with the current config
 // name. This should be used to ensure that the associated account is only updated using the generate token method.
 // If no broadcast/account is found, then an empty string will be returned, along with an error.
-func getExistingAccount(broadcasts []model.Variable, cfg *BroadcastConfig) (string, error) {
+func getExistingAccount(broadcasts []model.Variable, cfg *broadcast.Config) (string, error) {
 	_cfg, err := broadcastFromVars(broadcasts, cfg.UUID)
 	if err != nil {
 		return "", err
@@ -627,7 +565,7 @@ func updateSensorList(ctx context.Context, req *broadcastRequest, c *fiber.Ctx, 
 			return fmt.Errorf("could not get sensors: %w", err)
 		}
 		for _, sensor := range sensors {
-			entry := SensorEntry{
+			entry := broadcast.SensorEntry{
 				SendMsg:   c.FormValue(strings.ToLower(sensor.Name)) == sensor.Name,
 				Sensor:    sensor,
 				Name:      strings.ToLower(sensor.Name),
