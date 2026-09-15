@@ -85,6 +85,53 @@ func GetNotification(ctx context.Context, store datastore.Store, UUID string) (*
 	return n, nil
 }
 
+// NotificationFilter is a type for filtering notification queries.
+type NotificationFilter func(q datastore.Query) error
+
+// NotificationFilterLimit sets a limit on the notifications query.
+func NotificationFilterLimit(limit int) NotificationFilter {
+	return func(q datastore.Query) error {
+		q.Limit(limit)
+		return nil
+	}
+}
+
+// NotificationFilterAfter filters results to those created after the given start time.
+func NotificationFilterAfter(start time.Time) NotificationFilter {
+	return func(q datastore.Query) error {
+		q.FilterField("CreatedAt", ">=", start)
+		return nil
+	}
+}
+
+// NotificationFilterStartTime filters results to those created before the given end time.
+func NotificationFilterBefore(end time.Time) NotificationFilter {
+	return func(q datastore.Query) error {
+		q.FilterField("CreatedAt", "<", end)
+		return nil
+	}
+}
+
+// GetNotifications gets all notifications with the given filters.
+func GetNotifications(ctx context.Context, store datastore.Store, filters ...NotificationFilter) ([]Notification, error) {
+	q := store.NewQuery(TypeNotification, false, "UUID")
+
+	for i, filter := range filters {
+		err := filter(q)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply filter (%d): %w", i, err)
+		}
+	}
+
+	notifications := []Notification{}
+	_, err := store.GetAll(ctx, q, notifications)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get notifications: %w", err)
+	}
+
+	return notifications, nil
+}
+
 // DeleteNotification deletes a notification by its UUID.
 func DeleteNotification(ctx context.Context, store datastore.Store, UUID string) error {
 	if uuid.Validate(UUID) != nil {
