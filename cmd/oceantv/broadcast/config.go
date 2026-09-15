@@ -105,9 +105,9 @@ func (b *Config) PrettyHardwareStateData() string {
 	return string(b.HardwareStateData)
 }
 
-// parseStartEnd takes the start and end time unix strings from the broadcast
+// ParseStartEnd takes the start and end time unix strings from the broadcast
 // and provides these as time.Time.
-func (c *Config) parseStartEnd() error {
+func (c *Config) ParseStartEnd() error {
 	sInt, err := strconv.ParseInt(c.StartTimestamp, 10, 64)
 	if err != nil {
 		return fmt.Errorf("could not parse unix start time: %w", err)
