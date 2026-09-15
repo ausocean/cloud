@@ -266,6 +266,10 @@ function populateForm(data) {
     "stream-name": data.StreamName,
     "rtmp-key-var": data.RTMPVar,
     "rtmp-key": data.RTMPKey,
+    "auth-key-var": data.AuthKeyVar,
+    "storage-config-var": data.StorageConfigVar,
+    "camera-output-var": data.CameraOutputVar,
+    "auth-key": data.AuthKey,
     "vidforward-host": data.VidforwardHost,
     "battery-voltage-pin": data.BatteryVoltagePin,
     "required-streaming-voltage": data.RequiredStreamingVoltage,
@@ -285,6 +289,23 @@ function populateForm(data) {
     );
     if (el) el.value = val !== undefined && val !== null ? val : "";
   }
+
+  // Storage config for OceanMedia broadcasts.
+  const storage = data.StorageConfig || {};
+  const storageMapping = {
+    "storage-bucket": storage.Bucket,
+    "storage-prefix": storage.Prefix,
+  };
+  for (const [name, val] of Object.entries(storageMapping)) {
+    const el = document.querySelector(`input[name="${name}"]`);
+    if (el) el.value = val !== undefined && val !== null ? val : "";
+  }
+  const providerSelect = document.getElementById("storage-provider");
+  if (providerSelect) providerSelect.value = storage.Provider || "cloudflare";
+
+  // Broadcast host select.
+  const hostSelect = document.getElementById("broadcast-host");
+  if (hostSelect) hostSelect.value = data.BroadcastHost || "youtube";
 
   // Checkboxes
   const checks = {
