@@ -22,12 +22,18 @@ export type Broadcast = {
   ShutdownActions: string; // A series of actions to be used for shutdown of camera hardware.
   OffActions: string; // A series of actions to be used for power down of camera hardware.
   RTMPVar: string; // The variable name that holds the RTMP URL and key.
+  AuthKeyVar: string; // The variable name that holds the authentication key for the broadcast host.
+  StorageConfigVar: string; // The variable name that holds the storage configuration for OceanMedia broadcasts.
+  CameraOutputVar: string; // The variable name that sets the output mode of the camera.
   Active: boolean; // This is true if the broadcast is currently active i.e. waiting for data or currently streaming.
   Slate: boolean; // This is true if the broadcast is currently in slate mode i.e. no camera.
   Issues: number; // The number of successive stream issues currently experienced. Reset when good health seen.
   SendMsg: boolean; // True if sensor data will be sent to the YouTube live chat.
   SensorList: object; // List of sensors which can be reported to the YouTube live chat.
   RTMPKey: string; // The RTMP key corresponding to the newly created broadcast.
+  AuthKey: string; // The authentication key for the broadcast host.
+  StorageConfig?: StorageConfig; // The storage configuration for OceanMedia broadcasts.
+  BroadcastHost: string; // The broadcast host (e.g. "youtube", "oceanmedia").
   UsingVidforward: boolean; // Indicates if we're using vidforward i.e. doing long term broadcast.
   CheckingHealth: boolean; // Are we performing health checks for the broadcast? Having this false is useful for dodgy testing streams.
   AttemptingToStart: boolean; // Indicates if we're currently attempting to start the broadcast.
@@ -49,4 +55,11 @@ export type Broadcast = {
   RegisterOpenFish: boolean; // True if the video should be registered with openfish for annotation.
   OpenFishCaptureSource: string; // The capture source to register the stream to.
   NotifySuppressRules: string; // Suppression rules for notifications.
+};
+
+// StorageConfig contains the information for the storage of an oceanmedia broadcast.
+export type StorageConfig = {
+  Bucket: string; // The destination bucket.
+  Prefix: string; // The prefix (directory) to save the segments to.
+  Provider: string; // The storage provider (e.g. "cloudflare").
 };

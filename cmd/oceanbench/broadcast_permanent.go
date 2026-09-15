@@ -37,13 +37,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/model"
 )
 
 type ForwardingService interface {
-	Stream(cfg *BroadcastConfig) error
-	Slate(cfg *BroadcastConfig) error
-	UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error
+	Stream(cfg *broadcast.Config) error
+	Slate(cfg *broadcast.Config) error
+	UploadSlate(cfg *broadcast.Config, name string, file io.Reader) error
 }
 
 type vidforwardStatus string
@@ -59,15 +60,15 @@ func NewVidforwardService() *VidforwardService {
 	return &VidforwardService{}
 }
 
-func (v *VidforwardService) Stream(cfg *BroadcastConfig) error {
+func (v *VidforwardService) Stream(cfg *broadcast.Config) error {
 	return vidforwardRequest(cfg, vidforwardStatusPlay)
 }
 
-func (v *VidforwardService) Slate(cfg *BroadcastConfig) error {
+func (v *VidforwardService) Slate(cfg *broadcast.Config) error {
 	return vidforwardRequest(cfg, vidforwardStatusSlate)
 }
 
-func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file io.Reader) error {
+func (v *VidforwardService) UploadSlate(cfg *broadcast.Config, name string, file io.Reader) error {
 	body := &bytes.Buffer{}
 
 	// Not closing this just yet, see close below.
@@ -106,7 +107,7 @@ func (v *VidforwardService) UploadSlate(cfg *BroadcastConfig, name string, file 
 	return nil
 }
 
-func vidforwardRequest(cfg *BroadcastConfig, status vidforwardStatus) error {
+func vidforwardRequest(cfg *broadcast.Config, status vidforwardStatus) error {
 	primary, secondary := cfg, cfg
 	var err error
 
