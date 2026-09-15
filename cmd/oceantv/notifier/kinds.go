@@ -32,6 +32,7 @@ const (
 	KindSoftware      notify.Kind = "broadcast-software"      // Problems related to the functioning of our broadcast software.
 	KindConfiguration notify.Kind = "broadcast-configuration" // Problems related to the configuration of the broadcast.
 	KindService       notify.Kind = "broadcast-service"       // Problems related to the broadcast service e.g. YouTube API issues.
+	KindSummary       notify.Kind = "broadcast-summary"       // Daily summary notifications.
 )
 
 // Urgency represents how urgently a notification should be sent.

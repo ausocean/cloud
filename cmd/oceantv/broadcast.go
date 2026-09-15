@@ -41,6 +41,7 @@ import (
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
+	"github.com/ausocean/cloud/notify"
 )
 
 type Action int
@@ -154,6 +155,71 @@ func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	fmt.Fprint(w, "OK")
+}
+
+func (s *oceanTVService) sendNotifications(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	ctx := r.Context()
+	claims, err := gauth.GetClaims(r.Header.Get("Authorization"), cronSecret)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid claims: %w", r.RemoteAddr, err))
+		return
+	}
+	if claims["iss"] != cronServiceAccount {
+		writeError(w, http.StatusUnauthorized, fmt.Errorf("request from %s has invalid issuer: %q", r.RemoteAddr, claims["iss"]))
+		return
+	}
+	if _, ok := claims["skey"].(float64); !ok {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("request from %s has invalid skey: %q", r.RemoteAddr, claims["skey"]))
+		return
+	}
+
+	start := time.Now().Add(-24 * time.Hour)
+	notifications, err := model.GetNotifications(ctx, store, model.NotificationFilterAfter(start))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to get notifications after start time (%s): %w", start.Format(time.RFC3339), err))
+		return
+	}
+
+	type summary struct {
+		Date       string
+		TotalCount int
+		ByService  map[string][]model.Notification
+	}
+
+	// Collate all notifications for each recipient.
+	sorted := make(map[string]summary)
+	for _, n := range notifications {
+		for _, email := range n.Emails {
+			s, ok := sorted[email]
+			if !ok {
+				s = summary{
+					TotalCount: 0,
+					Date:       start.Format("Monday January 2"),
+					ByService:  make(map[string][]model.Notification),
+				}
+			}
+			s.TotalCount++
+			s.ByService[n.Service] = append(s.ByService[n.Service], n)
+			sorted[email] = s
+		}
+	}
+
+	for email, s := range sorted {
+		mjNotifier, err := notify.NewMailjetNotifier(
+			notify.WithRecipient(email),
+			notify.WithSecrets(mailJetSecrets),
+			notify.WithStore(notify.NewStore(store)),
+		)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("unable to make new mailjetnotifier: %w", err))
+			return
+		}
+		if mjNotifier.SendHTMLEmail(context.Background(), "OceanTV Daily Summary", "t/summary_email.html", &s) != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("unable to send HTML email: %w", err))
+		}
+	}
 }
 
 // checkBroadcastsForSites checks broadcasts for the given sites.
