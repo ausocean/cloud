@@ -50,7 +50,7 @@ import (
 
 const (
 	projectID             = "oceantv"
-	version               = "v0.14.0"
+	version               = "v0.14.1"
 	projectURL            = "https://tv.cloudblue.org"
 	cronServiceAccount    = "oceancron@appspot.gserviceaccount.com"
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
@@ -375,6 +375,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 			_cfg.Enabled = true
 			_cfg.Events = []string{}
 			_cfg.Issues = 0
+			_cfg.Unhealthy = false
 
 			if cfg.UsingVidforward {
 				if strings.Contains(cfg.Name, broadcast.SecondaryPostfix) {
