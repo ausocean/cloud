@@ -214,7 +214,7 @@ func extStart(
 	}
 	broadcastHost, ok := host.(broadcasthost.Host)
 	if !ok {
-		return fmt.Errorf("could not cast broadcast host: %w", err)
+		return fmt.Errorf("could not cast broadcast host (%s) to broadcasthost.Host", cfg.BroadcastHost)
 	}
 	acts = append(acts, broadcast.ActionVar{Name: cfg.CameraOutputVar, Value: broadcastHost.Protocol()})
 
