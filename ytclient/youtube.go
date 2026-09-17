@@ -59,6 +59,7 @@ const (
 	StatusTesting  = "testing"
 	StatusLive     = "live"
 	StatusReady    = "ready"
+	StatusActive   = "active"
 )
 
 // Misc constants.
@@ -270,7 +271,7 @@ func doStatusActions(bID, sID, tokenURI string, log func(string, ...interface{})
 		svc        interface{} // Acceptable types are *youtube.LiveBroadcastsService and *youtube.LiveStreamsService.
 	}{
 		{waitStatus, StatusReady, bID, 1 * time.Minute, bSvc},
-		{waitStatus, StatusLive, sID, 3 * time.Minute, sSvc},
+		{waitStatus, StatusActive, sID, 3 * time.Minute, sSvc},
 		{robustTransition, StatusTesting, bID, 0, bSvc},
 		{waitStatus, StatusTesting, bID, 1 * time.Minute, bSvc},
 		{transition, StatusLive, bID, 0, bSvc},
@@ -291,7 +292,7 @@ func doStatusActions(bID, sID, tokenURI string, log func(string, ...interface{})
 // Accepted types for svc are *youtube.LiveBroadcastsService and
 // *youtube.LiveStreamsService.
 func waitStatus(status, id string, timeout time.Duration, svc interface{}, log func(string, ...interface{})) error {
-	const checkIntvl = 15 * time.Second
+	const checkIntvl = 5 * time.Second
 	chk := time.NewTicker(checkIntvl)
 	tmo := time.NewTimer(timeout)
 

@@ -200,6 +200,9 @@ func extStart(
 	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + broadcast.RTMPDestinationAddress + cfg.RTMPKey
 	onActions += "," + cfg.AuthKeyVar + "=" + cfg.AuthKey
 	onActions += "," + cfg.StorageConfigVar + "=" + cfg.StorageConfig.JSON()
+	if cfg.AuthKey != "" {
+		onActions += "," + cfg.AuthKeyVar + "=" + cfg.AuthKey
+	}
 
 	// Get the camera output protocol from the broadcast host. This allows the
 	// host to specify the correct protocol for the camera output.
@@ -209,7 +212,7 @@ func extStart(
 	}
 	broadcastHost, ok := host.(broadcasthost.Host)
 	if !ok {
-		return fmt.Errorf("could not cast broadcast host: %w", err)
+		return fmt.Errorf("could not cast broadcast host (%s) to broadcasthost.Host", cfg.BroadcastHost)
 	}
 	onActions += "," + cfg.CameraOutputVar + "=" + broadcastHost.Protocol()
 
