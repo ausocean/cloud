@@ -65,7 +65,7 @@ func (y YouTube) New(args ...any) (any, error) {
 	// If no arguments are provided, return an empty YouTube
 	// so that we can still get the protocol.
 	if len(args) == 0 {
-		return YouTube{}, nil
+		return &YouTube{}, nil
 	}
 	p, ok := args[0].(Params)
 	if !ok {
