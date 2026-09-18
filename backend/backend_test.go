@@ -40,6 +40,8 @@ import (
 // Random ID used as the sessionID.
 var sessionID = uuid.NewString()
 
+const sessionMaxAge = 7 * 24 * 60 * 60 // 1 week (in seconds).
+
 // testService contains commonly used fields across handlers.
 type testService struct {
 	t        *testing.T
@@ -136,7 +138,7 @@ func (svc *testService) set(h Handler) error {
 		return fmt.Errorf("unable to set session value: %w", err)
 	}
 
-	return h.SaveSession(sess)
+	return h.SaveSession(sess, int(sessionMaxAge))
 }
 
 func (svc *testService) get(h Handler) error {

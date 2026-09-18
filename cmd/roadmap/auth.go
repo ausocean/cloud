@@ -49,7 +49,7 @@ func (svc *service) loginHandler(c *fiber.Ctx) error {
 		h := backend.NewFiberHandler(c)
 		if sess, err := h.LoadSession(svc.auth.SessionID); err == nil {
 			sess.Invalidate()
-			h.SaveSession(sess)
+			h.SaveSession(sess, oauthMaxAge)
 		}
 	}
 	return svc.auth.LoginHandler(backend.NewFiberHandler(c))
