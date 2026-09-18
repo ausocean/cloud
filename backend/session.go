@@ -52,8 +52,9 @@ type Session interface {
 // FiberSession implements the Session interface using a Fiber Cookie based
 // storage method.
 type FiberSession struct {
-	cookie *fiber.Cookie              // Cookie used to store the session.
-	values map[string]json.RawMessage // Map of the key value pairs to be encoded into the session.
+	cookie    *fiber.Cookie              // Cookie used to store the session.
+	values    map[string]json.RawMessage // Map of the key value pairs to be encoded into the session.
+	maxAgeSet bool                       // Track if the max age has been set.
 }
 
 // NewFiberSession creates a new empty FiberSession with the given id, and value.
@@ -82,6 +83,7 @@ func NewFiberSession(id, value string) (*FiberSession, error) {
 // the maximum age of the cookie in seconds.
 func (s *FiberSession) SetMaxAge(age int) error {
 	s.cookie.MaxAge = age
+	s.maxAgeSet = true
 	return nil
 }
 
@@ -112,12 +114,14 @@ func (s *FiberSession) Get(key string, dst any) error {
 // the Max Age of the cookie to -1.
 func (s *FiberSession) Invalidate() error {
 	s.cookie.MaxAge = -1
+	s.maxAgeSet = true
 	return nil
 }
 
 // GorillaSession implements the Session interface using Gorilla Sessions.
 type GorillaSession struct {
-	session *sessions.Session
+	session   *sessions.Session
+	maxAgeSet bool // Tracks if the max age has been set.
 }
 
 func NewGorillaSession(session *sessions.Session) *GorillaSession {
@@ -128,6 +132,7 @@ func NewGorillaSession(session *sessions.Session) *GorillaSession {
 // the maximum age of the cookie.
 func (s *GorillaSession) SetMaxAge(maxAge int) error {
 	s.session.Options.MaxAge = maxAge
+	s.maxAgeSet = true
 	return nil
 }
 
@@ -163,5 +168,6 @@ func (s *GorillaSession) Get(key string, dst any) error {
 // the Max Age of the cookie to -1.
 func (s *GorillaSession) Invalidate() error {
 	s.session.Options.MaxAge = -1
+	s.maxAgeSet = true
 	return nil
 }

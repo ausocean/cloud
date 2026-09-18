@@ -214,7 +214,7 @@ func (ua *UserAuth) LoginHandler(h backend.Handler) error {
 	}
 	oauthFlowSession.Set(oauthFlowRedirectKey, redirectURL)
 
-	err = h.SaveSession(oauthFlowSession)
+	err = h.SaveSession(oauthFlowSession, ua.MaxAge)
 	if err != nil {
 		return fmt.Errorf("could not save session %s: %w", sessID, err)
 	}
@@ -314,7 +314,7 @@ func (ua *UserAuth) CallbackHandler(h backend.Handler) (*Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to set profile key: %w", err)
 	}
-	err = h.SaveSession(sess)
+	err = h.SaveSession(sess, ua.MaxAge)
 	if err != nil {
 		return nil, fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
 	}
@@ -374,7 +374,7 @@ func (ua *UserAuth) GoogleLoginHandler(h backend.Handler) (*Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to set profile key: %w", err)
 	}
-	err = h.SaveSession(sess)
+	err = h.SaveSession(sess, ua.MaxAge)
 	if err != nil {
 		return nil, fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
 	}
@@ -428,7 +428,7 @@ func (ua *UserAuth) LogoutHandler(h backend.Handler) error {
 	if err != nil {
 		return fmt.Errorf("unable to invalidate session: %w", err)
 	}
-	err = h.SaveSession(sess)
+	err = h.SaveSession(sess, ua.MaxAge)
 	if err != nil {
 		return fmt.Errorf("could not save session %s: %w", ua.SessionID, err)
 	}
@@ -522,7 +522,7 @@ func (ua *UserAuth) GetProfile(h backend.Handler) (*Profile, error) {
 		return nil, fmt.Errorf("unable to set profile key: %w", err)
 	}
 
-	err = h.SaveSession(sess)
+	err = h.SaveSession(sess, ua.MaxAge)
 	if err != nil {
 		return nil, fmt.Errorf("session save error: %w", err)
 	}
@@ -560,5 +560,5 @@ func (ua *UserAuth) PutData(h backend.Handler, data string) error {
 	if err != nil {
 		return fmt.Errorf("unable to set profile key: %w", err)
 	}
-	return h.SaveSession(sess)
+	return h.SaveSession(sess, ua.MaxAge)
 }

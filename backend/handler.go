@@ -54,8 +54,8 @@ type Handler interface {
 	// LoadSession returns a Session based on the given id.
 	LoadSession(string) (Session, error)
 
-	// Save saves the passed Session to the session store.
-	SaveSession(Session) error
+	// Save saves the passed Session to the session store with the required maximum age.
+	SaveSession(session Session, maxAge int) error
 
 	// Cookie returns the value of the cookie with the given name.
 	Cookie(string) string
@@ -98,14 +98,19 @@ func (h *FiberHandler) LoadSession(id string) (Session, error) {
 }
 
 // Save implements the SessionStore interface for the FiberSessionStore type.
-func (h *FiberHandler) SaveSession(session Session) error {
+func (h *FiberHandler) SaveSession(session Session, maxAge int) error {
 	// Check that the session is a fiber session.
 	fs, ok := session.(*FiberSession)
 	if !ok {
 		return fmt.Errorf("incompatible session type, wanted FiberSession, got %v", reflect.TypeOf(fs))
 	}
 
-	// Get the cookie from the FiberSession.
+	// Only use the default maxAge if it hasn't already been set.
+	if !fs.maxAgeSet {
+		fs.SetMaxAge(maxAge)
+	}
+
+	// Set the cookie.
 	h.Ctx.Cookie(fs.cookie)
 
 	return nil
@@ -161,11 +166,17 @@ func (h *NetHandler) LoadSession(id string) (Session, error) {
 }
 
 // Save implements the Save method of the SessionStore interface using GorillaSessions.
-func (h *NetHandler) SaveSession(session Session) error {
+func (h *NetHandler) SaveSession(session Session, maxAge int) error {
+
 	// Check that the session is a gorilla session.
 	gs, ok := session.(*GorillaSession)
 	if !ok {
 		return fmt.Errorf("incompatible session type, wanted GorillaSession, got %v", reflect.TypeOf(gs))
+	}
+
+	// Only use the default max age if it hasn't already been set.
+	if !gs.maxAgeSet {
+		gs.SetMaxAge(maxAge)
 	}
 
 	return h.store.Save(h.r, h.w, gs.session)
