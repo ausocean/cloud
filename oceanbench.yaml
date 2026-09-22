@@ -7,7 +7,7 @@ env_variables:
   OCEANBENCH_SECRETS: gs://ausocean/OceanBench-secrets.txt
   OCEANCRON_SECRETS: gs://ausocean/OceanCron-secrets.txt
   YOUTUBE_SECRETS: gs://ausocean/YouTube-secrets.json
-  OAUTH2_CALLBACK: https://bench.cloudblue.org/oauth2callback
+  OAUTH2_CALLBACK: https://cloudblue.org/oauth2callback
   # This OAUTH2_CALLBACK variable is used by the deployment script and should be left commented out.
   # OAUTH2_CALLBACK: https://dev-dot-oceanbench.ts.r.appspot.com/oauth2callback
 

@@ -135,7 +135,7 @@ var (
 	setupMutex    sync.Mutex
 	templates     *template.Template
 	setTemplates  *template.Template
-	dataHost      = "https://bench.cloudblue.org"
+	dataHost      = "https://cloudblue.org"
 	mediaStore    datastore.Store
 	settingsStore datastore.Store
 	debug         bool

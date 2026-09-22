@@ -90,3 +90,5 @@ yarn-error.log*
 # Firebase
 .firebase/
 .firebaserc
+
+.agents
