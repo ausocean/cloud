@@ -1943,7 +1943,7 @@ func TestHardwareVoltageAndFaultHandling(t *testing.T) {
 
 func prepopulatedConfig() *Cfg {
 	return &Cfg{
-		ShutdownActions: "shutdown",
+		ShutdownActions: ActionVars{{Name: "shutdown", Value: "true"}},
 		CameraMac:       2,
 		BroadcastHost:   "dummy",
 	}

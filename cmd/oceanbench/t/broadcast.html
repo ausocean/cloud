@@ -233,17 +233,18 @@
           </div>
           <div class="d-flex align-items-center gap-1 mb-1">
             <label for="on-actions" class="w-25 text-end">On Actions:</label>
-            <input id="on-actions" type="input" name="on-actions" class="form-control w-50" value="" class="actions" />
+            <input id="on-actions" type="text" name="on-actions" class="form-control w-50 actions" value=""
+              placeholder='[{"name":"ESP.Power2","value":"true"}]' />
           </div>
           <div class="d-flex align-items-center gap-1 mb-1">
             <label for="shutdown-actions" class="w-25 text-end">Shutdown Actions:</label>
-            <input id="shutdown-actions" type="input" name="shutdown-actions" class="form-control w-50" value=""
-              class="actions" />
+            <input id="shutdown-actions" type="text" name="shutdown-actions" class="form-control w-50 actions" value=""
+              placeholder='[{"name":"Camera.mode","value":"Shutdown"}] or skip' />
           </div>
           <div class="d-flex align-items-center gap-1 mb-1">
             <label for="off-actions" class="w-25 text-end">Off Actions:</label>
-            <input id="off-actions" type="input" name="off-actions" class="form-control w-50" value=""
-              class="actions" />
+            <input id="off-actions" type="text" name="off-actions" class="form-control w-50 actions" value=""
+              placeholder='[{"name":"Camera.mode","value":"Paused"}]' />
           </div>
           <div class="d-flex align-items-center gap-1 mb-1">
             <label for="rtmp-key-var" class="w-25 text-end">RTMP URL Variable:</label>

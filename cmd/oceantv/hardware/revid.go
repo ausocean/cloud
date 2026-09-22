@@ -37,7 +37,7 @@ import (
 )
 
 type RevidCameraClient struct {
-	SetActionVars func(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error
+	SetActionVars func(ctx context.Context, sKey int64, acts []broadcast.ActionVar, store datastore.Store, log func(string, ...interface{})) error
 }
 
 type ControllerError string
@@ -191,15 +191,20 @@ func extStart(
 	store datastore.Store,
 	cfg *broadcast.Config,
 	log func(string, ...interface{}),
-	setActionVars func(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error,
+	setActionVars func(ctx context.Context, sKey int64, acts []broadcast.ActionVar, store datastore.Store, log func(string, ...interface{})) error,
 ) error {
-	if cfg.OnActions == "" {
+	if len(cfg.OnActions) == 0 {
 		return nil
 	}
 
-	onActions := cfg.OnActions + "," + cfg.RTMPVar + "=" + broadcast.RTMPDestinationAddress + cfg.RTMPKey
-	onActions += "," + cfg.AuthKeyVar + "=" + cfg.AuthKey
-	onActions += "," + cfg.StorageConfigVar + "=" + cfg.StorageConfig.JSON()
+	// Copy the configured actions so the runtime actions appended below never
+	// mutate (or alias) the stored config.
+	acts := append([]broadcast.ActionVar{}, cfg.OnActions...)
+	acts = append(acts, broadcast.ActionVar{Name: cfg.RTMPVar, Value: broadcast.RTMPDestinationAddress + cfg.RTMPKey})
+	acts = append(acts, broadcast.ActionVar{Name: cfg.AuthKeyVar, Value: cfg.AuthKey})
+	if cfg.StorageConfig != nil {
+		acts = append(acts, broadcast.ActionVar{Name: cfg.StorageConfigVar, Value: cfg.StorageConfig.JSON()})
+	}
 
 	// Get the camera output protocol from the broadcast host. This allows the
 	// host to specify the correct protocol for the camera output.
@@ -211,9 +216,9 @@ func extStart(
 	if !ok {
 		return fmt.Errorf("could not cast broadcast host: %w", err)
 	}
-	onActions += "," + cfg.CameraOutputVar + "=" + broadcastHost.Protocol()
+	acts = append(acts, broadcast.ActionVar{Name: cfg.CameraOutputVar, Value: broadcastHost.Protocol()})
 
-	err = setActionVars(ctx, cfg.SKey, onActions, store, log)
+	err = setActionVars(ctx, cfg.SKey, acts, store, log)
 	if err != nil {
 		return fmt.Errorf("could not set device variables required to start stream: %w", err)
 	}
@@ -224,20 +229,17 @@ func extStart(
 // ErrNoShutdownActions represents no shutdown actions being registered for the broadcast.
 var ErrNoShutdownActions = errors.New("no shutdown actions provided")
 
-// SkipAction is the placeholder used to represent that the action step should be skipped.
-const SkipAction = "skip"
-
 func extShutdown(
 	ctx context.Context,
 	store datastore.Store,
 	cfg *broadcast.Config,
 	log func(string, ...interface{}),
-	setActionVars func(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error,
+	setActionVars func(ctx context.Context, sKey int64, acts []broadcast.ActionVar, store datastore.Store, log func(string, ...interface{})) error,
 ) error {
-	if cfg.ShutdownActions == SkipAction {
+	if cfg.ShutdownActions.IsSkip() {
 		return broadcast.WarnSkipShutdown
 	}
-	if cfg.ShutdownActions == "" {
+	if len(cfg.ShutdownActions) == 0 {
 		return ErrNoShutdownActions
 	}
 
@@ -256,9 +258,9 @@ func extStop(
 	store datastore.Store,
 	cfg *broadcast.Config,
 	log func(string, ...interface{}),
-	setActionVars func(ctx context.Context, sKey int64, acts string, store datastore.Store, log func(string, ...interface{})) error,
+	setActionVars func(ctx context.Context, sKey int64, acts []broadcast.ActionVar, store datastore.Store, log func(string, ...interface{})) error,
 ) error {
-	if cfg.OffActions == "" {
+	if len(cfg.OffActions) == 0 {
 		return nil
 	}
 

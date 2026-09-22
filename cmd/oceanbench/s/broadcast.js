@@ -71,9 +71,9 @@ function generateActions(e) {
   // If nothing is selected, just clear everything
   if (!controllerSelected && !camSelected) {
     console.log("Nothing selected. Clearing all action fields.");
-    onActs.value = "";
-    shutdownActs.value = "";
-    offActs.value = "";
+    onActs.value = "[]";
+    shutdownActs.value = "[]";
+    offActs.value = "[]";
     rtmpVar.value = "";
     return;
   }
@@ -84,8 +84,8 @@ function generateActions(e) {
 
   if (controllerSelected) {
     const controllerBase = macToID(controller);
-    onActions.push(`${controllerBase}.Power2=true`);
-    offActions.push(`${controllerBase}.Power2=false`);
+    onActions.push({ name: `${controllerBase}.Power2`, value: "true" });
+    offActions.push({ name: `${controllerBase}.Power2`, value: "false" });
     console.log(
       `Generated controller actions for ${controller} → ${controllerBase}`,
     );
@@ -93,19 +93,19 @@ function generateActions(e) {
 
   if (camSelected) {
     const camBase = macToID(cam);
-    onActions.push(`${camBase}.mode=Normal`);
-    shutdownActions.push(`${camBase}.mode=Shutdown`);
-    offActions.push(`${camBase}.mode=Paused`);
+    onActions.push({ name: `${camBase}.mode`, value: "Normal" });
+    shutdownActions.push({ name: `${camBase}.mode`, value: "Shutdown" });
+    offActions.push({ name: `${camBase}.mode`, value: "Paused" });
     rtmpVar.value = `${camBase}.RTMPURL`;
     console.log(`Generated camera actions for ${cam} → ${camBase}`);
   } else {
     rtmpVar.value = "";
   }
 
-  // Join all values with commas and update the fields
-  onActs.value = onActions.join(",");
-  shutdownActs.value = shutdownActions.join(",");
-  offActs.value = offActions.join(",");
+  // Encode the action lists as JSON arrays.
+  onActs.value = JSON.stringify(onActions);
+  shutdownActs.value = JSON.stringify(shutdownActions);
+  offActs.value = JSON.stringify(offActions);
 }
 
 function getSelectedValue(selectElement) {
@@ -256,6 +256,12 @@ async function handleBroadcastSelect(uuid) {
   if (loadingOverlay) loadingOverlay.classList.add("d-none");
 }
 
+// setActionField renders an action list as a JSON string into the named input.
+function setActionField(id, actions) {
+  const el = document.getElementById(id);
+  if (el) el.value = JSON.stringify(Array.isArray(actions) ? actions : []);
+}
+
 function populateForm(data) {
   // Simple inputs
   const mapping = {
@@ -276,9 +282,6 @@ function populateForm(data) {
     "voltage-recovery-timeout": data.VoltageRecoveryTimeout,
     "openfish-capturesource": data.OpenFishCaptureSource,
     "notify-suppress-rules": data.NotifySuppressRules,
-    "on-actions": data.OnActions,
-    "shutdown-actions": data.ShutdownActions,
-    "off-actions": data.OffActions,
     "start-timestamp": data.StartTimestamp,
     "end-timestamp": data.EndTimestamp,
   };
@@ -289,6 +292,11 @@ function populateForm(data) {
     );
     if (el) el.value = val !== undefined && val !== null ? val : "";
   }
+
+  // Action fields hold JSON arrays; render them as JSON.
+  setActionField("on-actions", data.OnActions);
+  setActionField("shutdown-actions", data.ShutdownActions);
+  setActionField("off-actions", data.OffActions);
 
   // Storage config for OceanMedia broadcasts.
   const storage = data.StorageConfig || {};

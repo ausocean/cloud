@@ -157,6 +157,7 @@ func (d *dummyManager) logf(format string, args ...interface{}) {
 // It basically does nothing and is used to test the broadcast functions.
 type dummyStore struct {
 	tokenBucketLimiter *ratelimit.OceanTokenBucketLimiter
+	getErr             error
 }
 
 type dummyStoreOption func(*dummyStore)
@@ -177,10 +178,20 @@ func WithTokenBucketLimiter(limiter *ratelimit.OceanTokenBucketLimiter) dummySto
 	}
 }
 
+// withStoreGetError is an option function for making the dummyStore's Get return an error.
+func withStoreGetError(err error) dummyStoreOption {
+	return func(ds *dummyStore) {
+		ds.getErr = err
+	}
+}
+
 func (d *dummyStore) IDKey(kind string, id int64) *Key { return nil }
 func (d *dummyStore) NameKey(kind, name string) *Key   { return nil }
 func (d *dummyStore) IncompleteKey(kind string) *Key   { return nil }
 func (d *dummyStore) Get(ctx Ctx, key *Key, dst Ety) error {
+	if d.getErr != nil {
+		return d.getErr
+	}
 	// Check if the key corresponds to the token bucket limiter and if it is set.
 	if d.tokenBucketLimiter != nil {
 		data, err := json.Marshal(d.tokenBucketLimiter)
@@ -425,7 +436,7 @@ func (h *dummyHardwareManager) Start(ctx *hardware.Context) {
 func (h *dummyHardwareManager) Shutdown(ctx *hardware.Context) {
 	ctx.Log("shutting down hardware")
 	h.shutdownCalled = true
-	if ctx.Cfg.ShutdownActions == "" {
+	if len(ctx.Cfg.ShutdownActions) == 0 {
 		ctx.Bus.Publish(event.HardwareShutdownFailed{})
 		return
 	}
