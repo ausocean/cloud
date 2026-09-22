@@ -159,7 +159,29 @@ else
     DEPLOYMENT_VERSION=$(echo "$version_line" | cut -d '.' -f 2)
 fi
 
-echo "Deploying to version: $DEPLOYMENT_VERSION"
+echo "=================================================="
+echo "DEPLOYMENT SUMMARY"
+echo "=================================================="
+echo "Project ID: $1"
+echo "Version: $DEPLOYMENT_VERSION"
+echo "Promote: $PROMOTE"
+echo "Development Mode: $DEVELOPMENT"
+echo "--------------------------------------------------"
+echo "Preview of generated YAML ($YAML) environment variables:"
+awk '/^env_variables:/,0' "$YAML"
+echo "=================================================="
+
+read -r -p "Does the configuration look correct? Proceed with deployment? [y/N] " confirm
+case "$confirm" in
+    [yY][eE][sS]|[yY])
+        echo "Deploying..."
+        ;;
+    *)
+        echo "Deployment aborted by user."
+        rm -f "$YAML"
+        exit 0
+        ;;
+esac
 
 # Deploy using app.yaml file in cloud/ directory.
 gcloud "app" "deploy" "--project=$1" "--version=$DEPLOYMENT_VERSION" "$PROMOTE" "--no-cache" "$YAML"
