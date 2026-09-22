@@ -423,8 +423,8 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context) error {
 		_cfg.StreamName = secondaryName
 		_cfg.LivePrivacy = "unlisted"     // We don't want the secondary broadcast to be easily discovered by youtube watchers.
 		_cfg.PostLivePrivacy = "unlisted" // This will be public eventually, but not while the software is young.
-		_cfg.OnActions = ""               // We don't need it to have any control of the camera hardware.
-		_cfg.OffActions = ""              // Ditto.
+		_cfg.OnActions = nil              // We don't need it to have any control of the camera hardware.
+		_cfg.OffActions = nil             // Ditto.
 		_cfg.SendMsg = true               // It would be handy to have sensors stored in the store broadcasts too.
 		_cfg.Start = m.cfg.Start
 		_cfg.End = m.cfg.End

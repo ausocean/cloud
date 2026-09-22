@@ -45,26 +45,23 @@ func try(err error, msg string, log func(string, ...interface{})) bool {
 	return true
 }
 
-// setActionVars sets vars based on the provided string of "actions" in acts,
-// to accomplish setup/shutdown of a device(s) for streaming.
-// acts is of form: <device.varname>=<value>,<device.varname>=<value>. For example,
-// if we need to turn on a camera and set its mode to normal:
-// ESP.CamPower=true,Camera.mode=Normal.
-func setActionVars(ctx Ctx, sKey int64, acts string, store Store, log func(string, ...interface{})) error {
-	vars := strings.Split(acts, ",")
-	if len(vars) == 0 {
+// setActionVars sets vars based on the provided ordered action vars in acts,
+// to accomplish setup/shutdown of a device(s) for streaming. Each ActionVar
+// holds a variable name and the value to set it to, for example:
+// {Name: "ESP.CamPower", Value: "true"}. Actions are performed in order.
+func setActionVars(ctx Ctx, sKey int64, acts []ActionVar, store Store, log func(string, ...interface{})) error {
+	if len(acts) == 0 {
 		return errors.New("no var actions to perform")
 	}
 
-	for _, v := range vars {
-		parts := strings.Split(v, "=")
-		if len(parts) != 2 {
-			return fmt.Errorf("unexpected actions var format: %s", v)
+	for _, v := range acts {
+		if v.Name == "" {
+			return errors.New("unexpected actions var with empty name")
 		}
 
-		err := setVar(ctx, store, parts[0], parts[1], sKey, log)
+		err := setVar(ctx, store, v.Name, v.Value, sKey, log)
 		if err != nil {
-			return fmt.Errorf("could not set action var %s: %w", parts[0], err)
+			return fmt.Errorf("could not set action var %s: %w", v.Name, err)
 		}
 	}
 	return nil

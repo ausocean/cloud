@@ -46,12 +46,14 @@ import (
 type Action int
 
 type (
-	Cfg   = broadcast.Config
-	Ctx   = context.Context
-	Store = datastore.Store
-	Key   = datastore.Key
-	Ety   = datastore.Entity
-	Hst   = broadcasthost.Host
+	Cfg        = broadcast.Config
+	Ctx        = context.Context
+	Store      = datastore.Store
+	Key        = datastore.Key
+	Ety        = datastore.Entity
+	Hst        = broadcasthost.Host
+	ActionVar  = broadcast.ActionVar
+	ActionVars = broadcast.ActionVars
 )
 
 const (
