@@ -9,7 +9,7 @@ hero:
   actions:
     - theme: brand
       text: Visit CloudBlue
-      link: https://bench.cloudblue.org
+      link: https://cloudblue.org
     - theme: alt
       text: Get Started
       link: /introduction

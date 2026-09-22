@@ -77,7 +77,7 @@ import (
 )
 
 const (
-	version     = "v0.39.0"
+	version     = "v0.40.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -135,7 +135,7 @@ var (
 	setupMutex    sync.Mutex
 	templates     *template.Template
 	setTemplates  *template.Template
-	dataHost      = "https://bench.cloudblue.org"
+	dataHost      = "https://cloudblue.org"
 	mediaStore    datastore.Store
 	settingsStore datastore.Store
 	debug         bool
