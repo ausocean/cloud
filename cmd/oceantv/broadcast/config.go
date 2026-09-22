@@ -23,6 +23,7 @@ LICENSE
 package broadcast
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -62,9 +63,9 @@ type Config struct {
 	VidforwardHost           string         // Host address of vidforward service.
 	CameraMac                int64          // Camera hardware's MAC address.
 	ControllerMAC            int64          // Controller hardware's MAC adress (controller used to power camera).
-	OnActions                string         // A series of actions to be used for power up of camera hardware.
-	ShutdownActions          string         // A series of actions to be used for shutdown of camera hardware.
-	OffActions               string         // A series of actions to be used for power down of camera hardware.
+	OnActions                ActionVars     // Ordered actions to be used for power up of camera hardware.
+	ShutdownActions          ActionVars     // Ordered actions to be used for shutdown of camera hardware.
+	OffActions               ActionVars     // Ordered actions to be used for power down of camera hardware.
 	RTMPVar                  string         // The variable name that holds the RTMP URL and key.
 	AuthKeyVar               string         // The variable name that holds the authentication key for the broadcast host.
 	StorageConfigVar         string         // The variable name that holds the storage configuration for OceanMedia broadcasts.
@@ -99,6 +100,97 @@ type Config struct {
 	RegisterOpenFish         bool           // True if the video should be registered with openfish for annotation.
 	OpenFishCaptureSource    string         // The capture source to register the stream to.
 	NotifySuppressRules      string         // Suppression rules for notifications.
+}
+
+// ActionVar represents a single ordered action variable assignment.
+type ActionVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ActionVars is an ordered list of action variable assignments.
+type ActionVars []ActionVar
+
+// SkipAction is the sentinel name representing that an action step is skipped.
+const SkipAction = "skip"
+
+// IsSkip reports whether a represents the skip sentinel.
+func (a ActionVars) IsSkip() bool { return len(a) == 1 && a[0].Name == SkipAction }
+
+// ParseActionVars parses a string representation of action variables into an
+// ordered ActionVars. It accepts a JSON array of ActionVar (the current format),
+// the "skip" sentinel, or the legacy CSV format "<name>=<value>,<name>=<value>".
+// An empty string yields a nil ActionVars.
+func ParseActionVars(s string) (ActionVars, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	if s == SkipAction {
+		return ActionVars{{Name: SkipAction}}, nil
+	}
+	if json.Valid([]byte(s)) {
+		var vars []ActionVar
+		err := json.Unmarshal([]byte(s), &vars)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse action vars as JSON: %w", err)
+		}
+		return vars, nil
+	}
+	return parseLegacyActionVars(s)
+}
+
+// parseLegacyActionVars parses the legacy CSV action format
+// "<name>=<value>,<name>=<value>". Values may contain "=" but not ",".
+func parseLegacyActionVars(s string) (ActionVars, error) {
+	var vars ActionVars
+	for _, pair := range strings.Split(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("unexpected action var format: %q", pair)
+		}
+		name := strings.TrimSpace(kv[0])
+		if name == "" {
+			return nil, fmt.Errorf("unexpected action var format: %q", pair)
+		}
+		vars = append(vars, ActionVar{Name: name, Value: strings.TrimSpace(kv[1])})
+	}
+	return vars, nil
+}
+
+// UnmarshalJSON accepts either a JSON array of ActionVar (the current format) or a
+// legacy JSON string containing CSV actions, so existing Datastore records and
+// in-flight payloads continue to load without migration.
+func (a *ActionVars) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || string(data) == "null" {
+		*a = nil
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		err := json.Unmarshal(data, &s)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal action vars string: %w", err)
+		}
+		vars, err := ParseActionVars(s)
+		if err != nil {
+			return err
+		}
+		*a = vars
+		return nil
+	}
+	var vars []ActionVar
+	err := json.Unmarshal(data, &vars)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal action vars: %w", err)
+	}
+	*a = vars
+	return nil
 }
 
 func (b *Config) PrettyHardwareStateData() string {

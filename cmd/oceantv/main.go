@@ -424,9 +424,9 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		_cfg.CameraMac = cfg.CameraMac
 		_cfg.ControllerMAC = cfg.ControllerMAC
-		_cfg.OnActions = cfg.OnActions
-		_cfg.OffActions = cfg.OffActions
-		_cfg.ShutdownActions = cfg.ShutdownActions
+		_cfg.OnActions = append(broadcast.ActionVars(nil), cfg.OnActions...)
+		_cfg.OffActions = append(broadcast.ActionVars(nil), cfg.OffActions...)
+		_cfg.ShutdownActions = append(broadcast.ActionVars(nil), cfg.ShutdownActions...)
 		_cfg.SendMsg = cfg.SendMsg
 		_cfg.UsingVidforward = cfg.UsingVidforward
 		_cfg.CheckingHealth = cfg.CheckingHealth
