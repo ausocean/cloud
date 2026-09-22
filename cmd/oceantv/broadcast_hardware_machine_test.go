@@ -503,7 +503,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 				c.HardwareState = "hardwareOn"
 				c.ControllerMAC = 1
 				c.CameraMac = 2
-				c.ShutdownActions = "shutdown"
+				c.ShutdownActions = ActionVars{{Name: "shutdown", Value: "true"}}
 			},
 			finalHardwareState: &hardwareOff{},
 			initialEvent:       event.HardwareStopRequest{},
@@ -555,7 +555,7 @@ func TestHardwareStopAndRestart(t *testing.T) {
 				c.HardwareState = "hardwareOn"
 				c.ControllerMAC = 1
 				c.CameraMac = 2
-				c.ShutdownActions = "shutdown"
+				c.ShutdownActions = ActionVars{{Name: "shutdown", Value: "true"}}
 			},
 			finalHardwareState: &hardwareOn{},
 			initialEvent:       event.HardwareResetRequest{},

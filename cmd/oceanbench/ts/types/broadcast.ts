@@ -1,4 +1,5 @@
 // Broadcast Config
+export type ActionVar = { name: string; value: string };
 export type Broadcast = {
   UUID: string; // The immutable unique key of the broadcast.
   SKey: number; // The key of the site this broadcast belongs to.
@@ -18,9 +19,9 @@ export type Broadcast = {
   VidforwardHost: string; // Host address of vidforward service.
   CameraMac: number; // Camera hardware's MAC address.
   ControllerMAC: number; // Controller hardware's MAC adress (controller used to power camera).
-  OnActions: string; // A series of actions to be used for power up of camera hardware.
-  ShutdownActions: string; // A series of actions to be used for shutdown of camera hardware.
-  OffActions: string; // A series of actions to be used for power down of camera hardware.
+  OnActions: ActionVar[]; // Ordered actions to be used for power up of camera hardware.
+  ShutdownActions: ActionVar[]; // Ordered actions to be used for shutdown of camera hardware.
+  OffActions: ActionVar[]; // Ordered actions to be used for power down of camera hardware.
   RTMPVar: string; // The variable name that holds the RTMP URL and key.
   AuthKeyVar: string; // The variable name that holds the authentication key for the broadcast host.
   StorageConfigVar: string; // The variable name that holds the storage configuration for OceanMedia broadcasts.

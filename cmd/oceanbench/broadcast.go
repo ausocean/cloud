@@ -159,9 +159,6 @@ func broadcastHandler(c *fiber.Ctx) error {
 			VidforwardHost:        c.FormValue("vidforward-host"),
 			CameraMac:             model.MacEncode(c.FormValue("camera-mac")),
 			ControllerMAC:         model.MacEncode(c.FormValue("controller-mac")),
-			OnActions:             c.FormValue("on-actions"),
-			OffActions:            c.FormValue("off-actions"),
-			ShutdownActions:       c.FormValue("shutdown-actions"),
 			SendMsg:               c.FormValue("report-sensor") == "Chat",
 			UsingVidforward:       c.FormValue("use-vidforward") == "using-vidforward",
 			CheckingHealth:        c.FormValue("check-health") == "checking-health",
@@ -178,6 +175,24 @@ func broadcastHandler(c *fiber.Ctx) error {
 			Resolution: []string{"1080p"},
 			Privacy:    []string{"unlisted", "private", "public"},
 		},
+	}
+
+	// The action fields are JSON arrays (or legacy CSV) in the form; parse them
+	// into their typed representation before they are saved.
+	req.CurrentBroadcast.OnActions, err = broadcast.ParseActionVars(c.FormValue("on-actions"))
+	if err != nil {
+		reportError(c, req, "could not parse on-actions: %v", err)
+		return nil
+	}
+	req.CurrentBroadcast.OffActions, err = broadcast.ParseActionVars(c.FormValue("off-actions"))
+	if err != nil {
+		reportError(c, req, "could not parse off-actions: %v", err)
+		return nil
+	}
+	req.CurrentBroadcast.ShutdownActions, err = broadcast.ParseActionVars(c.FormValue("shutdown-actions"))
+	if err != nil {
+		reportError(c, req, "could not parse shutdown-actions: %v", err)
+		return nil
 	}
 
 	// Only set the storage config if any of its fields have been provided,
