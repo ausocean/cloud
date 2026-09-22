@@ -13,4 +13,4 @@ New NetSender Clients can be implemented using AusOcean's implementations for Go
 
 ## Communicating with a NetReceiver
 
-AusOcean runs services which implement the NetReceiver server architecture. [CloudBlue](https://bench.cloudblue.org) implements a user interface to configure and control NetSender clients reporting to DataBlue. To learn more contact [info@ausocean.org](mailto:info@ausocean.org).
+AusOcean runs services which implement the NetReceiver server architecture. [CloudBlue](https://cloudblue.org) implements a user interface to configure and control NetSender clients reporting to DataBlue. To learn more contact [info@ausocean.org](mailto:info@ausocean.org).

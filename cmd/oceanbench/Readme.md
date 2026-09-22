@@ -80,5 +80,5 @@ We use **Tailwind CSS v4** for styling Lit Elements. The main entry point is `ts
 - `*.go`: Go source files for the backend API and server.
 
 ## See Also
-* [Ocean Bench service](https://bench.cloudblue.org)
+* [Ocean Bench service](https://cloudblue.org)
 * [AusOcean](https://www.ausocean.org)
