@@ -169,7 +169,7 @@ func (svc *service) setup(ctx context.Context) {
 	}
 
 	var err error
-	svc.settingsStore, _, err = model.SetupDatastore(svc.standalone, svc.storePath, ctx)
+	svc.settingsStore, _, err = model.SetupDatastore(svc.standalone, false, svc.storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}

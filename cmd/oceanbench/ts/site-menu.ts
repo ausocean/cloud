@@ -38,20 +38,26 @@ class SiteMenu extends TailwindElement() {
 
   override render() {
     return html`
-      <div class="rounded-full py-2 px-4 text-slate-900 bg-slate-100 max-w-lg w-full box-border flex items-center gap-2">
-      <button @click="${this.setDefaultSite}" class="shrink-0">${this.defaultSkey == this.skey ? "★" : "☆"}</button>
-      <select id="select" @change=${this.handleSiteChange} class="box-border flex-1 truncate min-w-0 max-w-lg w-full">
-        <option id="loading">
-          ${
-            this.selectedData && this.selectedData.includes(":")
-              ? this.selectedData.split(":")[1]
-              : "Loading Sites..."
-          }
-        </option>
-        <optgroup style="display: none" id="read" label="Read"></optgroup>
-        <optgroup style="display: none" id="write" label="Write"></optgroup>
-        <optgroup style="display: none" id="admin" label="Admin"></optgroup>
-      </select>
+      <div
+        class="rounded-full py-2 px-4 text-slate-900 bg-slate-100 max-w-lg w-full box-border flex items-center gap-2"
+      >
+        <button @click="${this.setDefaultSite}" class="shrink-0">
+          ${this.defaultSkey == this.skey ? "★" : "☆"}
+        </button>
+        <select
+          id="select"
+          @change=${this.handleSiteChange}
+          class="box-border flex-1 truncate min-w-0 max-w-lg w-full"
+        >
+          <option id="loading">
+            ${this.selectedData && this.selectedData.includes(":")
+        ? this.selectedData.split(":")[1]
+        : "Loading Sites..."}
+          </option>
+          <optgroup style="display: none" id="read" label="Read"></optgroup>
+          <optgroup style="display: none" id="write" label="Write"></optgroup>
+          <optgroup style="display: none" id="admin" label="Admin"></optgroup>
+        </select>
       </div>
     `;
   }
@@ -167,8 +173,14 @@ class SiteMenu extends TailwindElement() {
           }
         }
 
-        if (this.selectedData != "") {
-          loading.remove();
+        loading.remove();
+        if (!anySelected && !this.selectedData && sites.length === 0) {
+          let emptyOpt = document.createElement("option");
+          emptyOpt.innerText = "No Sites Available";
+          emptyOpt.disabled = true;
+          emptyOpt.selected = true;
+          let select = this.renderRoot.querySelector("select");
+          if (select) select.insertBefore(emptyOpt, select.firstChild);
         }
       }
     };
@@ -187,9 +199,9 @@ class SiteMenu extends TailwindElement() {
           skey: this.skey,
         }),
       });
-      this.defaultSkey = this.skey
+      this.defaultSkey = this.skey;
     } catch (e) {
-      console.error("failed to set default site:", e)
+      console.error("failed to set default site:", e);
     }
   }
 
@@ -198,11 +210,11 @@ class SiteMenu extends TailwindElement() {
       let resp = await fetch("/api/v1/site/default", {
         method: "GET",
       });
-      let { skey } = await resp.json()
+      let { skey } = await resp.json();
       this.defaultSkey = skey;
-      console.log(this.defaultSkey)
+      console.log(this.defaultSkey);
     } catch (e) {
-      console.error("failed to get default site:", e)
+      console.error("failed to get default site:", e);
     }
   }
 

@@ -140,6 +140,7 @@ var (
 	settingsStore datastore.Store
 	debug         bool
 	standalone    bool
+	development   bool
 	auth          *gauth.UserAuth
 	tvURL         = tvServiceURL
 	storePath     string
@@ -207,6 +208,11 @@ func main() {
 		dataHost = v
 	}
 
+	devDefault := false
+	if v := os.Getenv("DEVELOPMENT"); v != "" && strings.ToLower(v) != "false" {
+		devDefault = true
+	}
+
 	var alt float64
 	var baud int
 	var gps string
@@ -216,6 +222,7 @@ func main() {
 	var cronURL string
 	flag.BoolVar(&debug, "debug", false, "Run in debug mode.")
 	flag.BoolVar(&standalone, "standalone", false, "Run in standalone mode.")
+	flag.BoolVar(&development, "development", devDefault, "Run in development mode.")
 	flag.Float64Var(&alt, "alt", 0, "Altitude (negative for depth)")
 	flag.IntVar(&baud, "baud", 9600, "Baud rate of GPS receiver")
 	flag.StringVar(&gps, "gps", "", "GPS receiver serial port, e.g., /dev/ttyUSB")
@@ -409,7 +416,7 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	settingsStore, mediaStore, err = model.SetupDatastore(standalone, storePath, ctx)
+	settingsStore, mediaStore, err = model.SetupDatastore(standalone, development, storePath, ctx)
 	if err == nil && standalone {
 		err = setupLocal(ctx, settingsStore)
 	}
@@ -507,15 +514,17 @@ func indexHandler(c *fiber.Ctx) error {
 		// Get the default skey and redirect.
 		skey, err := getDefaultSkey(c.UserContext(), profile)
 		if err != nil {
-			// This should never happen, and if it does we likely can't recover.
-			log.Panicf("unable to get default skey: %v", err)
+			// The user likely has no sites. Fall through and render index.html
+			// so they can use the "Register a new site" link.
+			log.Printf("unable to get default skey (user may have 0 sites): %v", err)
+		} else {
+			return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
 		}
-		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
-	}
-
-	if c.Params("*") != "" {
-		// Redirect to /:skey
-		return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
+	} else {
+		if c.Params("*") != "" {
+			// Redirect to /:skey
+			return c.Redirect(fmt.Sprintf("/%d", skey), fiber.StatusSeeOther)
+		}
 	}
 
 	writeTemplate(c, "index.html", &data, "")

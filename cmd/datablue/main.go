@@ -136,7 +136,7 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	settingsStore, mediaStore, err = model.SetupDatastore(standalone, storePath, ctx)
+	settingsStore, mediaStore, err = model.SetupDatastore(standalone, false, storePath, ctx)
 	if err == nil && standalone {
 		err = setupLocal(ctx, settingsStore)
 	}

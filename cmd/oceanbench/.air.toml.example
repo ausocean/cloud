@@ -2,9 +2,10 @@
 [build]
   cmd = "go build -o ./tmp/main ."
   entrypoint = ["./tmp/main"]
-  args_bin = ["--standalone", "--tvurl=http://localhost:8082", "--cronurl=http://localhost:8081"]
   include_ext = ["go", "js", "ts", "html"]
   exclude_dir = ["s/lit", "tmp", "dist", "node_modules"]
+  send_interrupt = true
+  kill_delay = "2s"
 
 [proxy]
   enabled = true

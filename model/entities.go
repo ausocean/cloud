@@ -56,16 +56,24 @@ func RegisterEntities() {
 // SetupDatastore sets up settings and media datastores.
 // In App Engine mode, we use the ausocean datastore for settings and the vidgrind datastore for media.
 // In standalone mode, both stores are an identical file store, for which the path must be supplied.
-func SetupDatastore(standalone bool, path string, ctx context.Context) (settings, media datastore.Store, err error) {
+func SetupDatastore(standalone bool, development bool, path string, ctx context.Context) (settings, media datastore.Store, err error) {
 	if standalone {
 		log.Printf("Running in standalone mode")
 		settings, err = datastore.NewStore(ctx, "file", "vidgrind", path)
 		media = settings
 	} else {
 		log.Printf("Running in App Engine mode")
-		settings, err = datastore.NewStore(ctx, "cloud", "ausocean", "")
+		settingsID := "ausocean"
+		if development {
+			settingsID = "ausocean/cloudblue-dev"
+		}
+		settings, err = datastore.NewStore(ctx, "cloud", settingsID, "")
 		if err == nil {
-			media, err = datastore.NewStore(ctx, "cloud", "vidgrind", "")
+			mediaID := "vidgrind"
+			if development {
+				mediaID = "ausocean/cloudblue-dev"
+			}
+			media, err = datastore.NewStore(ctx, "cloud", mediaID, "")
 		}
 	}
 
