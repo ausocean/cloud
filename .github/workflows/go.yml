@@ -24,3 +24,38 @@ jobs:
 
       - name: Test
         run: go test -v ./...
+
+  format-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Format oceanbench
+        run: |
+          cd cmd/oceanbench
+          npm ci
+          npm run format
+          git diff --exit-code
+
+  format-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22.2"
+
+      - name: Check Go Format
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Go code is not formatted. Run 'go fmt ./...' to format it."
+            gofmt -d .
+            exit 1
+          fi

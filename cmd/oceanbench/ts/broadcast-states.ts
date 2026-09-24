@@ -54,8 +54,8 @@ export class BroadcastStates extends TailwindElement() {
   // Poll makes a request to update the current broadcast config.
   async poll(): Promise<void> {
     try {
-      const skey = window.location.pathname.split("/")[1]
-      const url = `/api/v1/${skey}/broadcasts/${this.UUID}`
+      const skey = window.location.pathname.split("/")[1];
+      const url = `/api/v1/${skey}/broadcasts/${this.UUID}`;
 
       const res = await fetch(url);
       if (!res.ok) {

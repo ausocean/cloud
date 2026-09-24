@@ -292,27 +292,29 @@
         <fieldset>
           <legend>Input source</legend>
           <div class="d-flex align-items-center gap-2">
-              <label style="width: 60px;">Device:</label>
-              <select class="form-select form-select-sm w-100" name="ma" onchange="this.form.submit();">
-                <option value="" selected>- Select device -</option>
-                {{ range .Devices }}
-                <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
-                {{ end }}
-              </select>
-            </div>
-            {{ if .Device }}
-            <div class="d-flex align-items-center gap-2">
-              <label style="width: 60px;">Pin:</label>
-              <select class="form-select form-select-sm" name="pn" onchange="this.form.submit();">
-                <option value="" selected>- Select pin -</option>
-                {{ range .Device.InputList }}
-                <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
-                {{ end }}
-                <option value="throughput" {{ if eq $.Pn "throughput"}}selected{{end}}>throughput</option>
-              </select>
-            </div>
-            {{ end }}
+            <label style="width: 60px">Device:</label>
+            <select class="form-select form-select-sm w-100" name="ma" onchange="this.form.submit();">
+              <option value="" selected>- Select device -</option>
+              {{ range .Devices }}
+              <option value="{{ .MAC }}" {{ if eq .MAC $.Ma }}selected{{ end }}>{{ .Name }}</option>
+              {{ end }}
+            </select>
           </div>
+          {{ if .Device }}
+          <div class="d-flex align-items-center gap-2">
+            <label style="width: 60px">Pin:</label>
+            <select class="form-select form-select-sm" name="pn" onchange="this.form.submit();">
+              <option value="" selected>- Select pin -</option>
+              {{ range .Device.InputList }}
+              <option value="{{ . }}" {{ if eq . $.Pn }}selected{{ end }}>{{ . }} ({{ index $.PinNames . }})</option>
+              {{ end }} {{ if eq $.Pn "throughput" }}
+              <option value="throughput" selected>throughput</option>
+              {{ else }}
+              <option value="throughput">throughput</option>
+              {{ end }}
+            </select>
+          </div>
+          {{ end }}
           <div id="id" class="adv-opt d-none gap-2">
             <label>Data ID:</label>
             <input class="form-control form-control-sm w-25" value="{{ .Id }}" disabled />
@@ -371,7 +373,7 @@
             </select>
           </div>
           {{- else if eq $pn "T1" -}}
-            <p class="mb-0">T1 selected. No additional options.</p>
+          <p class="mb-0">T1 selected. No additional options.</p>
           {{- else if (or (eq .PinType 'A') (eq .PinType 'D') (eq .PinType 'X') (eq .Pn "throughput")) -}}
           <div class="d-flex flex-column">
             <div class="d-flex align-items-center mb-2">
@@ -435,13 +437,14 @@
         <tbody></tbody>
       </table>
     </section>
-    {{- end }}
-
-    {{ if and .Searching (eq $pn "T1") }}
+    {{- end }} {{ if and .Searching (eq $pn "T1") }}
     <section class="border rounded p-4 container-md bg-white">
       <h2 class="mb-2">Results</h2>
       <div class="d-flex justify-content-between align-items-center">
-        <div><strong><span id="nmea-count">0</span></strong> NMEA sentences.</div>
+        <div>
+          <strong><span id="nmea-count">0</span></strong>
+          NMEA sentences.
+        </div>
         <div class="d-flex gap-2">
           <a class="btn btn-primary btn-sm" href="/get?id={{ $.Id }}&ts={{ $.St }}-{{ $.Ft }}">Download raw</a>
         </div>
@@ -465,11 +468,10 @@
       </div>
 
       <h5 class="mt-4">Raw.</h5>
-      <pre id="nmea-raw" class="p-2 bg-light border" style="max-height: 300px; overflow:auto;"></pre>
+      <pre id="nmea-raw" class="p-2 bg-light border" style="max-height: 300px; overflow: auto"></pre>
       <div id="nmea-error" class="text-danger mt-2"></div>
     </section>
     {{ end }}
-
 
     <div id="progress"></div>
     <div id="graph"></div>

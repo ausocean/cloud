@@ -9,7 +9,7 @@ let prevCamOn,
   prevControllerOff,
   prevURL;
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("time-zone").value = getTimezone();
   const startTimestamp = document.getElementById("start-timestamp").value;
   const endTimestamp = document.getElementById("end-timestamp").value;
@@ -137,7 +137,7 @@ function uncheckAll(form) {
 }
 
 function buttonClick(button) {
-  button.form.action = window.location.href
+  button.form.action = window.location.href;
   button.form.querySelector("input[name='action']").value = button.value;
   button.form.submit();
 }
@@ -154,14 +154,14 @@ function toggleAdvanced(checked) {
 }
 
 // Maps UUIDs to broadcast names to prevent unnecessary requests.
-var nameCache = new Map()
+var nameCache = new Map();
 
 // Caches the given broadcast UUID and name.
 function cacheBroadcastName(uuid, name) {
   if (uuid && uuid.startsWith("Broadcast.")) {
     uuid = uuid.substring("Broadcast.".length);
   }
-  nameCache.set(uuid, name)
+  nameCache.set(uuid, name);
 }
 
 async function handleReset(event) {
@@ -169,10 +169,10 @@ async function handleReset(event) {
   event.preventDefault();
 
   // Get the current value from the broadcast selector.
-  let selectedID = document.getElementById("broadcast-select").value
+  let selectedID = document.getElementById("broadcast-select").value;
 
   // Update broadcast list.
-  updateBroadcastsList(selectedID)
+  updateBroadcastsList(selectedID);
 
   // Reload config.
   handleBroadcastSelect(selectedID);
@@ -182,38 +182,38 @@ async function handleReset(event) {
 // the broadcast select list.
 async function updateBroadcastsList(selectedID) {
   // Get the broadcast IDs to update the broadcast list.
-  let ids = await fetchBroadcastIDs()
+  let ids = await fetchBroadcastIDs();
 
   // Clear existing options from broadcast selector.
-  let selector = document.getElementById("broadcast-select")
-  selector.innerHTML = ""
+  let selector = document.getElementById("broadcast-select");
+  selector.innerHTML = "";
 
   // Add default new broadcast option.
-  let opt = new Option("-- New Broadcast --", "")
-  selector.appendChild(opt)
+  let opt = new Option("-- New Broadcast --", "");
+  selector.appendChild(opt);
 
   // Add broadcasts to select input.
   for (id of ids) {
-    let uuid = id.replace("Broadcast.", "")
-    let name = nameCache.get(uuid)
+    let uuid = id.replace("Broadcast.", "");
+    let name = nameCache.get(uuid);
 
     // If the name doesn't exist in the cache, we need to request it.
     // This should only happen if the broadcast is newly created on another device or tab.
     if (name == undefined) {
-      console.log("fetching broadcast with unseen UUID")
+      console.log("fetching broadcast with unseen UUID");
       let cfg = await fetchBroadcast(uuid);
       name = cfg.Name;
     }
 
     // Create option element.
-    opt = new Option(name, id)
+    opt = new Option(name, id);
 
     // Mark as selected if it was already selected.
-    console.log(`selected: ${selectedID}, curr: ${id}`)
-    opt.selected = uuid == selectedID
+    console.log(`selected: ${selectedID}, curr: ${id}`);
+    opt.selected = uuid == selectedID;
 
     // Append it to the select input.
-    selector.appendChild(opt)
+    selector.appendChild(opt);
   }
 }
 
@@ -247,8 +247,8 @@ async function handleBroadcastSelect(uuid) {
 
   if (data) {
     populateForm(data);
-    cacheBroadcastName(uuid, data.Name)
-    updateBroadcastsList(uuid)
+    cacheBroadcastName(uuid, data.Name);
+    updateBroadcastsList(uuid);
   } else {
     alert("Failed to load broadcast data.");
   }
@@ -400,7 +400,7 @@ function populateForm(data) {
 
   // Update states element.
   const broadcastStatesEl = document.getElementById("broadcast-state-disp");
-  broadcastStatesEl.setAttribute("broadcast-id", data.UUID)
+  broadcastStatesEl.setAttribute("broadcast-id", data.UUID);
 
   // Check sensor config dynamically
   if (data.SensorList && Array.isArray(data.SensorList)) {
@@ -443,8 +443,8 @@ function populateForm(data) {
 async function fetchBroadcast(uuid) {
   if (!uuid) return null;
   try {
-    const skey = window.location.pathname.split("/")[1]
-    const url =  `/api/v1/${skey}/broadcasts/${uuid}`
+    const skey = window.location.pathname.split("/")[1];
+    const url = `/api/v1/${skey}/broadcasts/${uuid}`;
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -459,8 +459,8 @@ async function fetchBroadcast(uuid) {
 }
 
 async function fetchBroadcastIDs() {
-  const skey = window.location.pathname.split("/")[1]
-  const url = `/api/v1/${skey}/broadcasts`
+  const skey = window.location.pathname.split("/")[1];
+  const url = `/api/v1/${skey}/broadcasts`;
 
   try {
     const resp = await fetch(url);
@@ -468,9 +468,11 @@ async function fetchBroadcastIDs() {
       throw new Error(resp.statusText);
     }
     const data = await resp.json();
-    return data.map((v) => { return "Broadcast." + v.split(".")[2] })
+    return data.map((v) => {
+      return "Broadcast." + v.split(".")[2];
+    });
   } catch (err) {
-    console.error(`Error fetching broadcast IDs: ${err}`)
+    console.error(`Error fetching broadcast IDs: ${err}`);
   }
 }
 

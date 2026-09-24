@@ -159,14 +159,14 @@ func (svc *testService) get(h Handler) error {
 	return nil
 }
 
-func TestFiberSession(t* testing.T) {
+func TestFiberSession(t *testing.T) {
 	const (
-		sessionID = "service_auth"
-		sessionMaxAge = 24*60*60
-		cookieURL = "/cookie"
+		sessionID     = "service_auth"
+		sessionMaxAge = 24 * 60 * 60
+		cookieURL     = "/cookie"
 	)
 
-	t.Run("Test Server Set Max Age", func(t* testing.T) {
+	t.Run("Test Server Set Max Age", func(t *testing.T) {
 		sess, err := NewFiberSession(sessionID, "")
 		assert.NoError(t, err)
 
@@ -178,9 +178,9 @@ func TestFiberSession(t* testing.T) {
 		assert.Equal(t, sess.cookie.MaxAge, sessionMaxAge)
 	})
 
-	t.Run("Test Server Send Max Age", func(t* testing.T){
+	t.Run("Test Server Send Max Age", func(t *testing.T) {
 
-		handler := func(c* fiber.Ctx)error{
+		handler := func(c *fiber.Ctx) error {
 			sess, err := NewFiberSession(sessionID, "")
 			assert.NoError(t, err)
 
@@ -209,18 +209,17 @@ func TestFiberSession(t* testing.T) {
 
 }
 
-
-func TestGorillaSession(t* testing.T) {
+func TestGorillaSession(t *testing.T) {
 	const (
-		sessionID = "service_auth"
-		sessionMaxAge = 24*60*60
-		cookieURL = "/cookie"
+		sessionID     = "service_auth"
+		sessionMaxAge = 24 * 60 * 60
+		cookieURL     = "/cookie"
 		testSecretKey = "1234-4321"
 	)
 
 	cookieStore := sessions.NewCookieStore([]byte(testSecretKey))
 
-	t.Run("Test Server Set Max Age", func(t* testing.T) {
+	t.Run("Test Server Set Max Age", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, cookieURL, nil)
 		assert.NoError(t, err)
 		session, err := cookieStore.Get(req, sessionID)
@@ -237,9 +236,9 @@ func TestGorillaSession(t* testing.T) {
 		assert.Equal(t, sess.session.Options.MaxAge, sessionMaxAge)
 	})
 
-	t.Run("Test Server Send Max Age", func(t* testing.T){
+	t.Run("Test Server Send Max Age", func(t *testing.T) {
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r* http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			req, err := http.NewRequest(http.MethodGet, cookieURL, nil)
 			assert.NoError(t, err)
 			session, err := cookieStore.Get(req, sessionID)

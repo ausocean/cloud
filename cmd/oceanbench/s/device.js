@@ -1,4 +1,4 @@
-var skey = -1
+var skey = -1;
 
 // loadVars loads the variable element.
 async function loadVars(sk) {

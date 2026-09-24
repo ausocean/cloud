@@ -14,6 +14,6 @@ func (s hardwareOff) New(args ...interface{}) (any, error) {
 
 func newHardwareOff() *hardwareOff { return &hardwareOff{} }
 
-func (s *hardwareOff) enter()      {}
+func (s *hardwareOff) enter() {}
 
-func (s *hardwareOff) exit()       {}
+func (s *hardwareOff) exit() {}

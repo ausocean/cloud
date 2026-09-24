@@ -70,7 +70,7 @@ class HeaderGroup extends LitElement {
     this.version = "0";
     this.auth = false;
     this.logoutURL = "/logout?redirect=/";
-    this.skey = 0
+    this.skey = 0;
   }
 
   override render() {
