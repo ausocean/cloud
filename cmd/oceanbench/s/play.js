@@ -657,7 +657,7 @@ function applyFilter() {
   // Make HTTP POST request.
   const request = new XMLHttpRequest();
   let path = window.location.pathname;
-  request.open("POST", path+"/audiorequest");
+  request.open("POST", path + "/audiorequest");
   request.responseType = "arraybuffer";
 
   request.onload = () => {

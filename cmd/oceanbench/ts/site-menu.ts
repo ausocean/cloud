@@ -51,8 +51,8 @@ class SiteMenu extends TailwindElement() {
         >
           <option id="loading">
             ${this.selectedData && this.selectedData.includes(":")
-        ? this.selectedData.split(":")[1]
-        : "Loading Sites..."}
+              ? this.selectedData.split(":")[1]
+              : "Loading Sites..."}
           </option>
           <optgroup style="display: none" id="read" label="Read"></optgroup>
           <optgroup style="display: none" id="write" label="Write"></optgroup>
