@@ -3,8 +3,8 @@
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
-    "dev": "concurrently -k \"npm run build:watch\" \"go tool air -- --development --tvurl=http://localhost:8082 --cronurl=http://localhost:8081\"",
-    "standalone": "concurrently -k \"npm run build:watch\" \"go tool air -- --standalone --tvurl=http://localhost:8082 --cronurl=http://localhost:8081\"",
+    "dev": "concurrently -k \"npm run build:watch\" \"go tool air -- --development\"",
+    "standalone": "concurrently -k \"npm run build:watch\" \"go tool air -- --standalone\"",
     "format": "prettier --write \"**/*.{html,js,ts}\"",
     "serve": "es-dev-server --node-resolve --watch",
     "deploy": "../../scripts/deploy.sh -b oceanbench",

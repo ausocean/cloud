@@ -50,6 +50,8 @@ LICENSE
 package main
 
 import (
+	_ "github.com/joho/godotenv/autoload"
+
 	"context"
 	"encoding/json"
 	"errors"
