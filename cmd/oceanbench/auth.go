@@ -152,6 +152,9 @@ func getDefaultSkey(ctx context.Context, profile *gauth.Profile) (int64, error) 
 		if err != nil {
 			return -1, fmt.Errorf("failed to get users for email (%s): %v", profile.Email, err)
 		}
+		if len(users) == 0 {
+			return -1, fmt.Errorf("no users found for email (%s)", profile.Email)
+		}
 		err = setDefaultSkey(ctx, profile, users[0].Skey)
 		if err != nil {
 			// This isn't considered an error, as the caller is still returned the default site,

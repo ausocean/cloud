@@ -21,7 +21,11 @@ Before you begin, ensure you have **git**, **go**, and **npm** installed. For lo
     ```bash
     # Copy the example Air configuration
     cp .air.toml.example .air.toml
+
+    # Copy the example environment variables and adjust the values
+    cp .env.example .env
     ```
+    Ensure you update the secret paths in `.env` to point to valid credentials for Datastore, YouTube, and other required services.
 
 4.  **Run a Local Development Instance**
     The easiest way to develop locally and test changes quickly is using the `dev` script, which launches Air for backend (go) changes, and watching Vite builds together.
@@ -64,7 +68,7 @@ The following flags are available when running the `oceanbench` binary, particul
 
 ### Configuration files
 
-Configuration files can also be used instead of manually specifying command-line flags. There are currently two configuration files, `.env` used to directly replace command line flags, and `.air.toml`
+Configuration files can also be used to specify environment variables and command-line defaults. There are currently two configuration files: `.env` used for environment variables and secrets (like `YOUTUBE_SECRETS`, `GOOGLE_APPLICATION_CREDENTIALS`), and `.air.toml`
 used to configure the hot reload tool `air`. There are example configurations for both files included, with the suffix `.example`. By copying these files and removing the suffix, the program will
 run with the specified config.
 

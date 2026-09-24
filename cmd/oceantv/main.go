@@ -264,7 +264,7 @@ func setup(ctx Ctx) {
 		return
 	}
 
-	settingsStore, mediaStore, err := model.SetupDatastore(standalone, storePath, ctx)
+	settingsStore, mediaStore, err := model.SetupDatastore(standalone, false, storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}

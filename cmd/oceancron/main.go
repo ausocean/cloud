@@ -135,7 +135,7 @@ func setup(ctx context.Context) {
 	}
 
 	var err error
-	settingsStore, _, err = model.SetupDatastore(standalone, storePath, ctx)
+	settingsStore, _, err = model.SetupDatastore(standalone, false, storePath, ctx)
 	if err != nil {
 		log.Fatalf("could not set up datastore: %v", err)
 	}

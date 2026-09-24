@@ -171,7 +171,12 @@ func getV1DefaultSiteHandler(c *fiber.Ctx) error {
 	p := c.Locals(profileKey).(*gauth.Profile)
 	s, err := getDefaultSkey(c.UserContext(), p)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("unable to get default site for user: %v, err: %v", p.Email, err)})
+		// If there is no default site, return a 404 but still include an skey of -1
+		// so the frontend can parse the JSON gracefully.
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": fmt.Sprintf("unable to get default site for user: %v", err),
+			"skey":  -1,
+		})
 	}
 	return c.JSON(fiber.Map{"skey": s})
 }

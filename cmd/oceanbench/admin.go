@@ -358,6 +358,13 @@ func deleteSite(c *fiber.Ctx, p *gauth.Profile) error {
 		if err != nil {
 			return writeAdmin(c, p, fmt.Errorf("cannot delete user: %w", err))
 		}
+
+		v, err := model.GetVariable(ctx, settingsStore, -1, defaultSkeyVarName(user.Email))
+		if err == nil {
+			if defaultSkey, err := strconv.ParseInt(v.Value, 10, 64); err == nil && defaultSkey == skey {
+				model.DeleteVariable(ctx, settingsStore, -1, defaultSkeyVarName(user.Email))
+			}
+		}
 	}
 
 	return c.Redirect("/", fiber.StatusFound)
