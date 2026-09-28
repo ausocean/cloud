@@ -28,6 +28,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -56,11 +57,14 @@ func (c *Cloudflare) GenerateTempCredentials(ctx context.Context, ttl time.Durat
 
 	now := time.Now()
 	claims := map[string]interface{}{
-		"exp":    now.Add(ttl).Unix(),
-		"iat":    now.Unix(),
-		"sub":    c.accountID,
-		"aud":    fmt.Sprintf("%s.r2.cloudflarestorage.com", c.accountID),
-		"bucket": c.bucket,
+		"exp":        now.Add(ttl).Unix(),
+		"iat":        now.Unix(),
+		"iss":        c.accessKey,
+		"sub":        c.accountID,
+		"aud":        fmt.Sprintf("%s.r2.cloudflarestorage.com", c.accountID),
+		"bucket":     c.bucket,
+		"scope":      "object-read-write",
+		"ttlSeconds": int64(ttl.Seconds()),
 	}
 	if prefix != "" {
 		claims["paths"] = map[string][]string{
@@ -80,7 +84,7 @@ func (c *Cloudflare) GenerateTempCredentials(ctx context.Context, ttl time.Durat
 
 	return &TempCredentials{
 		AccessKey:    c.accessKey,
-		SecretKey:    string(secretKey[:]),
+		SecretKey:    hex.EncodeToString(secretKey[:]),
 		SessionToken: sessionToken,
 	}, nil
 }

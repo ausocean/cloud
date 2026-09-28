@@ -63,7 +63,7 @@ func (o OceanMedia) New(args ...any) (any, error) {
 	// If no arguments are provided, return an empty OceanMedia
 	// so that we can still get the protocol.
 	if len(args) == 0 {
-		return OceanMedia{}, nil
+		return &OceanMedia{}, nil
 	}
 	p, ok := args[0].(Params)
 	if !ok {
@@ -153,7 +153,7 @@ func (o *OceanMedia) BroadcastHealth(ctx context.Context, sid string) (string, e
 // This consists of a JSON encoded TempCredentials object.
 // streamName should be the broadcast event ID.
 func (o *OceanMedia) AuthKey(ctx context.Context, streamName string) (string, error) {
-	tempCreds, err := o.storageProvider.GenerateTempCredentials(ctx, 12*time.Hour, streamName)
+	tempCreds, err := o.storageProvider.GenerateTempCredentials(ctx, 12*time.Hour, streamName+"/")
 	if err != nil {
 		return "", err
 	}

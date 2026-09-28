@@ -28,12 +28,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ausocean/cloud/gauth"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Ensure Cloudflare implements Provider interface.
@@ -41,21 +44,11 @@ var _ Provider = (*Cloudflare)(nil)
 
 func TestNewCloudflare(t *testing.T) {
 	cf := NewCloudflare("test-account", "test-access", "test-secret", "test-bucket")
-	if cf == nil {
-		t.Fatal("NewCloudflare returned nil")
-	}
-	if cf.accountID != "test-account" {
-		t.Errorf("got accountID %q, want %q", cf.accountID, "test-account")
-	}
-	if cf.accessKey != "test-access" {
-		t.Errorf("got accessKey %q, want %q", cf.accessKey, "test-access")
-	}
-	if cf.secretKey != "test-secret" {
-		t.Errorf("got secretKey %q, want %q", cf.secretKey, "test-secret")
-	}
-	if cf.bucket != "test-bucket" {
-		t.Errorf("got bucket %q, want %q", cf.bucket, "test-bucket")
-	}
+	require.NotNil(t, cf)
+	assert.Equal(t, "test-account", cf.accountID)
+	assert.Equal(t, "test-access", cf.accessKey)
+	assert.Equal(t, "test-secret", cf.secretKey)
+	assert.Equal(t, "test-bucket", cf.bucket)
 }
 
 func TestGetBaseURL(t *testing.T) {
@@ -74,11 +67,10 @@ func TestGetBaseURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		cf := NewCloudflare(tt.accountID, "access", "secret", "bucket")
-		got := cf.GetBaseURL()
-		if got != tt.want {
-			t.Errorf("GetBaseURL() = %q, want %q", got, tt.want)
-		}
+		t.Run(tt.accountID, func(t *testing.T) {
+			cf := NewCloudflare(tt.accountID, "access", "secret", "bucket")
+			assert.Equal(t, tt.want, cf.GetBaseURL())
+		})
 	}
 }
 
@@ -132,93 +124,71 @@ func TestGenerateTempCredentials(t *testing.T) {
 			before := time.Now().Unix()
 			creds, err := cf.GenerateTempCredentials(context.Background(), tt.ttl, tt.prefix)
 			after := time.Now().Unix()
-			if err != nil {
-				t.Fatalf("GenerateTempCredentials() error = %v", err)
-			}
-			if creds == nil {
-				t.Fatal("GenerateTempCredentials() returned nil credentials")
-			}
 
-			// Verify AccessKey
-			if creds.AccessKey != accessKey {
-				t.Errorf("got AccessKey %q, want %q", creds.AccessKey, accessKey)
-			}
+			require.NoError(t, err)
+			require.NotNil(t, creds)
 
-			// Verify SessionToken is base64 encoded and begins with "jwt/"
+			// Verify AccessKey.
+			assert.Equal(t, accessKey, creds.AccessKey)
+
+			// Verify SessionToken is base64 encoded and begins with "jwt/".
 			decodedBytes, err := base64.StdEncoding.DecodeString(creds.SessionToken)
-			if err != nil {
-				t.Fatalf("SessionToken is not valid base64: %v", err)
-			}
+			require.NoError(t, err, "SessionToken is not valid base64")
 			decodedToken := string(decodedBytes)
-			if !strings.HasPrefix(decodedToken, "jwt/") {
-				t.Fatalf("decoded SessionToken %q does not have prefix 'jwt/'", decodedToken)
-			}
+			require.True(t, strings.HasPrefix(decodedToken, "jwt/"), "decoded SessionToken %q does not have prefix 'jwt/'", decodedToken)
 
 			jwtStr := strings.TrimPrefix(decodedToken, "jwt/")
 
-			// Verify SecretKey is the sha256 sum of the JWT string
+			// Verify SecretKey is the hex-encoded sha256 sum of the JWT string.
 			expectedSecretKeyBytes := sha256.Sum256([]byte(jwtStr))
-			if creds.SecretKey != string(expectedSecretKeyBytes[:]) {
-				t.Errorf("SecretKey does not match sha256 of JWT")
-			}
+			assert.Equal(t, hex.EncodeToString(expectedSecretKeyBytes[:]), creds.SecretKey)
 
-			// Verify JWT claims by parsing with gauth.GetClaims using the secret key
+			// Verify JWT claims by parsing with gauth.GetClaims using the secret key.
 			claims, err := gauth.GetClaims(jwtStr, []byte(secretKey))
-			if err != nil {
-				t.Fatalf("gauth.GetClaims() failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			// Check sub
-			if sub, ok := claims["sub"].(string); !ok || sub != accountID {
-				t.Errorf("claims[sub] = %v, want %q", claims["sub"], accountID)
-			}
+			// Check iss.
+			assert.Equal(t, accessKey, claims["iss"])
 
-			// Check aud
-			wantAud := fmt.Sprintf("%s.r2.cloudflarestorage.com", accountID)
-			if aud, ok := claims["aud"].(string); !ok || aud != wantAud {
-				t.Errorf("claims[aud] = %v, want %q", claims["aud"], wantAud)
-			}
+			// Check sub.
+			assert.Equal(t, accountID, claims["sub"])
 
-			// Check bucket
-			if b, ok := claims["bucket"].(string); !ok || b != bucket {
-				t.Errorf("claims[bucket] = %v, want %q", claims["bucket"], bucket)
-			}
+			// Check aud.
+			assert.Equal(t, fmt.Sprintf("%s.r2.cloudflarestorage.com", accountID), claims["aud"])
 
-			// Check iat and exp
-			iatVal, ok := claims["iat"].(float64)
-			if !ok {
-				t.Fatalf("claims[iat] is not a number: %v", claims["iat"])
-			}
-			iat := int64(iatVal)
-			if iat < before || iat > after {
-				t.Errorf("claims[iat] %d out of expected range [%d, %d]", iat, before, after)
-			}
+			// Check bucket.
+			assert.Equal(t, bucket, claims["bucket"])
 
-			expVal, ok := claims["exp"].(float64)
-			if !ok {
-				t.Fatalf("claims[exp] is not a number: %v", claims["exp"])
-			}
-			exp := int64(expVal)
-			expectedExpMin := before + int64(tt.wantTTL.Seconds())
-			expectedExpMax := after + int64(tt.wantTTL.Seconds())
-			if exp < expectedExpMin || exp > expectedExpMax {
-				t.Errorf("claims[exp] %d out of expected range [%d, %d]", exp, expectedExpMin, expectedExpMax)
-			}
+			// Check scope.
+			assert.Equal(t, "object-read-write", claims["scope"])
 
-			// Check prefix / paths
+			// Check iat.
+			iat, ok := claims["iat"].(float64)
+			require.True(t, ok, "claims[iat] is not a number: %v", claims["iat"])
+			assert.GreaterOrEqual(t, int64(iat), before)
+			assert.LessOrEqual(t, int64(iat), after)
+
+			// Check exp.
+			exp, ok := claims["exp"].(float64)
+			require.True(t, ok, "claims[exp] is not a number: %v", claims["exp"])
+			assert.GreaterOrEqual(t, int64(exp), before+int64(tt.wantTTL.Seconds()))
+			assert.LessOrEqual(t, int64(exp), after+int64(tt.wantTTL.Seconds()))
+
+			// Check ttlSeconds.
+			ttlSeconds, ok := claims["ttlSeconds"].(float64)
+			require.True(t, ok, "claims[ttlSeconds] is not a number: %v", claims["ttlSeconds"])
+			assert.Equal(t, tt.wantTTL.Seconds(), ttlSeconds)
+
+			// Check prefix / paths.
 			if tt.wantPrefix != "" {
 				paths, ok := claims["paths"].(map[string]interface{})
-				if !ok {
-					t.Fatalf("claims[paths] missing or invalid type: %v", claims["paths"])
-				}
+				require.True(t, ok, "claims[paths] missing or invalid type: %v", claims["paths"])
 				prefixPaths, ok := paths["prefixPaths"].([]interface{})
-				if !ok || len(prefixPaths) != 1 || prefixPaths[0] != tt.wantPrefix {
-					t.Errorf("claims[paths][prefixPaths] = %v, want [%q]", paths["prefixPaths"], tt.wantPrefix)
-				}
+				require.True(t, ok, "claims[paths][prefixPaths] missing or invalid type: %v", paths["prefixPaths"])
+				require.Len(t, prefixPaths, 1)
+				assert.Equal(t, tt.wantPrefix, prefixPaths[0])
 			} else {
-				if _, exists := claims["paths"]; exists {
-					t.Errorf("claims[paths] should not exist when prefix is empty, got %v", claims["paths"])
-				}
+				assert.NotContains(t, claims, "paths")
 			}
 		})
 	}
