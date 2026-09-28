@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { TailwindElement } from "./shared/tailwind.element";
 
 interface SiteVar {
   Skey: number;
@@ -33,7 +34,7 @@ const prodEndpoint = "https://oceantv.appspot.com/checkbroadcasts";
 const devEndpoint = "https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts";
 
 @customElement("cron-settings")
-export class CronSettings extends LitElement {
+export class CronSettings extends TailwindElement() {
   @property({ type: String, attribute: "id" }) ID = "";
   @property({ type: String, attribute: "time" }) Time = "";
   @property({ type: String, attribute: "action" }) Action = "";
@@ -48,26 +49,6 @@ export class CronSettings extends LitElement {
 
   siteVars: SiteVar[] = [];
   devMap: Map<string, SiteDevice> = new Map();
-
-  static styles = css`
-    .row {
-        width: 100%;
-      display: inline-grid;
-      grid-template-columns: 8% 20% 8% 8% 20% 16% 10%;
-      gap: 10px;
-    }
-
-    @keyframes pulse {
-          0% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-          100% {
-            opacity: 1;
-          }
-  `;
 
   async connectedCallback() {
     super.connectedCallback();
@@ -113,29 +94,81 @@ export class CronSettings extends LitElement {
 
   override render() {
     return html`
-      <div class="row">
-        <button @click="${this.submitCron}">${this.buttonText}</button>
-        <input @change="${this.updateID}" type="text" value="${this.ID}" />
-        <input @change="${this.updateTime}" type="text" value="${this.Time}" />
-        <select @input="${this.updateAction}">
-          <option ?selected="${this.Action == "set"}">set</option>
-          <option ?selected="${this.Action == "del"}">del</option>
-          <option ?selected="${this.Action == "call"}">call</option>
-          <option ?selected="${this.Action == "rpc"}">rpc</option>
-          <option ?selected="${this.Action == "email"}">email</option>
-        </select>
-        ${this.varDropdown()}
-        <input
-          @change="${this.updateValue}"
-          type="text"
-          value="${this.Value}"
-        />
-        <input
-          @change="${this.updateEnabled}"
-          type="checkbox"
-          ?checked=${this.Enabled}
-          style="max-height: 16px;"
-        />
+      <div class="flex gap-1 flex-col mb-8">
+        <div
+          class="flex-col md:grid md:grid-cols-5 min-h-7 md:gap-x-2 md:gap-y-1 gap-1 flex"
+        >
+          <div class="flex gap-2 w-full">
+            <input
+              @change="${this.updateEnabled}"
+              type="checkbox"
+              ?checked=${this.Enabled}
+              class="accent-primary"
+            />
+            <input
+              @change="${this.updateID}"
+              type="text"
+              value="${this.ID}"
+              class="font-mono font-black text-lg hover:bg-slate-200"
+              placeholder="Cron Name"
+            />
+          </div>
+
+          <div class="flex gap-2 col-span-2">
+            <label class="w-20 shrink-0">Time:</label>
+            <input
+              @change="${this.updateTime}"
+              type="text"
+              value="${this.Time}"
+              class="w-full border-solid border rounded-md border-slate-400 px-2"
+            />
+          </div>
+
+          <div class="flex gap-2 col-span-2">
+            <label class="w-20 shrink-0">Action:</label>
+            <select
+              @input="${this.updateAction}"
+              class="border-solid border rounded-md border-slate-400 px-2 w-full"
+            >
+              <option ?selected="${this.Action == "set"}">set</option>
+              <option ?selected="${this.Action == "del"}">del</option>
+              <option ?selected="${this.Action == "call"}">call</option>
+              <option ?selected="${this.Action == "rpc"}">rpc</option>
+              <option ?selected="${this.Action == "email"}">email</option>
+            </select>
+            <button
+              @click="${this.submitCron}"
+              class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md hidden md:flex"
+            >
+              ${this.buttonText}
+            </button>
+          </div>
+
+          <div></div>
+
+          <div class="flex gap-2 col-span-2">
+            <label class="w-20 shrink-0">Variable:</label>
+            ${this.varDropdown()}
+          </div>
+
+          <div class="flex gap-2 col-span-2">
+            <label class="w-20 shrink-0">Value:</label>
+            <input
+              @change="${this.updateValue}"
+              type="text"
+              value="${this.Value}"
+              class="w-full border-solid border rounded-md border-slate-400 px-2"
+            />
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end w-full">
+          <button
+            @click="${this.submitCron}"
+            class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
+          >
+            ${this.buttonText}
+          </button>
+        </div>
       </div>
     `;
   }
@@ -208,20 +241,23 @@ export class CronSettings extends LitElement {
       case "rpc":
         console.log("variable:", this.Variable);
         return html`
-          <div>
-            <select @change="${this.updateEndpoint}" style="width: 100%">
+          <div class="flex items-center gap-1 w-full min-h-7">
+            <select
+              @change="${this.updateEndpoint}"
+              class="h-7 border-solid border rounded-md border-slate-400 px-1"
+            >
               <option value="other">other</option>
               <option
                 value="https://oceantv.appspot.com/checkbroadcasts"
                 ?selected="${this.Variable == prodEndpoint}"
               >
-                Production
+                PROD
               </option>
               <option
                 value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts"
                 ?selected="${this.Variable == devEndpoint}"
               >
-                Testing (Dev)
+                DEV
               </option>
             </select>
             <input
@@ -229,6 +265,7 @@ export class CronSettings extends LitElement {
               type="text"
               id="endpoint-input"
               value="${this.Variable}"
+              class="h-7 border-solid border rounded-md border-slate-400 px-2 w-full"
             />
           </div>
         `;
@@ -237,15 +274,18 @@ export class CronSettings extends LitElement {
           return html`
             <input
               type="text"
-              style="animation: pulse 1s infinite;"
               readonly
               value="loading..."
+              class="w-full h-7 border-solid border rounded-md border-slate-400 animate-pulse px-2"
             />
           `;
         }
         console.log("devmap:", this.devMap);
         return html`
-          <select @change="${this.updateVariable}">
+          <select
+            @change="${this.updateVariable}"
+            class="w-full h-7 border-solid border rounded-md border-slate-400 px-2"
+          >
             <option value="">-- Select a Variable --</option>
             ${this.siteVars.map((v) => {
               let parts = v.Name.split(".");
@@ -263,7 +303,13 @@ export class CronSettings extends LitElement {
           </select>
         `;
       default:
-        return html` <input type="text" .value="${this.Variable}" /> `;
+        return html`
+          <input
+            type="text"
+            .value="${this.Variable}"
+            class="w-full min-w-0 h-7 basis-0 grow border-solid border rounded-md border-slate-400 px-2"
+          />
+        `;
     }
   }
 
