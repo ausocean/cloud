@@ -525,8 +525,15 @@ func varsHandler(w http.ResponseWriter, r *http.Request) {
 		if v.IsSystemVariable() {
 			continue
 		}
-		resp += `"` + v.Name + `":"` + v.Value + `",`
-
+		// Escape the value as a JSON string. Variable values may themselves
+		// contain JSON (e.g. storage configuration), which must be escaped in
+		// order to keep the enclosing response valid JSON.
+		value, err := json.Marshal(v.Value)
+		if err != nil {
+			writeError(w, fmt.Errorf("could not marshal variable %s: %w", v.Name, err))
+			return
+		}
+		resp += `"` + v.Name + `":` + string(value) + `,`
 	}
 
 	vs := model.ComputeVarSum(vars)
