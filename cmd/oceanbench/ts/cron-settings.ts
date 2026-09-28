@@ -44,7 +44,8 @@ export class CronSettings extends TailwindElement() {
   @property({ type: Boolean, attribute: "new-cron" }) newCron = false;
   @property({ type: Number }) skey = 0;
 
-  @state() buttonText = "Save";
+  @state() saveButtonText = "Save";
+  @state() deleteButtonText = "Delete";
   @state() dropdownOption = "";
 
   siteVars: SiteVar[] = [];
@@ -140,7 +141,13 @@ export class CronSettings extends TailwindElement() {
               @click="${this.submitCron}"
               class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md hidden md:flex"
             >
-              ${this.buttonText}
+              ${this.saveButtonText}
+            </button>
+            <button
+              @click="${this.deleteCron}"
+              class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md hidden md:flex"
+            >
+              ${this.deleteButtonText}
             </button>
           </div>
 
@@ -162,12 +169,34 @@ export class CronSettings extends TailwindElement() {
           </div>
         </div>
         <div class="flex gap-2 justify-end w-full">
+          <<<<<<< conflict 1 of 1 +++++++ utowolqt 54b080b7 "Bench: Update cron
+          settings to tailwind" (rebase destination)
           <button
             @click="${this.submitCron}"
             class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
           >
             ${this.buttonText}
           </button>
+          %%%%%%% diff from: utowolqt cd5ab8a9 "Bench: Update cron settings to
+          tailwind" (parents of rebased revision) \\\\\\ to: wwpkskqp 02e5a3fd
+          "Bench/Cron: Add delete button" (rebased revision)
+          <button
+            @click="${this.submitCron}"
+            class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
+          >
+            - ${this.buttonText} + ${this.saveButtonText} +
+          </button>
+          +
+          <button
+            +
+            @click="${this.deleteCron}"
+            +
+            class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md md:hidden flex"
+            +
+          >
+            + ${this.deleteButtonText}
+          </button>
+          >>>>>>> conflict 1 of 1 ends
         </div>
       </div>
     `;
@@ -193,12 +222,29 @@ export class CronSettings extends TailwindElement() {
     fetch(`/${this.skey}/set/crons/edit`, { method: "POST", body: formData })
       .then((resp) => {
         if (resp.ok) {
-          this.buttonText = "Saved!";
+          this.saveButtonText = "Saved!";
           this.requestUpdate();
           setTimeout(() => {
-            this.buttonText = "Save";
+            this.saveButtonText = "Save";
             this.requestUpdate();
           }, 1000);
+        }
+      })
+      .catch((err) => {
+        console.log("Got error:", err);
+      });
+  }
+
+  deleteCron() {
+    let formData = new FormData();
+    formData.append("ci", this.ID);
+    formData.append("task", "Delete");
+
+    this.deleteButtonText = "Deleting...";
+    fetch(`/${this.skey}/set/crons/edit`, { method: "POST", body: formData })
+      .then((resp) => {
+        if (resp.ok) {
+          this.remove();
         }
       })
       .catch((err) => {
