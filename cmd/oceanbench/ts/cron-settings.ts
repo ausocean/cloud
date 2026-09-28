@@ -169,34 +169,18 @@ export class CronSettings extends TailwindElement() {
           </div>
         </div>
         <div class="flex gap-2 justify-end w-full">
-          <<<<<<< conflict 1 of 1 +++++++ utowolqt 54b080b7 "Bench: Update cron
-          settings to tailwind" (rebase destination)
           <button
             @click="${this.submitCron}"
             class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
           >
-            ${this.buttonText}
+            ${this.saveButtonText}
           </button>
-          %%%%%%% diff from: utowolqt cd5ab8a9 "Bench: Update cron settings to
-          tailwind" (parents of rebased revision) \\\\\\ to: wwpkskqp 02e5a3fd
-          "Bench/Cron: Add delete button" (rebased revision)
           <button
-            @click="${this.submitCron}"
-            class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
-          >
-            - ${this.buttonText} + ${this.saveButtonText} +
-          </button>
-          +
-          <button
-            +
             @click="${this.deleteCron}"
-            +
             class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md md:hidden flex"
-            +
           >
-            + ${this.deleteButtonText}
+            ${this.deleteButtonText}
           </button>
-          >>>>>>> conflict 1 of 1 ends
         </div>
       </div>
     `;
