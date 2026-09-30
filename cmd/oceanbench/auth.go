@@ -189,3 +189,8 @@ func requestSiteData(c *fiber.Ctx, profile *gauth.Profile) (int64, string) {
 	}
 	return profileData(profile)
 }
+
+// youtubeCredsCallbackHandler handles YouTube Channel authentication auth callbacks.
+func youtubeCredsCallbackHandler(c *fiber.Ctx) error {
+	return channelAuth.CallbackHandler(backend.NewFiberHandler(c))
+}

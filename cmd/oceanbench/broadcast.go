@@ -40,16 +40,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils"
-	"github.com/ausocean/cloud/ytclient"
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"google.golang.org/api/youtube/v3"
 )
 
 type Action int
@@ -314,12 +312,10 @@ func broadcastHandler(c *fiber.Ctx) error {
 	case broadcastToken:
 		tokenURI := utils.TokenURIFromAccount(profile.Email)
 
-		var err error
-		adaptErr := adaptor.HTTPHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err = ytclient.AuthChannel(r.Context(), w, r, youtube.YoutubeScope, tokenURI)
-		})(c)
-		if adaptErr != nil {
-			reportError(c, req, "internal adapter error: %v", adaptErr)
+		log.Println("Authenticate channel with tokenURI:", tokenURI)
+		err = channelAuth.AuthChannel(c.UserContext(), backend.NewFiberHandler(c), tokenURI)
+		if err != nil {
+			reportError(c, req, "internal adapter error: %v", err)
 			return nil
 		}
 

@@ -71,6 +71,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/ausocean/cloud/utils/cronproxy"
+	"github.com/ausocean/cloud/ytclient"
 	"github.com/ausocean/utils/sliceutils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
@@ -79,7 +80,7 @@ import (
 )
 
 const (
-	version     = "v0.40.0"
+	version     = "v0.41.0"
 	localSite   = "localhost"
 	localDevice = "localdevice"
 	localEmail  = "localuser@localhost"
@@ -144,6 +145,7 @@ var (
 	standalone    bool
 	development   bool
 	auth          *gauth.UserAuth
+	channelAuth   *ytclient.ChannelAuth
 	tvURL         = tvServiceURL
 	storePath     string
 	testDataFile  string
@@ -286,6 +288,7 @@ func main() {
 	app.All("/data/*", dataHandler)
 	app.All("/throughputs", throughputsHandler)
 	app.All("/logs", logPageHandler)
+	app.Get(ytclient.YoutubeCredsRedirect, youtubeCredsCallbackHandler)
 
 	// Handle paths with prefixed site keys.
 	app.Group("/:"+skeyParamKey).
@@ -363,8 +366,13 @@ func main() {
 
 	} else {
 		log.Printf("Initializing OAuth2")
+		h := backend.NewFiberHandler(nil)
 		auth = &gauth.UserAuth{ProjectID: projectID, ClientID: oauthClientID, MaxAge: oauthMaxAge}
-		auth.Init(backend.NewFiberHandler(nil))
+		auth.Init(h)
+
+		// Channel Auth handles generating tokens for YouTube authentication.
+		channelAuth = &ytclient.ChannelAuth{ProjectID: projectID, ClientID: oauthClientID}
+		channelAuth.Init(h)
 
 		// If we are running in app engine mode locally, we want to request data
 		// from the local instance.
