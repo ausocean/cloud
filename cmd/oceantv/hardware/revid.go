@@ -200,10 +200,20 @@ func extStart(
 	// Copy the configured actions so the runtime actions appended below never
 	// mutate (or alias) the stored config.
 	acts := append([]broadcast.ActionVar{}, cfg.OnActions...)
-	acts = append(acts, broadcast.ActionVar{Name: cfg.RTMPVar, Value: broadcast.RTMPDestinationAddress + cfg.RTMPKey})
-	acts = append(acts, broadcast.ActionVar{Name: cfg.AuthKeyVar, Value: cfg.AuthKey})
-	if cfg.StorageConfig != nil {
+	switch cfg.BroadcastHost {
+	case "youtube":
+		acts = append(acts, broadcast.ActionVar{Name: cfg.RTMPVar, Value: broadcast.RTMPDestinationAddress + cfg.RTMPKey})
+
+	case "oceanmedia":
+		acts = append(acts, broadcast.ActionVar{Name: cfg.AuthKeyVar, Value: cfg.AuthKey})
+		// StorageConfig isn't automatically generated so we need to ensure it's set.
+		if cfg.StorageConfig == nil {
+			return errors.New("storage config not set")
+		}
 		acts = append(acts, broadcast.ActionVar{Name: cfg.StorageConfigVar, Value: cfg.StorageConfig.JSON()})
+
+	default:
+		return fmt.Errorf("unknown broadcast host: %s", cfg.BroadcastHost)
 	}
 
 	// Get the camera output protocol from the broadcast host. This allows the
