@@ -30,6 +30,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,8 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gocloud.dev/blob"
+	"gocloud.dev/blob/fileblob"
 )
 
 // Ensure Cloudflare implements Provider interface.
@@ -192,4 +195,109 @@ func TestGenerateTempCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseR2URI(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    *r2URI
+		wantErr bool
+	}{
+		{
+			name: "R2",
+			in:   "https://abc123.r2.cloudflarestorage.com/bucket/broadcast-id/segment.ts",
+			want: &r2URI{
+				endpoint: "https://abc123.r2.cloudflarestorage.com",
+				bucket:   "bucket",
+				key:      "broadcast-id/segment.ts",
+			},
+		},
+		{
+			name: "WithQueryAndFragment",
+			in:   "https://example.com/bucket/key.ts?x=1#frag",
+			want: &r2URI{endpoint: "https://example.com", bucket: "bucket", key: "key.ts"},
+		},
+		{
+			name:    "Empty",
+			in:      "",
+			wantErr: true,
+		},
+		{
+			name:    "MissingHost",
+			in:      "/bucket/key.ts",
+			wantErr: true,
+		},
+		{
+			name:    "MissingKey",
+			in:      "https://example.com/bucket",
+			wantErr: true,
+		},
+		{
+			name:    "MissingBucket",
+			in:      "https://example.com//key.ts",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseR2URI(tt.in)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// newFileblobOpener returns a bucket opener backed by a fileblob bucket
+// with an HMAC URL signer.
+func newFileblobOpener(t *testing.T) bucketOpener {
+	t.Helper()
+	urlSigner := fileblob.NewURLSignerHMAC(&url.URL{Scheme: "https", Host: "example.com"}, []byte("test-secret"))
+	b, err := fileblob.OpenBucket(t.TempDir(), &fileblob.Options{URLSigner: urlSigner, CreateDir: true})
+	require.NoError(t, err)
+	return func(context.Context, string, string) (*blob.Bucket, error) { return b, nil }
+}
+
+func TestCloudflareSignURL(t *testing.T) {
+	cf := NewCloudflare("acct", "access", "secret", "bucket")
+	cf.opener = newFileblobOpener(t)
+
+	signed, err := cf.SignURL(context.Background(), "https://acct.r2.cloudflarestorage.com/mybucket/a/b.ts", time.Hour)
+	require.NoError(t, err)
+
+	u, err := url.Parse(signed)
+	require.NoError(t, err)
+	assert.Equal(t, "a/b.ts", u.Query().Get("obj"))
+	assert.NotEmpty(t, u.Query().Get("signature"))
+
+	// A non-positive TTL falls back to the default expiry.
+	_, err = cf.SignURL(context.Background(), "https://acct.r2.cloudflarestorage.com/mybucket/a/b.ts", 0)
+	assert.NoError(t, err)
+
+	// Invalid URIs are rejected before opening a bucket.
+	_, err = cf.SignURL(context.Background(), "not a uri", time.Hour)
+	assert.Error(t, err)
+
+	// A URI pointing at another account must not be signed.
+	_, err = cf.SignURL(context.Background(), "https://other.r2.cloudflarestorage.com/mybucket/a/b.ts", time.Hour)
+	assert.Error(t, err)
+}
+
+func TestCloudflareOpenBucket(t *testing.T) {
+	cf := NewCloudflare("account", "access", "secret", "bucket")
+
+	var gotEndpoint, gotBucket string
+	cf.opener = func(_ context.Context, endpoint, bucket string) (*blob.Bucket, error) {
+		gotEndpoint, gotBucket = endpoint, bucket
+		return nil, nil
+	}
+
+	_, err := cf.OpenBucket(context.Background(), "mybucket")
+	require.NoError(t, err)
+	assert.Equal(t, "https://account.r2.cloudflarestorage.com", gotEndpoint)
+	assert.Equal(t, "mybucket", gotBucket)
 }
