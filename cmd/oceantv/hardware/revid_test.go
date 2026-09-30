@@ -33,8 +33,9 @@ import (
 	"github.com/ausocean/cloud/datastore"
 )
 
-// testHost is a minimal broadcasthost.Host used to exercise the protocol lookup
-// in extStart.
+// testHost is a minimal broadcasthost.Host registered under a name that is not
+// a supported broadcast host. It ensures extStart rejects registered-but-
+// unsupported hosts rather than falling back to any host found in the registry.
 type testHost struct {
 	broadcasthost.Host
 	protocol string
@@ -73,14 +74,15 @@ func TestExtStart(t *testing.T) {
 		name    string
 		cfg     *broadcast.Config
 		wantLen int
+		wantErr error
 	}{
 		{
 			name:    "empty on actions is a no-op",
-			cfg:     &broadcast.Config{BroadcastHost: "revid-test-host"},
+			cfg:     &broadcast.Config{BroadcastHost: "youtube"},
 			wantLen: 0,
 		},
 		{
-			name: "runtime actions appended after configured actions",
+			name: "youtube host appends RTMP and output actions",
 			cfg: &broadcast.Config{
 				SKey:             1,
 				OnActions:        broadcast.ActionVars{{Name: "ESP.Power2", Value: "true"}},
@@ -91,21 +93,46 @@ func TestExtStart(t *testing.T) {
 				StorageConfigVar: "Camera.StorageConfig",
 				StorageConfig:    storageCfg,
 				CameraOutputVar:  "Camera.Output",
-				BroadcastHost:    "revid-test-host",
+				BroadcastHost:    "youtube",
 			},
-			wantLen: 5,
+			wantLen: 3,
 		},
 		{
-			name: "nil storage config does not panic",
+			name: "oceanmedia host appends auth key, storage config and output actions",
+			cfg: &broadcast.Config{
+				SKey:             1,
+				OnActions:        broadcast.ActionVars{{Name: "ESP.Power2", Value: "true"}},
+				RTMPVar:          "Camera.RTMPURL",
+				RTMPKey:          "key",
+				AuthKeyVar:       "Camera.AuthKey",
+				AuthKey:          "auth",
+				StorageConfigVar: "Camera.StorageConfig",
+				StorageConfig:    storageCfg,
+				CameraOutputVar:  "Camera.Output",
+				BroadcastHost:    "oceanmedia",
+			},
+			wantLen: 4,
+		},
+		{
+			name: "oceanmedia nil storage config returns error",
 			cfg: &broadcast.Config{
 				SKey:            1,
 				OnActions:       broadcast.ActionVars{{Name: "ESP.Power2", Value: "true"}},
-				RTMPVar:         "Camera.RTMPURL",
 				AuthKeyVar:      "Camera.AuthKey",
+				AuthKey:         "auth",
 				CameraOutputVar: "Camera.Output",
-				BroadcastHost:   "revid-test-host",
+				BroadcastHost:   "oceanmedia",
 			},
-			wantLen: 4,
+			wantErr: errors.New("storage config not set"),
+		},
+		{
+			name: "unknown broadcast host returns error",
+			cfg: &broadcast.Config{
+				SKey:          1,
+				OnActions:     broadcast.ActionVars{{Name: "ESP.Power2", Value: "true"}},
+				BroadcastHost: "revid-test-host",
+			},
+			wantErr: errors.New("unknown broadcast host: revid-test-host"),
 		},
 	}
 
@@ -113,6 +140,12 @@ func TestExtStart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, set := newActionCapture()
 			err := extStart(context.Background(), nil, tt.cfg, func(string, ...interface{}) {}, set)
+			if tt.wantErr != nil {
+				if err == nil || err.Error() != tt.wantErr.Error() {
+					t.Fatalf("extStart() error = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("extStart() error = %v", err)
 			}
@@ -152,7 +185,7 @@ func TestExtStartSetActionVarsError(t *testing.T) {
 		RTMPVar:         "Camera.RTMPURL",
 		AuthKeyVar:      "Camera.AuthKey",
 		CameraOutputVar: "Camera.Output",
-		BroadcastHost:   "revid-test-host",
+		BroadcastHost:   "youtube",
 	}
 	err := extStart(context.Background(), nil, cfg, func(string, ...interface{}) {}, set)
 	if !errors.Is(err, wantErr) {
