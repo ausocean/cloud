@@ -35,26 +35,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 
 	"golang.org/x/oauth2"
 )
 
-// Authorisation related constants.
-const youtubeCredsRedirect = "/ytCredsCallback"
-
 // Exported error values.
 var ErrGeneratedToken = errors.New("needed to generate token")
 
-var (
-	// Used to indicate if we're running in production or locally.
-	production bool
-
-	// Handler function used to handle callbacks from OAuth signin for youtube.
-	authHandler *func(w http.ResponseWriter, r *http.Request)
-)
+// Used to indicate if we're running in production or locally.
+var production bool
 
 // This will set the production flag i.e. to indicate whether we are running in
 // cloud or locally.
@@ -67,12 +58,6 @@ func init() {
 	if strings.HasPrefix(u, "gs://") {
 		production = true
 	}
-	http.HandleFunc(
-		youtubeCredsRedirect,
-		func(w http.ResponseWriter, r *http.Request) {
-			(*authHandler)(w, r)
-		},
-	)
 }
 
 // getToken returns an oauth2.0 credentials token that can be used to authorise
@@ -124,39 +109,4 @@ func getSecrets(ctx context.Context) ([]byte, error) {
 		}
 	}
 	return secrets, nil
-}
-
-// genToken redirects the user to an authorisation page for generation of an
-// authorisation token.
-func genToken(w http.ResponseWriter, r *http.Request, config *oauth2.Config, url string) {
-	scheme := "https://"
-	if strings.Contains(r.Host, "localhost") {
-		scheme = "http://"
-	}
-	config.RedirectURL = scheme + r.Host + youtubeCredsRedirect
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		code := r.FormValue("code")
-		tok, err := config.Exchange(context.Background(), code)
-		if err != nil {
-			log.Printf("could not exchange token: %v", err)
-		}
-
-		if production {
-			err = saveTokObj(context.Background(), tok, url)
-		} else {
-			err = saveTokFile(tok, url)
-		}
-
-		if err != nil {
-			log.Printf("could not save new token: %v", err)
-		}
-
-		completionRedirect := scheme + r.Host + "/admin/broadcast"
-		http.Redirect(w, r, completionRedirect, http.StatusSeeOther)
-	}
-	authHandler = &handler
-
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	http.Redirect(w, r, authURL, http.StatusSeeOther)
 }

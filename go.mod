@@ -1,6 +1,6 @@
 module github.com/ausocean/cloud
 
-go 1.26.0
+go 1.27.0
 
 require (
 	bou.ke/monkey v1.0.2
@@ -10,7 +10,6 @@ require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/ausocean/av v1.0.1
 	github.com/ausocean/utils v0.4.1
-	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/gofiber/template/html/v3 v3.0.6
 	github.com/golang-jwt/jwt/v5 v5.3.0

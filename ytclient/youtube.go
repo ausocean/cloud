@@ -37,12 +37,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"cloud.google.com/go/storage"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
 	"github.com/ausocean/cloud/gauth"
 	"golang.org/x/oauth2"
@@ -109,36 +106,6 @@ func GetService(ctx context.Context, scope string, tokenURI string) (*youtube.Se
 	}
 
 	return s, nil
-}
-
-// AuthChannel checks for a current token under the passed tokenURI, and generates one if it does not
-// yet exist.
-func AuthChannel(ctx context.Context, w http.ResponseWriter, r *http.Request, scope, tokenURI string) error {
-	// Don't regenerate a token if one already exists.
-	_, err := getToken(ctx, tokenURI)
-
-	if err == nil {
-		// Token exists.
-		return nil
-	}
-	if !errors.Is(err, storage.ErrObjectNotExist) && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("error getting token with uri: %s: %w", tokenURI, err)
-	}
-
-	// No token with the given URI exists yet. Generate a new token.
-	return GenerateToken(ctx, w, r, scope, tokenURI)
-}
-
-// GenerateToken manually generates/regenerates a token. This can be called in
-// the case that there's an indication the current token has expired.
-func GenerateToken(ctx context.Context, w http.ResponseWriter, r *http.Request, scope, tokenURI string) error {
-	cfg, err := googleConfig(ctx, scope)
-	if err != nil {
-		return fmt.Errorf("could not get google config: %w", err)
-	}
-
-	genToken(w, r, cfg, tokenURI)
-	return nil
 }
 
 // googleConfig creates and returns an oauth2.Config from the provided context
