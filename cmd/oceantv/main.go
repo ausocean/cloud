@@ -59,6 +59,7 @@ const (
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
 	locationID            = "Australia/Adelaide" // TODO: Use site location.
 	AusOceanTVServiceURL  = "https://ausocean.tv"
+	defaultBroadcastHost  = "youtube" // Broadcast host to use if one isn't set.
 )
 
 var (
