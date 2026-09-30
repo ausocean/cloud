@@ -47,7 +47,7 @@ export class BroadcastStates extends TailwindElement() {
       }
 
       this.poll();
-      this.intervalID = setInterval(() => this.poll(), 2000);
+      this.intervalID = setInterval(() => this.poll(), 30000);
     }
   }
 
