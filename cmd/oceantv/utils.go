@@ -103,12 +103,15 @@ func broadcastByName(sKey int64, name string) (*Cfg, error) {
 // returned.
 func broadcastFromVars(broadcasts []model.Variable, name string) (*Cfg, error) {
 	for _, v := range broadcasts {
-		if name == v.Name || name == strings.TrimPrefix(v.Name, broadcast.Scope+".") {
-			var cfg Cfg
-			err := json.Unmarshal([]byte(v.Value), &cfg)
-			if err != nil {
+		matchesKey := name == v.Name || name == strings.TrimPrefix(v.Name, broadcast.Scope+".")
+		var cfg Cfg
+		if err := json.Unmarshal([]byte(v.Value), &cfg); err != nil {
+			if matchesKey {
 				return nil, fmt.Errorf("could not unmarshal selected broadcast config: %v", err)
 			}
+			continue
+		}
+		if matchesKey || name == cfg.Name {
 			return &cfg, nil
 		}
 	}

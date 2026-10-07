@@ -248,8 +248,9 @@ func (m *OceanBroadcast) Save(ctx context.Context, update func(_cfg *broadcast.C
 	origUpdate := _update
 
 	_update = func(_cfg *broadcast.Config) {
-		_cfg.UUID = uuid.NewString()
 		origUpdate(_cfg)
+		_cfg.UUID = uuid.NewString()
+		*m.cfg = *_cfg
 	}
 
 	err := broadcast.UpdateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
@@ -438,6 +439,19 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context) error {
 	case errors.Is(err, broadcast.ErrBroadcastNotFound{}):
 		secondaryCfg := *m.cfg
 		populateFields(&secondaryCfg)
+		secondaryCfg.UUID = uuid.NewString()
+		secondaryCfg.BID, secondaryCfg.SID, secondaryCfg.CID, secondaryCfg.RTMPKey, secondaryCfg.AuthKey = "", "", "", "", ""
+		secondaryCfg.BroadcastState = "vidforwardSecondaryIdle"
+		secondaryCfg.StateData = nil
+		secondaryCfg.Active, secondaryCfg.Slate, secondaryCfg.AttemptingToStart = false, false, false
+		secondaryCfg.Unhealthy, secondaryCfg.Transitioning, secondaryCfg.InFailure = false, false, false
+		secondaryCfg.HardwareState = "hardwareOff"
+		secondaryCfg.HardwareStateData = nil
+		if secondaryCfg.StorageConfig != nil {
+			storageCfg := *secondaryCfg.StorageConfig
+			storageCfg.Prefix = ""
+			secondaryCfg.StorageConfig = &storageCfg
+		}
 
 		// Create a temporary OceanBroadcastManager for the secondary broadcast and create it (no update func required).
 		err = NewOceanBroadcast(nil, &secondaryCfg, m.store, m.log, m.setVar, m.broadcastByName).Save(ctx, nil)
