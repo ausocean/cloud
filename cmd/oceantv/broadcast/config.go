@@ -43,6 +43,9 @@ const (
 	RTMPDestinationAddress = "rtmp://a.rtmp.youtube.com/live2/" // Base address for RTMP destination (RTMP key is appended).
 )
 
+// CheckInterval is the required tick interval for broadcast state machines.
+const CheckInterval = 15 * time.Second
+
 // Config holds configuration data for a YouTube broadcast.
 type Config struct {
 	UUID                     string         // The immutable unique key of the broadcast.

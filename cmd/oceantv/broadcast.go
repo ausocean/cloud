@@ -157,14 +157,14 @@ func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.R
 	var request broadcastCheckRequest
 	err = json.NewDecoder(r.Body).Decode(&request)
 	if errors.Is(err, io.EOF) {
-		// Keep existing site-level jobs working until individual jobs are installed.
-		site, err := model.GetSite(ctx, store, skey)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Errorf("error getting site %d: %v", skey, err))
+		// Old site-level jobs have no payload. Replace them once, then future
+		// checks load only their individual broadcast by UUID.
+		if broadcastCrons == nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("broadcast cron manager is unavailable"))
 			return
 		}
-		if err := checkBroadcastsForSites(ctx, []model.Site{*site}, s.eventHooks, s.stateHooks); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Errorf("error checking broadcasts for site %d: %v", skey, err))
+		if err := broadcastCrons.migrateSite(ctx, skey); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("could not migrate broadcast checks for site %d: %w", skey, err))
 			return
 		}
 		fmt.Fprint(w, "OK")
@@ -188,6 +188,13 @@ func (s *oceanTVService) checkBroadcastsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	if !cfg.Enabled {
+		// A request already in flight can arrive after the cron is disabled.
+		if broadcastCrons != nil {
+			if err := broadcastCrons.Sync(ctx, cfg); err != nil {
+				writeError(w, http.StatusInternalServerError, fmt.Errorf("could not stop cron for disabled broadcast %s: %w", cfg.UUID, err))
+				return
+			}
+		}
 		fmt.Fprint(w, "OK")
 		return
 	}
@@ -262,42 +269,6 @@ func (s *oceanTVService) sendNotifications(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusInternalServerError, fmt.Errorf("unable to send HTML email: %w", err))
 		}
 	}
-}
-
-// checkBroadcastsForSites checks broadcasts for the given sites.
-func checkBroadcastsForSites(ctx Ctx, sites []model.Site, eventHooks []eventHook, stateHooks []stateHook) error {
-	var cfgVars []model.Variable
-	for _, s := range sites {
-		vars, err := model.GetVariablesBySite(ctx, store, s.Skey, broadcast.Scope)
-		if err != nil {
-			log.Printf("could not get broadcast entities for site, skey: %d, name: %s, %v", s.Skey, s.Name, err)
-			continue
-		}
-		cfgVars = append(cfgVars, vars...)
-	}
-
-	// If there are no entities then we don't have anything to do.
-	if len(cfgVars) == 0 {
-		log.Println("no broadcast configurations in datastore, doing nothing")
-		return nil
-	}
-
-	// Unmarshal all the configs.
-	cfgs := make([]Cfg, len(cfgVars))
-	for i, v := range cfgVars {
-		err := json.Unmarshal([]byte(v.Value), &cfgs[i])
-		if err != nil {
-			return fmt.Errorf("could not unmarshal cfg entity no. %d: %w", i, err)
-		}
-	}
-
-	for i := range cfgs {
-		err := performChecks(ctx, &cfgs[i], store, eventHooks, stateHooks)
-		if err != nil {
-			return fmt.Errorf("could not perform checks for broadcast: %s, BID: %s: %w", cfgs[i].Name, cfgs[i].BID, err)
-		}
-	}
-	return nil
 }
 
 // performChecksInternalThroughStateMachine performs several checks on the provided

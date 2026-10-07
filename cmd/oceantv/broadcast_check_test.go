@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/ausocean/cloud/gauth"
-	"github.com/ausocean/cloud/model"
 )
 
 func signedBroadcastCheck(t *testing.T, service *oceanTVService, skey int64, body string) *httptest.ResponseRecorder {
@@ -78,36 +77,5 @@ func TestBroadcastCheckLoadsOnlyRequestedBroadcast(t *testing.T) {
 	service.checkBroadcastsHandler(w, httptest.NewRequest(http.MethodPost, "/checkbroadcasts", strings.NewReader(`{}`)))
 	if w.Code != http.StatusUnauthorized {
 		t.Fatal("unauthenticated request accepted")
-	}
-}
-
-func TestBroadcastCheckRetainsLegacySiteChecks(t *testing.T) {
-	broadcastFixture(t)
-	oldSecret := cronSecret
-	cronSecret = []byte("test-cron-secret")
-	t.Cleanup(func() { cronSecret = oldSecret })
-	ctx := context.Background()
-	cfg := testBroadcastConfig()
-	cfg.Enabled = false
-	cfg.Active, cfg.AttemptingToStart, cfg.Transitioning = true, true, true
-	cfg.BroadcastHost = newDummyService().Name()
-	saveTestBroadcast(t, cfg)
-	if err := model.PutSite(ctx, store, &model.Site{Skey: cfg.SKey, Name: "Test"}); err != nil {
-		t.Fatal(err)
-	}
-	service, err := newOceanTVService()
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := signedBroadcastCheck(t, service, cfg.SKey, "")
-	if w.Code != http.StatusOK {
-		t.Fatalf("legacy check failed: %s", w.Body.String())
-	}
-	stored, err := getBroadcastConfig(ctx, store, cfg.SKey, cfg.UUID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.Active || stored.AttemptingToStart || stored.Transitioning {
-		t.Fatal("legacy site check did not clean up the disabled broadcast")
 	}
 }

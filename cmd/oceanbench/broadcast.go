@@ -364,27 +364,6 @@ func broadcastHandler(c *fiber.Ctx) error {
 		}
 		msg = "broadcast saved successfully"
 
-		// Ensure that the CheckBroadcast cron exists.
-		const broadcastCheckCronID = "Broadcast Check"
-		_, err = model.GetCron(ctx, settingsStore, cfg.SKey, broadcastCheckCronID)
-		if errors.Is(err, datastore.ErrNoSuchEntity) {
-			cr := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
-			err = model.PutCron(context.Background(), settingsStore, cr)
-			if err != nil {
-				reportError(c, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
-				return nil
-			}
-
-			err = cronScheduler.Set(cr)
-			if err != nil {
-				reportError(c, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
-				return nil
-			}
-		} else if err != nil {
-			reportError(c, req, "unexpected error when checking for the broadcast check cron: %v", err)
-			return nil
-		}
-
 	case broadcastDelete:
 		err = deleteBroadcast(ctx, &req, settingsStore)
 		if err != nil {
