@@ -99,7 +99,7 @@ export class CronSettings extends TailwindElement() {
         <div
           class="flex-col md:grid md:grid-cols-5 min-h-7 md:gap-x-2 md:gap-y-1 gap-1 flex"
         >
-          <div class="flex gap-2 w-full">
+          <div class="flex gap-2 w-full items-center">
             <input
               @change="${this.updateEnabled}"
               type="checkbox"
@@ -110,7 +110,7 @@ export class CronSettings extends TailwindElement() {
               @change="${this.updateID}"
               type="text"
               value="${this.ID}"
-              class="font-mono font-black text-lg hover:bg-slate-200"
+              class="font-mono font-black text-lg hover:bg-slate-200 w-full min-w-0 bg-transparent rounded-md px-1 focus:ring-1 focus:ring-slate-400 focus:outline-none focus:bg-slate-100"
               placeholder="Cron Name"
             />
           </div>
