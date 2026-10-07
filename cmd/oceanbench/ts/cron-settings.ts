@@ -97,6 +97,12 @@ export class CronSettings extends TailwindElement() {
   getCronDescription() {
     try {
       if (!this.Time || this.Time.trim() === "") return "";
+
+      let t = this.Time.trim();
+      if (t.startsWith("@every ")) {
+        return "Every " + t.substring(7).trim();
+      }
+
       return cronstrue.toString(this.Time, {
         throwExceptionOnParseError: true,
       });
@@ -139,6 +145,7 @@ export class CronSettings extends TailwindElement() {
                 placeholder="* * * * *"
               />
               <datalist id="cron-presets-${this.ID}">
+                <option value="@every 30s">Every 30 seconds</option>
                 <option value="* * * * *">Every minute</option>
                 <option value="*/5 * * * *">Every 5 minutes</option>
                 <option value="*/15 * * * *">Every 15 minutes</option>
