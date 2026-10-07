@@ -42,3 +42,5 @@ func deleteBroadcastConfig(ctx Ctx, skey int64, id string) error {
 	}
 	return nil
 }
+
+type broadcastCheckRequest struct{ UUID string }
