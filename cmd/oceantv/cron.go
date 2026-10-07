@@ -209,10 +209,19 @@ func deleteBroadcastConfig(ctx Ctx, skey int64, id string) error {
 	if err := uuid.Validate(id); err != nil {
 		return fmt.Errorf("invalid broadcast UUID: %w", err)
 	}
-	_, err := getBroadcastConfig(ctx, store, skey, id)
+	cfg, err := getBroadcastConfig(ctx, store, skey, id)
 	exists := err == nil
 	if err != nil && !errors.Is(err, datastore.ErrNoSuchEntity) {
 		return fmt.Errorf("could not load broadcast %s before deletion: %w", id, err)
+	}
+	if err == nil {
+		man := newOceanBroadcastManager(nil, cfg, store, func(string, ...interface{}) {})
+		if err := man.Save(ctx, func(cfg *Cfg) { cfg.Enabled = false }); err != nil {
+			return fmt.Errorf("could not disable broadcast %s before deletion: %w", id, err)
+		}
+		if err := performChecks(ctx, cfg, store, nil, nil); err != nil {
+			return fmt.Errorf("could not clean up broadcast %s before deletion: %w", id, err)
+		}
 	}
 	if broadcastCrons != nil {
 		if err := broadcastCrons.Delete(ctx, skey, id); err != nil {

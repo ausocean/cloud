@@ -175,9 +175,12 @@ func TestBroadcastCronDeleteRetriesSchedulerFailure(t *testing.T) {
 	if err := deleteBroadcastConfig(ctx, cfg.SKey, cfg.UUID); err == nil {
 		t.Fatal("scheduler failure was not reported")
 	}
-	_, err := getBroadcastConfig(ctx, store, cfg.SKey, cfg.UUID)
+	persisted, err := getBroadcastConfig(ctx, store, cfg.SKey, cfg.UUID)
 	if err != nil {
 		t.Fatalf("failed delete lost the configuration needed for retry: %v", err)
+	}
+	if persisted.Enabled {
+		t.Fatal("failed delete left the broadcast enabled")
 	}
 	requireCron(t, cfg, false)
 	scheduler.fail = false

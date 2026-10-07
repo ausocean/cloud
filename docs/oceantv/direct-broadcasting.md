@@ -32,8 +32,8 @@ endpoint loads only that broadcast at the site identified by its signed token.
 
 Saving or creating a broadcast creates its cron. Changing `Enabled` updates the
 cron's enabled state, including internal disables and secondary broadcasts.
-Deleting through OceanBench calls OceanTV, which removes both the broadcast
-and its cron. Disabling through OceanBench also
+Deleting through OceanBench calls OceanTV, which performs the disabled cleanup
+and removes both the broadcast and its cron. Disabling through OceanBench also
 performs the cleanup once, since disabled broadcasts no longer receive ticks.
 
 Existing site-level **Broadcast Check** crons migrate automatically on their next
