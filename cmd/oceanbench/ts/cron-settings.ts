@@ -97,7 +97,9 @@ export class CronSettings extends TailwindElement() {
   getCronDescription() {
     try {
       if (!this.Time || this.Time.trim() === "") return "";
-      return cronstrue.toString(this.Time, { throwExceptionOnParseError: true });
+      return cronstrue.toString(this.Time, {
+        throwExceptionOnParseError: true,
+      });
     } catch (e) {
       return "Invalid cron expression";
     }
@@ -144,7 +146,12 @@ export class CronSettings extends TailwindElement() {
                 <option value="0 0 * * *">Every day at midnight</option>
                 <option value="0 0 * * 0">Every Sunday</option>
               </datalist>
-              <div class="text-xs text-slate-500 italic px-1 h-4 overflow-hidden text-ellipsis whitespace-nowrap" title="${this.getCronDescription()}">${this.getCronDescription()}</div>
+              <div
+                class="text-xs text-slate-500 italic px-1 h-4 overflow-hidden text-ellipsis whitespace-nowrap"
+                title="${this.getCronDescription()}"
+              >
+                ${this.getCronDescription()}
+              </div>
             </div>
           </div>
 
@@ -358,6 +365,7 @@ export class CronSettings extends TailwindElement() {
       default:
         return html`
           <input
+            @change="${this.updateVariable}"
             type="text"
             .value="${this.Variable}"
             class="w-full min-w-0 h-7 basis-0 grow border-solid border rounded-md border-slate-400 px-2"
@@ -367,11 +375,11 @@ export class CronSettings extends TailwindElement() {
   }
 
   updateEndpoint(e: Event) {
-    const select = e.target as HTMLSelectElement;
-    this.Variable = select.value;
+    const target = e.target as HTMLSelectElement | HTMLInputElement;
+    this.Variable = target.value;
     if (this.Variable === "other") {
       let input = this.shadowRoot?.querySelector(
-        "#other-input",
+        "#endpoint-input",
       ) as HTMLInputElement;
       if (!input) {
         return;
@@ -382,8 +390,8 @@ export class CronSettings extends TailwindElement() {
   }
 
   updateVariable(e: Event) {
-    const select = e.target as HTMLSelectElement;
-    this.Variable = select.value;
+    const target = e.target as HTMLSelectElement | HTMLInputElement;
+    this.Variable = target.value;
     this.requestUpdate();
   }
 }
