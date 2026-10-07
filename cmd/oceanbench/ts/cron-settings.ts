@@ -1,6 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { TailwindElement } from "./shared/tailwind.element";
+import cronstrue from "cronstrue";
 
 interface SiteVar {
   Skey: number;
@@ -93,6 +94,15 @@ export class CronSettings extends TailwindElement() {
       });
   }
 
+  getCronDescription() {
+    try {
+      if (!this.Time || this.Time.trim() === "") return "";
+      return cronstrue.toString(this.Time, { throwExceptionOnParseError: true });
+    } catch (e) {
+      return "Invalid cron expression";
+    }
+  }
+
   override render() {
     return html`
       <div class="flex gap-1 flex-col mb-8">
@@ -115,14 +125,27 @@ export class CronSettings extends TailwindElement() {
             />
           </div>
 
-          <div class="flex gap-2 col-span-2">
+          <div class="flex gap-2 col-span-2 relative">
             <label class="w-20 shrink-0">Time:</label>
-            <input
-              @change="${this.updateTime}"
-              type="text"
-              value="${this.Time}"
-              class="w-full border-solid border rounded-md border-slate-400 px-2"
-            />
+            <div class="w-full flex flex-col gap-1 min-w-0">
+              <input
+                @input="${this.updateTime}"
+                type="text"
+                list="cron-presets-${this.ID}"
+                value="${this.Time}"
+                class="w-full border-solid border rounded-md border-slate-400 px-2"
+                placeholder="* * * * *"
+              />
+              <datalist id="cron-presets-${this.ID}">
+                <option value="* * * * *">Every minute</option>
+                <option value="*/5 * * * *">Every 5 minutes</option>
+                <option value="*/15 * * * *">Every 15 minutes</option>
+                <option value="0 * * * *">Every hour</option>
+                <option value="0 0 * * *">Every day at midnight</option>
+                <option value="0 0 * * 0">Every Sunday</option>
+              </datalist>
+              <div class="text-xs text-slate-500 italic px-1 h-4 overflow-hidden text-ellipsis whitespace-nowrap" title="${this.getCronDescription()}">${this.getCronDescription()}</div>
+            </div>
           </div>
 
           <div class="flex gap-2 col-span-2">
