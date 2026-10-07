@@ -344,7 +344,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	op := req[2]
 	const resetState string = "reset-state"
-	if op != "save" && op != resetState {
+	if op != "save" && op != resetState && op != "delete" {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid operation: %s", op))
 		return
 	}
@@ -371,6 +371,15 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	log := func(msg string, args ...interface{}) {
 		broadcast.LogForBroadcast(&cfg, log.Println, msg, args...)
+	}
+
+	if op == "delete" {
+		if err := deleteBroadcastConfig(ctx, cfg.SKey, cfg.UUID); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("could not delete broadcast %s: %w", cfg.UUID, err))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	// Use the broadcast manager to save the broadcast.
