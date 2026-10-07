@@ -11,6 +11,7 @@
     "deploy:dev": "../../scripts/deploy.sh -db oceanbench"
   },
   "dependencies": {
+    "cronstrue": "^3.30.0",
     "es-dev-server": "^2.1.0",
     "lit": "^2.6.1",
     "mime": "^3.0.0",
