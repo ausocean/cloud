@@ -24,6 +24,7 @@
 # Set the paths to your services
 OCEANBENCH_PATH="../cmd/oceanbench"
 OCEANTV_PATH="../cmd/oceantv"
+OCEANMEDIA_PATH="../cmd/oceanmedia"
 OCEANCRON_PATH="../cmd/oceancron"
 DATABLUE_PATH="../cmd/datablue"
 
@@ -79,6 +80,7 @@ trap cleanup SIGINT SIGTERM
 run_service "OceanBench" "$OCEANBENCH_PATH" "go run . --standalone --tvurl $TV_URL --cronurl $CRON_URL"
 run_service "OceanTV" "$OCEANTV_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
 run_service "OceanCron" "$OCEANCRON_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
+run_service "OceanMedia" "$OCEANMEDIA_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
 run_service "DataBlue" "$DATABLUE_PATH" "go run . --standalone --filestore $FILESTORE_PATH"
 
 # Wait for all background processes.
