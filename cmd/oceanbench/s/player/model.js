@@ -33,13 +33,7 @@ const States = {
 // Model is the player model which hold the player's state. It responds to different events and controls the timing of frames.
 class Model extends EventHandler {
   constructor(controller, viewer, fetcher) {
-    super(
-      controller,
-      Events.PLAY_PAUSE,
-      Events.LOAD,
-      Events.READY,
-      Events.HALT,
-    );
+    super(controller, Events.PLAY_PAUSE, Events.LOAD, Events.READY, Events.HALT);
     this.viewer = viewer;
     this.fetcher = fetcher;
   }
