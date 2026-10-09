@@ -94,9 +94,7 @@ export class TVOverview extends LitElement {
       console.log(this.broadcasts);
     }
     return html`
-      <div style="display: flex; flex-direction:column; gap: 1.5rem;">
-        ${this.broadcasts.map((b) => this.renderBroadcast(b))}
-      </div>
+      <div style="display: flex; flex-direction:column; gap: 1.5rem;">${this.broadcasts.map((b) => this.renderBroadcast(b))}</div>
     `;
   }
 
@@ -112,29 +110,17 @@ export class TVOverview extends LitElement {
         <h2>${b.Name}</h2>
         <div class="card-content">
           <div>
-            <iframe
-              src="https://www.youtube.com/embed/${b.BID}"
-              title="YouTube video player"
-              frameborder="0"
-              allowfullscreen
-            ></iframe>
+            <iframe src="https://www.youtube.com/embed/${b.BID}" title="YouTube video player" frameborder="0" allowfullscreen></iframe>
           </div>
           <div>
-            <p>
-              ${new Date(b.Start).toLocaleTimeString()} -
-              ${new Date(b.End).toLocaleTimeString()}
-            </p>
+            <p>${new Date(b.Start).toLocaleTimeString()} - ${new Date(b.End).toLocaleTimeString()}</p>
             <p>
               Active:
-              <strong style="color: ${b.Active ? "green" : "red"};"
-                >${b.Active ? "Active" : "Inactive"}</strong
-              >
+              <strong style="color: ${b.Active ? "green" : "red"};">${b.Active ? "Active" : "Inactive"}</strong>
             </p>
             <p>
               Healthy:
-              <strong style="color: ${b.Unhealthy ? "red" : "green"};"
-                >${b.Unhealthy ? "Unhealthy" : "Healthy"}</strong
-              >
+              <strong style="color: ${b.Unhealthy ? "red" : "green"};">${b.Unhealthy ? "Unhealthy" : "Healthy"}</strong>
             </p>
             <p>Broadcast State: ${b.BroadcastState}</p>
             <p>Hardware State: ${b.HardwareState}</p>
@@ -177,17 +163,13 @@ export class TVOverview extends LitElement {
     }
 
     // Make the fetch requests.
-    const fetchPromises = this.cfg.broadcasts.map((broadcast) =>
-      this.getBroadcastWithUUID(broadcast.UUID),
-    );
+    const fetchPromises = this.cfg.broadcasts.map((broadcast) => this.getBroadcastWithUUID(broadcast.UUID));
 
     // Await the requests to return.
     const resolvedBroadcasts = await Promise.all(fetchPromises);
 
     // Filter out any failed requests.
-    this.broadcasts = resolvedBroadcasts.filter(
-      (b): b is broadcast => b !== undefined && b !== null,
-    );
+    this.broadcasts = resolvedBroadcasts.filter((b): b is broadcast => b !== undefined && b !== null);
 
     console.log("finished fetching all broadcasts");
 
@@ -197,9 +179,7 @@ export class TVOverview extends LitElement {
 
   // getBroadcastWithUUID makes requests to the api endpoint to get the broadcast configuration
   // for a broadcast with the passed uuid, returning a promise for the fetch.
-  private async getBroadcastWithUUID(
-    uuid: string,
-  ): Promise<broadcast | undefined> {
+  private async getBroadcastWithUUID(uuid: string): Promise<broadcast | undefined> {
     console.log("getting broadcast with UUID:", uuid);
     return fetch(`/api/get/broadcast/config?id=${uuid}`)
       .then(async (resp) => {

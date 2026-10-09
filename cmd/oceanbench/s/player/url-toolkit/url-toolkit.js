@@ -1,7 +1,6 @@
 // see https://tools.ietf.org/html/rfc1808
 
-var URL_REGEX =
-  /^((?:[a-zA-Z0-9+\-.]+:)?)(\/\/[^\/?#]*)?((?:[^\/\?#]*\/)*.*?)??(;.*?)?(\?.*?)?(#.*?)?$/;
+var URL_REGEX = /^((?:[a-zA-Z0-9+\-.]+:)?)(\/\/[^\/?#]*)?((?:[^\/\?#]*\/)*.*?)??(;.*?)?(\?.*?)?(#.*?)?$/;
 var FIRST_SEGMENT_REGEX = /^([^\/?#]*)(.*)$/;
 var SLASH_DOT_REGEX = /(?:\/|^)\.(?=\/)/g;
 var SLASH_DOT_DOT_REGEX = /(?:\/|^)\.\.\/(?!\.\.\/).*?(?=\/)/g;
@@ -30,9 +29,7 @@ var URLToolkit = {
       if (!basePartsForNormalise) {
         throw new Error("Error trying to parse base URL.");
       }
-      basePartsForNormalise.path = URLToolkit.normalizePath(
-        basePartsForNormalise.path,
-      );
+      basePartsForNormalise.path = URLToolkit.normalizePath(basePartsForNormalise.path);
       return URLToolkit.buildURLFromParts(basePartsForNormalise);
     }
     var relativeParts = URLToolkit.parseURL(relativeURL);
@@ -102,17 +99,13 @@ var URLToolkit = {
           // slash is present) is removed and the embedded URL's path is
           // appended in its place.
           var baseURLPath = baseParts.path;
-          var newPath =
-            baseURLPath.substring(0, baseURLPath.lastIndexOf("/") + 1) +
-            relativeParts.path;
+          var newPath = baseURLPath.substring(0, baseURLPath.lastIndexOf("/") + 1) + relativeParts.path;
           builtParts.path = URLToolkit.normalizePath(newPath);
         }
       }
     }
     if (builtParts.path === null) {
-      builtParts.path = opts.alwaysNormalize
-        ? URLToolkit.normalizePath(relativeParts.path)
-        : relativeParts.path;
+      builtParts.path = opts.alwaysNormalize ? URLToolkit.normalizePath(relativeParts.path) : relativeParts.path;
     }
     return URLToolkit.buildURLFromParts(builtParts);
   },
@@ -146,20 +139,11 @@ var URLToolkit = {
     // 6d) If the path ends with "<segment>/..", where <segment> is a
     // complete path segment not equal to "..", that
     // "<segment>/.." is removed.
-    while (
-      path.length !== (path = path.replace(SLASH_DOT_DOT_REGEX, "")).length
-    ) {} // jshint ignore:line
+    while (path.length !== (path = path.replace(SLASH_DOT_DOT_REGEX, "")).length) {} // jshint ignore:line
     return path.split("").reverse().join("");
   },
   buildURLFromParts: function (parts) {
-    return (
-      parts.scheme +
-      parts.netLoc +
-      parts.path +
-      parts.params +
-      parts.query +
-      parts.fragment
-    );
+    return parts.scheme + parts.netLoc + parts.path + parts.params + parts.query + parts.fragment;
   },
 };
 

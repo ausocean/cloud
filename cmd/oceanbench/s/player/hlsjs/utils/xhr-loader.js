@@ -88,19 +88,12 @@ class XhrLoader {
       }
     } catch (e) {
       // IE11 throws an exception on xhr.open if attempting to access an HTTP resource over HTTPS
-      this.callbacks.onError(
-        { code: xhr.status, text: e.message },
-        context,
-        xhr,
-      );
+      this.callbacks.onError({ code: xhr.status, text: e.message }, context, xhr);
       return;
     }
 
     if (context.rangeEnd) {
-      xhr.setRequestHeader(
-        "Range",
-        "bytes=" + context.rangeStart + "-" + (context.rangeEnd - 1),
-      );
+      xhr.setRequestHeader("Range", "bytes=" + context.rangeStart + "-" + (context.rangeEnd - 1));
     }
 
     xhr.onreadystatechange = this.readystatechange.bind(this);
@@ -108,10 +101,7 @@ class XhrLoader {
     xhr.responseType = context.responseType;
 
     // setup timeout before we perform request
-    this.requestTimeout = window.setTimeout(
-      this.loadtimeout.bind(this),
-      this.config.timeout,
-    );
+    this.requestTimeout = window.setTimeout(this.loadtimeout.bind(this), this.config.timeout);
     xhr.send();
   }
 
@@ -153,42 +143,24 @@ class XhrLoader {
           this.callbacks.onSuccess(response, stats, context, xhr);
         } else {
           // if max nb of retries reached or if http status between 400 and 499 (such error cannot be recovered, retrying is useless), return error
-          if (
-            stats.retry >= config.maxRetry ||
-            (status >= 400 && status < 499)
-          ) {
+          if (stats.retry >= config.maxRetry || (status >= 400 && status < 499)) {
             console.error(`${status} while loading ${context.url}`);
-            this.callbacks.onError(
-              { code: status, text: xhr.statusText },
-              context,
-              xhr,
-            );
+            this.callbacks.onError({ code: status, text: xhr.statusText }, context, xhr);
           } else {
             // retry
-            console.warn(
-              `${status} while loading ${context.url}, retrying in ${this.retryDelay}...`,
-            );
+            console.warn(`${status} while loading ${context.url}, retrying in ${this.retryDelay}...`);
             // aborts and resets internal state
             this.destroy();
             // schedule retry
-            this.retryTimeout = window.setTimeout(
-              this.loadInternal.bind(this),
-              this.retryDelay,
-            );
+            this.retryTimeout = window.setTimeout(this.loadInternal.bind(this), this.retryDelay);
             // set exponential backoff
-            this.retryDelay = Math.min(
-              2 * this.retryDelay,
-              config.maxRetryDelay,
-            );
+            this.retryDelay = Math.min(2 * this.retryDelay, config.maxRetryDelay);
             stats.retry++;
           }
         }
       } else {
         // readyState >= 2 AND readyState !==4 (readyState = HEADERS_RECEIVED || LOADING) rearm timeout as xhr not finished yet
-        this.requestTimeout = window.setTimeout(
-          this.loadtimeout.bind(this),
-          config.timeout,
-        );
+        this.requestTimeout = window.setTimeout(this.loadtimeout.bind(this), config.timeout);
       }
     }
   }

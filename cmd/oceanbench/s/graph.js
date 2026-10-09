@@ -52,11 +52,7 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
         if (resp.status == 200) {
           return resp.text();
         } else {
-          document.getElementById("graph-error").innerHTML =
-            "HTTP error, status: " +
-            resp.statusText +
-            " for URL: " +
-            resp.responseURL;
+          document.getElementById("graph-error").innerHTML = "HTTP error, status: " + resp.statusText + " for URL: " + resp.responseURL;
         }
       })
       .then((text) => {
@@ -101,11 +97,7 @@ async function graphHandler(host, skey, mac, pin, s, f, tz, res) {
         if (resp.status == 200) {
           return resp.text();
         } else {
-          document.getElementById("graph-error").innerHTML =
-            "HTTP error, status: " +
-            resp.statusText +
-            " for URL: " +
-            resp.responseURL;
+          document.getElementById("graph-error").innerHTML = "HTTP error, status: " + resp.statusText + " for URL: " + resp.responseURL;
         }
       })
       .then((text) => {
@@ -314,8 +306,7 @@ function asyncHTTPGet(theUrl, callback, errCallback) {
 // encodeQuery simply encodes a series of query parameters into a single string.
 function encodeQuery(data) {
   const ret = [];
-  for (let d in data)
-    ret.push(encodeURIComponent(d) + "=" + encodeURIComponent(data[d]));
+  for (let d in data) ret.push(encodeURIComponent(d) + "=" + encodeURIComponent(data[d]));
   return ret.join("&");
 }
 

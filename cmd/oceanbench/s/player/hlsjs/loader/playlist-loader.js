@@ -30,13 +30,7 @@ const { performance } = window;
 
 class PlaylistLoader extends EventHandler {
   constructor(hls) {
-    super(
-      hls,
-      Event.MANIFEST_LOADING,
-      Event.LEVEL_LOADING,
-      Event.AUDIO_TRACK_LOADING,
-      Event.SUBTITLE_TRACK_LOADING,
-    );
+    super(hls, Event.MANIFEST_LOADING, Event.LEVEL_LOADING, Event.AUDIO_TRACK_LOADING, Event.SUBTITLE_TRACK_LOADING);
     this.hls = hls;
     this.loaders = {};
   }
@@ -46,10 +40,7 @@ class PlaylistLoader extends EventHandler {
    * @returns {boolean}
    */
   static canHaveQualityLevels(type) {
-    return (
-      type !== PlaylistContextType.AUDIO_TRACK &&
-      type !== PlaylistContextType.SUBTITLE_TRACK
-    );
+    return type !== PlaylistContextType.AUDIO_TRACK && type !== PlaylistContextType.SUBTITLE_TRACK;
   }
 
   /**
@@ -242,16 +233,8 @@ class PlaylistLoader extends EventHandler {
     }
 
     // Check if chunk-list or master. handle empty chunk list case (first EXTINF not signaled, but TARGETDURATION present)
-    if (
-      string.indexOf("#EXTINF:") > 0 ||
-      string.indexOf("#EXT-X-TARGETDURATION:") > 0
-    ) {
-      this._handleTrackOrLevelPlaylist(
-        response,
-        stats,
-        context,
-        networkDetails,
-      );
+    if (string.indexOf("#EXTINF:") > 0 || string.indexOf("#EXT-X-TARGETDURATION:") > 0) {
+      this._handleTrackOrLevelPlaylist(response, stats, context, networkDetails);
     } else {
       console.log("handling of master playlists is not implemented");
       // this._handleMasterPlaylist(response, stats, context, networkDetails);
@@ -278,13 +261,7 @@ class PlaylistLoader extends EventHandler {
     const levelId = Number.isFinite(level) ? level : levelUrlId;
 
     const levelType = PlaylistLoader.mapContextToLevelType(context);
-    const levelDetails = M3U8Parser.parseLevelPlaylist(
-      response.data,
-      url,
-      levelId,
-      levelType,
-      levelUrlId,
-    );
+    const levelDetails = M3U8Parser.parseLevelPlaylist(response.data, url, levelId, levelType, levelUrlId);
 
     // set stats on level structure
     // TODO(jstackhouse): why? mixing concerns, is it just treated as value bag?

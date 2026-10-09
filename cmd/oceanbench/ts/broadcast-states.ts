@@ -88,26 +88,14 @@ export class BroadcastStates extends TailwindElement() {
       <div class="flex gap-2 relative mb-8">
         <!--Failure badge-->
         <div class="${!this.config.InFailure ? "hidden" : "flex"} ">
-          <div class="bg-red-400 rounded-full px-4 py-2 text-red-900 w-fit">
-            Failed
-          </div>
+          <div class="bg-red-400 rounded-full px-4 py-2 text-red-900 w-fit">Failed</div>
         </div>
 
         <div class="relative flex w-full">
           <!--Progress Bar-->
-          <div
-            class="flex h-2 w-full content-center overflow-hidden rounded-full mt-1.5"
-          >
-            <div
-              class="h-full bg-green-600 ease-out transition-all"
-              style="width: ${this.progress}%"
-            ></div>
-            <div
-              class="h-full ${this.progress == 84
-                ? "bg-red-600"
-                : "bg-slate-600"} ease-out transition-all"
-              style="width: ${100 - this.progress}%"
-            ></div>
+          <div class="flex h-2 w-full content-center overflow-hidden rounded-full mt-1.5">
+            <div class="h-full bg-green-600 ease-out transition-all" style="width: ${this.progress}%"></div>
+            <div class="h-full ${this.progress == 84 ? "bg-red-600" : "bg-slate-600"} ease-out transition-all" style="width: ${100 - this.progress}%"></div>
           </div>
 
           <!--Idle Milestone-->
@@ -117,39 +105,20 @@ export class BroadcastStates extends TailwindElement() {
           </div>
 
           <!--Starting Milestone-->
-          <div
-            class="absolute left-1/3 -translate-x-1/2 flex flex-col size-fit items-center w-0"
-          >
-            <div
-              class="h-5 w-5 rounded-full ${this.progress >=
-              progressMap[DirectState.STARTING]
-                ? "bg-green-600"
-                : "bg-slate-600"}"
-            ></div>
+          <div class="absolute left-1/3 -translate-x-1/2 flex flex-col size-fit items-center w-0">
+            <div class="h-5 w-5 rounded-full ${this.progress >= progressMap[DirectState.STARTING] ? "bg-green-600" : "bg-slate-600"}"></div>
             <label>Starting</label>
           </div>
 
           <!--Live Milestone-->
-          <div
-            class="absolute left-2/3 -translate-x-1/2 flex flex-col size-fit items-center"
-          >
-            <div
-              class="h-5 w-5 rounded-full ${this.progress >=
-              progressMap[DirectState.LIVE]
-                ? "bg-green-600"
-                : "bg-slate-600"}"
-            ></div>
+          <div class="absolute left-2/3 -translate-x-1/2 flex flex-col size-fit items-center">
+            <div class="h-5 w-5 rounded-full ${this.progress >= progressMap[DirectState.LIVE] ? "bg-green-600" : "bg-slate-600"}"></div>
             <label>Live</label>
           </div>
 
           <!--Live Unhealthy Milestone-->
           <div class="absolute right-0 flex flex-col size-fit items-end">
-            <div
-              class="h-5 w-5 rounded-full ${this.progress >=
-              progressMap[DirectState.UNHEALTHY]
-                ? "bg-red-600"
-                : "bg-slate-600"}"
-            ></div>
+            <div class="h-5 w-5 rounded-full ${this.progress >= progressMap[DirectState.UNHEALTHY] ? "bg-red-600" : "bg-slate-600"}"></div>
             <label>Unhealthy</label>
           </div>
         </div>
