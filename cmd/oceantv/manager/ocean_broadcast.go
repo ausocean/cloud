@@ -46,10 +46,13 @@ const locationID = "Australia/Adelaide" // TODO: Use site location (remove dupli
 // OceanBroadcast is an implementation of BroadcastManager with
 // a particular focus around ocean broadcasts and AusOcean's infrastructure.
 type OceanBroadcast struct {
-	hst   broadcasthost.Host
-	log   func(string, ...interface{})
-	cfg   *broadcast.Config
-	store datastore.Store
+	hst            broadcasthost.Host
+	log            func(string, ...interface{})
+	cfg            *broadcast.Config
+	store          datastore.Store
+	crons          CronManager
+	cronParent     *broadcast.Config
+	syncCronOnSave bool
 
 	// TODO: remove these once setVar and broadcastByName can be imported.
 	setVar          func(ctx context.Context, store datastore.Store, name, value string, sKey int64, log func(string, ...interface{})) error
@@ -71,8 +74,13 @@ func NewOceanBroadcast(
 		log func(string, ...interface{}),
 	) error,
 	broadcastByName func(sKey int64, name string) (*broadcast.Config, error),
+	opts ...Option,
 ) *OceanBroadcast {
-	return &OceanBroadcast{hst: svc, cfg: cfg, store: store, log: log, setVar: setVar, broadcastByName: broadcastByName}
+	m := &OceanBroadcast{hst: svc, cfg: cfg, store: store, log: log, setVar: setVar, broadcastByName: broadcastByName}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
 }
 
 func (m *OceanBroadcast) CreateBroadcast(ctx context.Context) error {
@@ -227,6 +235,38 @@ func (m *OceanBroadcast) Save(ctx context.Context, update func(_cfg *broadcast.C
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	needsCron := update == nil || m.syncCronOnSave
+	apply := func(cfg *broadcast.Config) {
+		wasEnabled, wasUUID := cfg.Enabled, cfg.UUID
+		if update == nil {
+			*cfg = *m.cfg
+		} else {
+			update(cfg)
+		}
+		needsCron = needsCron || wasUUID == "" || wasEnabled != cfg.Enabled
+	}
+	if err := m.saveConfig(ctx, apply); err != nil {
+		return fmt.Errorf("could not save broadcast %s configuration: %w", m.cfg.Name, err)
+	}
+	if m.crons != nil && needsCron {
+		if m.cronParent != nil {
+			if err := m.crons.SyncSecondary(ctx, m.cronParent, m.cfg); err != nil {
+				return fmt.Errorf("could not sync secondary broadcast %s cron: %w", m.cfg.UUID, err)
+			}
+			return nil
+		}
+		if err := m.crons.Sync(ctx, m.cfg); err != nil {
+			return fmt.Errorf("could not sync broadcast %s cron: %w", m.cfg.UUID, err)
+		}
+		return nil
+	}
+	return nil
+}
+
+func (m *OceanBroadcast) saveConfig(ctx context.Context, update func(_cfg *broadcast.Config)) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	_update := func(_cfg *broadcast.Config) { *_cfg = *m.cfg }
 	if update != nil {
 		_update = func(_cfg *broadcast.Config) {
@@ -248,8 +288,9 @@ func (m *OceanBroadcast) Save(ctx context.Context, update func(_cfg *broadcast.C
 	origUpdate := _update
 
 	_update = func(_cfg *broadcast.Config) {
-		_cfg.UUID = uuid.NewString()
 		origUpdate(_cfg)
+		_cfg.UUID = uuid.NewString()
+		*m.cfg = *_cfg
 	}
 
 	err := broadcast.UpdateConfigWithTransaction(ctx, m.store, m.cfg.SKey, m.cfg.Name, _update)
@@ -438,9 +479,24 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context) error {
 	case errors.Is(err, broadcast.ErrBroadcastNotFound{}):
 		secondaryCfg := *m.cfg
 		populateFields(&secondaryCfg)
+		secondaryCfg.UUID = uuid.NewString()
+		secondaryCfg.BID, secondaryCfg.SID, secondaryCfg.CID, secondaryCfg.RTMPKey, secondaryCfg.AuthKey = "", "", "", "", ""
+		secondaryCfg.BroadcastState = "vidforwardSecondaryIdle"
+		secondaryCfg.StateData = nil
+		secondaryCfg.Active, secondaryCfg.Slate, secondaryCfg.AttemptingToStart = false, false, false
+		secondaryCfg.Unhealthy, secondaryCfg.Transitioning, secondaryCfg.InFailure = false, false, false
+		secondaryCfg.HardwareState = "hardwareOff"
+		secondaryCfg.HardwareStateData = nil
+		if secondaryCfg.StorageConfig != nil {
+			storageCfg := *secondaryCfg.StorageConfig
+			storageCfg.Prefix = ""
+			secondaryCfg.StorageConfig = &storageCfg
+		}
 
 		// Create a temporary OceanBroadcastManager for the secondary broadcast and create it (no update func required).
-		err = NewOceanBroadcast(nil, &secondaryCfg, m.store, m.log, m.setVar, m.broadcastByName).Save(ctx, nil)
+		secondaryMan := NewOceanBroadcast(nil, &secondaryCfg, m.store, m.log, m.setVar, m.broadcastByName, WithCronManager(m.crons))
+		secondaryMan.cronParent = m.cfg
+		err = secondaryMan.Save(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("could not save secondary broadcast: %w", err)
 		}
@@ -450,7 +506,9 @@ func (m *OceanBroadcast) SetupSecondary(ctx context.Context) error {
 	// Broadcast found so we need to update it with a transaction.
 	default:
 		// Create a temporary OceanBroadcastManager for the secondary broadcast and update it.
-		err = NewOceanBroadcast(nil, secondary, m.store, m.log, m.setVar, m.broadcastByName).Save(ctx, populateFields)
+		secondaryMan := NewOceanBroadcast(nil, secondary, m.store, m.log, m.setVar, m.broadcastByName, WithCronManager(m.crons))
+		secondaryMan.cronParent = m.cfg
+		err = secondaryMan.Save(ctx, populateFields)
 		if err != nil {
 			return fmt.Errorf("could not update secondary broadcast: %w", err)
 		}
