@@ -35,16 +35,12 @@ export function updatePTS(fragments, fromIdx, toIdx) {
     if (toIdx > fromIdx) {
       fragFrom.duration = fragToPTS - fragFrom.start;
       if (fragFrom.duration < 0) {
-        console.warn(
-          `negative duration computed for frag ${fragFrom.sn},level ${fragFrom.level}, there should be some duration drift between playlist and fragment!`,
-        );
+        console.warn(`negative duration computed for frag ${fragFrom.sn},level ${fragFrom.level}, there should be some duration drift between playlist and fragment!`);
       }
     } else {
       fragTo.duration = fragFrom.start - fragToPTS;
       if (fragTo.duration < 0) {
-        console.warn(
-          `negative duration computed for frag ${fragTo.sn},level ${fragTo.level}, there should be some duration drift between playlist and fragment!`,
-        );
+        console.warn(`negative duration computed for frag ${fragTo.sn},level ${fragTo.level}, there should be some duration drift between playlist and fragment!`);
       }
     }
   } else {
@@ -57,14 +53,7 @@ export function updatePTS(fragments, fromIdx, toIdx) {
   }
 }
 
-export function updateFragPTSDTS(
-  details,
-  frag,
-  startPTS,
-  endPTS,
-  startDTS,
-  endDTS,
-) {
+export function updateFragPTSDTS(details, frag, startPTS, endPTS, startDTS, endDTS) {
   // update frag PTS/DTS
   let maxStartPTS = startPTS;
   if (Number.isFinite(frag.startPTS)) {
@@ -158,14 +147,7 @@ export function mergeDetails(oldDetails, newDetails) {
 
   // if at least one fragment contains PTS info, recompute PTS information for all fragments
   if (PTSFrag) {
-    updateFragPTSDTS(
-      newDetails,
-      PTSFrag,
-      PTSFrag.startPTS,
-      PTSFrag.endPTS,
-      PTSFrag.startDTS,
-      PTSFrag.endDTS,
-    );
+    updateFragPTSDTS(newDetails, PTSFrag, PTSFrag.startPTS, PTSFrag.endPTS, PTSFrag.startDTS, PTSFrag.endDTS);
   } else {
     // ensure that delta is within oldFragments range
     // also adjust sliding in case delta is 0 (we could have old=[50-60] and new=old=[50-61])
@@ -177,20 +159,12 @@ export function mergeDetails(oldDetails, newDetails) {
   newDetails.PTSKnown = oldDetails.PTSKnown;
 }
 
-export function mergeSubtitlePlaylists(
-  oldPlaylist,
-  newPlaylist,
-  referenceStart = 0,
-) {
+export function mergeSubtitlePlaylists(oldPlaylist, newPlaylist, referenceStart = 0) {
   let lastIndex = -1;
-  mapFragmentIntersection(
-    oldPlaylist,
-    newPlaylist,
-    (oldFrag, newFrag, index) => {
-      newFrag.start = oldFrag.start;
-      lastIndex = index;
-    },
-  );
+  mapFragmentIntersection(oldPlaylist, newPlaylist, (oldFrag, newFrag, index) => {
+    newFrag.start = oldFrag.start;
+    lastIndex = index;
+  });
 
   const frags = newPlaylist.fragments;
   if (lastIndex < 0) {
@@ -205,19 +179,13 @@ export function mergeSubtitlePlaylists(
   }
 }
 
-export function mapFragmentIntersection(
-  oldPlaylist,
-  newPlaylist,
-  intersectionFn,
-) {
+export function mapFragmentIntersection(oldPlaylist, newPlaylist, intersectionFn) {
   if (!oldPlaylist || !newPlaylist) {
     return;
   }
 
-  const start =
-    Math.max(oldPlaylist.startSN, newPlaylist.startSN) - newPlaylist.startSN;
-  const end =
-    Math.min(oldPlaylist.endSN, newPlaylist.endSN) - newPlaylist.startSN;
+  const start = Math.max(oldPlaylist.startSN, newPlaylist.startSN) - newPlaylist.startSN;
+  const end = Math.min(oldPlaylist.endSN, newPlaylist.endSN) - newPlaylist.startSN;
   const delta = newPlaylist.startSN - oldPlaylist.startSN;
 
   for (let i = start; i <= end; i++) {
@@ -243,16 +211,8 @@ export function adjustSliding(oldPlaylist, newPlaylist) {
   }
 }
 
-export function computeReloadInterval(
-  currentPlaylist,
-  newPlaylist,
-  lastRequestTime,
-) {
-  let reloadInterval =
-    1000 *
-    (newPlaylist.averagetargetduration
-      ? newPlaylist.averagetargetduration
-      : newPlaylist.targetduration);
+export function computeReloadInterval(currentPlaylist, newPlaylist, lastRequestTime) {
+  let reloadInterval = 1000 * (newPlaylist.averagetargetduration ? newPlaylist.averagetargetduration : newPlaylist.targetduration);
   const minReloadInterval = reloadInterval / 2;
   if (currentPlaylist && newPlaylist.endSN === currentPlaylist.endSN) {
     // follow HLS Spec, If the client reloads a Playlist file and finds that it has not
@@ -262,10 +222,7 @@ export function computeReloadInterval(
   }
 
   if (lastRequestTime) {
-    reloadInterval = Math.max(
-      minReloadInterval,
-      reloadInterval - (window.performance.now() - lastRequestTime),
-    );
+    reloadInterval = Math.max(minReloadInterval, reloadInterval - (window.performance.now() - lastRequestTime));
   }
   // in any case, don't reload more than half of target duration
   return Math.round(reloadInterval);

@@ -53,11 +53,7 @@ export class DeviceLogs extends TailwindElement() {
     }
     return html`
       <h2 class="font-bold text-2xl mt-8">Logs</h2>
-      <div
-        class="w-full border-slate-200 rounded-md bg-white border border-solid p-6 max-h-96 overflow-y-auto"
-      >
-        ${this.logs.map((log) => this.renderLog(log))} ${this.newLogForm()}
-      </div>
+      <div class="w-full border-slate-200 rounded-md bg-white border border-solid p-6 max-h-96 overflow-y-auto">${this.logs.map((log) => this.renderLog(log))} ${this.newLogForm()}</div>
     `;
   }
 
@@ -65,9 +61,7 @@ export class DeviceLogs extends TailwindElement() {
   renderLog(log: Log) {
     return html`
       <div class="grid gap-4 grid-cols-6 border-b border-slate-200 py-2">
-        <span class="text-slate-700 col-span-1 text-right font-mono"
-          >${this.dateFmt.format(new Date(log.Created))}</span
-        >
+        <span class="text-slate-700 col-span-1 text-right font-mono">${this.dateFmt.format(new Date(log.Created))}</span>
         <span class="text-slate-900 col-span-5 font-mono">${log.Note}</span>
       </div>
     `;

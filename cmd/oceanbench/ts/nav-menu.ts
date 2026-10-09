@@ -81,9 +81,7 @@ export class NavMenu extends LitElement {
     super.connectedCallback();
     document.addEventListener("click", (e) => {
       if (!this.contains(e.target as Node)) {
-        const menu = this.shadowRoot?.querySelector(
-          "#menu",
-        ) as HTMLUListElement;
+        const menu = this.shadowRoot?.querySelector("#menu") as HTMLUListElement;
         if (menu.className == "") {
           return;
         }

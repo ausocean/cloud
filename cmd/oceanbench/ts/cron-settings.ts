@@ -83,9 +83,7 @@ export class CronSettings extends TailwindElement() {
         throw await resp.text();
       })
       .then((data) => {
-        this.devMap = new Map(
-          data.map((d: SiteDevice) => [d.Mac.toString(16), d]),
-        );
+        this.devMap = new Map(data.map((d: SiteDevice) => [d.Mac.toString(16), d]));
         this.requestUpdate();
       })
       .catch((err) => {
@@ -96,59 +94,28 @@ export class CronSettings extends TailwindElement() {
   override render() {
     return html`
       <div class="flex gap-1 flex-col mb-8">
-        <div
-          class="flex-col md:grid md:grid-cols-5 min-h-7 md:gap-x-2 md:gap-y-1 gap-1 flex"
-        >
+        <div class="flex-col md:grid md:grid-cols-5 min-h-7 md:gap-x-2 md:gap-y-1 gap-1 flex">
           <div class="flex gap-2 w-full">
-            <input
-              @change="${this.updateEnabled}"
-              type="checkbox"
-              ?checked=${this.Enabled}
-              class="accent-primary"
-            />
-            <input
-              @change="${this.updateID}"
-              type="text"
-              value="${this.ID}"
-              class="font-mono font-black text-lg hover:bg-slate-200"
-              placeholder="Cron Name"
-            />
+            <input @change="${this.updateEnabled}" type="checkbox" ?checked=${this.Enabled} class="accent-primary" />
+            <input @change="${this.updateID}" type="text" value="${this.ID}" class="font-mono font-black text-lg hover:bg-slate-200" placeholder="Cron Name" />
           </div>
 
           <div class="flex gap-2 col-span-2">
             <label class="w-20 shrink-0">Time:</label>
-            <input
-              @change="${this.updateTime}"
-              type="text"
-              value="${this.Time}"
-              class="w-full border-solid border rounded-md border-slate-400 px-2"
-            />
+            <input @change="${this.updateTime}" type="text" value="${this.Time}" class="w-full border-solid border rounded-md border-slate-400 px-2" />
           </div>
 
           <div class="flex gap-2 col-span-2">
             <label class="w-20 shrink-0">Action:</label>
-            <select
-              @input="${this.updateAction}"
-              class="border-solid border rounded-md border-slate-400 px-2 w-full"
-            >
+            <select @input="${this.updateAction}" class="border-solid border rounded-md border-slate-400 px-2 w-full">
               <option ?selected="${this.Action == "set"}">set</option>
               <option ?selected="${this.Action == "del"}">del</option>
               <option ?selected="${this.Action == "call"}">call</option>
               <option ?selected="${this.Action == "rpc"}">rpc</option>
               <option ?selected="${this.Action == "email"}">email</option>
             </select>
-            <button
-              @click="${this.submitCron}"
-              class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md hidden md:flex"
-            >
-              ${this.saveButtonText}
-            </button>
-            <button
-              @click="${this.deleteCron}"
-              class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md hidden md:flex"
-            >
-              ${this.deleteButtonText}
-            </button>
+            <button @click="${this.submitCron}" class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md hidden md:flex">${this.saveButtonText}</button>
+            <button @click="${this.deleteCron}" class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md hidden md:flex">${this.deleteButtonText}</button>
           </div>
 
           <div></div>
@@ -160,27 +127,12 @@ export class CronSettings extends TailwindElement() {
 
           <div class="flex gap-2 col-span-2">
             <label class="w-20 shrink-0">Value:</label>
-            <input
-              @change="${this.updateValue}"
-              type="text"
-              value="${this.Value}"
-              class="w-full border-solid border rounded-md border-slate-400 px-2"
-            />
+            <input @change="${this.updateValue}" type="text" value="${this.Value}" class="w-full border-solid border rounded-md border-slate-400 px-2" />
           </div>
         </div>
         <div class="flex gap-2 justify-end w-full">
-          <button
-            @click="${this.submitCron}"
-            class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex"
-          >
-            ${this.saveButtonText}
-          </button>
-          <button
-            @click="${this.deleteCron}"
-            class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md md:hidden flex"
-          >
-            ${this.deleteButtonText}
-          </button>
+          <button @click="${this.submitCron}" class="w-fit h-7 px-3 whitespace-nowrap bg-primary hover:bg-primary-hover text-white rounded-md md:hidden flex">${this.saveButtonText}</button>
+          <button @click="${this.deleteCron}" class="w-fit h-7 px-3 whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-md md:hidden flex">${this.deleteButtonText}</button>
         </div>
       </div>
     `;
@@ -272,73 +224,37 @@ export class CronSettings extends TailwindElement() {
         console.log("variable:", this.Variable);
         return html`
           <div class="flex items-center gap-1 w-full min-h-7">
-            <select
-              @change="${this.updateEndpoint}"
-              class="h-7 border-solid border rounded-md border-slate-400 px-1"
-            >
+            <select @change="${this.updateEndpoint}" class="h-7 border-solid border rounded-md border-slate-400 px-1">
               <option value="other">other</option>
-              <option
-                value="https://oceantv.appspot.com/checkbroadcasts"
-                ?selected="${this.Variable == prodEndpoint}"
-              >
-                PROD
-              </option>
-              <option
-                value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts"
-                ?selected="${this.Variable == devEndpoint}"
-              >
-                DEV
-              </option>
+              <option value="https://oceantv.appspot.com/checkbroadcasts" ?selected="${this.Variable == prodEndpoint}">PROD</option>
+              <option value="https://dev-dot-oceantv.ts.r.appspot.com/checkbroadcasts" ?selected="${this.Variable == devEndpoint}">DEV</option>
             </select>
-            <input
-              @change="${this.updateEndpoint}"
-              type="text"
-              id="endpoint-input"
-              value="${this.Variable}"
-              class="h-7 border-solid border rounded-md border-slate-400 px-2 w-full"
-            />
+            <input @change="${this.updateEndpoint}" type="text" id="endpoint-input" value="${this.Variable}" class="h-7 border-solid border rounded-md border-slate-400 px-2 w-full" />
           </div>
         `;
       case "set":
         if (this.devMap.size == 0 || this.siteVars.length == 0) {
           return html`
-            <input
-              type="text"
-              readonly
-              value="loading..."
-              class="w-full h-7 border-solid border rounded-md border-slate-400 animate-pulse px-2"
-            />
+            <input type="text" readonly value="loading..." class="w-full h-7 border-solid border rounded-md border-slate-400 animate-pulse px-2" />
           `;
         }
         console.log("devmap:", this.devMap);
         return html`
-          <select
-            @change="${this.updateVariable}"
-            class="w-full h-7 border-solid border rounded-md border-slate-400 px-2"
-          >
+          <select @change="${this.updateVariable}" class="w-full h-7 border-solid border rounded-md border-slate-400 px-2">
             <option value="">-- Select a Variable --</option>
             ${this.siteVars.map((v) => {
               let parts = v.Name.split(".");
               let dev = this.devMap.get(parts[0]);
 
               return html`
-                <option
-                  value="${v.Name}"
-                  ?selected="${this.Variable === v.Name}"
-                >
-                  ${dev?.Name + "." + parts[1]}
-                </option>
+                <option value="${v.Name}" ?selected="${this.Variable === v.Name}">${dev?.Name + "." + parts[1]}</option>
               `;
             })}
           </select>
         `;
       default:
         return html`
-          <input
-            type="text"
-            .value="${this.Variable}"
-            class="w-full min-w-0 h-7 basis-0 grow border-solid border rounded-md border-slate-400 px-2"
-          />
+          <input type="text" .value="${this.Variable}" class="w-full min-w-0 h-7 basis-0 grow border-solid border rounded-md border-slate-400 px-2" />
         `;
     }
   }
@@ -347,9 +263,7 @@ export class CronSettings extends TailwindElement() {
     const select = e.target as HTMLSelectElement;
     this.Variable = select.value;
     if (this.Variable === "other") {
-      let input = this.shadowRoot?.querySelector(
-        "#other-input",
-      ) as HTMLInputElement;
+      let input = this.shadowRoot?.querySelector("#other-input") as HTMLInputElement;
       if (!input) {
         return;
       }

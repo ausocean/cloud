@@ -138,14 +138,8 @@ export default class Fragment {
         // We are fetching decryption data for a initialization segment
         // If the segment was encrypted with AES-128
         // It must have an IV defined. We cannot substitute the Segment Number in.
-        if (
-          this.levelkey &&
-          this.levelkey.method === "AES-128" &&
-          !this.levelkey.iv
-        ) {
-          console.warn(
-            `missing IV for initialization segment with method="${this.levelkey.method}" - compliance issue`,
-          );
+        if (this.levelkey && this.levelkey.method === "AES-128" && !this.levelkey.iv) {
+          console.warn(`missing IV for initialization segment with method="${this.levelkey.method}" - compliance issue`);
         }
 
         /*
@@ -178,11 +172,7 @@ export default class Fragment {
   }
 
   get encrypted() {
-    return !!(
-      this.decryptdata &&
-      this.decryptdata.uri !== null &&
-      this.decryptdata.key === null
-    );
+    return !!(this.decryptdata && this.decryptdata.uri !== null && this.decryptdata.key === null);
   }
 
   /**

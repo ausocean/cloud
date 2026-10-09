@@ -2,27 +2,17 @@ var advancedOpts;
 var adv = false;
 
 let camSelect, controllerSelect;
-let prevCamOn,
-  prevCamShutdown,
-  prevCamOff,
-  prevControllerOn,
-  prevControllerOff,
-  prevURL;
+let prevCamOn, prevCamShutdown, prevCamOff, prevControllerOn, prevControllerOff, prevURL;
 
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("time-zone").value = getTimezone();
   const startTimestamp = document.getElementById("start-timestamp").value;
   const endTimestamp = document.getElementById("end-timestamp").value;
-  const sensorList = JSON.parse(
-    document.getElementById("sensor-list").dataset.sensorList,
-  );
-  const sendMsg =
-    document.getElementById("send-msg").dataset.sendMsg === "true";
+  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
+  const sendMsg = document.getElementById("send-msg").dataset.sendMsg === "true";
 
-  if (startTimestamp)
-    syncDateTime("start-time", "start-timestamp", "time-zone", false);
-  if (endTimestamp)
-    syncDateTime("end-time", "end-timestamp", "time-zone", false);
+  if (startTimestamp) syncDateTime("start-time", "start-timestamp", "time-zone", false);
+  if (endTimestamp) syncDateTime("end-time", "end-timestamp", "time-zone", false);
 
   if (sensorList) {
     sensorList.forEach((sensor) => {
@@ -47,9 +37,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   advancedOpts = document.getElementsByClassName("advanced");
   for (opt of advancedOpts) {
-    adv
-      ? (document.getElementById("adv-options-toggle").checked = true)
-      : (opt.style.display = "none");
+    adv ? (document.getElementById("adv-options-toggle").checked = true) : (opt.style.display = "none");
   }
 
   camSelect = document.getElementById("camera-select");
@@ -86,9 +74,7 @@ function generateActions(e) {
     const controllerBase = macToID(controller);
     onActions.push({ name: `${controllerBase}.Power2`, value: "true" });
     offActions.push({ name: `${controllerBase}.Power2`, value: "false" });
-    console.log(
-      `Generated controller actions for ${controller} → ${controllerBase}`,
-    );
+    console.log(`Generated controller actions for ${controller} → ${controllerBase}`);
   }
 
   if (camSelected) {
@@ -117,9 +103,7 @@ function macToID(mac) {
 }
 
 function checkAll(form) {
-  const sensorList = JSON.parse(
-    document.getElementById("sensor-list").dataset.sensorList,
-  );
+  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
   sensorList.forEach((sensor) => {
     form.querySelector(`input[id='${sensor.Name}']`).checked = true;
   });
@@ -127,9 +111,7 @@ function checkAll(form) {
 }
 
 function uncheckAll(form) {
-  const sensorList = JSON.parse(
-    document.getElementById("sensor-list").dataset.sensorList,
-  );
+  const sensorList = JSON.parse(document.getElementById("sensor-list").dataset.sensorList);
   sensorList.forEach((sensor) => {
     form.querySelector(`input[id='${sensor.Name}']`).checked = false;
   });
@@ -144,13 +126,10 @@ function buttonClick(button) {
 
 function toggleAdvanced(checked) {
   for (opt of advancedOpts) {
-    checked
-      ? opt.style.removeProperty("display")
-      : (opt.style.display = "none");
+    checked ? opt.style.removeProperty("display") : (opt.style.display = "none");
   }
 
-  document.cookie =
-    (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
+  document.cookie = (checked ? "advanced=on;" : "advanced=off;") + " path=/admin/broadcast";
 }
 
 // Maps UUIDs to broadcast names to prevent unnecessary requests.
@@ -287,9 +266,7 @@ function populateForm(data) {
   };
 
   for (const [name, val] of Object.entries(mapping)) {
-    const el = document.querySelector(
-      `input[name="${name}"], textarea[name="${name}"]`,
-    );
+    const el = document.querySelector(`input[name="${name}"], textarea[name="${name}"]`);
     if (el) el.value = val !== undefined && val !== null ? val : "";
   }
 
@@ -331,36 +308,22 @@ function populateForm(data) {
 
   // Radio buttons
   if (data.LivePrivacy) {
-    const el = document.querySelector(
-      `input[name="live-privacy"][value="${data.LivePrivacy}"]`,
-    );
+    const el = document.querySelector(`input[name="live-privacy"][value="${data.LivePrivacy}"]`);
     if (el) el.checked = true;
   }
   if (data.PostLivePrivacy) {
-    const el = document.querySelector(
-      `input[name="post-live-privacy"][value="${data.PostLivePrivacy}"]`,
-    );
+    const el = document.querySelector(`input[name="post-live-privacy"][value="${data.PostLivePrivacy}"]`);
     if (el) el.checked = true;
   }
 
   // Selects
   const camSelect = document.getElementById("camera-select");
-  if (
-    camSelect &&
-    data.CameraMac !== undefined &&
-    data.CameraMac !== null &&
-    data.CameraMac !== 0
-  ) {
+  if (camSelect && data.CameraMac !== undefined && data.CameraMac !== null && data.CameraMac !== 0) {
     camSelect.value = formatMac(data.CameraMac);
   }
 
   const controllerSelect = document.getElementById("controller-select");
-  if (
-    controllerSelect &&
-    data.ControllerMAC !== undefined &&
-    data.ControllerMAC !== null &&
-    data.ControllerMAC !== 0
-  ) {
+  if (controllerSelect && data.ControllerMAC !== undefined && data.ControllerMAC !== null && data.ControllerMAC !== 0) {
     controllerSelect.value = formatMac(data.ControllerMAC);
   }
 
@@ -390,12 +353,10 @@ function populateForm(data) {
 
   // Synchronize time inputs
   if (data.StartTimestamp) {
-    if (typeof syncDateTime === "function")
-      syncDateTime("start-time", "start-timestamp", "time-zone", false);
+    if (typeof syncDateTime === "function") syncDateTime("start-time", "start-timestamp", "time-zone", false);
   }
   if (data.EndTimestamp) {
-    if (typeof syncDateTime === "function")
-      syncDateTime("end-time", "end-timestamp", "time-zone", false);
+    if (typeof syncDateTime === "function") syncDateTime("end-time", "end-timestamp", "time-zone", false);
   }
 
   // Update states element.
@@ -405,13 +366,11 @@ function populateForm(data) {
   // Check sensor config dynamically
   if (data.SensorList && Array.isArray(data.SensorList)) {
     // Uncheck all first
-    document
-      .querySelectorAll(`input[type="checkbox"].advanced`)
-      .forEach((el) => {
-        data.SensorList.forEach((sensor) => {
-          if (el.id === sensor.Name) el.checked = false;
-        });
+    document.querySelectorAll(`input[type="checkbox"].advanced`).forEach((el) => {
+      data.SensorList.forEach((sensor) => {
+        if (el.id === sensor.Name) el.checked = false;
       });
+    });
     // Check included
     data.SensorList.forEach((sensor) => {
       if (sensor.SendMsg) {

@@ -71,9 +71,7 @@ class StreamController extends EventHandler {
     const duration = newDetails.totalduration;
     let sliding = 0;
 
-    console.log(
-      `level ${newLevelId} loaded [${newDetails.startSN},${newDetails.endSN}],duration:${duration}`,
-    );
+    console.log(`level ${newLevelId} loaded [${newDetails.startSN},${newDetails.endSN}],duration:${duration}`);
 
     // override level info
     this.levelLastLoaded = newLevelId;
@@ -89,14 +87,10 @@ class StreamController extends EventHandler {
         let startTimeOffset = newDetails.startTimeOffset;
         if (Number.isFinite(startTimeOffset)) {
           if (startTimeOffset < 0) {
-            console.log(
-              `negative start time offset ${startTimeOffset}, count from end of last fragment`,
-            );
+            console.log(`negative start time offset ${startTimeOffset}, count from end of last fragment`);
             startTimeOffset = sliding + duration + startTimeOffset;
           }
-          console.log(
-            `start time offset found in playlist, adjust startPosition to ${startTimeOffset}`,
-          );
+          console.log(`start time offset found in playlist, adjust startPosition to ${startTimeOffset}`);
           this.startPosition = startTimeOffset;
         } else {
           // if live playlist, set start position to be fragment N-this.config.liveSyncDurationCount (usually 3)

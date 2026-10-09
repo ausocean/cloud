@@ -94,19 +94,9 @@ function draw() {
   fill(0);
   text("max depth:", 40, 40);
   text("max seas:", 40, 60);
-  text(
-    "suggested separation:                                                   " +
-      ss.toFixed(2),
-    40,
-    80,
-  );
+  text("suggested separation:                                                   " + ss.toFixed(2), 40, 80);
   text("override separation:", 40, 100);
-  text(
-    "mooring line length (with 0.5m slack):                           " +
-      l.toFixed(2),
-    40,
-    120,
-  );
+  text("mooring line length (with 0.5m slack):                           " + l.toFixed(2), 40, 120);
 
   // Scale.
   text("scale (pixel:meter): " + sc, winw - 350, 45);
@@ -147,10 +137,7 @@ function draw() {
   line(0, minSeaPos, winw, minSeaPos);
 
   noFill();
-  let waveRef =
-    maxSeaPos +
-    amplitude +
-    amplitude * sin((frequency * winw) / 2 + phaseShift);
+  let waveRef = maxSeaPos + amplitude + amplitude * sin((frequency * winw) / 2 + phaseShift);
   beginShape();
   for (let xx = 0; xx < winw; xx++) {
     let yy = amplitude * sin(frequency * xx + phaseShift);
@@ -165,74 +152,29 @@ function draw() {
   let pontoonw = 1.5;
   let pontoonh = 0.15;
   fill(255, 255, 255);
-  rect(
-    winw / 2 - (pontoonw / 2) * sc,
-    rigRef - (pontoonh / 2) * sc,
-    pontoonw * sc,
-    pontoonh * sc,
-  );
+  rect(winw / 2 - (pontoonw / 2) * sc, rigRef - (pontoonh / 2) * sc, pontoonw * sc, pontoonh * sc);
   let mastw = 0.09;
   let masth = 1;
   fill(250, 220, 100);
-  rect(
-    winw / 2 - (mastw * sc) / 2,
-    rigRef - masth * sc - (sc * pontoonh) / 2,
-    mastw * sc,
-    masth * sc,
-  );
+  rect(winw / 2 - (mastw * sc) / 2, rigRef - masth * sc - (sc * pontoonh) / 2, mastw * sc, masth * sc);
 
   // Screw Piles.
   pileh = 0.75;
-  line(
-    winw / 2 - a * sc - (w * sc) / 2,
-    winh - bedh,
-    winw / 2 - a * sc - (w * sc) / 2,
-    winh - bedh + pileh * sc,
-  );
-  line(
-    winw / 2 + a * sc + (w * sc) / 2,
-    winh - bedh,
-    winw / 2 + a * sc + (w * sc) / 2,
-    winh - bedh + pileh * sc,
-  );
+  line(winw / 2 - a * sc - (w * sc) / 2, winh - bedh, winw / 2 - a * sc - (w * sc) / 2, winh - bedh + pileh * sc);
+  line(winw / 2 + a * sc + (w * sc) / 2, winh - bedh, winw / 2 + a * sc + (w * sc) / 2, winh - bedh + pileh * sc);
 
   // Bridle bar.
   fill(100);
   let bridleh = 0.025;
-  rect(
-    winw / 2 - (w / 2) * sc,
-    rigRef + y * sc - (bridleh / 2) * sc,
-    w * sc,
-    bridleh * sc,
-  );
+  rect(winw / 2 - (w / 2) * sc, rigRef + y * sc - (bridleh / 2) * sc, w * sc, bridleh * sc);
 
   // Mooring lines.
-  line(
-    winw / 2 - a * sc - (w * sc) / 2,
-    winh - bedh,
-    winw / 2 - (w * sc) / 2,
-    rigRef + y * sc,
-  );
-  line(
-    winw / 2 + a * sc + (w * sc) / 2,
-    winh - bedh,
-    winw / 2 + (w * sc) / 2,
-    rigRef + y * sc,
-  );
+  line(winw / 2 - a * sc - (w * sc) / 2, winh - bedh, winw / 2 - (w * sc) / 2, rigRef + y * sc);
+  line(winw / 2 + a * sc + (w * sc) / 2, winh - bedh, winw / 2 + (w * sc) / 2, rigRef + y * sc);
 
   // Bridles.
-  line(
-    winw / 2 - (pontoonw * sc) / 2,
-    rigRef,
-    winw / 2 - (w * sc) / 2,
-    rigRef + y * sc,
-  );
-  line(
-    winw / 2 + (pontoonw * sc) / 2,
-    rigRef,
-    winw / 2 + (w * sc) / 2,
-    rigRef + y * sc,
-  );
+  line(winw / 2 - (pontoonw * sc) / 2, rigRef, winw / 2 - (w * sc) / 2, rigRef + y * sc);
+  line(winw / 2 + (pontoonw * sc) / 2, rigRef, winw / 2 + (w * sc) / 2, rigRef + y * sc);
 
   phaseShift += period;
 }
