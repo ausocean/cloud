@@ -79,11 +79,7 @@ class HeaderGroup extends LitElement {
           <slot name="nav-menu"></slot>
           <div id="top-bar">
             <a href="/${this.skey}"><h1 id="title">CloudBlue</h1></a>
-            <slot
-              @permission-change=${this._onPermissionChange}
-              id="site-menu"
-              name="site-menu"
-            ></slot>
+            <slot @permission-change=${this._onPermissionChange} id="site-menu" name="site-menu"></slot>
           </div>
           <a id="logout" href="${this.logoutURL}">Log out</a>
         `
@@ -105,13 +101,9 @@ class HeaderGroup extends LitElement {
   }
 
   private _applyPermission(permission: number) {
-    const slot = this.shadowRoot?.querySelector(
-      'slot[name="nav-menu"]',
-    ) as HTMLSlotElement;
+    const slot = this.shadowRoot?.querySelector('slot[name="nav-menu"]') as HTMLSlotElement;
     const elements = slot.assignedElements();
-    const nav = elements.find(
-      (element) => element.id === "nav-menu",
-    ) as NavMenu;
+    const nav = elements.find((element) => element.id === "nav-menu") as NavMenu;
     if (nav) {
       nav.setPerm(permission); // Apply permission to nav menu
     }

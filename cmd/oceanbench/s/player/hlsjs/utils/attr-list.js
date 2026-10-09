@@ -77,10 +77,7 @@ class AttrList {
       let value = match[2],
         quote = '"';
 
-      if (
-        value.indexOf(quote) === 0 &&
-        value.lastIndexOf(quote) === value.length - 1
-      ) {
+      if (value.indexOf(quote) === 0 && value.lastIndexOf(quote) === value.length - 1) {
         value = value.slice(1, -1);
       }
 

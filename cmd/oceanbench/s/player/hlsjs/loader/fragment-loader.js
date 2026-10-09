@@ -64,12 +64,7 @@ class FragmentLoader extends EventHandler {
       loader.abort();
     }
 
-    loader =
-      loaders[type] =
-      frag.loader =
-        config.fLoader
-          ? new FragmentILoader(config)
-          : new DefaultILoader(config);
+    loader = loaders[type] = frag.loader = config.fLoader ? new FragmentILoader(config) : new DefaultILoader(config);
 
     let loaderContext, loaderConfig, loaderCallbacks;
 

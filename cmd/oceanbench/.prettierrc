@@ -7,18 +7,20 @@
         "tabWidth": 2,
         "useTabs": false,
         "singleQuote": false,
-        "htmlWhitespaceSensitivity": "ignore"
+        "htmlWhitespaceSensitivity": "ignore",
+        "bracketSameLine": true
       }
     },
     {
-      "files": ["**/*.[js,ts]"],
+      "files": ["**/*.{js,ts,jsx,tsx}"],
       "options": {
         "printWidth": 2000,
         "tabWidth": 2,
         "useTabs": false,
         "singleQuote": false,
         "htmlWhitespaceSensitivity": "ignore",
-        "embeddedLanguageFormatting": "auto"
+        "embeddedLanguageFormatting": "auto",
+        "bracketSameLine": true
       }
     }
   ]

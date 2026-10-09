@@ -54,11 +54,7 @@ class EventHandler {
   onHandlerDestroyed() {}
 
   isEventHandler() {
-    return (
-      typeof this.handledEvents === "object" &&
-      this.handledEvents.length &&
-      typeof this.onEvent === "function"
-    );
+    return typeof this.handledEvents === "object" && this.handledEvents.length && typeof this.onEvent === "function";
   }
 
   registerListeners() {
@@ -92,9 +88,7 @@ class EventHandler {
     let eventToFunction = function (event, data) {
       let funcName = "on" + event.replace("hls", "");
       if (typeof this[funcName] !== "function") {
-        throw new Error(
-          `Event ${event} has no generic handler in this ${this.constructor.name} class (tried ${funcName})`,
-        );
+        throw new Error(`Event ${event} has no generic handler in this ${this.constructor.name} class (tried ${funcName})`);
       }
 
       return this[funcName].bind(this, data);
@@ -102,10 +96,7 @@ class EventHandler {
     try {
       eventToFunction.call(this, event, data).call();
     } catch (err) {
-      console.error(
-        `An internal error happened while handling event ${event}. Error message: "${err.message}". Here is a stacktrace:`,
-        err,
-      );
+      console.error(`An internal error happened while handling event ${event}. Error message: "${err.message}". Here is a stacktrace:`, err);
       this.hls.trigger(Event.ERROR, {
         type: ErrorTypes.OTHER_ERROR,
         details: ErrorDetails.INTERNAL_EXCEPTION,

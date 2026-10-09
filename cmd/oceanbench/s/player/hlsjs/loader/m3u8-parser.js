@@ -48,8 +48,7 @@ const LEVEL_PLAYLIST_REGEX_FAST = new RegExp(
   "g",
 );
 
-const LEVEL_PLAYLIST_REGEX_SLOW =
-  /(?:(?:#(EXTM3U))|(?:#EXT-X-(PLAYLIST-TYPE):(.+))|(?:#EXT-X-(MEDIA-SEQUENCE): *(\d+))|(?:#EXT-X-(TARGETDURATION): *(\d+))|(?:#EXT-X-(KEY):(.+))|(?:#EXT-X-(START):(.+))|(?:#EXT-X-(ENDLIST))|(?:#EXT-X-(DISCONTINUITY-SEQ)UENCE:(\d+))|(?:#EXT-X-(DIS)CONTINUITY))|(?:#EXT-X-(VERSION):(\d+))|(?:#EXT-X-(MAP):(.+))|(?:(#)([^:]*):(.*))|(?:(#)(.*))(?:.*)\r?\n?/;
+const LEVEL_PLAYLIST_REGEX_SLOW = /(?:(?:#(EXTM3U))|(?:#EXT-X-(PLAYLIST-TYPE):(.+))|(?:#EXT-X-(MEDIA-SEQUENCE): *(\d+))|(?:#EXT-X-(TARGETDURATION): *(\d+))|(?:#EXT-X-(KEY):(.+))|(?:#EXT-X-(START):(.+))|(?:#EXT-X-(ENDLIST))|(?:#EXT-X-(DISCONTINUITY-SEQ)UENCE:(\d+))|(?:#EXT-X-(DIS)CONTINUITY))|(?:#EXT-X-(VERSION):(\d+))|(?:#EXT-X-(MAP):(.+))|(?:(#)([^:]*):(.*))|(?:(#)(.*))(?:.*)\r?\n?/;
 
 const MP4_REGEX_SUFFIX = /\.(mp4|m4s|m4v|m4a)$/i;
 
@@ -91,13 +90,9 @@ export default class M3U8Parser {
         const filtered = codecs.filter((codec) => isCodecType(codec, type));
         if (filtered.length) {
           const preferred = filtered.filter((codec) => {
-            return (
-              codec.lastIndexOf("avc1", 0) === 0 ||
-              codec.lastIndexOf("mp4a", 0) === 0
-            );
+            return codec.lastIndexOf("avc1", 0) === 0 || codec.lastIndexOf("mp4a", 0) === 0;
           });
-          level[`${type}Codec`] =
-            preferred.length > 0 ? preferred[0] : filtered[0];
+          level[`${type}Codec`] = preferred.length > 0 ? preferred[0] : filtered[0];
 
           // remove from list
           codecs = codecs.filter((codec) => filtered.indexOf(codec) === -1);
@@ -120,9 +115,7 @@ export default class M3U8Parser {
         level.width = resolution.width;
         level.height = resolution.height;
       }
-      level.bitrate =
-        attrs.decimalInteger("AVERAGE-BANDWIDTH") ||
-        attrs.decimalInteger("BANDWIDTH");
+      level.bitrate = attrs.decimalInteger("AVERAGE-BANDWIDTH") || attrs.decimalInteger("BANDWIDTH");
       level.name = attrs.NAME;
 
       setCodecs([].concat((attrs.CODECS || "").split(/[ ,]+/)), level);
@@ -165,9 +158,7 @@ export default class M3U8Parser {
 
           // If we don't find the track signalled, lets use the first audio groups codec we have
           // Acting as a best guess
-          media.audioCodec = groupCodec
-            ? groupCodec.codec
-            : audioGroups[0].codec;
+          media.audioCodec = groupCodec ? groupCodec.codec : audioGroups[0].codec;
         }
 
         medias.push(media);
@@ -294,12 +285,7 @@ export default class M3U8Parser {
 
             if (decryptmethod) {
               levelkey = new LevelKey(baseurl, decrypturi);
-              if (
-                decrypturi &&
-                ["AES-128", "SAMPLE-AES", "SAMPLE-AES-CENC"].indexOf(
-                  decryptmethod,
-                ) >= 0
-              ) {
+              if (decrypturi && ["AES-128", "SAMPLE-AES", "SAMPLE-AES-CENC"].indexOf(decryptmethod) >= 0) {
                 levelkey.method = decryptmethod;
                 levelkey.key = null;
                 // Initialization Vector (IV)
@@ -310,8 +296,7 @@ export default class M3U8Parser {
           }
           case "START": {
             const startAttrs = new AttrList(value1);
-            const startTimeOffset =
-              startAttrs.decimalFloatingPoint("TIME-OFFSET");
+            const startTimeOffset = startAttrs.decimalFloatingPoint("TIME-OFFSET");
             // TIME-OFFSET can be 0
             if (Number.isFinite(startTimeOffset)) {
               level.startTimeOffset = startTimeOffset;
@@ -356,9 +341,7 @@ export default class M3U8Parser {
       // if the fragments are TS or MP4, except if we download them :/
       // but this is to be able to handle SIDX.
       if (level.fragments.every((frag) => MP4_REGEX_SUFFIX.test(frag.relurl))) {
-        console.warn(
-          "MP4 fragments found but no init segment (probably no MAP, incomplete M3U8), trying to fetch SIDX",
-        );
+        console.warn("MP4 fragments found but no init segment (probably no MAP, incomplete M3U8), trying to fetch SIDX");
 
         frag = new Fragment();
         frag.relurl = level.fragments[0].relurl;

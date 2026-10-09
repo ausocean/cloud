@@ -38,22 +38,10 @@ class SiteMenu extends TailwindElement() {
 
   override render() {
     return html`
-      <div
-        class="rounded-full py-2 px-4 text-slate-900 bg-slate-100 max-w-lg w-full box-border flex items-center gap-2"
-      >
-        <button @click="${this.setDefaultSite}" class="shrink-0">
-          ${this.defaultSkey == this.skey ? "★" : "☆"}
-        </button>
-        <select
-          id="select"
-          @change=${this.handleSiteChange}
-          class="box-border flex-1 truncate min-w-0 max-w-lg w-full"
-        >
-          <option id="loading">
-            ${this.selectedData && this.selectedData.includes(":")
-              ? this.selectedData.split(":")[1]
-              : "Loading Sites..."}
-          </option>
+      <div class="rounded-full py-2 px-4 text-slate-900 bg-slate-100 max-w-lg w-full box-border flex items-center gap-2">
+        <button @click="${this.setDefaultSite}" class="shrink-0">${this.defaultSkey == this.skey ? "★" : "☆"}</button>
+        <select id="select" @change=${this.handleSiteChange} class="box-border flex-1 truncate min-w-0 max-w-lg w-full">
+          <option id="loading">${this.selectedData && this.selectedData.includes(":") ? this.selectedData.split(":")[1] : "Loading Sites..."}</option>
           <optgroup style="display: none" id="read" label="Read"></optgroup>
           <optgroup style="display: none" id="write" label="Write"></optgroup>
           <optgroup style="display: none" id="admin" label="Admin"></optgroup>
@@ -82,18 +70,10 @@ class SiteMenu extends TailwindElement() {
 
   async loadSites() {
     var optGroups: HTMLOptGroupElement[] = [];
-    optGroups.push(
-      this.renderRoot.querySelector("#read")! as HTMLOptGroupElement,
-    );
-    optGroups.push(
-      this.renderRoot.querySelector("#write")! as HTMLOptGroupElement,
-    );
-    optGroups.push(
-      this.renderRoot.querySelector("#admin")! as HTMLOptGroupElement,
-    );
-    var loading = this.renderRoot.querySelector(
-      "#loading",
-    )! as HTMLOptionElement;
+    optGroups.push(this.renderRoot.querySelector("#read")! as HTMLOptGroupElement);
+    optGroups.push(this.renderRoot.querySelector("#write")! as HTMLOptGroupElement);
+    optGroups.push(this.renderRoot.querySelector("#admin")! as HTMLOptGroupElement);
+    var loading = this.renderRoot.querySelector("#loading")! as HTMLOptionElement;
 
     let r = new XMLHttpRequest();
     r.onreadystatechange = () => {
@@ -124,9 +104,7 @@ class SiteMenu extends TailwindElement() {
           opt.setAttribute("perm", site.Perm);
           if (site.Public) {
             opt.label += " (Public)";
-            opt.getAttribute("perm") == "0"
-              ? opt.setAttribute("perm", "1")
-              : null;
+            opt.getAttribute("perm") == "0" ? opt.setAttribute("perm", "1") : null;
           }
           switch (opt.getAttribute("perm")) {
             case "1":
@@ -145,9 +123,7 @@ class SiteMenu extends TailwindElement() {
           if (opts[i].length <= 0) {
             continue;
           }
-          opts[i].sort((a, b) =>
-            a.label.toLowerCase().localeCompare(b.label.toLowerCase()),
-          );
+          opts[i].sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
           optGroups[i].style.display = "block";
           opts[i].forEach((option) => {
             if (this.checkSelected(option, optGroups[i], this.selectedData)) {
@@ -251,9 +227,7 @@ class SiteMenu extends TailwindElement() {
     }
 
     if (selectedOpt.slot != this.selectedPerm) {
-      this.selectedPerm = selectedOpt.hasAttribute("perm")
-        ? selectedOpt.getAttribute("perm")!
-        : "0";
+      this.selectedPerm = selectedOpt.hasAttribute("perm") ? selectedOpt.getAttribute("perm")! : "0";
       console.log(this.selectedPerm);
       this.dispatchEvent(
         new CustomEvent("permission-change", {
@@ -267,18 +241,12 @@ class SiteMenu extends TailwindElement() {
 
   // checkSelected compares the option's key to the profile's selected site key.
   // If it's a match the option is selected.
-  checkSelected(
-    option: HTMLOptionElement,
-    optGroup: HTMLOptGroupElement,
-    data: string,
-  ): boolean {
+  checkSelected(option: HTMLOptionElement, optGroup: HTMLOptGroupElement, data: string): boolean {
     let key = Number(option.value);
     let s = data.split(":");
     option.selected = Number(s[0]) == key;
     if (option.selected) {
-      this.selectedPerm = option.hasAttribute("perm")
-        ? option.getAttribute("perm")!
-        : "0";
+      this.selectedPerm = option.hasAttribute("perm") ? option.getAttribute("perm")! : "0";
       console.log(this.selectedPerm);
       this.dispatchEvent(
         new CustomEvent("permission-change", {

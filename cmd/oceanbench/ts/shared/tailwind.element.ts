@@ -11,7 +11,5 @@ const tailwindStyles = unsafeCSS(globalStyles);
 
 export const TailwindElement = (style?: string) =>
   class extends LitElement {
-    static styles = style
-      ? [tailwindStyles, unsafeCSS(style)]
-      : [tailwindStyles];
+    static styles = style ? [tailwindStyles, unsafeCSS(style)] : [tailwindStyles];
   };

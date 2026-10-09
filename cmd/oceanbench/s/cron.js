@@ -24,8 +24,7 @@ async function init() {
       if (v.Name == element.value) {
         // If the values match, this means this is the currently selected var.
         // Edit the inner text rather creating a new option with the same value.
-        element.firstElementChild.innerText =
-          device.Name + "." + v.Name.split(".")[1];
+        element.firstElementChild.innerText = device.Name + "." + v.Name.split(".")[1];
         return;
       }
       let opt = document.createElement("option");

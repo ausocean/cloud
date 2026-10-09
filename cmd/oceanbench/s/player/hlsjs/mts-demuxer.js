@@ -56,11 +56,7 @@ class MTSDemuxer {
     const scanWindow = Math.min(maxScanWindow, data.length - 3 * 188);
     let i = 0;
     while (i < scanWindow) {
-      if (
-        data[i] === 0x47 &&
-        data[i + 188] === 0x47 &&
-        data[i + 2 * 188] === 0x47
-      ) {
+      if (data[i] === 0x47 && data[i + 188] === 0x47 && data[i + 2 * 188] === 0x47) {
         return i;
       } else {
         i++;
@@ -122,11 +118,7 @@ class MTSDemuxer {
         switch (pid) {
           case videoId:
             if (pusi) {
-              if (
-                videoData &&
-                (pes = parsePES(videoData)) &&
-                pes.pts !== undefined
-              ) {
+              if (videoData && (pes = parsePES(videoData)) && pes.pts !== undefined) {
                 videoTrack.data.push(pes.data);
                 // TODO: here pes contains data, pts, dts and len. Are all these needed?
               }
@@ -139,11 +131,7 @@ class MTSDemuxer {
             break;
           case audioId:
             if (pusi) {
-              if (
-                audioData &&
-                (pes = parsePES(audioData)) &&
-                pes.pts !== undefined
-              ) {
+              if (audioData && (pes = parsePES(audioData)) && pes.pts !== undefined) {
                 audioTrack.data.push(pes.data);
               }
               audioData = { data: [], size: 0 };
@@ -155,11 +143,7 @@ class MTSDemuxer {
             break;
           case id3Id:
             if (pusi) {
-              if (
-                id3Data &&
-                (pes = parsePES(id3Data)) &&
-                pes.pts !== undefined
-              ) {
+              if (id3Data && (pes = parsePES(id3Data)) && pes.pts !== undefined) {
                 id3Track.data.push(pes.data);
               }
               id3Data = { data: [], size: 0 };
