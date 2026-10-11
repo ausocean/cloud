@@ -55,6 +55,7 @@ export class BroadcastSettings extends TailwindElement() {
       console.error(`failed to fetch broadcasts for site (${this.skey}): ${e}`);
       this.failed = true;
       this.failureMsg = "Failed to fetch broadcasts for this site.";
+      this.loading = false;
       return;
     }
 
@@ -66,6 +67,7 @@ export class BroadcastSettings extends TailwindElement() {
       console.error(`failed to fetch devices for site (${this.skey}): ${e}`);
       this.failed = true;
       this.failureMsg = "Failed to fetch devices for this site.";
+      this.loading = false;
       return;
     }
 
@@ -75,6 +77,7 @@ export class BroadcastSettings extends TailwindElement() {
       console.error("unable to get variables for devices:", e);
       this.failed = true;
       this.failureMsg = "unable to get variables for devices.";
+      this.loading = false;
       return;
     }
 
