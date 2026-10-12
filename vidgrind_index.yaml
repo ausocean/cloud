@@ -8,7 +8,7 @@ indexes:
 - kind: MtsMediaV2
   properties:
   - name: BroadcastID
-  - name: Timestamp
+  - name: Date
 
 - kind: Text
   properties:
