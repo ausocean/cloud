@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "cronstrue": "^3.30.0",
+    "@videojs/hlsjs-video": "^10.0.1",
+    "@videojs/html": "^10.0.1",
     "es-dev-server": "^2.1.0",
     "lit": "^2.6.1",
     "mime": "^3.0.0",
