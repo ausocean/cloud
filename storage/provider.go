@@ -27,7 +27,13 @@ package storage
 import (
 	"context"
 	"time"
+
+	"gocloud.dev/blob"
 )
+
+// DefaultSignedURLExpiry is used by providers when a non-positive URL time
+// to live is supplied.
+const DefaultSignedURLExpiry = 12 * time.Hour
 
 type TempCredentials struct {
 	AccessKey    string
@@ -38,4 +44,13 @@ type TempCredentials struct {
 type Provider interface {
 	GenerateTempCredentials(ctx context.Context, ttl time.Duration, prefix string) (*TempCredentials, error)
 	GetBaseURL() string
+
+	// OpenBucket opens the named bucket using the provider's endpoint and
+	// credentials. The bucket is returned by pointer because it must not
+	// be copied.
+	OpenBucket(ctx context.Context, bucket string) (*blob.Bucket, error)
+
+	// SignURL returns a pre-signed GET URL for the object identified by
+	// rawURI. A non-positive ttl uses a provider-specific default.
+	SignURL(ctx context.Context, rawURI string, ttl time.Duration) (string, error)
 }
