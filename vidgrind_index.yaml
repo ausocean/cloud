@@ -5,6 +5,11 @@ indexes:
   - name: MID
   - name: Timestamp
 
+- kind: MtsMediaV2
+  properties:
+  - name: BroadcastID
+  - name: Timestamp
+
 - kind: Text
   properties:
   - name: MID
