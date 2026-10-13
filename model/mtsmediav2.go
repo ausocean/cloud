@@ -46,6 +46,7 @@ const maxMtsMediaV2 = 20000
 
 type MtsMediaV2 struct {
 	MID           int64     `json:"mid"`           // Media ID.
+	ClipID        string    `json:"clipID"`        // Unique clip identifier (e.g. a UUID), used as the entity key.
 	Geohash       string    `json:"geohash"`       // Geohash, if any.
 	Timestamp     int64     `json:"timestamp"`     // Timestamp (in seconds).
 	Duration      int64     `json:"duration"`      // Duration of the clip (in milliseconds).
@@ -64,13 +65,13 @@ func (mts *MtsMediaV2) Copy(dst datastore.Entity) (datastore.Entity, error) {
 }
 
 // mtsMediaV2Key returns a datastore key for a MtsMediaV2 entity.
-func mtsMediaV2Key(store datastore.Store, mid int64, timestamp int64) *datastore.Key {
-	return store.NameKey(typeMtsMediaV2, fmt.Sprintf("%d.%d", mid, timestamp))
+func mtsMediaV2Key(store datastore.Store, mid int64, clipID string) *datastore.Key {
+	return store.NameKey(typeMtsMediaV2, fmt.Sprintf("%d.%s", mid, clipID))
 }
 
 // CreateMtsMediaV2 creates a new MtsMediaV2 entity.
 func CreateMtsMediaV2(ctx context.Context, store datastore.Store, mts MtsMediaV2) (*MtsMediaV2, error) {
-	key := mtsMediaV2Key(store, mts.MID, mts.Timestamp)
+	key := mtsMediaV2Key(store, mts.MID, mts.ClipID)
 	mts.Date = time.Now()
 	err := store.Create(ctx, key, &mts)
 	if err != nil {
@@ -80,8 +81,8 @@ func CreateMtsMediaV2(ctx context.Context, store datastore.Store, mts MtsMediaV2
 }
 
 // GetMtsMediaV2 retrieves a MtsMediaV2 entity from the datastore.
-func GetMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, timestamp int64) (*MtsMediaV2, error) {
-	key := mtsMediaV2Key(store, mid, timestamp)
+func GetMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, clipID string) (*MtsMediaV2, error) {
+	key := mtsMediaV2Key(store, mid, clipID)
 	mts := &MtsMediaV2{}
 	err := store.Get(ctx, key, mts)
 	if err != nil {
@@ -91,8 +92,8 @@ func GetMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, timest
 }
 
 // DeleteMtsMediaV2 deletes a MtsMediaV2 entity from the datastore.
-func DeleteMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, timestamp int64) error {
-	key := mtsMediaV2Key(store, mid, timestamp)
+func DeleteMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, clipID string) error {
+	key := mtsMediaV2Key(store, mid, clipID)
 	err := store.Delete(ctx, key)
 	if err != nil {
 		return fmt.Errorf("failed to delete MtsMediaV2: %w", err)
@@ -115,7 +116,7 @@ func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadc
 	}
 
 	// NB: no key parts are declared because BroadcastID is an entity
-	// field, not part of the MtsMediaV2 key (which is "<mid>.<timestamp>").
+	// field, not part of the MtsMediaV2 key (which is "<mid>.<clipID>").
 	q := store.NewQuery(typeMtsMediaV2, false)
 	err := q.FilterField("BroadcastID", "=", broadcastID)
 	if err != nil {

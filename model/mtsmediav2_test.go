@@ -26,6 +26,8 @@ package model
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,24 +39,37 @@ const (
 	testBcv2BroadcastA = "broadcast-v2-a"
 	testBcv2BroadcastB = "broadcast-v2-b"
 	testBcv2MID        = int64(16)
+
+	testIdemMID         = int64(101)
+	testIdemTimestamp   = int64(1700000000)
+	testIdemClipID      = "clip-idempotent"
+	testIdemStorageURI  = "https://bucket.example/clip-idempotent.ts"
+	testIdemBroadcastID = "test-mtsmediav2-idempotent"
+
+	testGetMID         = int64(102)
+	testGetTimestamp   = int64(1700000001)
+	testGetClipID      = "clip-get"
+	testGetBroadcastID = "test-mtsmediav2-get"
 )
 
 // newMtsMediaV2 creates a new MtsMediaV2 entity, registering cleanup with t.
 // Its Date (used for ordering) is set to now by CreateMtsMediaV2.
 func newMtsMediaV2(t *testing.T, ctx context.Context, store datastore.Store, broadcastID string, mid, ts, pts int64) {
 	t.Helper()
+	clipID := fmt.Sprintf("clip-%d-%d", ts, pts)
 	_, err := CreateMtsMediaV2(ctx, store, MtsMediaV2{
 		MID:         mid,
+		ClipID:      clipID,
 		Timestamp:   ts,
 		PTS:         pts,
 		Duration:    2541,
-		StorageURI:  "https://example.com/bucket/" + broadcastID + "/segment.ts",
+		StorageURI:  fmt.Sprintf("https://example.com/bucket/%s/segment-%d.ts", broadcastID, ts),
 		BroadcastID: broadcastID,
 		Type:        "video/h264",
 	})
 	assert.NoError(t, err)
 	t.Cleanup(func() {
-		_ = DeleteMtsMediaV2(ctx, store, mid, ts)
+		_ = DeleteMtsMediaV2(ctx, store, mid, clipID)
 	})
 }
 
@@ -112,6 +127,90 @@ func TestGetMtsMediaV2ByBroadcast(t *testing.T) {
 				_, err := GetMtsMediaV2ByBroadcast(ctx, store, "", 0)
 				assert.Error(t, err)
 			})
+		})
+	}
+}
+
+// TestCreateMtsMediaV2Idempotent checks that creating an MtsMediaV2 entity for
+// a clip that has already been stored (same MID and ClipID) returns the
+// existing entity rather than creating a duplicate.
+func TestCreateMtsMediaV2Idempotent(t *testing.T) {
+	for _, kind := range storeKinds {
+		t.Run(kind, func(t *testing.T) {
+			ctx, store := setupStore(t, kind)
+
+			mid := testIdemMID
+			base := testIdemTimestamp
+			clipID := testIdemClipID
+			uri := testIdemStorageURI
+			broadcastID := testIdemBroadcastID
+			t.Cleanup(func() {
+				_ = DeleteMtsMediaV2(ctx, store, mid, clipID)
+			})
+
+			first, err := CreateMtsMediaV2(ctx, store, MtsMediaV2{
+				MID:         mid,
+				ClipID:      clipID,
+				Timestamp:   base,
+				StorageURI:  uri,
+				BroadcastID: broadcastID,
+				Duration:    2000,
+			})
+			assert.NoError(t, err)
+			assert.NotNil(t, first)
+
+			// A retry of the same clip, with a different receipt timestamp,
+			// must not create a duplicate.
+			_, err = CreateMtsMediaV2(ctx, store, MtsMediaV2{
+				MID:         mid,
+				ClipID:      clipID,
+				Timestamp:   base + 1,
+				StorageURI:  uri,
+				BroadcastID: broadcastID,
+				Duration:    2000,
+			})
+			assert.Error(t, err)
+
+			media, err := GetMtsMediaV2ByBroadcast(ctx, store, broadcastID, 0)
+			assert.NoError(t, err)
+			assert.Len(t, media, 1, "expected exactly one entity for the clip")
+		})
+	}
+}
+
+// TestGetMtsMediaV2 checks that an entity can be retrieved by its clip ID and
+// that a missing clip returns ErrNoSuchEntity.
+func TestGetMtsMediaV2(t *testing.T) {
+	for _, kind := range storeKinds {
+		t.Run(kind, func(t *testing.T) {
+			ctx, store := setupStore(t, kind)
+
+			mid := testGetMID
+			base := testGetTimestamp
+			clipID := testGetClipID
+			t.Cleanup(func() {
+				_ = DeleteMtsMediaV2(ctx, store, mid, clipID)
+			})
+
+			want := MtsMediaV2{
+				MID:         mid,
+				ClipID:      clipID,
+				Timestamp:   base,
+				StorageURI:  "https://bucket.example/clip-get.ts",
+				BroadcastID: testGetBroadcastID,
+				Duration:    2000,
+			}
+			_, err := CreateMtsMediaV2(ctx, store, want)
+			assert.NoError(t, err)
+
+			got, err := GetMtsMediaV2(ctx, store, mid, clipID)
+			assert.NoError(t, err)
+			assert.Equal(t, want.ClipID, got.ClipID)
+			assert.Equal(t, want.MID, got.MID)
+			assert.Equal(t, want.StorageURI, got.StorageURI)
+
+			_, err = GetMtsMediaV2(ctx, store, mid, "no-such-clip")
+			assert.True(t, errors.Is(err, datastore.ErrNoSuchEntity), "expected ErrNoSuchEntity, got %v", err)
 		})
 	}
 }
