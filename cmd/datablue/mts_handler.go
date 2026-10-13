@@ -24,6 +24,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -236,6 +237,10 @@ func mtsHandlerV2(w http.ResponseWriter, r *http.Request) {
 		mtsMedia.Timestamp = timestamp
 		_, err = model.CreateMtsMediaV2(ctx, mediaStore, mtsMedia)
 		if err != nil {
+			if errors.Is(err, datastore.ErrEntityExists) {
+				log.Printf("clip %s already exists, skipping", mtsMedia.ClipID)
+				continue
+			}
 			log.Printf("could not write MTS media: %v", err)
 			resp["er"] = fmt.Sprintf("could not write MTS media: %v", err)
 			break
