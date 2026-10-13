@@ -208,13 +208,15 @@ async function handleBroadcastSelect(uuid) {
   const loadingOverlay = document.getElementById("loading-overlay");
   if (loadingOverlay) loadingOverlay.classList.remove("d-none");
 
-  const ytContainer = document.getElementById("youtube-preview-container");
-  const ytFrame = document.getElementById("youtube-preview-frame");
-  if (ytContainer) {
-    ytContainer.classList.add("d-none");
-    ytContainer.classList.remove("d-flex");
+  const previewContainer = document.getElementById(
+    "broadcast-preview-container",
+  );
+  const preview = document.getElementById("broadcast-preview");
+  if (previewContainer) {
+    previewContainer.classList.add("d-none");
+    previewContainer.classList.remove("d-flex");
   }
-  if (ytFrame) ytFrame.src = "";
+  if (preview) preview.replaceChildren();
 
   if (!uuid) {
     if (loadingOverlay) loadingOverlay.classList.add("d-none");
@@ -385,15 +387,51 @@ function populateForm(data) {
     reportSens.checked = !!data.SendMsg;
   }
 
-  // Youtube Preview
+  // Broadcast preview: an OceanMedia player or a YouTube embed.
   if (data.BID) {
-    const c = document.getElementById("youtube-preview-container");
-    const frame = document.getElementById("youtube-preview-frame");
-    if (c && frame) {
-      frame.src = `https://www.youtube.com/embed/${data.BID}`;
+    const c = document.getElementById("broadcast-preview-container");
+    const preview = document.getElementById("broadcast-preview");
+    if (c && preview) {
+      if (data.BroadcastHost === "oceanmedia") {
+        renderOceanMediaPreview(preview, data.UUID);
+      } else {
+        renderYouTubePreview(preview, data.BID);
+      }
       c.classList.remove("d-none");
       c.classList.add("d-flex");
     }
+  }
+}
+
+// renderYouTubePreview renders a YouTube embed into the given element.
+function renderYouTubePreview(preview, bid) {
+  const frame = document.createElement("iframe");
+  frame.width = "560";
+  frame.height = "315";
+  frame.src = `https://www.youtube.com/embed/${bid}`;
+  frame.frameBorder = "0";
+  frame.allowFullscreen = true;
+  preview.replaceChildren(frame);
+}
+
+// renderOceanMediaPreview fetches a viewer token and renders the OceanMedia
+// player for the given broadcast UUID into the given element.
+async function renderOceanMediaPreview(preview, uuid) {
+  try {
+    const res = await fetch(`/api/v1/broadcast/stream?uuid=${uuid}`);
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+    const data = await res.json();
+    const player = document.createElement("oceanmedia-player");
+    player.setAttribute(
+      "src",
+      `${data.url}?token=${encodeURIComponent(data.token)}`,
+    );
+    preview.replaceChildren(player);
+  } catch (err) {
+    console.error("error loading OceanMedia stream:", err);
+    preview.replaceChildren();
   }
 }
 

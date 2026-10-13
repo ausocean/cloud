@@ -60,6 +60,8 @@ func setupAPIV1Routes(api fiber.Router) {
 	v1.Get("/logs/:mac", getV1LogsByDevice)
 	v1.Put("/log/:mac", putV1LogByDevice)
 
+	v1.Get("/broadcast/stream", getV1BroadcastStreamHandler)
+
 	// Endpoints with site scope.
 	v1.Group("/:"+skeyParamKey).
 		Get("/broadcasts/", getV1BroadcastIDHandler).
@@ -499,6 +501,55 @@ func getV1BroadcastHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(cfg)
+}
+
+// getV1BroadcastStreamHandler handles GET /api/v1/broadcast/stream?uuid=<uuid>.
+// For an OceanMedia broadcast it returns the HLS playlist URL and a viewer
+// token scoped to that broadcast, minted with the shared OceanMedia secret.
+func getV1BroadcastStreamHandler(c *fiber.Ctx) error {
+	uuid := c.Query("uuid")
+	if uuid == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "uuid query parameter is required"})
+	}
+
+	ctx := c.UserContext()
+	p := c.Locals(profileKey).(*gauth.Profile)
+
+	broadcastVar, err := model.GetBroadcastVarByUUID(ctx, settingsStore, uuid)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "broadcast not found"})
+	}
+	if !isAdmin(ctx, broadcastVar.Skey, p.Email) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "insufficient permission, requires admin permission"})
+	}
+
+	cfg, err := broadcastFromVars([]model.Variable{*broadcastVar}, uuid)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "broadcast not found"})
+	}
+	if cfg.BroadcastHost != "oceanmedia" || cfg.BID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "broadcast is not an OceanMedia stream"})
+	}
+	if len(oceanMediaJWTSecret) == 0 {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "OceanMedia is not configured"})
+	}
+
+	now := time.Now()
+	token, err := gauth.PutClaims(map[string]interface{}{
+		"sub": cfg.BID,
+		"iss": projectID,
+		"iat": now.Unix(),
+		"exp": now.Add(oceanMediaTokenTTL).Unix(),
+	}, oceanMediaJWTSecret)
+	if err != nil {
+		log.Printf("could not create OceanMedia token for broadcast %s: %v", cfg.BID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not create stream token"})
+	}
+
+	return c.JSON(fiber.Map{
+		"url":   mediaURL + "/" + cfg.BID + ".m3u8",
+		"token": token,
+	})
 }
 
 func getV1BroadcastIDHandler(c *fiber.Ctx) error {
