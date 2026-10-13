@@ -27,6 +27,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ausocean/cloud/gauth"
 	"github.com/gofiber/fiber/v2"
@@ -38,34 +39,65 @@ var (
 	errUnauthorized = errors.New("unauthorized")
 )
 
-// authenticate validates the request's JWT and ensures that it authorises
-// access to the given broadcast. Tokens are minted by referring services
-// (such as OceanBench and AusOceanTV) using the shared JWT secret and
-// supplied to players as the "token" query parameter. A Bearer token in
-// the Authorization header is also accepted for programmatic clients.
-//
-// Required claims are "sub" (the broadcast ID) and "exp".
-func (s *server) authenticate(c *fiber.Ctx, broadcastID string) error {
+// requestToken returns the JWT supplied with the request, either as the
+// "token" query parameter or as a Bearer token in the Authorization header.
+// The "Bearer " prefix, if present, is stripped.
+func requestToken(c *fiber.Ctx) string {
 	token := c.Query("token")
 	if token == "" {
 		token = c.Get(fiber.HeaderAuthorization)
 	}
+	return strings.TrimPrefix(token, "Bearer ")
+}
+
+// requestBaseURL returns the base URL (scheme://host) the request was made
+// to, honouring the X-Forwarded-Proto header set by the App Engine proxy.
+func requestBaseURL(c *fiber.Ctx) string {
+	scheme := c.Protocol()
+	if p := c.Get("X-Forwarded-Proto"); p != "" {
+		scheme = p
+	}
+	return scheme + "://" + c.Hostname()
+}
+
+// writeAuthError writes an error response for an authentication failure.
+func writeAuthError(c *fiber.Ctx, err error) error {
+	status := fiber.StatusForbidden
+	if errors.Is(err, errMissingToken) || errors.Is(err, errInvalidToken) {
+		status = fiber.StatusUnauthorized
+	}
+	return c.Status(status).JSON(fiber.Map{"error": err.Error()})
+}
+
+// tokenClaims validates the request's JWT and returns its claims. Required
+// claims are "sub" (the broadcast ID) and "exp".
+func (s *server) tokenClaims(c *fiber.Ctx) (map[string]interface{}, error) {
+	token := requestToken(c)
 	if token == "" {
-		return errMissingToken
+		return nil, errMissingToken
 	}
 
 	claims, err := gauth.GetClaims(token, s.jwtSecret)
 	if err != nil {
-		return fmt.Errorf("%w: %v", errInvalidToken, err)
+		return nil, fmt.Errorf("%w: %v", errInvalidToken, err)
 	}
 	if _, ok := claims["exp"]; !ok {
-		return fmt.Errorf("%w: missing exp claim", errInvalidToken)
+		return nil, fmt.Errorf("%w: missing exp claim", errInvalidToken)
 	}
-	sub, ok := claims["sub"].(string)
-	if !ok || sub == "" {
-		return fmt.Errorf("%w: missing sub claim", errInvalidToken)
+	if sub, ok := claims["sub"].(string); !ok || sub == "" {
+		return nil, fmt.Errorf("%w: missing sub claim", errInvalidToken)
 	}
-	if sub != broadcastID {
+	return claims, nil
+}
+
+// authenticate validates the request's JWT and ensures that it authorises
+// access to the given broadcast.
+func (s *server) authenticate(c *fiber.Ctx, broadcastID string) error {
+	claims, err := s.tokenClaims(c)
+	if err != nil {
+		return err
+	}
+	if sub, _ := claims["sub"].(string); sub != broadcastID {
 		return fmt.Errorf("%w: token is not valid for broadcast %s", errUnauthorized, broadcastID)
 	}
 	return nil

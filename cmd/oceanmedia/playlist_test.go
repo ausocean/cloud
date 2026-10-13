@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"io"
 	"net/http/httptest"
-	"strconv"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -57,7 +57,7 @@ func (fakeSigner) SignURL(_ context.Context, rawURI string, _ time.Duration) (st
 	if !strings.HasPrefix(rawURI, "https://") {
 		return "", fmt.Errorf("invalid storage URI %q", rawURI)
 	}
-	return "https://signed.example.com/" + rawURI + "?sig=x", nil
+	return "https://signed.example.com/?u=" + url.QueryEscape(rawURI), nil
 }
 
 // countingSigner counts SignURL calls for cache tests.
@@ -70,7 +70,7 @@ func (c *countingSigner) SignURL(_ context.Context, _ string, _ time.Duration) (
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.calls++
-	return "https://signed.example.com/" + strconv.Itoa(c.calls), nil
+	return "https://signed.example.com/" + fmt.Sprint(c.calls), nil
 }
 
 func (c *countingSigner) callCount() int {
@@ -111,6 +111,94 @@ func newTestServer() *server {
 	return s
 }
 
+// render renders a playlist with test defaults.
+func render(s *server, event *model.BroadcastEvent, segments []model.MtsMediaV2, msn int, hasMSN, skip bool) string {
+	return s.renderPlaylist(event, segments, msn, hasMSN, skip, "http://example.com", "tok")
+}
+
+func TestRenderPlaylistVOD(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID, EndTime: time.Now()}
+
+	pl := render(s, event, testSegments(3, -1), 0, false, false)
+
+	assert.Contains(t, pl, "#EXTM3U")
+	assert.Contains(t, pl, "#EXT-X-VERSION:9")
+	assert.Contains(t, pl, "#EXT-X-TARGETDURATION:3")
+	assert.Contains(t, pl, "#EXT-X-MEDIA-SEQUENCE:0")
+	assert.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:EVENT")
+	assert.Contains(t, pl, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES")
+	assert.Contains(t, pl, "#EXT-X-ENDLIST")
+	assert.Equal(t, 3, strings.Count(pl, "#EXTINF:2.500,"))
+	assert.Equal(t, 3, strings.Count(pl, "http://example.com/segment?u="))
+	assert.Contains(t, pl, url.QueryEscape(testSegments(1, -1)[0].StorageURI))
+	assert.NotContains(t, pl, "#EXT-X-SKIP")
+	assert.NotContains(t, pl, "#EXT-X-DISCONTINUITY")
+}
+
+func TestRenderPlaylistLive(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID}
+
+	pl := render(s, event, testSegments(2, -1), 0, false, false)
+	assert.NotContains(t, pl, "#EXT-X-ENDLIST")
+	assert.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:EVENT")
+}
+
+func TestRenderPlaylistLiveEmpty(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID}
+
+	pl := render(s, event, nil, 0, false, false)
+	assert.Contains(t, pl, "#EXTM3U")
+	assert.Contains(t, pl, "#EXT-X-TARGETDURATION:1")
+	assert.NotContains(t, pl, "#EXTINF")
+	assert.NotContains(t, pl, "#EXT-X-ENDLIST")
+}
+
+func TestRenderPlaylistDiscontinuity(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID, EndTime: time.Now()}
+
+	pl := render(s, event, testSegments(3, 1), 0, false, false)
+
+	assert.Equal(t, 1, strings.Count(pl, "#EXT-X-DISCONTINUITY"))
+	disc := strings.Index(pl, "#EXT-X-DISCONTINUITY")
+	seg0 := strings.Index(pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 0)))
+	seg1 := strings.Index(pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 1)))
+	assert.Greater(t, disc, seg0)
+	assert.Less(t, disc, seg1)
+}
+
+func TestRenderPlaylistDelta(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID}
+
+	pl := render(s, event, testSegments(3, -1), 2, true, true)
+
+	assert.Contains(t, pl, "#EXT-X-MEDIA-SEQUENCE:0")
+	assert.Contains(t, pl, "#EXT-X-SKIP:SKIPPED-SEGMENTS=2")
+	assert.Contains(t, pl, "CAN-SKIP-UNTIL=")
+	assert.Equal(t, 1, strings.Count(pl, "#EXTINF:"))
+	assert.Contains(t, pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 2)))
+	assert.NotContains(t, pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 0)))
+	assert.NotContains(t, pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 1)))
+}
+
+// TestRenderPlaylistDeltaNoNewSegments checks that when a client requests a
+// delta for a media sequence number that is not available yet, at least one
+// segment is listed (the playlist is never empty).
+func TestRenderPlaylistDeltaNoNewSegments(t *testing.T) {
+	s := newTestServer()
+	event := &model.BroadcastEvent{ID: testBroadcastID}
+
+	pl := render(s, event, testSegments(3, -1), 5, true, true)
+
+	assert.Contains(t, pl, "#EXT-X-SKIP:SKIPPED-SEGMENTS=2")
+	assert.Equal(t, 1, strings.Count(pl, "#EXTINF:"))
+	assert.Contains(t, pl, url.QueryEscape(fmt.Sprintf(testSegmentURL, 2)))
+}
+
 func TestServerSignURLCache(t *testing.T) {
 	cs := &countingSigner{}
 	s := newServer(nil, cs, testJWTSecret, time.Hour)
@@ -125,99 +213,17 @@ func TestServerSignURLCache(t *testing.T) {
 	assert.Equal(t, u1, u2)
 	assert.Equal(t, 1, cs.callCount())
 
-	// Past half the time to live the URL should be re-signed.
-	now = now.Add(31 * time.Minute)
+	// Once most of the time to live has elapsed the URL is re-signed.
+	now = now.Add(55 * time.Minute)
 	u3, err := s.signURL(context.Background(), "https://example.com/bucket/key.ts")
 	require.NoError(t, err)
 	assert.NotEqual(t, u1, u3)
 	assert.Equal(t, 2, cs.callCount())
 }
 
-func TestRenderPlaylistVOD(t *testing.T) {
-	s := newTestServer()
-	ctx := context.Background()
-	event := &model.BroadcastEvent{ID: testBroadcastID, EndTime: time.Now()}
-
-	pl, err := s.renderPlaylist(ctx, event, testSegments(3, -1), 0, false, false)
-	require.NoError(t, err)
-
-	assert.Contains(t, pl, "#EXTM3U")
-	assert.Contains(t, pl, "#EXT-X-VERSION:9")
-	assert.Contains(t, pl, "#EXT-X-TARGETDURATION:3")
-	assert.Contains(t, pl, "#EXT-X-MEDIA-SEQUENCE:0")
-	assert.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:EVENT")
-	assert.Contains(t, pl, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES")
-	assert.Contains(t, pl, "#EXT-X-ENDLIST")
-	assert.Equal(t, 3, strings.Count(pl, "#EXTINF:2.500,"))
-	assert.Equal(t, 3, strings.Count(pl, "https://signed.example.com/"))
-	assert.NotContains(t, pl, "#EXT-X-SKIP")
-	assert.NotContains(t, pl, "#EXT-X-DISCONTINUITY")
-}
-
-func TestRenderPlaylistLive(t *testing.T) {
-	s := newTestServer()
-	event := &model.BroadcastEvent{ID: testBroadcastID}
-
-	pl, err := s.renderPlaylist(context.Background(), event, testSegments(2, -1), 0, false, false)
-	require.NoError(t, err)
-	assert.NotContains(t, pl, "#EXT-X-ENDLIST")
-	assert.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:EVENT")
-}
-
-func TestRenderPlaylistLiveEmpty(t *testing.T) {
-	s := newTestServer()
-	event := &model.BroadcastEvent{ID: testBroadcastID}
-
-	pl, err := s.renderPlaylist(context.Background(), event, nil, 0, false, false)
-	require.NoError(t, err)
-	assert.Contains(t, pl, "#EXTM3U")
-	assert.Contains(t, pl, "#EXT-X-TARGETDURATION:1")
-	assert.NotContains(t, pl, "#EXTINF")
-	assert.NotContains(t, pl, "#EXT-X-ENDLIST")
-}
-
-func TestRenderPlaylistDiscontinuity(t *testing.T) {
-	s := newTestServer()
-	event := &model.BroadcastEvent{ID: testBroadcastID, EndTime: time.Now()}
-
-	pl, err := s.renderPlaylist(context.Background(), event, testSegments(3, 1), 0, false, false)
-	require.NoError(t, err)
-
-	assert.Equal(t, 1, strings.Count(pl, "#EXT-X-DISCONTINUITY"))
-	disc := strings.Index(pl, "#EXT-X-DISCONTINUITY")
-	seg0 := strings.Index(pl, "seg0.ts")
-	seg1 := strings.Index(pl, "seg1.ts")
-	assert.Greater(t, disc, seg0)
-	assert.Less(t, disc, seg1)
-}
-
-func TestRenderPlaylistDelta(t *testing.T) {
-	s := newTestServer()
-	event := &model.BroadcastEvent{ID: testBroadcastID}
-
-	pl, err := s.renderPlaylist(context.Background(), event, testSegments(3, -1), 2, true, true)
-	require.NoError(t, err)
-
-	assert.Contains(t, pl, "#EXT-X-MEDIA-SEQUENCE:0")
-	assert.Contains(t, pl, "#EXT-X-SKIP:SKIPPED-SEGMENTS:2")
-	assert.Equal(t, 1, strings.Count(pl, "#EXTINF:"))
-	assert.Contains(t, pl, "seg2.ts")
-	assert.NotContains(t, pl, "seg0.ts")
-	assert.NotContains(t, pl, "seg1.ts")
-}
-
-func TestRenderPlaylistSignError(t *testing.T) {
-	s := newTestServer()
-	event := &model.BroadcastEvent{ID: testBroadcastID}
-	segs := testSegments(1, -1)
-	segs[0].StorageURI = "not a uri"
-
-	_, err := s.renderPlaylist(context.Background(), event, segs, 0, false, false)
-	assert.Error(t, err)
-}
-
 func newTestApp(s *server) *fiber.App {
 	app := fiber.New()
+	app.Get("/segment", s.handleSegment)
 	app.Get("/:file", s.handlePlaylist)
 	return app
 }
@@ -248,6 +254,7 @@ func TestHandlePlaylistSuccess(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, status)
 	assert.Contains(t, body, "#EXTM3U")
 	assert.Contains(t, body, "#EXT-X-ENDLIST")
+	assert.Contains(t, body, "http://example.com/segment?u=")
 }
 
 func TestHandlePlaylistAuth(t *testing.T) {
@@ -370,7 +377,7 @@ func TestHandlePlaylistBlockingReload(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, status)
 	assert.GreaterOrEqual(t, calls, 2)
 	assert.Equal(t, 2, strings.Count(body, "#EXTINF:"))
-	assert.Contains(t, body, "seg1.ts")
+	assert.Contains(t, body, url.QueryEscape(fmt.Sprintf(testSegmentURL, 1)))
 }
 
 func TestHandlePlaylistNotM3U8(t *testing.T) {
@@ -378,4 +385,44 @@ func TestHandlePlaylistNotM3U8(t *testing.T) {
 	app := newTestApp(s)
 	status, _ := doRequest(t, app, "/"+testBroadcastID)
 	assert.Equal(t, fiber.StatusNotFound, status)
+}
+
+func TestHandleSegment(t *testing.T) {
+	s := newTestServer()
+	app := newTestApp(s)
+	token := testToken(t, testBroadcastID, time.Now().Add(time.Hour))
+	uri := fmt.Sprintf(testSegmentURL, 0)
+
+	segmentRequest := func(token, rawURI string) string {
+		return "/segment?u=" + url.QueryEscape(rawURI) + "&token=" + token
+	}
+
+	t.Run("RedirectsToSignedURL", func(t *testing.T) {
+		resp, err := app.Test(httptest.NewRequest("GET", segmentRequest(token, uri), nil))
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, fiber.StatusFound, resp.StatusCode)
+		assert.Contains(t, resp.Header.Get("Location"), "https://signed.example.com/")
+	})
+
+	t.Run("MissingURI", func(t *testing.T) {
+		status, _ := doRequest(t, app, "/segment?token="+token)
+		assert.Equal(t, fiber.StatusBadRequest, status)
+	})
+
+	t.Run("MissingToken", func(t *testing.T) {
+		status, _ := doRequest(t, app, segmentRequest("", uri))
+		assert.Equal(t, fiber.StatusUnauthorized, status)
+	})
+
+	t.Run("OtherBroadcast", func(t *testing.T) {
+		otherToken := testToken(t, "some-other-broadcast", time.Now().Add(time.Hour))
+		status, _ := doRequest(t, app, segmentRequest(otherToken, uri))
+		assert.Equal(t, fiber.StatusForbidden, status)
+	})
+
+	t.Run("URINotMatchingBroadcast", func(t *testing.T) {
+		status, _ := doRequest(t, app, segmentRequest(token, "https://acct.r2.cloudflarestorage.com/bucket/other/seg.ts"))
+		assert.Equal(t, fiber.StatusForbidden, status)
+	})
 }
