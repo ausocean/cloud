@@ -1,5 +1,5 @@
 # gcloud app deploy --project datablue --version 2 datablue.yaml
-runtime: go123
+runtime: go126
 app_engine_apis: true
 
 env_variables:
