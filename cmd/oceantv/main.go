@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
+	"github.com/ausocean/cloud/cmd/oceantv/broadcasthost"
 	"github.com/ausocean/cloud/cmd/oceantv/composite"
 	"github.com/ausocean/cloud/cmd/oceantv/manager"
 	"github.com/ausocean/cloud/cmd/oceantv/notifier"
@@ -59,6 +60,7 @@ const (
 	oceanTVServiceAccount = "oceantv@appspot.gserviceaccount.com"
 	locationID            = "Australia/Adelaide" // TODO: Use site location.
 	AusOceanTVServiceURL  = "https://ausocean.tv"
+	defaultBroadcastHost  = broadcasthost.YoutubeHostName // Broadcast host to use if one isn't set.
 )
 
 var (

@@ -149,7 +149,12 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 		StorageProvider: &storageProvider,
 		TokenURI:        tokenURI,
 	}
-	hst, err := registry.Get(cfg.BroadcastHost, params)
+	host := cfg.BroadcastHost
+	// Fall back to default broadcast host if one isn't set.
+	if host == "" {
+		host = defaultBroadcastHost
+	}
+	hst, err := registry.Get(host, params)
 	if err != nil {
 		return nil, fmt.Errorf("could not get broadcast host: %w", err)
 	}
@@ -161,6 +166,18 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the broadcast host.
 	man := manager.NewOceanBroadcast(broadcastHost, cfg, store, log, setVar, broadcastByName)
+
+	// Persist the default broadcast host to the config if it wasn't set.
+	if cfg.BroadcastHost == "" {
+		cfg.BroadcastHost = defaultBroadcastHost
+		try(
+			man.Save(ctx, func(_cfg *Cfg) {
+				_cfg.BroadcastHost = defaultBroadcastHost
+			}),
+			"could not update config with callback",
+			log,
+		)
+	}
 
 	// This will get called in the case that events are published to
 	// the event bus but our context is cancelled. This might happen if a routine

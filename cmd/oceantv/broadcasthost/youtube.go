@@ -51,13 +51,17 @@ type YouTube struct {
 	tokenURI string
 }
 
+const (
+	YoutubeHostName = "youtube"
+)
+
 func NewYouTube(tokenURI string, log func(string, ...interface{})) *YouTube {
 	return &YouTube{log: log, tokenURI: tokenURI}
 }
 
 // Name returns the name of the YouTube broadcast host.
 func (y YouTube) Name() string {
-	return "youtube"
+	return YoutubeHostName
 }
 
 // New creates a new YouTube broadcast host.

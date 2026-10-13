@@ -152,9 +152,6 @@ func (ca *ChannelAuth) AuthChannel(ctx context.Context, h backend.Handler, token
 // generateToken redirects the user to an authorisation page for generation of an
 // authorisation token.
 func (ca *ChannelAuth) generateToken(h backend.Handler, url string) error {
-	ca.Lock()
-	defer ca.Unlock()
-
 	sessID := uuid.New().String()
 	oauthFlowSession, err := h.LoadSession(sessID)
 	if err != nil {

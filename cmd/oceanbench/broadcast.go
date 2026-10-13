@@ -315,11 +315,6 @@ func broadcastHandler(c *fiber.Ctx) error {
 		log.Println("Authenticate channel with tokenURI:", tokenURI)
 		err = channelAuth.AuthChannel(c.UserContext(), backend.NewFiberHandler(c), tokenURI)
 		if err != nil {
-			reportError(c, req, "internal adapter error: %v", err)
-			return nil
-		}
-
-		if err != nil {
 			reportError(c, req, "could not authenticate channel: %v", err)
 			return nil
 		}

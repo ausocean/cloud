@@ -168,11 +168,7 @@ function loadMJPEG(url) {
 // This function should only be used if initMJPEG has already been called.
 function getController() {
   if (!controller) {
-    controller = new Controller(
-      viewer,
-      document.querySelector("#playPauseBtn"),
-      document.querySelector("#slider"),
-    );
+    controller = new Controller(viewer, document.querySelector("#playPauseBtn"), document.querySelector("#slider"));
   }
   return controller;
 }
@@ -190,8 +186,7 @@ function play() {
 
 // initH264 creates the elements needed to play H264 and initialises their listeners.
 function initH264() {
-  document.getElementById("view").innerHTML =
-    `<video controls id="video" class="responsive"></video>`;
+  document.getElementById("view").innerHTML = `<video controls id="video" class="responsive"></video>`;
 }
 
 // loadH264 creates a player that can play H264 and gives it a URL to load.
@@ -212,15 +207,11 @@ function loadH264(url) {
       if (data.fatal) {
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            console.log(
-              "play: fatal network error encountered, trying to recover.",
-            );
+            console.log("play: fatal network error encountered, trying to recover.");
             hls.startLoad();
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
-            console.log(
-              "play: fatal media error encountered, trying to recover.",
-            );
+            console.log("play: fatal media error encountered, trying to recover.");
             hls.recoverMediaError();
             break;
           default:
@@ -243,8 +234,7 @@ function loadH264(url) {
           })
           .catch((error) => {
             console.log("play: autoplay was prevented.");
-            document.getElementById("msg").innerHTML =
-              "Autoplay prevented. Hit play button to start.";
+            document.getElementById("msg").innerHTML = "Autoplay prevented. Hit play button to start.";
             // Remove the message once playing starts.
             video.addEventListener("playing", function (e) {
               document.getElementById("msg").innerHTML = "";
@@ -271,8 +261,7 @@ function live() {
     return;
   }
   var fd = document.getElementById("fd").value;
-  document.getElementById("url").value =
-    "get?id=" + id + "&fd=" + fd + "&out=live";
+  document.getElementById("url").value = "get?id=" + id + "&fd=" + fd + "&out=live";
   load();
 }
 
@@ -291,9 +280,7 @@ function textPlaylist() {
     }
     lines[i] += "\n";
   }
-  url = URL.createObjectURL(
-    new Blob(lines, { type: "application/vnd.apple.mpegurl" }),
-  );
+  url = URL.createObjectURL(new Blob(lines, { type: "application/vnd.apple.mpegurl" }));
   return url;
 }
 
@@ -307,26 +294,17 @@ async function getMedia(url) {
       // check if request's ready state is 4 meaning DONE.
       if (xhr.readyState == 4) {
         let type = xhr.getResponseHeader("content-type").split("/")[1];
-        console.log(
-          "response mime type",
-          xhr.getResponseHeader("content-type"),
-        );
+        console.log("response mime type", xhr.getResponseHeader("content-type"));
         bd = document.getElementById("bdinput").value;
         chan = document.getElementById("chaninput").value;
         rate = document.getElementById("rateinput").value;
         console.log("bitdepth: ", bd, "channels: ", chan, "rate: ", rate);
         switch (type) {
           case "text":
-            console.log(
-              "received text response: ",
-              new TextDecoder("utf-8").decode(xhr.response),
-            );
+            console.log("received text response: ", new TextDecoder("utf-8").decode(xhr.response));
             break;
           case "json":
-            console.log(
-              "received JSON response: ",
-              new TextDecoder("utf-8").decode(xhr.response),
-            );
+            console.log("received JSON response: ", new TextDecoder("utf-8").decode(xhr.response));
             break;
           case "wav":
             console.log("loading wav");
@@ -340,16 +318,7 @@ async function getMedia(url) {
           case "adpcm":
             mimeType = "audio/adpcm";
             console.log("loading adpcm");
-            resolve(
-              (audioFile = pcmToWav(
-                new Uint8Array(
-                  decodeADPCM(new Uint8Array(xhr.response)).buffer,
-                ),
-                rate,
-                chan,
-                bd,
-              )),
-            );
+            resolve((audioFile = pcmToWav(new Uint8Array(decodeADPCM(new Uint8Array(xhr.response)).buffer), rate, chan, bd)));
             break;
           default:
             console.log("cannot play media, unexpected response type", type);
@@ -374,42 +343,27 @@ async function initAudio() {
     xhr.onreadystatechange = function () {
       if (xhr.readyState == 4) {
         document.getElementById("specific").innerHTML = xhr.responseText;
-        document
-          .querySelector("#filter-dropdown")
-          .addEventListener("change", filterSelect);
-        document
-          .querySelector("#continue-btn")
-          .addEventListener("click", applyFilter);
+        document.querySelector("#filter-dropdown").addEventListener("change", filterSelect);
+        document.querySelector("#continue-btn").addEventListener("click", applyFilter);
         document.querySelector("#fileinput").addEventListener("change", () => {
           fromUrl = false;
           applyFilter();
         });
-        document
-          .querySelector("#fc-lower-input")
-          .addEventListener("keyup", isReady);
-        document
-          .querySelector("#fc-upper-input")
-          .addEventListener("keyup", isReady);
-        document
-          .querySelector("#amp-factor-input")
-          .addEventListener("keyup", isReady);
-        document
-          .querySelector("#loadBtn")
-          .addEventListener("click", function () {
-            load(false);
+        document.querySelector("#fc-lower-input").addEventListener("keyup", isReady);
+        document.querySelector("#fc-upper-input").addEventListener("keyup", isReady);
+        document.querySelector("#amp-factor-input").addEventListener("keyup", isReady);
+        document.querySelector("#loadBtn").addEventListener("click", function () {
+          load(false);
+        });
+        [].forEach.call(document.querySelectorAll("[data-action]"), function (el) {
+          el.addEventListener("click", function (e) {
+            let action = e.currentTarget.dataset.action;
+            if (action in GLOBAL_ACTIONS) {
+              e.preventDefault();
+              GLOBAL_ACTIONS[action](e);
+            }
           });
-        [].forEach.call(
-          document.querySelectorAll("[data-action]"),
-          function (el) {
-            el.addEventListener("click", function (e) {
-              let action = e.currentTarget.dataset.action;
-              if (action in GLOBAL_ACTIONS) {
-                e.preventDefault();
-                GLOBAL_ACTIONS[action](e);
-              }
-            });
-          },
-        );
+        });
         resolve();
       }
     };
@@ -437,11 +391,7 @@ function decodeADPCM(b) {
   let dec = new Decoder();
   // Decode adpcm to pcm.
   let result = dec.decode(b);
-  console.log(
-    "decodeADPCM resulted in ",
-    result.length * 2,
-    " bytes of PCM data",
-  );
+  console.log("decodeADPCM resulted in ", result.length * 2, " bytes of PCM data");
   return result;
 }
 
@@ -484,11 +434,9 @@ function initAndLoadSpectrogram(url) {
 
   // If query contains "hot", use heat map colour scheme.
   if (location.search.match("hot")) {
-    WaveSurfer.util
-      .fetchFile({ url: "s/hot-colormap.json", responseType: "json" })
-      .on("success", (colorMap) => {
-        options.plugins[0].params.colorMap = colorMap;
-      });
+    WaveSurfer.util.fetchFile({ url: "s/hot-colormap.json", responseType: "json" }).on("success", (colorMap) => {
+      options.plugins[0].params.colorMap = colorMap;
+    });
   }
 
   // Only create a new wavesurfer if it has not already been created.
@@ -545,11 +493,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
     let action = map[e.keyCode];
     if (action in GLOBAL_ACTIONS) {
-      if (
-        document == e.target ||
-        document.body == e.target ||
-        e.target.attributes["data-action"]
-      ) {
+      if (document == e.target || document.body == e.target || e.target.attributes["data-action"]) {
         e.preventDefault();
       }
       GLOBAL_ACTIONS[action](e);
@@ -579,9 +523,7 @@ function filterSelect() {
   // Get containers for different form sections.
   let fcUpperContainer = document.querySelector("#fc-upper-input-container");
   let fcLowerContainer = document.querySelector("#fc-lower-container");
-  let ampFactorContainer = document.querySelector(
-    "#amp-factor-input-container",
-  );
+  let ampFactorContainer = document.querySelector("#amp-factor-input-container");
 
   // Get form fields and populate with default values if empty.
   var fields = document.getElementsByClassName("parameter-input");
@@ -597,9 +539,7 @@ function filterSelect() {
     Bandstop: ["block", "block", "none"],
     Amplifier: ["none", "none", "block"],
   };
-  const [fcUpperDisplay, fcLowerDisplay, ampFactorDisplay] = displayValues[
-    filterType
-  ] || ["none", "none", "none"];
+  const [fcUpperDisplay, fcLowerDisplay, ampFactorDisplay] = displayValues[filterType] || ["none", "none", "none"];
   fcUpperContainer.style.display = fcUpperDisplay;
   fcLowerContainer.style.display = fcLowerDisplay;
   ampFactorContainer.style.display = ampFactorDisplay;
@@ -663,14 +603,7 @@ function applyFilter() {
   request.onload = () => {
     console.log("audio request sent");
     if (request.status == 200) {
-      let fileType = fromUrl
-        ? "wav"
-        : String(
-            document
-              .getElementById("fileinput")
-              .files[0].name.split(".")
-              .slice(-1),
-          ).toLowerCase();
+      let fileType = fromUrl ? "wav" : String(document.getElementById("fileinput").files[0].name.split(".").slice(-1)).toLowerCase();
       mimeType = "audio/pcm";
       if (fileType == "wav") {
         const bd = request.getResponseHeader("bit-depth");
@@ -683,10 +616,7 @@ function applyFilter() {
       // Update audioFile so new filters are applied to this instead.
       audioFile = request.response;
     } else if (request.status == 400) {
-      let alertMSG =
-        "An error occurred: " +
-        request.getResponseHeader("msg") +
-        "\nPlease try again.";
+      let alertMSG = "An error occurred: " + request.getResponseHeader("msg") + "\nPlease try again.";
       alert(alertMSG);
     }
   };
@@ -694,11 +624,7 @@ function applyFilter() {
   let form = new FormData(formElement);
   // If the audio is from the URL, update the request with this audio.
   if (fromUrl) {
-    form.set(
-      "audio-file",
-      new Blob([audioFile], { type: mimeType }),
-      mimeType.replace("/", "."),
-    );
+    form.set("audio-file", new Blob([audioFile], { type: mimeType }), mimeType.replace("/", "."));
   }
   request.send(form);
 }

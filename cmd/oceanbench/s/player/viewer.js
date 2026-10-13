@@ -24,15 +24,7 @@ import EventHandler from "./hlsjs/event-handler.js";
 
 class Viewer extends EventHandler {
   constructor(controller, fetcher, display, playPauseBtn, slider) {
-    super(
-      controller,
-      Events.PLAY,
-      Events.JUMP_TO,
-      Events.LOAD,
-      Events.READY,
-      Events.FRAME_RATE_CHANGE,
-      Events.STOP,
-    );
+    super(controller, Events.PLAY, Events.JUMP_TO, Events.LOAD, Events.READY, Events.FRAME_RATE_CHANGE, Events.STOP);
     this.updateImage = this.updateImage.bind(this);
     this.fetcher = fetcher;
     this.display = display;

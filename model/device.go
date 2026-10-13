@@ -264,7 +264,7 @@ func GetDevice(ctx context.Context, store datastore.Store, mac int64) (*Device, 
 // GetDevicesBySite returns all the devices for a given site.
 func GetDevicesBySite(ctx context.Context, store datastore.Store, skey int64) ([]Device, error) {
 	q := store.NewQuery(typeDevice, false)
-	q.Filter("Skey =", skey)
+	q.FilterField("Skey", "=", skey)
 	q.Order("Name")
 	var devs []Device
 	_, err := store.GetAll(ctx, q, &devs)

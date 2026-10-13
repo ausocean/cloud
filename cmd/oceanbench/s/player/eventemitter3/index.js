@@ -63,8 +63,7 @@ function addListener(emitter, event, fn, context, once) {
   var listener = new EE(fn, context || emitter, once),
     evt = prefix ? prefix + event : event;
 
-  if (!emitter._events[evt])
-    (emitter._events[evt] = listener), emitter._eventsCount++;
+  if (!emitter._events[evt]) (emitter._events[evt] = listener), emitter._eventsCount++;
   else if (!emitter._events[evt].fn) emitter._events[evt].push(listener);
   else emitter._events[evt] = [emitter._events[evt], listener];
 
@@ -175,8 +174,7 @@ EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
     i;
 
   if (listeners.fn) {
-    if (listeners.once)
-      this.removeListener(event, listeners.fn, undefined, true);
+    if (listeners.once) this.removeListener(event, listeners.fn, undefined, true);
 
     switch (len) {
       case 1:
@@ -203,8 +201,7 @@ EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
       j;
 
     for (i = 0; i < length; i++) {
-      if (listeners[i].once)
-        this.removeListener(event, listeners[i].fn, undefined, true);
+      if (listeners[i].once) this.removeListener(event, listeners[i].fn, undefined, true);
 
       switch (len) {
         case 1:
@@ -269,12 +266,7 @@ EventEmitter.prototype.once = function once(event, fn, context) {
  * @returns {EventEmitter} `this`.
  * @public
  */
-EventEmitter.prototype.removeListener = function removeListener(
-  event,
-  fn,
-  context,
-  once,
-) {
+EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
   var evt = prefix ? prefix + event : event;
 
   if (!this._events[evt]) return this;
@@ -286,20 +278,12 @@ EventEmitter.prototype.removeListener = function removeListener(
   var listeners = this._events[evt];
 
   if (listeners.fn) {
-    if (
-      listeners.fn === fn &&
-      (!once || listeners.once) &&
-      (!context || listeners.context === context)
-    ) {
+    if (listeners.fn === fn && (!once || listeners.once) && (!context || listeners.context === context)) {
       clearEvent(this, evt);
     }
   } else {
     for (var i = 0, events = [], length = listeners.length; i < length; i++) {
-      if (
-        listeners[i].fn !== fn ||
-        (once && !listeners[i].once) ||
-        (context && listeners[i].context !== context)
-      ) {
+      if (listeners[i].fn !== fn || (once && !listeners[i].once) || (context && listeners[i].context !== context)) {
         events.push(listeners[i]);
       }
     }
@@ -307,8 +291,7 @@ EventEmitter.prototype.removeListener = function removeListener(
     //
     // Reset the array, or remove it completely if we have no more listeners.
     //
-    if (events.length)
-      this._events[evt] = events.length === 1 ? events[0] : events;
+    if (events.length) this._events[evt] = events.length === 1 ? events[0] : events;
     else clearEvent(this, evt);
   }
 

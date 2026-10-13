@@ -44,6 +44,10 @@ type OceanMedia struct {
 	storageProvider storage.Provider
 }
 
+const (
+	OceanMediaHostName = "oceanmedia"
+)
+
 func NewOceanMedia(
 	log func(string, ...any),
 	store datastore.Store,
@@ -55,7 +59,7 @@ func NewOceanMedia(
 
 // Name returns the name of the OceanMedia broadcast host.
 func (o OceanMedia) Name() string {
-	return "oceanmedia"
+	return OceanMediaHostName
 }
 
 // New creates a new OceanMedia broadcast host.

@@ -5,11 +5,7 @@ export const enum method {
   DELETE = "DELETE",
 }
 
-export function apiRequest<T>(
-  url: string,
-  method: method,
-  data?: any,
-): Promise<T> {
+export function apiRequest<T>(url: string, method: method, data?: any): Promise<T> {
   return fetch(url, {
     method: method,
     body: data,
