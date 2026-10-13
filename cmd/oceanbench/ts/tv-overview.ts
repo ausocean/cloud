@@ -160,7 +160,7 @@ export class TVOverview extends LitElement {
   // fetchConfig makes an API request to get the config for the signed in user.
   private async fetchConfig() {
     console.log("getting tv overview config");
-    fetch("/api/get/profile/tv-overview-config", { method: "POST" })
+    fetch("/api/get/profile/tv-overview-config")
       .then(async (resp) => {
         if (!resp.ok) {
           throw await resp.text();
