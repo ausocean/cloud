@@ -26,7 +26,9 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/ausocean/cloud/datastore"
@@ -35,6 +37,12 @@ import (
 const (
 	typeMtsMediaV2 = "MtsMediaV2" // MtsMediaV2 datastore type.
 )
+
+// maxMtsMediaV2 is the default maximum number of MtsMediaV2 entities
+// returned for a broadcast when no limit is supplied. It is sized to
+// accommodate a full day of OceanMedia segments (an 8 hour broadcast at
+// roughly 2.5 second segments is around 12,000 segments).
+const maxMtsMediaV2 = 20000
 
 type MtsMediaV2 struct {
 	MID           int64     `json:"mid"`           // Media ID.
@@ -90,4 +98,56 @@ func DeleteMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, tim
 		return fmt.Errorf("failed to delete MtsMediaV2: %w", err)
 	}
 	return nil
+}
+
+// GetMtsMediaV2ByBroadcast retrieves the MtsMediaV2 entities belonging
+// to a broadcast, optionally filtered by timestamp(s). One timestamp
+// represents a lower bound (inclusive) on the segment timestamp,
+// whereas two represents a time range. Results are ordered by segment
+// timestamp ascending.
+//
+// A limit of zero or less uses a default size to cover the whole
+// broadcast.
+func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadcastID string, ts []int64, limit int) ([]MtsMediaV2, error) {
+	if broadcastID == "" {
+		return nil, errors.New("empty broadcast ID")
+	}
+	if limit <= 0 {
+		limit = maxMtsMediaV2
+	}
+
+	// NB: no key parts are declared because BroadcastID is an entity
+	// field, not part of the MtsMediaV2 key (which is "<mid>.<timestamp>").
+	q := store.NewQuery(typeMtsMediaV2, false)
+	err := q.FilterField("BroadcastID", "=", broadcastID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter MtsMediaV2 by broadcast ID: %w", err)
+	}
+	if len(ts) > 0 {
+		err = q.FilterField("Timestamp", ">=", ts[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter MtsMediaV2 by timestamp: %w", err)
+		}
+	}
+	if len(ts) > 1 {
+		err = q.FilterField("Timestamp", "<", ts[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter MtsMediaV2 by timestamp: %w", err)
+		}
+	}
+	q.Order("Timestamp")
+	q.Limit(limit)
+
+	var media []MtsMediaV2
+	_, err = store.GetAll(ctx, q, &media)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MtsMediaV2 for broadcast %s: %w", broadcastID, err)
+	}
+
+	// FileStore orders by key name, which is not guaranteed to match a
+	// segment's timestamp, so sort explicitly.
+	sort.Slice(media, func(i, j int) bool {
+		return media[i].Timestamp < media[j].Timestamp
+	})
+	return media, nil
 }
