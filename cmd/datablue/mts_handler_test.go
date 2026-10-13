@@ -61,6 +61,7 @@ const (
 	testAudioType       = "audio/aac"
 	testDuration        = 3000
 	testPTS             = 80000
+	testClipID          = "clip-success"
 )
 
 func setupTestStore(t *testing.T) context.Context {
@@ -121,6 +122,7 @@ func TestMTSHandlerV2_Success(t *testing.T) {
 	ctx := setupTestStore(t)
 
 	meta := model.MtsMediaV2{
+		ClipID:        testClipID,
 		Duration:      testDuration,
 		StorageURI:    testVideoStorageURI,
 		BroadcastID:   testBroadcastID,
@@ -151,11 +153,12 @@ func TestMTSHandlerV2_Success(t *testing.T) {
 	assert.Nil(t, resp["er"], "unexpected error in response: %v", resp["er"])
 
 	mid := model.ToMID(testDevMac1, "V0")
-	stored, err := model.GetMtsMediaV2(ctx, mediaStore, mid, testTimestamp)
+	stored, err := model.GetMtsMediaV2(ctx, mediaStore, mid, testClipID)
 	assert.NoError(t, err)
 
 	// Check the stored entity has the correct values
 	assert.Equal(t, mid, stored.MID, "expected MID %d, got %d", mid, stored.MID)
+	assert.Equal(t, testClipID, stored.ClipID, "expected ClipID %s, got %s", testClipID, stored.ClipID)
 	assert.Equal(t, testGeohash, stored.Geohash, "expected Geohash %s, got %s", testGeohash, stored.Geohash)
 	assert.Equal(t, testTimestamp, stored.Timestamp, "expected Timestamp %d, got %d", testTimestamp, stored.Timestamp)
 	assert.Equal(t, meta.Duration, stored.Duration, "expected Duration %d, got %d", meta.Duration, stored.Duration)
@@ -173,6 +176,7 @@ func TestMTSHandlerV2_DeviceLocation(t *testing.T) {
 	_ = setupTestStore(t)
 
 	meta := model.MtsMediaV2{
+		ClipID:     "clip-location",
 		Duration:   2000,
 		StorageURI: "gs://bucket/loc.ts",
 	}
@@ -199,11 +203,13 @@ func TestMTSHandlerV2_MultiplePins(t *testing.T) {
 	ctx := setupTestStore(t)
 
 	metaV0 := model.MtsMediaV2{
+		ClipID:     "clip-video",
 		Duration:   testDuration,
 		StorageURI: testVideoStorageURI,
 		Type:       testVideoType,
 	}
 	metaS0 := model.MtsMediaV2{
+		ClipID:     "clip-audio",
 		Duration:   testDuration,
 		StorageURI: testAudioStorageURI,
 		Type:       testAudioType,
@@ -233,7 +239,7 @@ func TestMTSHandlerV2_MultiplePins(t *testing.T) {
 
 	// Check that the V0 clip was stored correctly
 	midV0 := model.ToMID(testDevMac1, "V0")
-	storedV0, err := model.GetMtsMediaV2(ctx, mediaStore, midV0, testTimestamp)
+	storedV0, err := model.GetMtsMediaV2(ctx, mediaStore, midV0, "clip-video")
 	assert.NoError(t, err)
 	assert.Equal(t, metaV0.StorageURI, storedV0.StorageURI)
 	assert.Equal(t, metaV0.Type, storedV0.Type)
@@ -244,7 +250,7 @@ func TestMTSHandlerV2_MultiplePins(t *testing.T) {
 
 	// Check that the S0 clip was stored correctly
 	midS0 := model.ToMID(testDevMac1, "S0")
-	storedS0, err := model.GetMtsMediaV2(ctx, mediaStore, midS0, testTimestamp)
+	storedS0, err := model.GetMtsMediaV2(ctx, mediaStore, midS0, "clip-audio")
 	assert.NoError(t, err)
 	assert.Equal(t, metaS0.StorageURI, storedS0.StorageURI)
 	assert.Equal(t, metaS0.Type, storedS0.Type)
@@ -259,7 +265,7 @@ func TestMTSHandlerV2_MultiplePins(t *testing.T) {
 func TestMTSHandlerV2_DefaultTimestamp(t *testing.T) {
 	_ = setupTestStore(t)
 
-	meta := model.MtsMediaV2{Duration: 1000}
+	meta := model.MtsMediaV2{ClipID: "clip-default-ts", Duration: 1000}
 	bodyBytes, _ := json.Marshal(meta)
 
 	reqURL := fmt.Sprintf("/mtsv2?ma=%s&dk=%s&V0=%d", testDevMac1, testDevDkeyStr1, len(bodyBytes))
@@ -367,7 +373,7 @@ func TestMTSHandlerV2_ShortBody(t *testing.T) {
 
 	// Read body error breaks loop before clip unmarshal and entity creation
 	mid := model.ToMID(testDevMac1, "V0")
-	_, err = model.GetMtsMediaV2(ctx, mediaStore, mid, testTimestamp)
+	_, err = model.GetMtsMediaV2(ctx, mediaStore, mid, "clip-short-body")
 	assert.Error(t, err, "expected no MtsMediaV2 entity to be stored on short body read")
 }
 
