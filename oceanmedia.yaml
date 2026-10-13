@@ -1,0 +1,20 @@
+# gcloud app deploy --version V --project ausoceanmedia oceanmedia.yaml
+runtime: go126
+
+env_variables:
+  AUSOCEAN_CREDENTIALS: gs://ausocean/AusOcean-ef9cd79f81a8.json
+  VIDGRIND_CREDENTIALS: gs://ausocean/VideoGrinder-b0ad82abac05.json
+  OCEANMEDIA_SECRETS: gs://ausocean/OceanMedia-secrets.txt
+
+main: cmd/oceanmedia
+
+handlers:
+  - url: /.*
+    secure: always
+    script: auto
+
+automatic_scaling:
+  min_instances: 1
+
+inbound_services:
+  - warmup
