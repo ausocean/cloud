@@ -101,14 +101,12 @@ func DeleteMtsMediaV2(ctx context.Context, store datastore.Store, mid int64, tim
 }
 
 // GetMtsMediaV2ByBroadcast retrieves the MtsMediaV2 entities belonging
-// to a broadcast, optionally filtered by timestamp(s). One timestamp
-// represents a lower bound (inclusive) on the segment timestamp,
-// whereas two represents a time range. Results are ordered by segment
-// timestamp ascending.
+// to a broadcast, ordered by Date, i.e. the order in which they were
+// recorded.
 //
 // A limit of zero or less uses a default size to cover the whole
 // broadcast.
-func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadcastID string, ts []int64, limit int) ([]MtsMediaV2, error) {
+func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadcastID string, limit int) ([]MtsMediaV2, error) {
 	if broadcastID == "" {
 		return nil, errors.New("empty broadcast ID")
 	}
@@ -123,19 +121,7 @@ func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadc
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter MtsMediaV2 by broadcast ID: %w", err)
 	}
-	if len(ts) > 0 {
-		err = q.FilterField("Timestamp", ">=", ts[0])
-		if err != nil {
-			return nil, fmt.Errorf("failed to filter MtsMediaV2 by timestamp: %w", err)
-		}
-	}
-	if len(ts) > 1 {
-		err = q.FilterField("Timestamp", "<", ts[1])
-		if err != nil {
-			return nil, fmt.Errorf("failed to filter MtsMediaV2 by timestamp: %w", err)
-		}
-	}
-	q.Order("Timestamp")
+	q.Order("Date")
 	q.Limit(limit)
 
 	var media []MtsMediaV2
@@ -144,10 +130,16 @@ func GetMtsMediaV2ByBroadcast(ctx context.Context, store datastore.Store, broadc
 		return nil, fmt.Errorf("failed to get MtsMediaV2 for broadcast %s: %w", broadcastID, err)
 	}
 
-	// FileStore orders by key name, which is not guaranteed to match a
-	// segment's timestamp, so sort explicitly.
+	// FileStore orders by key name, which is not guaranteed to match the
+	// Date, so sort explicitly. Timestamp and MID are used to break ties.
 	sort.Slice(media, func(i, j int) bool {
-		return media[i].Timestamp < media[j].Timestamp
+		if !media[i].Date.Equal(media[j].Date) {
+			return media[i].Date.Before(media[j].Date)
+		}
+		if media[i].Timestamp != media[j].Timestamp {
+			return media[i].Timestamp < media[j].Timestamp
+		}
+		return media[i].MID < media[j].MID
 	})
 	return media, nil
 }

@@ -27,6 +27,7 @@ package model
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ausocean/cloud/datastore"
 	"github.com/stretchr/testify/assert"
@@ -38,13 +39,14 @@ const (
 	testBcv2MID        = int64(16)
 )
 
-// newMtsMediaV2 creates a new MtsMediaV2 entity with the given broadcast
-// ID and timestamp, registering cleanup with t.
-func newMtsMediaV2(t *testing.T, ctx context.Context, store datastore.Store, broadcastID string, mid, ts int64) {
+// newMtsMediaV2 creates a new MtsMediaV2 entity, registering cleanup with t.
+// Its Date (used for ordering) is set to now by CreateMtsMediaV2.
+func newMtsMediaV2(t *testing.T, ctx context.Context, store datastore.Store, broadcastID string, mid, ts, pts int64) {
 	t.Helper()
 	_, err := CreateMtsMediaV2(ctx, store, MtsMediaV2{
 		MID:         mid,
 		Timestamp:   ts,
+		PTS:         pts,
 		Duration:    2541,
 		StorageURI:  "https://example.com/bucket/" + broadcastID + "/segment.ts",
 		BroadcastID: broadcastID,
@@ -61,10 +63,16 @@ func TestGetMtsMediaV2ByBroadcast(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			ctx, store := setupStore(t, kind)
 
-			for _, ts := range []int64{1000, 1005, 1010, 1015} {
-				newMtsMediaV2(t, ctx, store, testBcv2BroadcastA, testBcv2MID, ts)
-			}
-			newMtsMediaV2(t, ctx, store, testBcv2BroadcastB, testBcv2MID, 2000)
+			// Creation order deliberately disagrees with timestamp and PTS
+			// order, so that ordering by Date (creation order) is exercised.
+			newMtsMediaV2(t, ctx, store, testBcv2BroadcastA, testBcv2MID, 1010, 400)
+			time.Sleep(time.Millisecond)
+			newMtsMediaV2(t, ctx, store, testBcv2BroadcastA, testBcv2MID, 1000, 300)
+			time.Sleep(time.Millisecond)
+			newMtsMediaV2(t, ctx, store, testBcv2BroadcastA, testBcv2MID, 1015, 200)
+			time.Sleep(time.Millisecond)
+			newMtsMediaV2(t, ctx, store, testBcv2BroadcastA, testBcv2MID, 1005, 100)
+			newMtsMediaV2(t, ctx, store, testBcv2BroadcastB, testBcv2MID, 2000, 10)
 
 			timestamps := func(media []MtsMediaV2) []int64 {
 				out := make([]int64, len(media))
@@ -74,44 +82,34 @@ func TestGetMtsMediaV2ByBroadcast(t *testing.T) {
 				return out
 			}
 
-			t.Run("AllOrdered", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, nil, 0)
+			t.Run("OrderedByDate", func(t *testing.T) {
+				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, 0)
 				assert.NoError(t, err)
-				assert.Equal(t, []int64{1000, 1005, 1010, 1015}, timestamps(got))
+				assert.Equal(t, []int64{1010, 1000, 1015, 1005}, timestamps(got))
 			})
 
 			t.Run("BroadcastFilter", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastB, nil, 0)
+				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastB, 0)
 				assert.NoError(t, err)
 				assert.Equal(t, []int64{2000}, timestamps(got))
 			})
 
-			t.Run("FromTimestamp", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, []int64{1005}, 0)
-				assert.NoError(t, err)
-				assert.Equal(t, []int64{1005, 1010, 1015}, timestamps(got))
-			})
-
-			t.Run("TimestampRange", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, []int64{1005, 1015}, 0)
-				assert.NoError(t, err)
-				assert.Equal(t, []int64{1005, 1010}, timestamps(got))
-			})
-
 			t.Run("Limit", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, nil, 2)
+				// The limit is a safety cap. FileStore applies it before
+				// sorting in the model layer, so only assert the cap here.
+				got, err := GetMtsMediaV2ByBroadcast(ctx, store, testBcv2BroadcastA, 2)
 				assert.NoError(t, err)
-				assert.Equal(t, []int64{1000, 1005}, timestamps(got))
+				assert.Len(t, got, 2)
 			})
 
 			t.Run("NoResults", func(t *testing.T) {
-				got, err := GetMtsMediaV2ByBroadcast(ctx, store, "no-such-broadcast", nil, 0)
+				got, err := GetMtsMediaV2ByBroadcast(ctx, store, "no-such-broadcast", 0)
 				assert.NoError(t, err)
 				assert.Empty(t, got)
 			})
 
 			t.Run("EmptyBroadcastID", func(t *testing.T) {
-				_, err := GetMtsMediaV2ByBroadcast(ctx, store, "", nil, 0)
+				_, err := GetMtsMediaV2ByBroadcast(ctx, store, "", 0)
 				assert.Error(t, err)
 			})
 		})
