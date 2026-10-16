@@ -23,3 +23,27 @@ Relevant event types (names are defined in `cmd/oceantv/broadcast_events.go`):
 | `lowVoltageEvent{}` / `voltageRecoveredEvent{}` | Controller battery/voltage alarms used to prevent/delay starts and to trigger recovery behaviour. |
 | `invalidConfigurationEvent{err}` | Configuration or sensor errors that usually disable or move the broadcast into a failure state. |
 | `statusCheckDueEvent{}` / `chatMessageDueEvent{}` | Periodic maintenance triggers: status checks and scheduled chat messages. |
+
+## Broadcast check crons
+
+Each broadcast has a **Broadcast Check <UUID>** cron set to `@every 15s`.
+OceanCron sends `/checkbroadcasts` a JSON payload containing that UUID, and the
+endpoint loads only that broadcast at the site identified by its signed token.
+
+Saving or creating a broadcast creates its cron. Changing `Enabled` updates the
+cron's enabled state, including internal disables and secondary broadcasts.
+Deleting through OceanBench calls OceanTV, which performs the disabled cleanup
+and removes both the broadcast and its cron. Disabling through OceanBench also
+performs the cleanup once, since disabled broadcasts no longer receive ticks.
+
+Existing site-level **Broadcast Check** crons migrate automatically on their next
+request: OceanTV creates jobs for all the site's broadcasts, preserving the old
+job's target deployment, then removes the site-level job. Jobs for disabled
+broadcasts remain disabled. The old job is retained if installing a replacement
+fails, allowing a later request to retry. Legacy configurations without UUIDs
+are assigned UUIDs during migration. Sites without an existing job can create
+their individual jobs by saving their broadcasts.
+
+OceanTV accepts `-cronurl` to select the OceanCron service (default:
+`https://cron.cloudblue.org`). New jobs target the OceanTV host receiving the
+save request; secondary jobs inherit the primary job's deployment.
