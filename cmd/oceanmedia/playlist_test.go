@@ -39,6 +39,7 @@ import (
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -219,6 +220,25 @@ func TestServerSignURLCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, u1, u3)
 	assert.Equal(t, 2, cs.callCount())
+}
+
+// TestServerSignURLCacheDoesNotAliasUnsafeKeys repeatedly passes a zero-copy
+// string to the cache while mutating its backing buffer, as Fiber does when it
+// reuses a request buffer. Every URI is distinct, so every call must sign a new
+// URL rather than hitting an entry whose key was mutated to look like it.
+func TestServerSignURLCacheDoesNotAliasUnsafeKeys(t *testing.T) {
+	cs := &countingSigner{}
+	s := newServer(nil, cs, testJWTSecret, time.Hour)
+
+	const n = 4096
+	buf := make([]byte, len("https://example.com/bucket/00000000.ts"))
+	for i := 0; i < n; i++ {
+		copy(buf, fmt.Sprintf("https://example.com/bucket/%08x.ts", i))
+		_, err := s.signURL(context.Background(), utils.UnsafeString(buf))
+		require.NoError(t, err)
+	}
+
+	assert.Equal(t, n, cs.callCount())
 }
 
 func newTestApp(s *server) *fiber.App {

@@ -27,6 +27,7 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -109,6 +110,11 @@ func newServer(store datastore.Store, signer urlSigner, jwtSecret []byte, signed
 // signURL returns a pre-signed URL for the given storage URI, caching the
 // result until half the signed URL time to live has elapsed.
 func (s *server) signURL(ctx context.Context, rawURI string) (string, error) {
+	// rawURI may be a zero-copy string owned by the request context (for
+	// example fiber.Ctx.Query). It is used as a map key, which outlives the
+	// request, so copy it first. Otherwise the request buffer can be reused
+	// and mutate the key, causing every lookup to hit the same cached URL.
+	rawURI = strings.Clone(rawURI)
 	now := s.now()
 
 	s.signMu.Lock()
