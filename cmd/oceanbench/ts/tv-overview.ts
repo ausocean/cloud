@@ -31,6 +31,8 @@ interface broadcast {
   Account: string; // The YouTube account email that this broadcast is associated with.
   InFailure: boolean; // True if the broadcast is in a failure state.
   RecoveringVoltage: boolean; // True if the broadcast is currently recovering voltage.
+  BroadcastHost: string; // The broadcast host (e.g. "youtube", "oceanmedia").
+  StreamURL?: string; // OceanMedia HLS playlist URL (with token), if applicable.
 }
 
 // TVOverview is an element designed to list all of the broadcasts that are important
@@ -78,6 +80,12 @@ export class TVOverview extends LitElement {
     iframe {
       border-radius: 0.25rem;
     }
+
+    oceanmedia-player {
+      width: 560px;
+      border-radius: 0.25rem;
+      overflow: hidden;
+    }
   `;
 
   async firstUpdated() {
@@ -109,9 +117,7 @@ export class TVOverview extends LitElement {
       <div class="card">
         <h2>${b.Name}</h2>
         <div class="card-content">
-          <div>
-            <iframe src="https://www.youtube.com/embed/${b.BID}" title="YouTube video player" frameborder="0" allowfullscreen></iframe>
-          </div>
+          <div>${this.renderPlayer(b)}</div>
           <div>
             <p>${new Date(b.Start).toLocaleTimeString()} - ${new Date(b.End).toLocaleTimeString()}</p>
             <p>
@@ -127,6 +133,24 @@ export class TVOverview extends LitElement {
           </div>
         </div>
       </div>
+    `;
+  }
+
+  // renderPlayer renders an OceanMedia player for OceanMedia broadcasts,
+  // and a YouTube embed for all other broadcasts.
+  private renderPlayer(b: broadcast): HTMLTemplateResult {
+    if (b.BroadcastHost === "oceanmedia") {
+      if (!b.StreamURL) {
+        return html`
+          <p>Stream unavailable.</p>
+        `;
+      }
+      return html`
+        <oceanmedia-player src=${b.StreamURL}></oceanmedia-player>
+      `;
+    }
+    return html`
+      <iframe src="https://www.youtube.com/embed/${b.BID}" title="YouTube video player" frameborder="0" allowfullscreen></iframe>
     `;
   }
 
@@ -171,10 +195,39 @@ export class TVOverview extends LitElement {
     // Filter out any failed requests.
     this.broadcasts = resolvedBroadcasts.filter((b): b is broadcast => b !== undefined && b !== null);
 
+    // OceanMedia broadcasts need a playlist URL and viewer token, which are
+    // minted on demand by the stream endpoint.
+    await Promise.all(
+      this.broadcasts.map(async (b) => {
+        if (b.BroadcastHost === "oceanmedia") {
+          b.StreamURL = await this.getStreamURL(b.UUID);
+        }
+      }),
+    );
+
     console.log("finished fetching all broadcasts");
 
     // This seems to be required, as otherwise a re-render isn't triggered.
     this.requestUpdate();
+  }
+
+  // getStreamURL fetches the OceanMedia playlist URL and viewer token for a
+  // broadcast, returning the full playlist URL (with token) or undefined.
+  private async getStreamURL(uuid: string): Promise<string | undefined> {
+    try {
+      const resp = await fetch(`/api/v1/broadcast/stream?uuid=${uuid}`);
+      if (!resp.ok) {
+        throw await resp.text();
+      }
+      const data = await resp.json();
+      if (!data || !data.url) {
+        return undefined;
+      }
+      return `${data.url}?token=${encodeURIComponent(data.token)}`;
+    } catch (err) {
+      console.log("error getting OceanMedia stream:", err);
+      return undefined;
+    }
   }
 
   // getBroadcastWithUUID makes requests to the api endpoint to get the broadcast configuration

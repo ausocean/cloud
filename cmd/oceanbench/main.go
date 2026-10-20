@@ -65,6 +65,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ausocean/cloud/backend"
 	"github.com/ausocean/cloud/datastore"
@@ -91,12 +92,17 @@ const (
 )
 
 const (
-	projectID          = "oceanbench"
-	oauthClientID      = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
-	oauthMaxAge        = 60 * 60 * 24 * 7 // 7 days
-	tvServiceURL       = "https://tv.cloudblue.org"
-	cronServiceURL     = "https://cron.cloudblue.org"
-	cronServiceAccount = "oceancron@appspot.gserviceaccount.com"
+	projectID            = "oceanbench"
+	oauthClientID        = "802166617157-v67emnahdpvfuc13ijiqb7qm3a7sf45b.apps.googleusercontent.com"
+	oauthMaxAge          = 60 * 60 * 24 * 7 // 7 days
+	tvServiceURL         = "https://tv.cloudblue.org"
+	cronServiceURL       = "https://cron.cloudblue.org"
+	oceanMediaServiceURL = "https://media.cloudblue.org"
+	cronServiceAccount   = "oceancron@appspot.gserviceaccount.com"
+
+	// oceanMediaTokenTTL is the lifetime of viewer tokens minted for
+	// OceanMedia playlists.
+	oceanMediaTokenTTL = 12 * time.Hour
 )
 
 // page defines one page of the web app.
@@ -147,8 +153,13 @@ var (
 	auth          *gauth.UserAuth
 	channelAuth   *ytclient.ChannelAuth
 	tvURL         = tvServiceURL
+	mediaURL      = oceanMediaServiceURL
 	storePath     string
 	testDataFile  string
+
+	// oceanMediaJWTSecret is the shared secret used to mint viewer tokens
+	// for OceanMedia playlists. It must match OceanMedia's jwtSecret.
+	oceanMediaJWTSecret []byte
 )
 
 var (
@@ -235,6 +246,7 @@ func main() {
 	flag.IntVar(&port, "port", defaultPort, "Port we listen on in standalone mode")
 	flag.StringVar(&cronURL, "cronurl", cronServiceURL, "Cron service URL")
 	flag.StringVar(&tvURL, "tvurl", tvServiceURL, "TV service URL")
+	flag.StringVar(&mediaURL, "mediaurl", oceanMediaServiceURL, "OceanMedia service URL")
 	flag.StringVar(&storePath, "filestore", "store", "File store path")
 	flag.StringVar(&testDataFile, "testdata", "", "Path to a JSON file to populate the datastore")
 	flag.Parse()
@@ -264,6 +276,13 @@ func main() {
 	cronSecret, err = gauth.GetHexSecret(ctx, "oceancron", "cronSecret")
 	if err != nil {
 		log.Printf("could not get cronSecret: %v", err)
+	}
+
+	// Shared secret used to mint OceanMedia viewer tokens.
+	if s, err := gauth.GetSecret(ctx, projectID, "oceanMediaJWTSecret"); err != nil {
+		log.Printf("could not get oceanMediaJWTSecret: %v", err)
+	} else {
+		oceanMediaJWTSecret = []byte(s)
 	}
 
 	// Warmup handler.
