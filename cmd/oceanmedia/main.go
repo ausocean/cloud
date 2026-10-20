@@ -124,6 +124,10 @@ func main() {
 	app.Get("/health", indexHandler)
 	app.Get("/_ah/warmup", indexHandler)
 
+	// Segments are requested as /segment?u=<storage-uri>&token=<jwt> and
+	// redirected to a pre-signed bucket URL.
+	app.Get("/segment", srv.handleSegment)
+
 	// Playlists are requested as /<broadcastID>.m3u8.
 	app.Get("/:file", srv.handlePlaylist)
 
