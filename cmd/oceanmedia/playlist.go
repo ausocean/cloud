@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"strings"
 	"time"
 
@@ -65,11 +66,7 @@ func (s *server) handlePlaylist(c *fiber.Ctx) error {
 	}
 
 	if err := s.authenticate(c, broadcastID); err != nil {
-		status := fiber.StatusForbidden
-		if errors.Is(err, errMissingToken) || errors.Is(err, errInvalidToken) {
-			status = fiber.StatusUnauthorized
-		}
-		return c.Status(status).JSON(fiber.Map{"error": err.Error()})
+		return writeAuthError(c, err)
 	}
 
 	ctx := c.UserContext()
@@ -121,16 +118,39 @@ func (s *server) handlePlaylist(c *fiber.Ctx) error {
 		}
 	}
 
-	playlist, err := s.renderPlaylist(ctx, event, segments, msn, hasMSN, skip)
-	if err != nil {
-		s.log("could not render playlist for broadcast %s: %v", broadcastID, err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not render playlist"})
-	}
+	playlist := s.renderPlaylist(event, segments, msn, hasMSN, skip, requestBaseURL(c), requestToken(c))
 
 	c.Set(fiber.HeaderContentType, playlistMIME)
 	c.Set(fiber.HeaderCacheControl, "no-cache")
 	c.Set("Access-Control-Allow-Origin", "*")
 	return c.SendString(playlist)
+}
+
+// handleSegment redirects a segment URL to a pre-signed bucket URL.
+func (s *server) handleSegment(c *fiber.Ctx) error {
+	rawURI := c.Query("u")
+	if rawURI == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing segment URI"})
+	}
+
+	claims, err := s.tokenClaims(c)
+	if err != nil {
+		return writeAuthError(c, err)
+	}
+	broadcastID, _ := claims["sub"].(string)
+	if !uriBelongsToBroadcast(rawURI, broadcastID) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "segment does not belong to this broadcast"})
+	}
+
+	signed, err := s.signURL(c.UserContext(), rawURI)
+	if err != nil {
+		s.log("could not sign segment %q: %v", rawURI, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not sign segment"})
+	}
+
+	c.Set(fiber.HeaderCacheControl, "no-store")
+	c.Set("Access-Control-Allow-Origin", "*")
+	return c.Redirect(signed, fiber.StatusFound)
 }
 
 // errMSNTooFarAhead is returned when a requested media sequence number
@@ -175,17 +195,24 @@ func (s *server) blockForMSN(ctx context.Context, broadcastID string, msn int, s
 	return segments, nil
 }
 
-// renderPlaylist builds an HLS media playlist. msn/hasMSN and skip
-// control delta updates. The whole stream is included so that viewers
-// can seek within a live stream.
-func (s *server) renderPlaylist(ctx context.Context, event *model.BroadcastEvent, segments []model.MtsMediaV2, msn int, hasMSN, skip bool) (string, error) {
+// renderPlaylist builds an HLS EVENT playlist. When a client
+// requests a delta update (_HLS_skip=YES with _HLS_msn) the segments
+// before its requested media sequence number are omitted and indicated
+// with EXT-X-SKIP.
+func (s *server) renderPlaylist(event *model.BroadcastEvent, segments []model.MtsMediaV2, msn int, hasMSN, skip bool, baseURL, token string) string {
 	live := event.EndTime.IsZero()
 
-	// When a client requests a delta we omit the segments it already
-	// has, i.e. those before the requested media sequence number.
+	// first is the index of the first segment to list. For a delta we skip
+	// the segments the client already has (those before its requested MSN).
+	// At least one segment is always listed, including at the live edge when
+	// the requested segment is not available yet, so the playlist is never
+	// empty.
 	first := 0
-	if hasMSN && skip && msn > 0 && msn <= len(segments) {
+	if hasMSN && skip && msn > 0 && len(segments) > 0 {
 		first = msn
+		if first >= len(segments) {
+			first = len(segments) - 1
+		}
 	}
 
 	// The target duration is the longest segment duration, rounded up.
@@ -213,36 +240,47 @@ func (s *server) renderPlaylist(ctx context.Context, event *model.BroadcastEvent
 	// (EXT-X-SERVER-CONTROL and EXT-X-SKIP).
 	b.WriteString("#EXT-X-VERSION:9\n")
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", target)
-	// The playlist always begins at media sequence number 0 (the start of
-	// the broadcast). For a delta playlist, EXT-X-SKIP indicates how many
-	// leading segments have been omitted, so the first listed segment has
-	// media sequence number "first".
+	// The playlist begins at media sequence number 0 (the start of the
+	// broadcast). The media sequence number of the first listed segment is
+	// EXT-X-MEDIA-SEQUENCE plus SKIPPED-SEGMENTS.
 	b.WriteString("#EXT-X-MEDIA-SEQUENCE:0\n")
 	b.WriteString("#EXT-X-PLAYLIST-TYPE:EVENT\n")
 	fmt.Fprintf(&b, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,CAN-SKIP-UNTIL=%d\n", canSkipUntil)
 	if first > 0 {
-		fmt.Fprintf(&b, "#EXT-X-SKIP:SKIPPED-SEGMENTS:%d\n", first)
+		fmt.Fprintf(&b, "#EXT-X-SKIP:SKIPPED-SEGMENTS=%d\n", first)
 	}
 
 	for i := first; i < len(segments); i++ {
 		seg := segments[i]
 
-		signed, err := s.signURL(ctx, seg.StorageURI)
-		if err != nil {
-			return "", fmt.Errorf("segment %d: %w", i, err)
-		}
-
 		if i > 0 && seg.Discontinuity {
 			b.WriteString("#EXT-X-DISCONTINUITY\n")
 		}
 		fmt.Fprintf(&b, "#EXTINF:%.3f,\n", float64(seg.Duration)/1000)
-		b.WriteString(signed)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "%s/segment?u=%s&token=%s\n", baseURL, url.QueryEscape(seg.StorageURI), url.QueryEscape(token))
 	}
 
 	if !live {
 		b.WriteString("#EXT-X-ENDLIST\n")
 	}
 
-	return b.String(), nil
+	return b.String()
+}
+
+// uriBelongsToBroadcast returns true if broadcastID appears as a path
+// segment of rawURI.
+func uriBelongsToBroadcast(rawURI, broadcastID string) bool {
+	if broadcastID == "" {
+		return false
+	}
+	u, err := url.Parse(rawURI)
+	if err != nil {
+		return false
+	}
+	for _, p := range strings.Split(strings.Trim(u.Path, "/"), "/") {
+		if p == broadcastID {
+			return true
+		}
+	}
+	return false
 }
