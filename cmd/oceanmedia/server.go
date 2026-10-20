@@ -101,7 +101,7 @@ func newServer(store datastore.Store, signer urlSigner, jwtSecret []byte, signed
 		return model.GetBroadcastEvent(ctx, s.store, broadcastID)
 	}
 	s.loadSegments = func(ctx context.Context, broadcastID string) ([]model.MtsMediaV2, error) {
-		return model.GetMtsMediaV2ByBroadcast(ctx, s.store, broadcastID, nil, 0)
+		return model.GetMtsMediaV2ByBroadcast(ctx, s.store, broadcastID, 0)
 	}
 	return s
 }
