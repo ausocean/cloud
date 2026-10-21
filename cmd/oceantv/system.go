@@ -165,7 +165,7 @@ func newBroadcastSystem(ctx Ctx, store Store, cfg *Cfg, logOutput func(v ...any)
 
 	// Create the broadcast manager. This will manage things between the broadcast, the
 	// hardware and the broadcast host.
-	man := manager.NewOceanBroadcast(broadcastHost, cfg, store, log, setVar, broadcastByName)
+	man := newOceanBroadcastManager(broadcastHost, cfg, store, log)
 
 	// Persist the default broadcast host to the config if it wasn't set.
 	if cfg.BroadcastHost == "" {

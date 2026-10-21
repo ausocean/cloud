@@ -79,6 +79,7 @@ var (
 	commitHash          string
 	cronScheduler       cronproxy.Scheduler
 	mailJetSecrets      map[string]string
+	broadcastCrons      *broadcastCronManager
 )
 
 func init() {
@@ -272,6 +273,7 @@ func setup(ctx Ctx) {
 	}
 
 	store = composite.AusOceanStore(settingsStore, mediaStore)
+	broadcastCrons = &broadcastCronManager{store: store, scheduler: httpCronScheduler{url: cronURL}, endpoint: projectURL + "/checkbroadcasts"}
 
 	cronSecret, err = gauth.GetHexSecret(ctx, projectID, "cronSecret")
 	if err != nil || cronSecret == nil {
@@ -344,7 +346,7 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	op := req[2]
 	const resetState string = "reset-state"
-	if op != "save" && op != resetState {
+	if op != "save" && op != resetState && op != "delete" {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid operation: %s", op))
 		return
 	}
@@ -373,10 +375,24 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 		broadcast.LogForBroadcast(&cfg, log.Println, msg, args...)
 	}
 
+	if op == "delete" {
+		if err := deleteBroadcastConfig(ctx, cfg.SKey, cfg.UUID); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("could not delete broadcast %s: %w", cfg.UUID, err))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Use the broadcast manager to save the broadcast.
-	// We can provide a nil Svc given that Save
+	// We can provide a nil host given that Save
 	// won't need this.
-	err = manager.NewOceanBroadcast(nil, &cfg, store, log, setVar, broadcastByName).Save(ctx, func(_cfg *Cfg) {
+	options := []manager.Option{manager.WithCronSyncOnSave()}
+	if broadcastCrons != nil {
+		options = append(options, manager.WithCronManager(broadcastCrons.withEndpoint(broadcastCheckEndpoint(r))))
+	}
+	man := newOceanBroadcastManager(nil, &cfg, store, log, options...)
+	err = man.Save(ctx, func(_cfg *Cfg) {
 		// Update only the fields that can be updated via the UI.
 		// NOTE: This needs to be kept in sync with the UI. To aid this, the fields
 		// have been updated in the same order which they're currently being updated on oceanbench.
@@ -486,6 +502,13 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if !cfg.Enabled {
+		// With its cron stopped, perform the disabled cleanup once here.
+		if err := performChecks(ctx, &cfg, store, nil, nil); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("could not clean up disabled broadcast %s: %w", cfg.UUID, err))
+			return
+		}
 	}
 	log("broadcast saved")
 	w.WriteHeader(http.StatusOK)

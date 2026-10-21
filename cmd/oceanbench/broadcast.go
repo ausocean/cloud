@@ -359,27 +359,6 @@ func broadcastHandler(c *fiber.Ctx) error {
 		}
 		msg = "broadcast saved successfully"
 
-		// Ensure that the CheckBroadcast cron exists.
-		const broadcastCheckCronID = "Broadcast Check"
-		_, err = model.GetCron(ctx, settingsStore, cfg.SKey, broadcastCheckCronID)
-		if errors.Is(err, datastore.ErrNoSuchEntity) {
-			cr := &model.Cron{Skey: cfg.SKey, ID: broadcastCheckCronID, TOD: "* * * * *", Action: "rpc", Var: tvURL + "/checkbroadcasts", Enabled: true}
-			err = model.PutCron(context.Background(), settingsStore, cr)
-			if err != nil {
-				reportError(c, req, "warning: failed to failed to put checkbroadcasts cron in datastore: %v", err)
-				return nil
-			}
-
-			err = cronScheduler.Set(cr)
-			if err != nil {
-				reportError(c, req, "could not automatically set broadcast check cron in the scheduler: %v", err)
-				return nil
-			}
-		} else if err != nil {
-			reportError(c, req, "unexpected error when checking for the broadcast check cron: %v", err)
-			return nil
-		}
-
 	case broadcastDelete:
 		err = deleteBroadcast(ctx, &req, settingsStore)
 		if err != nil {
@@ -528,16 +507,29 @@ func resetState(ctx context.Context, cfg *broadcast.Config) error {
 // list and CurrentBroadcast config to clear the form on next page write.
 func deleteBroadcast(ctx context.Context, req *broadcastRequest, store datastore.Store) error {
 	cfg := &req.CurrentBroadcast
-	err := model.DeleteVariable(ctx, store, cfg.SKey, broadcastScope+"."+cfg.UUID)
+	data, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("could not delete broadcast: %v", err)
+		return fmt.Errorf("could not marshal broadcast for deletion: %w", err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, tvURL+"/broadcast/delete", bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("could not create broadcast delete request: %w", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	if err != nil {
+		return fmt.Errorf("could not send broadcast delete request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("broadcast delete request failed: %s", resp.Status)
 	}
 
 	req.BroadcastVars, err = model.GetVariablesBySite(ctx, store, cfg.SKey, broadcastScope)
 	switch err {
 	case nil, datastore.ErrNoSuchEntity:
 	default:
-		return fmt.Errorf("could not get broadcast variables: %v", err)
+		return fmt.Errorf("could not get broadcast variables after deletion: %w", err)
 	}
 
 	req.CurrentBroadcast = broadcast.Config{}

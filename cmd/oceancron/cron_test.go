@@ -25,7 +25,9 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
+	"github.com/ausocean/cloud/cmd/oceantv/broadcast"
 	"github.com/ausocean/cloud/datastore"
 	"github.com/ausocean/cloud/gauth"
 	"github.com/ausocean/cloud/model"
@@ -143,4 +145,22 @@ func TestRun(t *testing.T) {
 	}
 
 	testScheduler.run()
+}
+
+// Exercise the actual scheduler's parser, including the solar parser wrapper.
+func TestSchedulerBroadcastCheckInterval(t *testing.T) {
+	s, err := newScheduler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.cron.Stop()
+	id, err := s.cron.AddFunc(fmt.Sprintf("@every %s", broadcast.CheckInterval), func() {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, time.October, 6, 0, 0, 0, 0, time.UTC)
+	next := s.cron.Entry(id).Schedule.Next(now)
+	if got := next.Sub(now); got != 15*time.Second {
+		t.Fatalf("broadcast check interval = %s, want 15s", got)
+	}
 }

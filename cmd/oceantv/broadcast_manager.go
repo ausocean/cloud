@@ -25,3 +25,15 @@ LICENSE
 */
 
 package main
+
+import "github.com/ausocean/cloud/cmd/oceantv/manager"
+
+// newOceanBroadcastManager attaches cron lifecycle management to OceanTV saves.
+func newOceanBroadcastManager(hst Hst, cfg *Cfg, db Store, log func(string, ...interface{}), opts ...manager.Option) *manager.OceanBroadcast {
+	options := make([]manager.Option, 0, len(opts)+1)
+	if broadcastCrons != nil {
+		options = append(options, manager.WithCronManager(broadcastCrons))
+	}
+	options = append(options, opts...)
+	return manager.NewOceanBroadcast(hst, cfg, db, log, setVar, broadcastByName, options...)
+}
